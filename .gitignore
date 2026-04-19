@@ -1,0 +1,52 @@
+# ─── Python / Backend ────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Environment variables (contains DB passwords, secrets)
+.env
+.env.*
+!.env.example
+
+# Database files
+*.db
+*.sqlite3
+
+# Logs & debug output
+*.log
+seed_out.txt
+seed_err.txt
+sync_output.txt
+
+# ─── Node / Frontend ─────────────────────────────────────────────────────────
+node_modules/
+package-lock.json
+
+# Build output
+dist/
+build/
+
+# ─── IDE / Editor ────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ─── Git duplicates ──────────────────────────────────────────────────────────
+.git_disabled/
+
+# ─── Miscellaneous ───────────────────────────────────────────────────────────
+*.bak
+*.tmp
