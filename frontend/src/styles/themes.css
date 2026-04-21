@@ -1,0 +1,51 @@
+:root {
+  --background-color-light: #f9fafb;
+  --background-color-dark: #1f2937;
+  --text-color-light: #1f2937;
+  --text-color-dark: #f9fafb;
+  --border-color-light: #e5e7eb;
+  --border-color-dark: #4b5563;
+  --button-background-light: #3b82f6;
+  --button-background-dark: #2563eb;
+  --button-hover-background-light: #2563eb;
+  --button-hover-background-dark: #1d4ed8;
+}
+
+body {
+  background-color: var(--background-color-light);
+  color: var(--text-color-light);
+  transition: background-color 0.3s, color 0.3s;
+}
+
+.dark body {
+  background-color: var(--background-color-dark);
+  color: var(--text-color-dark);
+}
+
+button {
+  background-color: var(--button-background-light);
+  border: 1px solid var(--border-color-light);
+  color: white;
+  transition: background-color 0.3s;
+}
+
+.dark button {
+  background-color: var(--button-background-dark);
+  border: 1px solid var(--border-color-dark);
+}
+
+button:hover {
+  background-color: var(--button-hover-background-light);
+}
+
+.dark button:hover {
+  background-color: var(--button-hover-background-dark);
+}
+
+.border {
+  border-color: var(--border-color-light);
+}
+
+.dark .border {
+  border-color: var(--border-color-dark);
+}
