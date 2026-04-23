@@ -52,6 +52,14 @@ teacher_ids = [t.id for t in db.query(Teacher).all()]
 courses = [
     Course(name="BSIT", category="College"),
     Course(name="BSCS", category="College"),
+    Course(name="BSCpE", category="College"),
+    Course(name="BSTM", category="College"),
+    Course(name="BSHM", category="College"),
+    Course(name="BSA", category="College"),
+    Course(name="BSPsych", category="College"),
+    Course(name="BSCrim", category="College"),
+    Course(name="BMMA", category="College"),
+    Course(name="BACOMM", category="College"),
     Course(name="Tourism", category="SHS"),
     Course(name="STEM", category="SHS"),
     Course(name="Digital Arts", category="SHS"),
@@ -147,6 +155,608 @@ tourism_subjects = {
     }
 }
 
+bscpe_subjects = {
+    1: {
+        1: [
+            "Programming Logic and Design",
+            "The Contemporary World",
+            "Euthenics 1",
+            "Mathematics in the Modern World",
+            "National Service Training Program 1",
+            "P.E./PATHFIT 1: Movement Competency Training",
+            "Understanding the Self",
+            "College Calculus (Differential)",
+            "Chemistry for Engineers",
+            "Computer Engineering as a Discipline",
+        ],
+        2: [
+            "Object-Oriented Programming",
+            "Discrete Mathematics",
+            "Art Appreciation",
+            "National Service Training Program 2",
+            "P.E./PATHFIT 2: Exercise-based Fitness Activities",
+            "Purposive Communication",
+            "Science, Technology, and Society",
+            "College Calculus (Integral)",
+            "Physics for Engineers",
+        ]
+    },
+    2: {
+        1: [
+            "Fundamentals of Electrical Circuits",
+            "Operating Systems",
+            "Data Structures and Algorithms",
+            "Emerging Technologies in CpE",
+            "The Entrepreneurial Mind",
+            "Rizal's Life and Works",
+            "P.E./PATHFIT 3: Individual-Dual Sports",
+            "Readings in Philippine History",
+            "Differential Equations",
+        ],
+        2: [
+            "Numerical Methods",
+            "Fundamentals of Electronic Circuits",
+            "Software Design",
+            "Philippine Popular Culture",
+            "Ethics",
+            "P.E./PATHFIT 4: Team Sports",
+            "Great Books",
+            "Technopreneurship",
+            "Engineering Data Analysis",
+        ]
+    },
+    3: {
+        1: [
+            "Fundamentals of Mixed Signals and Sensors",
+            "CpE Elective 1",
+            "Logic Circuits and Design",
+            "Data and Digital Communications (Data Communications)",
+            "Computer-Aided Drafting",
+            "Computer Engineering Drafting and Design",
+            "Engineering Economics",
+            "Feedback and Control Systems",
+            "Methods of Research",
+        ],
+        2: [
+            "Basic Occupational Health and Safety",
+            "Microprocessors",
+            "CpE Elective 2",
+            "Introduction to HDL",
+            "Digital Signal Processing",
+            "Capstone Design 1",
+        ]
+    },
+    4: {
+        1: [
+            "Computer Architecture and Organization",
+            "Computer Network and Security",
+            "CpE Laws and Professional Practice",
+            "CpE Elective 3",
+            "Embedded Systems",
+            "Euthenics 2",
+            "Capstone Design 2",
+            "Seminars and Fieldtrips",
+        ],
+        2: [
+            "CpE Practicum (300 hours)",
+        ]
+    }
+}
+
+bstm_subjects = {
+    1: {
+        1: [
+            "Euthenics 1",
+            "Mathematics in the Modern World",
+            "National Service Training Program 1",
+            "P.E./PATHFIT 1: Movement Competency Training",
+            "Readings in Philippine History",
+            "Understanding the Self",
+            "Macro Perspective of Tourism and Hospitality",
+            "Risk Management as Applied to Safety, Security, and Sanitation",
+        ],
+        2: [
+            "National Service Training Program 2",
+            "P.E./PATHFIT 2: Exercise-based Fitness Activities",
+            "Purposive Communication",
+            "Computer Productivity Tools",
+            "Philippine Culture and Tourism Geography",
+            "Micro Perspective of Tourism and Hospitality",
+            "Global Culture and Tourism Geography",
+        ]
+    },
+    2: {
+        1: [
+            "Art Appreciation",
+            "P.E./PATHFIT 3: Individual-Dual Sports",
+            "Quality Service Management in Tourism and Hospitality",
+            "Accommodation Operations and Management",
+            "Tour and Travel Management",
+            "Foreign Language 1",
+            "Sustainable Tourism",
+        ],
+        2: [
+            "Ethics",
+            "P.E./PATHFIT 4: Team Sports",
+            "Science, Technology, and Society",
+            "Tour Planning, Packaging, and Pricing",
+            "Tourism Policy Planning and Development",
+            "Introduction to Meetings Incentives, Conferences, and Events (MICE)",
+            "Foreign Language 2",
+        ]
+    },
+    3: {
+        1: [
+            "Operations Management (TQM)",
+            "The Entrepreneurial Mind",
+            "Great Books",
+            "Professional Development and Applied Ethics",
+            "Tourism and Hospitality Marketing",
+            "Multicultural Diversity in Workplace for the Tourism Professional",
+            "Applied Business Tools and Technologies in Tourism",
+        ],
+        2: [
+            "Strategic Management",
+            "Philippine Popular Culture",
+            "Legal Aspects in Tourism and Hospitality",
+            "Entrepreneurship in Tourism and Hospitality",
+            "Travel Writing and Photography",
+            "Professional Tour Guiding",
+            "Transportation Management",
+        ]
+    }
+}
+
+bshm_subjects = {
+    1: {
+        1: [
+            "Euthenics 1",
+            "Mathematics in the Modern World",
+            "National Service Training Program 1",
+            "P.E./PATHFIT 1: Movement Competency Training",
+            "Readings in Philippine History",
+            "Understanding the Self",
+            "Macro Perspective of Tourism and Hospitality",
+            "Risk Management as Applied to Safety, Security, and Sanitation",
+        ],
+        2: [
+            "National Service Training Program 2",
+            "P.E./PATHFIT 2: Exercise-based Fitness Activities",
+            "Purposive Communication",
+            "Kitchen Essentials and Basic Food Preparation",
+            "Computer Productivity Tools",
+            "Philippine Culture and Tourism Geography",
+            "Micro Perspective of Tourism and Hospitality",
+        ]
+    },
+    2: {
+        1: [
+            "Art Appreciation",
+            "P.E./PATHFIT 3: Individual-Dual Sports",
+            "Hotel Front Office Operations Management",
+            "Philippine Regional Cuisines with Food Styling and Design",
+            "Fundamentals in Lodging Operations",
+            "Foreign Language 1",
+            "Quality Service Management in Tourism and Hospitality",
+        ],
+        2: [
+            "Ethics",
+            "P.E./PATHFIT 4: Team Sports",
+            "Science, Technology, and Society",
+            "International Cuisines with Food Styling and Design",
+            "Supply Chain Management in Hospitality Industry",
+            "Fundamentals in Food Service Operations",
+            "Introduction to Meetings Incentives, Conferences, and Events (MICE)",
+            "Foreign Language 2",
+        ]
+    },
+    3: {
+        1: [
+            "Operations Management (TQM)",
+            "The Entrepreneurial Mind",
+            "Great Books",
+            "Pastry Arts and Bakery Management",
+            "Applied Business Tools and Technologies in Hospitality",
+            "Professional Development and Applied Ethics",
+            "Tourism and Hospitality Marketing",
+            "Multicultural Diversity in Workplace for the Tourism Professional",
+        ],
+        2: [
+            "Strategic Management",
+            "Philippine Popular Culture",
+            "Catering Operations Management",
+            "Modern Gastronomy with Fusion of Cuisines",
+            "Ergonomics and Facilities Planning for the Hospitality Industry",
+            "Legal Aspects in Tourism and Hospitality",
+            "Entrepreneurship in Tourism and Hospitality",
+        ]
+    },
+    4: {
+        1: [
+            "The Contemporary World",
+            "Euthenics 2",
+            "Rizal's Life and Works",
+            "Specialty Cuisine with Food Exhibit",
+            "Research in Hospitality",
+        ],
+        2: [
+            "BSHM Practicum (600 hours)",
+        ]
+    }
+}
+
+bsa_subjects = {
+    1: {
+        1: [
+            "Basic Accounting",
+            "The Contemporary World",
+            "Euthenics 1",
+            "Philippine Popular Culture",
+            "National Service Training Program 1",
+            "P.E./PATHFIT 1: Movement Competency Training",
+            "Readings in Philippine History",
+            "Science, Technology and Society",
+            "Understanding the Self",
+        ],
+        2: [
+            "Conceptual Framework and Accounting Standards",
+            "Financial Accounting and Reporting",
+            "Income Taxation",
+            "Law on Obligations and Contracts",
+            "Operations Management (TQM)",
+            "Ethics",
+            "National Service Training Program 2",
+            "P.E./PATHFIT 2: Exercise-based Fitness Activities",
+            "Mathematics in the Modern World",
+            "Computer Productivity Tools",
+        ]
+    },
+    2: {
+        1: [
+            "Business Laws and Regulations",
+            "Great Books",
+            "Intermediate Accounting 1",
+            "IT Application Tools in Business",
+            "Managerial Economics",
+            "Strategic Management",
+            "Rizal's Life and Works",
+            "Purposive Communication",
+            "P.E./PATHFIT 3: Individual-Dual Sports",
+        ],
+        2: [
+            "Accounting Information System",
+            "Business Taxation",
+            "Financial Management",
+            "Intermediate Accounting 2",
+            "Regulatory Framework and Legal Issues in Business",
+            "The Entrepreneurial Mind",
+            "Art Appreciation",
+            "P.E./PATHFIT 4: Team Sports",
+            "Auditing and Assurance Principles",
+        ]
+    },
+    3: {
+        1: [
+            "Cost Accounting and Control",
+            "Economic Development",
+            "Financial Markets",
+            "Governance, Business Ethics, Risk Management, and Internal Control",
+            "Intermediate Accounting 3",
+            "International Business and Trade",
+            "Statistical Analysis with Software Application",
+            "Auditing and Assurance: Concepts and Applications 1",
+        ],
+        2: [
+            "Accounting Research Methods",
+            "Strategic Cost Management",
+            "Accounting for Business Combinations",
+            "Auditing in a CIS Environment",
+            "Accounting for Government and Non-profit Organizations",
+            "Accounting for Special Transactions",
+            "Auditing and Assurance: Concepts and Applications 2",
+        ]
+    }
+}
+
+bspsych_subjects = {
+    1: {
+        1: [
+            "Euthenics 1",
+            "Mathematics in the Modern World",
+            "The Contemporary World",
+            "Understanding the Self",
+            "Readings in Philippine History",
+            "Introduction to Psychology",
+            "P.E./PATHFIT 1: Movement Competency Training",
+        ],
+        2: [
+            "Ethics",
+            "Science, Technology, and Society",
+            "Purposive Communication",
+            "Art Appreciation",
+            "Great Books",
+            "Philippine Popular Culture",
+            "Psychological Statistics",
+            "P.E./PATHFIT 2: Exercise-based Fitness Activities",
+        ]
+    },
+    2: {
+        1: [
+            "Rizal's Life and Works",
+            "Developmental Psychology",
+            "Physiological/Biological Psychology",
+        ],
+        2: [
+            "Art Appreciation",
+            "Philippine Popular Culture",
+            "P.E./PATHFIT 4: Team Sports",
+            "Cognitive Psychology",
+            "Experimental Psychology",
+            "Theories of Personality",
+        ]
+    },
+    3: {
+        1: [
+            "Rizal's Life and Works",
+            "Great Books",
+            "Abnormal Psychology",
+            "Field Methods in Psychology",
+            "Social Psychology",
+        ],
+        2: [
+            "Filipino Psychology",
+            "Industrial/Organizational Psychology",
+            "Psychological Assessment",
+            "Psychology Elective 1",
+            "Research in Psychology 1",
+        ]
+    },
+    4: {
+        1: [
+            "Euthenics 2",
+            "Research in Psychology 2",
+            "Psychology Elective 2",
+            "Psychology Elective 3",
+        ],
+        2: [
+            "Practicum in Psychology - 450 hours OJT",
+        ]
+    }
+}
+
+bscrim_subjects = {
+    1: {
+        1: [
+            "Mathematics in the Modern World",
+            "The Contemporary World",
+            "Understanding the Self",
+            "Readings in Philippine History",
+            "Introduction to Criminology",
+            "Euthenics 1",
+            "P.E./PATHFIT 1: Movement Competency Training",
+            "National Service Training Program 1 (ROTC 1)",
+        ],
+        2: [
+            "Ethics",
+            "Science, Technology, and Society",
+            "Purposive Communication",
+            "Art Appreciation",
+            "Great Books",
+            "Philippine Popular Culture",
+            "Introduction to Philippine Criminal Justice System",
+            "P.E./PATHFIT 2: Exercise-based Fitness Activities",
+            "National Service Training Program 2 (ROTC 2)",
+        ]
+    },
+    2: {
+        1: [
+            "Life and Works of Rizal",
+            "The Entrepreneurial Mind",
+            "Fundamentals of Criminal Investigation and Intelligence",
+            "Law Enforcement Organization and Administration (Inter-Agency Approach)",
+            "Comparative Models in Policing",
+            "Theories of Crime Causation",
+            "P.E./PATHFIT 3: Outdoor and Adventure Activities 1",
+            "Introduction to Computing (with Computing Productivity Tools)",
+        ],
+        2: [
+            "Institutional Corrections",
+            "Forensic Photography",
+            "Character Formation 1 - Nationalism, and Patriotism",
+            "Specialized Crime Investigation 1 with Legal Medicine",
+            "Personal Identification Techniques",
+            "General Chemistry (Organic)",
+            "Human Behavior and Victimology",
+            "Introduction to Industrial Security Concepts",
+            "P.E./PATHFIT4: Outdoor and Adventure Activities 2",
+        ]
+    },
+    3: {
+        1: [
+            "Human Rights Education",
+            "Character Formation 2 - Leadership, Decision Making, Management, and Administration",
+            "Specialized Crime Investigation 2 with Simulation on Interrogation and Interview",
+            "Forensic Chemistry and Toxicology",
+            "Criminal Law (Book 1)",
+            "Law Enforcement Operations and Planning with Crime Mapping",
+            "Traffic Management and Accident Investigation with Driving",
+            "Professional Conduct and Ethical Standards",
+        ],
+        2: [
+            "Non-Institutional Corrections",
+            "Criminal Law (Book 2)",
+            "Questioned Documents Examination",
+            "Juvenile Delinquency and Juvenile Justice System",
+            "Lie Detection Techniques",
+            "Technical English 1 (Technical Report Writing and Presentation)",
+            "Euthenics 2",
+            "Fire Protection and Arson Investigation",
+            "Cybersecurity Elective 1: Cybersecurity Fundamentals",
+        ]
+    },
+    4: {
+        1: [
+            "Therapeutic Modalities",
+            "Evidence",
+            "Dispute Resolution and Crises/Incidents Management",
+            "Criminological Research 1 (Research Methods with Applied Statistics)",
+            "Vice and Drug Education and Control",
+            "Cybersecurity Elective 2: Cybersecurity Management and Analytics",
+        ],
+        2: [
+            "Internship 2 (270 hours)",
+            "Forensic Ballistics",
+            "Criminal Procedure and Court Testimony",
+            "Criminological Research 2 (Thesis Writing and Presentation)",
+            "Technical English 2 (Legal Forms)",
+        ]
+    }
+}
+
+bmma_subjects = {
+    1: {
+        1: [
+            "The Contemporary World",
+            "Euthenics 1",
+            "Mathematics in the Modern World",
+            "National Service Training Program 1",
+            "P.E./PATHFIT 1: Movement Competency Training",
+            "Readings in Philippine History",
+            "Understanding the Self",
+            "Drawing 1",
+            "Introduction to Multimedia Arts",
+        ],
+        2: [
+            "Ethics",
+            "National Service Training Program 2",
+            "P.E./PATHFIT 2: Exercise-based Fitness Activities",
+            "Purposive Communication",
+            "Science, Technology, and Society",
+            "Computer Productivity Tools",
+            "Drawing 2",
+            "Elements and Principles of Design",
+            "History of Graphic Design",
+        ]
+    },
+    2: {
+        1: [
+            "The Entrepreneurial Mind",
+            "Rizal's Life and Works",
+            "P.E./PATHFIT 3: Individual-Dual Sports",
+            "2D Animation",
+            "3D Modeling",
+            "Color Theory",
+        ],
+        2: [
+            "Art Appreciation",
+            "Philippine Popular Culture",
+            "P.E./PATHFIT 4: Team Sports",
+            "3D Animation",
+            "MMA Elective 1",
+            "Writing for New Media",
+        ]
+    },
+    3: {
+        1: [
+            "Great Books",
+            "Business Ventures in Multimedia",
+            "Digital Photography",
+            "MMA Elective 2",
+            "MMA Free Elective 1",
+            "Typography and Layout",
+        ],
+        2: [
+            "Panitikang Pilipino",
+            "Euthenics 2",
+            "MMA Elective 3",
+            "MMA Free Elective 2",
+            "Fundamentals in Film and Video Production",
+            "Multimedia Publishing",
+            "Methods of Research",
+        ],
+        3: [
+            "MMA Practicum (300 hours)",
+        ]
+    },
+    4: {
+        1: [
+            "Capstone Project 1",
+            "Interactive Media Design",
+            "Multimedia Seminars",
+            "Digital Sound Production",
+            "World Literature",
+        ],
+        2: [
+            "Capstone Project 2",
+            "Portfolio Preparation and Exhibit Design",
+            "Post-Production Techniques",
+        ]
+    }
+}
+
+bacomm_subjects = {
+    1: {
+        1: [
+            ("ACOM1001", "Introduction to Communication Media"),
+            ("STIC1002", "Euthenics 1"),
+            ("GEDC1005", "Mathematics in the Modern World"),
+            ("NSTP1008", "National Service Training Program 1"),
+            ("PHED1005", "P.E./PATHFIT 1: Movement Competency Training"),
+            ("GEDC1006", "Readings in Philippine History"),
+            ("GEDC1008", "Understanding the Self"),
+        ],
+        2: [
+            ("ACOM1002", "Communication, Culture, and Society"),
+            ("GEDC1009", "Ethics"),
+            ("NSTP1010", "National Service Training Program 2"),
+            ("PHED1006", "P.E./PATHFIT 2: Exercise-based Fitness Activities"),
+            ("GEDC1016", "Purposive Communication"),
+            ("STIC1003", "Computer Productivity Tools"),
+            ("CASC1001", "Digital Photography"),
+        ]
+    },
+    2: {
+        1: [
+            ("GEDC1002", "The Contemporary World"),
+            ("GEDC1003", "The Entrepreneurial Mind"),
+            ("GEDC1014", "Rizal's Life and Works"),
+            ("PHED1007", "P.E./PATHFIT 3: Individual-Dual Sports"),
+            ("ACOM1003", "Broadcasting Principles and Practices"),
+            ("ACOM1004", "Journalism Principles and Practices"),
+        ],
+        2: [
+            ("ACOM1005", "Communication Theory"),
+            ("ACOM1006", "Development Communication"),
+            ("GEDC1010", "Art Appreciation"),
+            ("PHED1008", "P.E./PATHFIT 4: Team Sports"),
+            ("GEDC1013", "Science, Technology, and Society"),
+            ("CASC1002", "Brand Communication and Design"),
+        ]
+    },
+    3: {
+        1: [
+            ("ACOM1007", "Communication Media Laws and Ethics"),
+            ("ACOM1008", "Risk, Disaster, and Humanitarian Communication"),
+            ("GEDC1045", "Great Books"),
+            ("ACOM1009", "Social Media Principles and Practices"),
+            ("ACOM1010", "Advertising Principles and Practices"),
+            ("ACOM1011", "Multimedia Journalism"),
+        ],
+        2: [
+            ("ACOM1012", "Communication Research"),
+            ("GEDC1041", "Philippine Popular Culture"),
+            ("STIC1007", "Euthenics 2"),
+            ("GEDC1007", "Panitikang Pilipino"),
+            ("CASC1003", "Writing for New Media"),
+            ("ACOM1013", "Digital Learning Materials Development"),
+            ("ACOM1014", "Social Media and Mobile Technology for Communication Campaigns"),
+        ],
+        3: [
+            ("OJTC1001", "Internship (300 Hours OJT)"),
+        ]
+    }
+}
+
 shs_subjects = {
     "STEM": {
         5: { # Grade 11
@@ -235,7 +845,11 @@ def classify_subject(name: str):
         "Reading and Writing", "Statistics and Probability", "Understanding Self",
         "Contemporary World", "Purposive Communication", "Ethics", "Art Appreciation",
         "Komunikasyon at Pananaliksik", "Pagbasa at Pagsusuri", "Personal Development",
-        "Philosophy", "Literature", "Media and Information Literacy"
+        "Philosophy", "Literature", "Media and Information Literacy",
+        "Euthenics", "National Service Training Program", "ROTC", "P.E./PATHFIT",
+        "Physical Education", "Readings in Philippine History", "Rizal", "Philippine Popular Culture",
+        "The Entrepreneurial Mind", "Mathematics in the Modern World", "Science, Technology, and Society",
+        "Great Books", "Foreign Language", "General Physics", "General Chemistry", "General Biology"
     ]
     if name.startswith("GE") or any(keyword in name for keyword in general_keywords):
         category = "general"
@@ -249,6 +863,22 @@ def generate_subjects(course, year, semester):
         pool = bsit_subjects
     elif course.name == "BSCS":
         pool = bscs_subjects
+    elif course.name == "BSCpE":
+        pool = bscpe_subjects
+    elif course.name == "BSTM":
+        pool = bstm_subjects
+    elif course.name == "BSHM":
+        pool = bshm_subjects
+    elif course.name == "BSA":
+        pool = bsa_subjects
+    elif course.name == "BSPsych":
+        pool = bspsych_subjects
+    elif course.name == "BSCrim":
+        pool = bscrim_subjects
+    elif course.name == "BMMA":
+        pool = bmma_subjects
+    elif course.name == "BACOMM":
+        pool = bacomm_subjects
     elif course.name == "Tourism":
         pool = tourism_subjects
     else:
@@ -261,13 +891,21 @@ def generate_subjects(course, year, semester):
     if year.id not in pool or semester not in pool[year.id]:
         return []
         
-    subj_names = pool[year.id][semester]
+    subj_list = pool[year.id][semester]
     subject_objs = []
-    for i, subj_name in enumerate(subj_names, start=1):
+    for subj_item in subj_list:
+        if course.name == "BACOMM":
+            # BACOMM has (code, name) tuples
+            subj_code, subj_name = subj_item
+        else:
+            # Other courses have just names, generate codes
+            subj_name = subj_item
+            subj_code = f"{course.name[:2].upper()}{year.id}{semester}{len(subject_objs)+1:02d}"
+        
         exam_type, category = classify_subject(subj_name)
         
         subj = Subject(
-            code=f"{course.name[:2].upper()}{year.id}{semester}{i:02d}",
+            code=subj_code,
             name=subj_name,
             course_id=course.id,
             year_level_id=year.id,
@@ -289,8 +927,8 @@ for course in courses:
             )
             sections.append(section)
 
-        # Add subjects for both semesters
-        for semester in [1, 2]:
+        # Add subjects for all available semesters (1, 2, and optionally 3 for summer)
+        for semester in [1, 2, 3]:
             subjects.extend(generate_subjects(course, year, semester))
 
 db.add_all(sections)

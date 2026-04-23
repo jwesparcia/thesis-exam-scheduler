@@ -114,7 +114,15 @@ def seed_data():
         # Courses
         courses = [
             Course(id=1, name="BSIT"),
-            Course(id=2, name="BSCS")
+            Course(id=2, name="BSCS"),
+            Course(id=3, name="BSCpE"),
+            Course(id=4, name="BSTM"),
+            Course(id=5, name="BSHM"),
+            Course(id=6, name="BSA"),
+            Course(id=7, name="BSPsych"),
+            Course(id=8, name="BSCrim"),
+            Course(id=9, name="BMMA"),
+            Course(id=10, name="BACOMM")
         ]
         db.add_all(courses)
 

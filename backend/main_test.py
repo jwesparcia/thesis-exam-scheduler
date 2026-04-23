@@ -24,7 +24,15 @@ def root():
 def get_courses():
     return [
         {"id": 1, "name": "BSIT"},
-        {"id": 2, "name": "BSCS"}
+        {"id": 2, "name": "BSCS"},
+        {"id": 3, "name": "BSCpE"},
+        {"id": 4, "name": "BSTM"},
+        {"id": 5, "name": "BSHM"},
+        {"id": 6, "name": "BSA"},
+        {"id": 7, "name": "BSPsych"},
+        {"id": 8, "name": "BSCrim"},
+        {"id": 9, "name": "BMMA"},
+        {"id": 10, "name": "BACOMM"}
     ]
 
 @app.get("/catalog/year-levels")
