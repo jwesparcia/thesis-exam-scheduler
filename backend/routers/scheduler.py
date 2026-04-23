@@ -47,8 +47,8 @@ def generate_exam_schedule(payload: dict = Body(...), db: Session = Depends(get_
     if not sections or not subjects or not rooms:
         raise HTTPException(status_code=404, detail="Missing sections, subjects, or rooms")
 
-    # ✅ Limit to exactly 7 subjects
-    subjects = subjects[:7]
+    # Use all subjects
+    # subjects = subjects[:7]  <-- Removed limit
 
     # --- Remove old draft exams for this specific course/year/semester ---
     db.query(Exam).filter(
@@ -65,10 +65,10 @@ def generate_exam_schedule(payload: dict = Body(...), db: Session = Depends(get_
     TIMESLOTS = [
         ("07:00 AM", "08:30 AM"),   # Slot 1
         ("08:30 AM", "10:00 AM"),   # Slot 2 (back-to-back)
-        ("10:30 AM", "12:00 PM"),   # Slot 3 (30-min gap)
-        ("01:00 PM", "02:30 PM"),   # Slot 4 (1hr lunch)
+        ("10:00 AM", "11:30 AM"),   # Slot 3 (back-to-back)
+        ("01:00 PM", "02:30 PM"),   # Slot 4 (1.5hr lunch break)
         ("02:30 PM", "04:00 PM"),   # Slot 5 (back-to-back)
-        ("04:00 PM", "05:30 PM"),   # Slot 6 (back-to-back, ends at 5:30 PM)
+        ("04:00 PM", "05:30 PM"),   # Slot 6 (back-to-back)
     ]
 
     exam_days = []

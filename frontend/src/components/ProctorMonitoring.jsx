@@ -104,7 +104,7 @@ export default function ProctorMonitoring() {
     isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
   }`;
   const th = `px-4 py-3 text-left text-xs font-bold uppercase tracking-wider ${
-    isDark ? "text-gray-400 bg-gray-750" : "text-gray-500 bg-gray-50"
+    isDark ? "text-gray-300 bg-gray-750" : "text-gray-500 bg-gray-50"
   }`;
   const td = `px-4 py-3 text-sm ${isDark ? "text-gray-200" : "text-gray-700"}`;
   const inputCls = `border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
@@ -212,7 +212,7 @@ export default function ProctorMonitoring() {
               style={{ width: `${completionPct}%` }}
             />
           </div>
-          <p className={`text-xs mt-1.5 ${isDark ? "text-gray-500" : "text-gray-400"}`}>
+          <p className={`text-xs mt-1.5 ${isDark ? "text-gray-400" : "text-gray-400"}`}>
             {completionPct}% of proctors have confirmed their attendance
           </p>
         </div>
@@ -442,7 +442,7 @@ export default function ProctorMonitoring() {
                               <p className="font-medium">{exam.subject_name}</p>
                               <p
                                 className={`text-[11px] mt-0.5 ${
-                                  isDark ? "text-gray-500" : "text-gray-400"
+                                  isDark ? "text-gray-400" : "text-gray-400"
                                 }`}
                               >
                                 {exam.subject_code}

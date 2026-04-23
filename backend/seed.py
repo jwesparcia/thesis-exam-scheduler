@@ -91,23 +91,14 @@ year_levels = db.query(YearLevel).all()
 #   Day 4 (Any)   : Major for ALL year levels
 
 rules = [
-    # GE / General subjects → Day 1-2, Morning only
-    DistributionRule(category_type="general", year_level_id=None, allowed_days=[1, 2], allowed_session="morning"),
+    # GE / General subjects → Day 1-3, Any session
+    DistributionRule(category_type="general", year_level_id=None, allowed_days=[1, 2, 3], allowed_session="any"),
 ]
 
 # Major Rules per year level
 for y in year_levels:
-    if "Grade" in y.name:
-        y_val = int(y.name.split(" ")[1])
-    else:
-        y_val = int(y.name[0])  # '1st' -> 1
-
-    if y_val <= 2 or y_val == 11 or y_val == 12:
-        # Y1, Y2, G11, G12 Major: Day 2 afternoon + Day 3-4 any
-        rules.append(DistributionRule(category_type="major", year_level_id=y.id, allowed_days=[2, 3, 4], allowed_session="any"))
-    else:
-        # Y3 & Y4 Major: Day 1 afternoon + Day 2-4 any (most flexibility)
-        rules.append(DistributionRule(category_type="major", year_level_id=y.id, allowed_days=[1, 2, 3, 4], allowed_session="afternoon"))
+    # Major subjects → All days, Any session for maximum coverage
+    rules.append(DistributionRule(category_type="major", year_level_id=y.id, allowed_days=[1, 2, 3, 4], allowed_session="any"))
 
 db.add_all(rules)
 db.commit()
@@ -384,6 +375,11 @@ proctor_names = [
     "R Salem", "B San Juan", "R Santos", "M See", "J Sison",
     "C Sulapas", "V Vargas", "J Villaganas", "R Villarete"
 ]
+
+# Add 100 more generic proctors to ensure coverage
+for i in range(1, 101):
+    proctor_names.append(f"Proctor {i}")
+
 
 for name in proctor_names:
     t = Teacher(name=name)

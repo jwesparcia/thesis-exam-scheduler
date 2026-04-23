@@ -146,7 +146,7 @@ export default function GeneratedExamSchedules() {
                                         value={courseId}
                                         onChange={(e) => setCourseId(Number(e.target.value))}
                                         className={`border rounded-xl cursor-pointer p-3 w-full focus:ring-2 focus:ring-blue-400 transition-all ${isDark
-                                            ? "bg-gray-900 text-gray-200 border-gray-700"
+                                            ? "bg-gray-900 text-white border-gray-700"
                                             : "bg-gray-50 text-gray-700 border-gray-200"
                                             }`}
                                     >
@@ -170,7 +170,7 @@ export default function GeneratedExamSchedules() {
                                         value={yearId}
                                         onChange={(e) => setYearId(Number(e.target.value))}
                                         className={`border rounded-xl p-3 w-full cursor-pointer focus:ring-2 focus:ring-blue-400 transition-all ${isDark
-                                            ? "bg-gray-900 text-gray-200 border-gray-700"
+                                            ? "bg-gray-900 text-white border-gray-700"
                                             : "bg-gray-50 text-gray-700 border-gray-200"
                                             }`}
                                     >
@@ -194,7 +194,7 @@ export default function GeneratedExamSchedules() {
                                         value={semester}
                                         onChange={(e) => setSemester(Number(e.target.value))}
                                         className={`border rounded-xl p-3 w-full cursor-pointer focus:ring-2 focus:ring-blue-400 transition-all ${isDark
-                                            ? "bg-gray-900 text-gray-200 border-gray-700"
+                                            ? "bg-gray-900 text-white border-gray-700"
                                             : "bg-gray-50 text-gray-700 border-gray-200"
                                             }`}
                                     >
@@ -257,7 +257,7 @@ export default function GeneratedExamSchedules() {
                                             <table className="w-full text-sm border-separate border-spacing-0">
                                                 <thead
                                                     className={`${isDark
-                                                        ? "bg-gray-700/50 text-gray-300"
+                                                        ? "bg-gray-700/50 text-gray-100"
                                                         : "bg-gray-50 text-gray-700"
                                                         }`}
                                                 >
@@ -288,8 +288,8 @@ export default function GeneratedExamSchedules() {
                                                             <td
                                                                 className="px-4 py-4 font-medium"
                                                             >
-                                                                <div className={`text-xs font-bold mb-1 ${isDark ? "text-gray-500" : "text-gray-400"}`}>{e.subject_code}</div>
-                                                                <div className={isDark ? "text-gray-200" : "text-gray-900"}>{e.subject_name}</div>
+                                                                <div className={`text-xs font-bold mb-1 ${isDark ? "text-gray-400" : "text-gray-400"}`}>{e.subject_code}</div>
+                                                                <div className={isDark ? "text-white" : "text-gray-900"}>{e.subject_name}</div>
                                                             </td>
                                                             <td className="px-4 py-4">
                                                                 <div className="flex items-center gap-2">
@@ -300,8 +300,8 @@ export default function GeneratedExamSchedules() {
                                                             <td className="px-4 py-4 font-semibold text-blue-600 dark:text-blue-400">
                                                                 {e.exam_date}
                                                             </td>
-                                                            <td className="px-4 py-4 whitespace-nowrap">
-                                                                <div className="text-xs text-gray-500 mb-1">Morning Session</div>
+                                                            <td className={`px-4 py-4 whitespace-nowrap ${isDark ? "text-gray-200" : "text-gray-900"}`}>
+                                                                <div className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"} mb-1`}>Morning Session</div>
                                                                 <div className="font-medium">{e.start_time} - {e.end_time}</div>
                                                             </td>
                                                             <td className="px-4 py-4">

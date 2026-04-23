@@ -106,13 +106,13 @@ export default function AddProctor() {
         ) : (
           <div className={`overflow-x-auto rounded-xl shadow-sm ${theme === "dark" ? "bg-gray-700 border border-gray-700" : "bg-white border border-slate-200"}`}>
             <table className="w-full text-sm">
-              <thead className={`${theme === "dark" ? "bg-gray-600 text-gray-200" : "bg-slate-50 text-slate-600"}`}>
+              <thead className={`${theme === "dark" ? "bg-gray-600 text-gray-100" : "bg-slate-50 text-slate-600"}`}>
                 <tr>
-                  <th className="py-2 px-3 text-left">ID</th>
-                  <th className="py-2 px-3 text-left">Name</th>
+                  <th className="py-2 px-3 text-left font-bold">ID</th>
+                  <th className="py-2 px-3 text-left font-bold">Name</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className={`divide-y ${theme === "dark" ? "divide-gray-600 text-gray-200" : "divide-slate-100 text-gray-800"}`}>
                 {proctors.map((p) => (
                   <tr key={p.id} className={`border-t ${theme === "dark" ? "border-gray-600 hover:bg-gray-600" : "border-slate-100 hover:bg-slate-50"} transition`}>
                     <td className="py-2 px-3">{p.id}</td>
