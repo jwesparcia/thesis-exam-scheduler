@@ -4,10 +4,33 @@ from database import get_db
 import models
 import pandas as pd
 import io
-from datetime import datetime
+from datetime import datetime, date
 from sqlalchemy import text
 
 router = APIRouter(prefix="/proctors", tags=["Proctors"])
+
+def get_excel_engine(file_content: bytes, filename: str):
+    """Determine the appropriate Excel engine based on file content/extension."""
+    # Check if it's an old .xls file (not .xlsx)
+    if filename.endswith('.xls') and not filename.endswith('.xlsx'):
+        return 'xlrd'
+    # Check file magic bytes for xls format (old Excel format)
+    if len(file_content) >= 8 and file_content[:8] == b'\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1':
+        return 'xlrd'
+    return 'openpyxl'
+
+def read_excel_with_fallback(content: bytes, filename: str):
+    """Try to read Excel file with automatic engine fallback."""
+    engine = get_excel_engine(content, filename)
+    try:
+        return pd.read_excel(io.BytesIO(content), engine=engine)
+    except Exception as e:
+        # Try the other engine as fallback
+        other_engine = 'xlrd' if engine == 'openpyxl' else 'openpyxl'
+        try:
+            return pd.read_excel(io.BytesIO(content), engine=other_engine)
+        except Exception:
+            raise Exception(f"Could not read Excel file with any engine: {str(e)}")
 
 # Get all proctors
 @router.get("/")
@@ -71,7 +94,7 @@ async def upload_schedules(file: UploadFile = File(...), db: Session = Depends(g
 
     try:
         content = await file.read()
-        df = pd.read_excel(io.BytesIO(content))
+        df = read_excel_with_fallback(content, file.filename)
         
         # Required columns check
         required_columns = ['Instructor Name', 'Day', 'Start Time', 'End Time']
@@ -146,7 +169,11 @@ async def upload_schedules(file: UploadFile = File(...), db: Session = Depends(g
 
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Error processing file: {str(e)}")
+        error_msg = str(e)
+        # Provide more helpful error message
+        if "File is not a zip" in error_msg:
+            raise HTTPException(status_code=400, detail="Invalid Excel file format. Please ensure you're uploading a valid .xlsx or .xls file. The file may be corrupted or saved in an incompatible format.")
+        raise HTTPException(status_code=500, detail=f"Error processing file: {error_msg}")
 
 @router.post("/{proctor_id}/upload-my-schedule")
 async def upload_my_schedule(proctor_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
@@ -166,27 +193,41 @@ async def upload_my_schedule(proctor_id: int, file: UploadFile = File(...), db: 
 
     try:
         content = await file.read()
-        xl = pd.ExcelFile(io.BytesIO(content))
+        
+        # Try to read with fallback
+        try:
+            xl = pd.ExcelFile(io.BytesIO(content), engine=get_excel_engine(content, file.filename))
+        except:
+            # Try alternative engine
+            try:
+                alt_engine = 'xlrd' if get_excel_engine(content, file.filename) == 'openpyxl' else 'openpyxl'
+                xl = pd.ExcelFile(io.BytesIO(content), engine=alt_engine)
+            except:
+                # Fallback: just try openpyxl directly on content
+                df = read_excel_with_fallback(content, file.filename)
+                return await process_grid_upload(proctor, df, db)
+        
+        engine = get_excel_engine(content, file.filename)
         
         target_df = None
         if len(xl.sheet_names) == 1:
-            target_df = pd.read_excel(xl, sheet_name=0)
+            target_df = pd.read_excel(xl, sheet_name=0, engine=engine)
         else:
             proctor_last_name = proctor.name.split()[-1].lower()
             for sheet in xl.sheet_names:
                 if sheet in ['BLANK', 'CHANGES', 'SIMS SYNC']:
                     continue
                 if proctor_last_name in sheet.lower() or proctor.name.lower() in sheet.lower():
-                    target_df = pd.read_excel(xl, sheet_name=sheet)
+                    target_df = pd.read_excel(xl, sheet_name=sheet, engine=engine)
                     break
             
             if target_df is None:
                 for sheet in xl.sheet_names:
                     if sheet not in ['BLANK', 'CHANGES', 'SIMS SYNC']:
-                        target_df = pd.read_excel(xl, sheet_name=sheet)
+                        target_df = pd.read_excel(xl, sheet_name=sheet, engine=engine)
                         break
             if target_df is None:
-                target_df = pd.read_excel(xl, sheet_name=0)
+                target_df = pd.read_excel(xl, sheet_name=0, engine=engine)
                 
         df = target_df
         
@@ -208,6 +249,9 @@ async def upload_my_schedule(proctor_id: int, file: UploadFile = File(...), db: 
             'Friday': 4, 'Saturday': 5, 'Sunday': 6
         }
 
+        # Collect all parsed schedules first for validation
+        parsed_schedules = []
+        
         records_processed = 0
         for _, row in df.iterrows():
             day_str = str(row['Day']).strip().capitalize()
@@ -240,12 +284,63 @@ async def upload_my_schedule(proctor_id: int, file: UploadFile = File(...), db: 
             except:
                 continue
 
+            parsed_schedules.append({
+                'day_idx': day_idx,
+                'start_time': start_time,
+                'end_time': end_time,
+                'subject_name': subject_name
+            })
+
+        # Validate gaps between subjects on the same day (max 1:30 hours)
+        from datetime import timedelta
+        MAX_GAP_MINUTES = 90  # 1 hour 30 minutes
+        
+        schedules_by_day = {}
+        for sched in parsed_schedules:
+            day_idx = sched['day_idx']
+            if day_idx not in schedules_by_day:
+                schedules_by_day[day_idx] = []
+            schedules_by_day[day_idx].append(sched)
+        
+        gap_warnings = []
+        for day_idx, day_schedules in schedules_by_day.items():
+            # Sort by start time
+            day_schedules.sort(key=lambda x: x['start_time'])
+            for i in range(len(day_schedules) - 1):
+                current = day_schedules[i]
+                next_sched = day_schedules[i + 1]
+                
+                # Calculate gap between end of current and start of next
+                current_end_dt = datetime.combine(date.min, current['end_time'])
+                next_start_dt = datetime.combine(date.min, next_sched['start_time'])
+                
+                gap_minutes = (next_start_dt - current_end_dt).total_seconds() / 60
+                
+                if gap_minutes > MAX_GAP_MINUTES:
+                    day_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+                    gap_warnings.append(
+                        f"{day_names[day_idx]}: Gap of {int(gap_minutes)}min between '{current['subject_name']}' "
+                        f"({current['start_time'].strftime('%I:%M %p')} - {current['end_time'].strftime('%I:%M %p')}) "
+                        f"and '{next_sched['subject_name']}' "
+                        f"({next_sched['start_time'].strftime('%I:%M %p')} - {next_sched['end_time'].strftime('%I:%M %p')})"
+                    )
+
+        # If there are gaps exceeding 1:30 hours, reject the upload
+        if gap_warnings:
+            gap_details = "; ".join(gap_warnings)
+            raise HTTPException(
+                status_code=400,
+                detail=f"Schedule has gaps exceeding 1:30 hours between subjects on the same day. Please consolidate your schedule. Details: {gap_details}"
+            )
+
+        # Save all schedules
+        for sched in parsed_schedules:
             new_sched = models.TeacherSchedule(
                 teacher_id=proctor.teacher_id,
-                day_of_week=day_idx,
-                start_time=start_time,
-                end_time=end_time,
-                subject_name=subject_name
+                day_of_week=sched['day_idx'],
+                start_time=sched['start_time'],
+                end_time=sched['end_time'],
+                subject_name=sched['subject_name']
             )
             db.add(new_sched)
             records_processed += 1
@@ -255,11 +350,14 @@ async def upload_my_schedule(proctor_id: int, file: UploadFile = File(...), db: 
 
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Error processing file: {str(e)}")
+        error_msg = str(e)
+        if "File is not a zip" in error_msg:
+            raise HTTPException(status_code=400, detail="Invalid Excel file format. Please ensure you're uploading a valid .xlsx or .xls file. The file may be corrupted or saved in an incompatible format.")
+        raise HTTPException(status_code=500, detail=f"Error processing file: {error_msg}")
 
 async def process_grid_upload(proctor, df, db: Session):
     """Parses the grid-style Excel format (ICT.xlsx style) for a single proctor."""
-    from datetime import time
+    from datetime import time, timedelta
     
     def parse_t(s):
         if isinstance(s, datetime): return s.time()
@@ -275,6 +373,9 @@ async def process_grid_upload(proctor, df, db: Session):
 
     # Clear old
     db.query(models.TeacherSchedule).filter(models.TeacherSchedule.teacher_id == proctor.teacher_id).delete()
+    
+    # Collect all parsed schedules first for validation
+    parsed_schedules = []
     
     records = 0
     for _, row in df.iterrows():
@@ -293,16 +394,66 @@ async def process_grid_upload(proctor, df, db: Session):
             cell_str = str(cell_val).strip().upper()
             if any(k in cell_str for k in excluded): continue
             
-            new_sched = models.TeacherSchedule(
-                teacher_id=proctor.teacher_id,
-                day_of_week=day_idx,
-                start_time=start_t,
-                end_time=end_t,
-                subject_name=cell_str[:50]
-            )
-            db.add(new_sched)
-            records += 1
+            parsed_schedules.append({
+                'day_idx': day_idx,
+                'start_time': start_t,
+                'end_time': end_t,
+                'subject_name': cell_str[:50]
+            })
+    
+    # Validate gaps between subjects on the same day (max 1:30 hours)
+    MAX_GAP_MINUTES = 90  # 1 hour 30 minutes
+    
+    schedules_by_day = {}
+    for sched in parsed_schedules:
+        day_idx = sched['day_idx']
+        if day_idx not in schedules_by_day:
+            schedules_by_day[day_idx] = []
+        schedules_by_day[day_idx].append(sched)
+    
+    gap_warnings = []
+    for day_idx, day_schedules in schedules_by_day.items():
+        # Sort by start time
+        day_schedules.sort(key=lambda x: x['start_time'])
+        for i in range(len(day_schedules) - 1):
+            current = day_schedules[i]
+            next_sched = day_schedules[i + 1]
             
+            # Calculate gap between end of current and start of next
+            current_end_dt = datetime.combine(date.min, current['end_time'])
+            next_start_dt = datetime.combine(date.min, next_sched['start_time'])
+            
+            gap_minutes = (next_start_dt - current_end_dt).total_seconds() / 60
+            
+            if gap_minutes > MAX_GAP_MINUTES:
+                day_names = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY']
+                gap_warnings.append(
+                    f"{day_names[day_idx]}: Gap of {int(gap_minutes)}min between '{current['subject_name']}' "
+                    f"({current['start_time'].strftime('%I:%M %p')} - {current['end_time'].strftime('%I:%M %p')}) "
+                    f"and '{next_sched['subject_name']}' "
+                    f"({next_sched['start_time'].strftime('%I:%M %p')} - {next_sched['end_time'].strftime('%I:%M %p')})"
+                )
+
+    # If there are gaps exceeding 1:30 hours, reject the upload
+    if gap_warnings:
+        gap_details = "; ".join(gap_warnings)
+        raise HTTPException(
+            status_code=400,
+            detail=f"Schedule has gaps exceeding 1:30 hours between subjects on the same day. Please consolidate your schedule. Details: {gap_details}"
+        )
+    
+    # Save all schedules
+    for sched in parsed_schedules:
+        new_sched = models.TeacherSchedule(
+            teacher_id=proctor.teacher_id,
+            day_of_week=sched['day_idx'],
+            start_time=sched['start_time'],
+            end_time=sched['end_time'],
+            subject_name=sched['subject_name']
+        )
+        db.add(new_sched)
+        records += 1
+        
     db.commit()
     return {"message": f"Successfully processed grid schedule with {records} entries."}
 

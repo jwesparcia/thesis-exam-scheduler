@@ -9,4 +9,5 @@ pydantic
 email-validator
 pandas
 openpyxl
+xlrd
 python-multipart
