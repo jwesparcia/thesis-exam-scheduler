@@ -291,48 +291,6 @@ async def upload_my_schedule(proctor_id: int, file: UploadFile = File(...), db: 
                 'subject_name': subject_name
             })
 
-        # Validate gaps between subjects on the same day (max 1:30 hours)
-        from datetime import timedelta
-        MAX_GAP_MINUTES = 90  # 1 hour 30 minutes
-        
-        schedules_by_day = {}
-        for sched in parsed_schedules:
-            day_idx = sched['day_idx']
-            if day_idx not in schedules_by_day:
-                schedules_by_day[day_idx] = []
-            schedules_by_day[day_idx].append(sched)
-        
-        gap_warnings = []
-        for day_idx, day_schedules in schedules_by_day.items():
-            # Sort by start time
-            day_schedules.sort(key=lambda x: x['start_time'])
-            for i in range(len(day_schedules) - 1):
-                current = day_schedules[i]
-                next_sched = day_schedules[i + 1]
-                
-                # Calculate gap between end of current and start of next
-                current_end_dt = datetime.combine(date.min, current['end_time'])
-                next_start_dt = datetime.combine(date.min, next_sched['start_time'])
-                
-                gap_minutes = (next_start_dt - current_end_dt).total_seconds() / 60
-                
-                if gap_minutes > MAX_GAP_MINUTES:
-                    day_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-                    gap_warnings.append(
-                        f"{day_names[day_idx]}: Gap of {int(gap_minutes)}min between '{current['subject_name']}' "
-                        f"({current['start_time'].strftime('%I:%M %p')} - {current['end_time'].strftime('%I:%M %p')}) "
-                        f"and '{next_sched['subject_name']}' "
-                        f"({next_sched['start_time'].strftime('%I:%M %p')} - {next_sched['end_time'].strftime('%I:%M %p')})"
-                    )
-
-        # If there are gaps exceeding 1:30 hours, reject the upload
-        if gap_warnings:
-            gap_details = "; ".join(gap_warnings)
-            raise HTTPException(
-                status_code=400,
-                detail=f"Schedule has gaps exceeding 1:30 hours between subjects on the same day. Please consolidate your schedule. Details: {gap_details}"
-            )
-
         # Save all schedules
         for sched in parsed_schedules:
             new_sched = models.TeacherSchedule(
@@ -400,47 +358,6 @@ async def process_grid_upload(proctor, df, db: Session):
                 'end_time': end_t,
                 'subject_name': cell_str[:50]
             })
-    
-    # Validate gaps between subjects on the same day (max 1:30 hours)
-    MAX_GAP_MINUTES = 90  # 1 hour 30 minutes
-    
-    schedules_by_day = {}
-    for sched in parsed_schedules:
-        day_idx = sched['day_idx']
-        if day_idx not in schedules_by_day:
-            schedules_by_day[day_idx] = []
-        schedules_by_day[day_idx].append(sched)
-    
-    gap_warnings = []
-    for day_idx, day_schedules in schedules_by_day.items():
-        # Sort by start time
-        day_schedules.sort(key=lambda x: x['start_time'])
-        for i in range(len(day_schedules) - 1):
-            current = day_schedules[i]
-            next_sched = day_schedules[i + 1]
-            
-            # Calculate gap between end of current and start of next
-            current_end_dt = datetime.combine(date.min, current['end_time'])
-            next_start_dt = datetime.combine(date.min, next_sched['start_time'])
-            
-            gap_minutes = (next_start_dt - current_end_dt).total_seconds() / 60
-            
-            if gap_minutes > MAX_GAP_MINUTES:
-                day_names = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY']
-                gap_warnings.append(
-                    f"{day_names[day_idx]}: Gap of {int(gap_minutes)}min between '{current['subject_name']}' "
-                    f"({current['start_time'].strftime('%I:%M %p')} - {current['end_time'].strftime('%I:%M %p')}) "
-                    f"and '{next_sched['subject_name']}' "
-                    f"({next_sched['start_time'].strftime('%I:%M %p')} - {next_sched['end_time'].strftime('%I:%M %p')})"
-                )
-
-    # If there are gaps exceeding 1:30 hours, reject the upload
-    if gap_warnings:
-        gap_details = "; ".join(gap_warnings)
-        raise HTTPException(
-            status_code=400,
-            detail=f"Schedule has gaps exceeding 1:30 hours between subjects on the same day. Please consolidate your schedule. Details: {gap_details}"
-        )
     
     # Save all schedules
     for sched in parsed_schedules:
