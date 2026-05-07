@@ -107,28 +107,34 @@ def generate_schedule(
     payload: dict = Body(default={}),
     db: Session = Depends(get_db)
 ):
-    """
-    Trigger the automatic scheduling for ALL courses based on distribution rules.
-    Optionally accepts start_date (YYYY-MM-DD) in the body.
-    """
     try:
         start_date = None
         end_date = None
         payload_data = payload if payload else {}
-        
         start_date_str = payload_data.get("start_date")
         if start_date_str:
             start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
-            
         end_date_str = payload_data.get("end_date")
         if end_date_str:
             end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date()
         
-        count = generate_exam_schedule(db, start_date=start_date, end_date=end_date)
-        return {"message": f"Schedule generated successfully! {count} exams scheduled across the selected range."}
+        result = generate_exam_schedule(db, start_date=start_date, end_date=end_date)
+        total = result["total_exams"]
+        assigned = result["assigned_proctors"]
+        unassigned = result["unassigned"]
+        
+        message = f"Schedule generated! {total} exams created. "
+        if assigned > 0:
+            message += f"{assigned} exams assigned a proctor. "
+        if unassigned > 0:
+            message += f"{unassigned} exams have no proctor due to insufficient availability or limits."
+        else:
+            message += "All exams have a proctor assigned."
+        
+        return {"message": message}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
+        
 @router.post("/post")
 def post_exams(
     course_id: int = Query(..., description="Course ID to post exams for"),

@@ -1071,6 +1071,7 @@ for course in courses:
             db.add(student_user)
             student_count += 1
 
+
 db.commit()
 print(f"Successfully seeded {student_count-1} student accounts!")
 print("Dummy users seeded successfully!")
