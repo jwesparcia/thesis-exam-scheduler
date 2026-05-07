@@ -33,9 +33,19 @@ def _gap_ok(day_slots, new_start, new_end):
             return False
     return True
 
-def generate_exam_schedule(db: Session, start_date: date, end_date: date = None):
-    # 1. Clear previous DRAFT schedules
-    db.query(Exam).filter(Exam.status == "draft").delete()
+def generate_exam_schedule(db: Session, start_date: date, end_date: date = None, department: str = "College", semester: int = 1, excluded_subjects: list = None):
+    if excluded_subjects is None:
+        excluded_subjects = []
+
+    # 1. Clear previous DRAFT schedules for the specific department and semester
+    from models import Course
+    drafts_to_delete = db.query(Exam).join(Course).filter(
+        Exam.status == "draft",
+        Course.category == department,
+        Exam.semester == semester
+    ).all()
+    for draft in drafts_to_delete:
+        db.delete(draft)
     db.commit()
 
     # 2. Setup Examination Days (Skipping Weekends)
@@ -55,11 +65,20 @@ def generate_exam_schedule(db: Session, start_date: date, end_date: date = None)
             timeslots.append(ts)
     db.flush()  # get IDs
 
-    # 4. Fetch Resources
-    subjects = db.query(Subject).filter(Subject.exam_type == "written").all()
+    # 4. Fetch Resources for the specific department and semester
+    subjects_query = db.query(Subject).join(Course).filter(
+        Subject.exam_type == "written",
+        Course.category == department,
+        Subject.semester == semester
+    )
+    
+    if excluded_subjects:
+        subjects_query = subjects_query.filter(Subject.name.notin_(excluded_subjects))
+        
+    subjects = subjects_query.all()
     rooms = db.query(Room).all()
     rules = db.query(DistributionRule).all()
-    sections = db.query(Section).all()
+    sections = db.query(Section).join(Course).filter(Course.category == department).all()
 
     # Map dates to day indices 1-4 for distribution rules
     date_map = {d: i + 1 for i, d in enumerate(exam_days)}

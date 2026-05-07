@@ -832,7 +832,7 @@ def classify_subject(name: str):
         "Physical Education", "National Service Training Program", "Euthenics", 
         "Thesis", "Practicum", "NSTP", "Immersion", "Capstone", "Laboratory",
         "Cookery", "Production", "3D Modelling", "Video & Audio Production",
-        "Drawing", "Photography", "Animation"
+        "Drawing", "Photography", "Animation", "PATHFIT", "P.E."
     ]
     if any(keyword in name for keyword in practical_keywords):
         exam_type = "practical"

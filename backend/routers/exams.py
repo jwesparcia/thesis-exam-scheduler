@@ -102,6 +102,23 @@ def get_exams(
 
     return result
 
+@router.get("/subjects")
+def get_department_subjects(
+    department: str = Query("College", description="Department category (e.g., College or SHS)"),
+    semester: int = Query(1, description="Semester (1 or 2)"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get all unique written subject names for a specific department and semester.
+    """
+    subjects = db.query(Subject.name).join(Course).filter(
+        Course.category == department,
+        Subject.exam_type == "written",
+        Subject.semester == semester
+    ).distinct().order_by(Subject.name).all()
+    
+    return [s[0] for s in subjects if s[0]]
+
 @router.post("/generate")
 def generate_schedule(
     payload: dict = Body(default={}),
@@ -109,12 +126,16 @@ def generate_schedule(
 ):
     """
     Trigger the automatic scheduling for ALL courses based on distribution rules.
-    Optionally accepts start_date (YYYY-MM-DD) in the body.
+    Optionally accepts start_date (YYYY-MM-DD) and department in the body.
     """
     try:
         start_date = None
         end_date = None
         payload_data = payload if payload else {}
+        
+        department = payload_data.get("department", "College")
+        semester = payload_data.get("semester", 1)
+        excluded_subjects = payload_data.get("excluded_subjects", [])
         
         start_date_str = payload_data.get("start_date")
         if start_date_str:
@@ -124,8 +145,15 @@ def generate_schedule(
         if end_date_str:
             end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date()
         
-        count = generate_exam_schedule(db, start_date=start_date, end_date=end_date)
-        return {"message": f"Schedule generated successfully! {count} exams scheduled across the selected range."}
+        count = generate_exam_schedule(
+            db, 
+            start_date=start_date, 
+            end_date=end_date, 
+            department=department, 
+            semester=semester,
+            excluded_subjects=excluded_subjects
+        )
+        return {"message": f"Schedule generated successfully! {count} exams scheduled across the selected range for {department}."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
