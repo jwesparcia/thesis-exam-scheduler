@@ -23,6 +23,7 @@ import { useNavigate } from "react-router-dom";
 import DistributionRulesManager from "../components/DistributionRulesManager";
 import GeneratedExamSchedules from "../components/GeneratedExamSchedules";
 import ProctorMonitoring from "../components/ProctorMonitoring";
+import ProctorScheduleStatus from "../components/ProctorScheduleStatus";
 
 import api from "../api";
 import { useToast } from "../context/ToastContext";
@@ -39,7 +40,6 @@ function ReschedulingRequests() {
       setLoading(true);
       try {
         const res = await api.get("/program-head/reschedule-requests");
-        // Filter for pending only, if desire
         const pending = res.data.filter(r => r.status === "pending");
         setRequests(pending);
       } catch (err) {
@@ -54,9 +54,7 @@ function ReschedulingRequests() {
     try {
       const isApproved = status === "approved";
       const res = await api.post(`/program-head/approve-reschedule/${id}?approved=${isApproved}&comments=${encodeURIComponent(comments)}`);
-
       if (res.status === 200) {
-        // Remove from list
         setRequests(requests.filter(req => req.id !== id));
         showSuccess(`Request ${status} successfully`);
       } else {
@@ -112,7 +110,6 @@ function ReschedulingRequests() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Current Exam */}
             <div className={`p-4 rounded-lg ${isDark ? "bg-gray-600" : "bg-gray-50"}`}>
               <h5 className={`font-medium mb-2 ${isDark ? "text-white" : "text-gray-900"}`}>Current Exam Details</h5>
               <p className={`text-sm ${isDark ? "text-gray-300" : "text-gray-700"}`}>
@@ -121,8 +118,6 @@ function ReschedulingRequests() {
                 Type: {req.exam_type}
               </p>
             </div>
-
-            {/* Requested Exam */}
             <div className={`p-4 rounded-lg ${isDark ? "bg-blue-900/30" : "bg-blue-50"}`}>
               <h5 className={`font-medium mb-2 ${isDark ? "text-white" : "text-gray-900"}`}>Requested Reschedule</h5>
               <p className={`text-sm ${isDark ? "text-gray-300" : "text-gray-700"}`}>
@@ -133,7 +128,6 @@ function ReschedulingRequests() {
             </div>
           </div>
 
-          {/* Reason */}
           <div className="mt-4">
             <h5 className={`font-medium mb-2 ${isDark ? "text-white" : "text-gray-900"}`}>Reason for Request</h5>
             <p className={`text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}>
@@ -157,6 +151,7 @@ export default function ProgramHeadDashboard() {
   const { logout } = useUser();
   const navigate = useNavigate();
   const isDark = theme === "dark";
+  const { showWarning } = useToast();
 
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -173,9 +168,8 @@ export default function ProgramHeadDashboard() {
         console.error("Error fetching notifications:", err);
       }
     };
-
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 10000); // Poll every 10s
+    const interval = setInterval(fetchNotifications, 10000);
     return () => clearInterval(interval);
   }, []);
 
@@ -193,205 +187,104 @@ export default function ProgramHeadDashboard() {
     navigate("/login", { replace: true });
   };
 
-  return (
-    <div
-      className={`min-h-screen flex ${isDark ? "bg-gray-900" : "bg-gray-50"
-        }`}
-    >
-      {/* Background - Clean solid handled by parent */}
+  // Function to warn about missing schedules (used when generating)
+  const checkMissingSchedulesBeforeGenerate = async () => {
+    try {
+      const res = await api.get("/proctors/missing-schedules");
+      const missing = res.data.filter(p => !p.excluded);
+      if (missing.length > 0) {
+        showWarning(`${missing.length} proctor(s) have not uploaded their schedule. They will be skipped during scheduling. You can manage them in the "Proctor Schedules" tab.`);
+      }
+    } catch (err) {
+      console.error("Failed to check missing schedules", err);
+    }
+  };
 
+  return (
+    <div className={`min-h-screen flex ${isDark ? "bg-gray-900" : "bg-gray-50"}`}>
       {showNotifications && (
         <div className="fixed inset-0 z-40 bg-transparent" onClick={() => setShowNotifications(false)}></div>
       )}
 
-      {/* Sidebar */}
-      <aside
-        className={`w-64 px-4 py-6 flex flex-col gap-6 border-r ${isDark
-          ? "bg-gray-900 border-gray-700"
-          : "bg-white border-gray-200"
-          }`}
-      >
-        {/* Logo Section */}
+      <aside className={`w-64 px-4 py-6 flex flex-col gap-6 border-r ${isDark ? "bg-gray-900 border-gray-700" : "bg-white border-gray-200"}`}>
         <div className="flex flex-col items-center gap-3">
-          <div
-            className={`w-16 h-16 rounded-xl flex items-center justify-center ${isDark
-              ? "bg-blue-600"
-              : "bg-blue-700"
-              }`}
-          >
-            <img
-              src="/images.png"
-              alt="STI Logo"
-              className="rounded-xl h-12 w-12 object-contain"
-            />
+          <div className={`w-16 h-16 rounded-xl flex items-center justify-center ${isDark ? "bg-blue-600" : "bg-blue-700"}`}>
+            <img src="/images.png" alt="STI Logo" className="rounded-xl h-12 w-12 object-contain" />
           </div>
           <div className="text-center">
-            <h2
-              className={`text-lg font-bold ${isDark ? "text-white" : "text-gray-900"
-                }`}
-            >
-              Program Head
-            </h2>
-            <p
-              className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"
-                }`}
-            >
-              Exam Management
-            </p>
+            <h2 className={`text-lg font-bold ${isDark ? "text-white" : "text-gray-900"}`}>Program Head</h2>
+            <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>Exam Management</p>
           </div>
         </div>
 
-        {/* Navigation */}
         <nav className="flex-1 space-y-2">
-          <button
-            onClick={() => setActiveTab("generate")}
-            className={`w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg transition ${activeTab === "generate"
-              ? "bg-blue-50 text-blue-700"
-              : isDark
-                ? "text-gray-300 hover:bg-gray-700"
-                : "text-gray-700 hover:bg-gray-100"
-              }`}
-          >
+          <button onClick={() => setActiveTab("generate")} className={`w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg transition ${activeTab === "generate" ? "bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400" : isDark ? "text-gray-300 hover:bg-gray-700" : "text-gray-700 hover:bg-gray-100"}`}>
             <Calendar className="w-5 h-5" />
             <span className="text-sm font-medium">Generate Exam Schedule</span>
           </button>
 
-          <button
-            onClick={() => setActiveTab("schedules")}
-            className={`w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg transition ${activeTab === "schedules"
-              ? "bg-blue-50 text-blue-700"
-              : isDark
-                ? "text-gray-300 hover:bg-gray-700"
-                : "text-gray-700 hover:bg-gray-100"
-              }`}
-          >
+          <button onClick={() => setActiveTab("schedules")} className={`w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg transition ${activeTab === "schedules" ? "bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400" : isDark ? "text-gray-300 hover:bg-gray-700" : "text-gray-700 hover:bg-gray-100"}`}>
             <CalendarDays className="w-5 h-5" />
             <span className="text-sm font-medium">Generated Schedules</span>
           </button>
 
-          <button
-            onClick={() => setActiveTab("proctors")}
-            className={`w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg transition ${activeTab === "proctors"
-              ? "bg-blue-50 text-blue-700"
-              : isDark
-                ? "text-gray-300 hover:bg-gray-700"
-                : "text-gray-700 hover:bg-gray-100"
-              }`}
-          >
+          <button onClick={() => setActiveTab("proctors")} className={`w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg transition ${activeTab === "proctors" ? "bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400" : isDark ? "text-gray-300 hover:bg-gray-700" : "text-gray-700 hover:bg-gray-100"}`}>
             <Users className="w-5 h-5" />
             <span className="text-sm font-medium">Add Proctor</span>
           </button>
 
-          <button
-            onClick={() => setActiveTab("rescheduling")}
-            className={`w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg transition ${activeTab === "rescheduling"
-              ? "bg-blue-50 text-blue-700"
-              : isDark
-                ? "text-gray-300 hover:bg-gray-700"
-                : "text-gray-700 hover:bg-gray-100"
-              }`}
-          >
+          <button onClick={() => setActiveTab("rescheduling")} className={`w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg transition ${activeTab === "rescheduling" ? "bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400" : isDark ? "text-gray-300 hover:bg-gray-700" : "text-gray-700 hover:bg-gray-100"}`}>
             <ClipboardList className="w-5 h-5" />
             <span className="text-sm font-medium">Rescheduling Requests</span>
           </button>
 
-          <button
-            onClick={() => setActiveTab("monitoring")}
-            className={`w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg transition ${activeTab === "monitoring"
-              ? "bg-blue-50 text-blue-700"
-              : isDark
-                ? "text-gray-300 hover:bg-gray-700"
-                : "text-gray-700 hover:bg-gray-100"
-              }`}
-          >
+          <button onClick={() => setActiveTab("monitoring")} className={`w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg transition ${activeTab === "monitoring" ? "bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400" : isDark ? "text-gray-300 hover:bg-gray-700" : "text-gray-700 hover:bg-gray-100"}`}>
             <ShieldCheck className="w-5 h-5" />
             <span className="text-sm font-medium">Proctor Monitoring</span>
           </button>
 
-          <button
-            onClick={() => setActiveTab("rules")}
-            className={`w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg transition ${activeTab === "rules"
-              ? "bg-blue-50 text-blue-700"
-              : isDark
-                ? "text-gray-300 hover:bg-gray-700"
-                : "text-gray-700 hover:bg-gray-100"
-              }`}
-          >
+          <button onClick={() => setActiveTab("rules")} className={`w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg transition ${activeTab === "rules" ? "bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400" : isDark ? "text-gray-300 hover:bg-gray-700" : "text-gray-700 hover:bg-gray-100"}`}>
             <Target className="w-5 h-5" />
             <span className="text-sm font-medium">Distribution Rules</span>
           </button>
 
-          <button
-            className={`w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg transition ${isDark
-              ? "text-gray-300 hover:bg-gray-700"
-              : "text-gray-700 hover:bg-gray-100"
-              }`}
-          >
+          <button onClick={() => setActiveTab("scheduleStatus")} className={`w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg transition ${activeTab === "scheduleStatus" ? "bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400" : isDark ? "text-gray-300 hover:bg-gray-700" : "text-gray-700 hover:bg-gray-100"}`}>
+            <CalendarDays className="w-5 h-5" />
+            <span className="text-sm font-medium">Proctor Schedules</span>
+          </button>
+
+          <button className={`w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg transition ${isDark ? "text-gray-300 hover:bg-gray-700" : "text-gray-700 hover:bg-gray-100"}`}>
             <TrendingUp className="w-5 h-5" />
             <span className="text-sm font-medium">Analytics</span>
           </button>
 
-          <button
-            className={`w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg transition ${isDark
-              ? "text-gray-300 hover:bg-gray-700"
-              : "text-gray-700 hover:bg-gray-100"
-              }`}
-          >
+          <button className={`w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg transition ${isDark ? "text-gray-300 hover:bg-gray-700" : "text-gray-700 hover:bg-gray-100"}`}>
             <ClipboardList className="w-5 h-5" />
             <span className="text-sm font-medium">Reports</span>
           </button>
 
-          <button
-            className={`w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg transition ${isDark
-              ? "text-gray-300 hover:bg-gray-700"
-              : "text-gray-700 hover:bg-gray-100"
-              }`}
-          >
+          <button className={`w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg transition ${isDark ? "text-gray-300 hover:bg-gray-700" : "text-gray-700 hover:bg-gray-100"}`}>
             <BookOpen className="w-5 h-5" />
             <span className="text-sm font-medium">Resources</span>
           </button>
 
-          <button
-            className={`w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg transition ${isDark
-              ? "text-gray-300 hover:bg-gray-700"
-              : "text-gray-700 hover:bg-gray-100"
-              }`}
-          >
+          <button className={`w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg transition ${isDark ? "text-gray-300 hover:bg-gray-700" : "text-gray-700 hover:bg-gray-100"}`}>
             <Settings className="w-5 h-5" />
             <span className="text-sm font-medium">Settings</span>
           </button>
         </nav>
 
-        {/* Logout Button */}
-        {/* Logout Button Removed from Sidebar */}
-
-        {/* Footer */}
-        <footer
-          className={`text-xs text-center ${isDark ? "text-gray-500" : "text-gray-400"
-            }`}
-        >
+        <footer className={`text-xs text-center ${isDark ? "text-gray-500" : "text-gray-400"}`}>
           v1.0 • STI System
         </footer>
       </aside>
 
-      {/* Main Content */}
       <main className="flex-1 overflow-y-auto">
-        {/* Header */}
-        <header
-          className={`sticky top-0 z-50 backdrop-blur-xl border-b ${isDark
-            ? "bg-gray-900/70 border-gray-700"
-            : "bg-white/70 border-gray-200"
-            }`}
-        >
+        <header className={`sticky top-0 z-50 backdrop-blur-xl border-b ${isDark ? "bg-gray-900/70 border-gray-700" : "bg-white/70 border-gray-200"}`}>
           <div className="max-w-7xl mx-auto px-6 py-4">
             <div className="flex items-center justify-between">
               <div>
-                <h1
-                  className={`text-2xl font-bold ${isDark
-                    ? "text-white"
-                    : "text-gray-900"
-                    }`}
-                >
+                <h1 className={`text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
                   {activeTab === "generate"
                     ? "Exam Schedule Generator"
                     : activeTab === "schedules"
@@ -400,30 +293,19 @@ export default function ProgramHeadDashboard() {
                         ? "Proctor Management"
                         : activeTab === "monitoring"
                           ? "Proctor Attendance Monitoring"
-                          : "Rescheduling Requests"}
+                          : activeTab === "scheduleStatus"
+                            ? "Proctor Schedule Status"
+                            : "Rescheduling Requests"}
                 </h1>
-                <p
-                  className={`text-sm ${isDark ? "text-gray-400" : "text-gray-600"
-                    }`}
-                >
+                <p className={`text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}>
                   Program Head Dashboard • exam scheduling & management
                 </p>
               </div>
               <div className="flex items-center gap-3">
-                <div
-                  className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${isDark
-                    ? "bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.3)]"
-                    : "bg-blue-700 text-white shadow-md font-bold"
-                    }`}
-                >
+                <div className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${isDark ? "bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.3)]" : "bg-blue-700 text-white shadow-md"}`}>
                   ADMIN
                 </div>
-                <div
-                  className={`px-3 py-1 rounded-full text-xs font-medium ${isDark
-                    ? "bg-gray-700 text-gray-300"
-                    : "bg-gray-200 text-gray-700"
-                    }`}
-                >
+                <div className={`px-3 py-1 rounded-full text-xs font-medium ${isDark ? "bg-gray-700 text-gray-300" : "bg-gray-200 text-gray-700"}`}>
                   {activeTab === "generate"
                     ? "Schedule Mode"
                     : activeTab === "schedules"
@@ -432,17 +314,13 @@ export default function ProgramHeadDashboard() {
                         ? "Proctor Mode"
                         : activeTab === "monitoring"
                           ? "Monitoring Mode"
-                          : "Rescheduling Mode"}
+                          : activeTab === "scheduleStatus"
+                            ? "Schedule Status"
+                            : "Rescheduling Mode"}
                 </div>
                 <ThemeToggle />
                 <div className="relative">
-                  <button
-                    onClick={() => setShowNotifications(!showNotifications)}
-                    className={`relative p-2 rounded-xl transition ${isDark
-                      ? "text-gray-400 hover:text-gray-100 hover:bg-gray-700"
-                      : "text-gray-600 hover:text-gray-800 hover:bg-gray-100"
-                      }`}
-                  >
+                  <button onClick={() => setShowNotifications(!showNotifications)} className={`relative p-2 rounded-xl transition ${isDark ? "text-gray-400 hover:text-gray-100 hover:bg-gray-700" : "text-gray-600 hover:text-gray-800 hover:bg-gray-100"}`}>
                     <Bell className="w-5 h-5" />
                     {unreadCount > 0 && (
                       <span className="absolute -top-0.5 right-0.5 w-4 h-4 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center">
@@ -451,7 +329,6 @@ export default function ProgramHeadDashboard() {
                     )}
                   </button>
 
-                  {/* Notifications Dropdown */}
                   {showNotifications && (
                     <div className={`absolute right-0 mt-2 w-80 max-h-96 overflow-y-auto rounded-xl shadow-2xl border z-50 ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
                       <div className={`p-4 border-b ${isDark ? "border-gray-700" : "border-gray-100"}`}>
@@ -459,36 +336,16 @@ export default function ProgramHeadDashboard() {
                       </div>
                       <div className="p-2">
                         {notifications.length === 0 ? (
-                          <div className={`p-4 text-center text-sm ${isDark ? "text-gray-500" : "text-gray-400"}`}>
-                            No notifications
-                          </div>
+                          <div className={`p-4 text-center text-sm ${isDark ? "text-gray-500" : "text-gray-400"}`}>No notifications</div>
                         ) : (
                           notifications.map((notif) => (
-                            <div
-                              key={notif.id}
-                              onClick={() => {
-                                if (!notif.is_read) markRead(notif.id);
-                                // Optionally navigate or expand
-                                if (notif.related_id) setActiveTab("rescheduling");
-                              }}
-                              className={`p-3 rounded-lg cursor-pointer transition ${notif.is_read
-                                ? isDark ? "hover:bg-gray-700/50 opacity-70" : "hover:bg-gray-50 opacity-70"
-                                : isDark ? "bg-blue-900/20 hover:bg-blue-900/30 border border-blue-800/50" : "bg-blue-50 hover:bg-blue-100 border border-blue-100"
-                                }`}
-                            >
+                            <div key={notif.id} onClick={() => { if (!notif.is_read) markRead(notif.id); }} className={`p-3 rounded-lg cursor-pointer transition ${notif.is_read ? (isDark ? "hover:bg-gray-700/50 opacity-70" : "hover:bg-gray-50 opacity-70") : (isDark ? "bg-blue-900/20 hover:bg-blue-900/30 border border-blue-800/50" : "bg-blue-50 hover:bg-blue-100 border border-blue-100")}`}>
                               <div className="flex gap-3">
                                 <div className={`mt-1 w-2 h-2 rounded-full flex-shrink-0 ${notif.is_read ? "bg-gray-400" : "bg-blue-500"}`}></div>
                                 <div>
                                   <p className={`text-sm ${isDark ? "text-gray-200" : "text-gray-800"}`}>{notif.message}</p>
                                   <p className={`text-xs mt-1 ${isDark ? "text-gray-500" : "text-gray-400"}`}>
-                                    {notif.created_at ? new Date(notif.created_at).toLocaleString("en-US", {
-                                      month: "short",
-                                      day: "numeric",
-                                      year: "numeric",
-                                      hour: "numeric",
-                                      minute: "2-digit",
-                                      hour12: true
-                                    }) : "Just now"}
+                                    {notif.created_at ? new Date(notif.created_at).toLocaleString() : "Just now"}
                                   </p>
                                 </div>
                               </div>
@@ -499,13 +356,7 @@ export default function ProgramHeadDashboard() {
                     </div>
                   )}
                 </div>
-                <button
-                  onClick={handleLogout}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-xl transition group ${isDark
-                    ? "bg-gray-700 text-gray-200 hover:bg-red-900/20 hover:text-red-300"
-                    : "bg-gray-100 text-gray-700 hover:bg-red-50 hover:text-red-700"
-                    }`}
-                >
+                <button onClick={handleLogout} className={`flex items-center gap-2 px-3 py-2 rounded-xl transition group ${isDark ? "bg-gray-700 text-gray-200 hover:bg-red-900/20 hover:text-red-300" : "bg-gray-100 text-gray-700 hover:bg-red-50 hover:text-red-700"}`}>
                   <LogOut className="w-5 h-5 transition-transform group-hover:scale-110" />
                   <span className="text-sm font-medium">Logout</span>
                 </button>
@@ -514,96 +365,44 @@ export default function ProgramHeadDashboard() {
           </div>
         </header>
 
-        {/* Content Area */}
         <div className="max-w-7xl mx-auto px-6 py-6">
-          {/* Main Tab Content */}
-          <div
-            className={`rounded-lg border shadow-sm overflow-hidden ${isDark
-              ? "bg-gray-800 border-gray-700"
-              : "bg-white border-gray-200"
-              }`}
-          >
-            <div
-              className={`px-6 py-4 border-b ${isDark
-                ? "border-gray-700 bg-gray-700/50"
-                : "border-gray-200 bg-gray-50"
-                }`}
-            >
+          <div className={`rounded-lg border shadow-sm overflow-hidden ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
+            <div className={`px-6 py-4 border-b ${isDark ? "border-gray-700 bg-gray-700/50" : "border-gray-200 bg-gray-50"}`}>
               <div className="flex items-center gap-2">
-                {activeTab === "generate" ? (
-                  <Calendar
-                    className={`w-5 h-5 ${isDark ? "text-blue-400" : "text-blue-600"
-                      }`}
-                  />
-                ) : activeTab === "schedules" ? (
-                  <CalendarDays
-                    className={`w-5 h-5 ${isDark ? "text-blue-400" : "text-blue-600"
-                      }`}
-                  />
-                ) : activeTab === "proctors" ? (
-                  <Users
-                    className={`w-5 h-5 ${isDark ? "text-purple-400" : "text-purple-600"
-                      }`}
-                  />
-                ) : activeTab === "monitoring" ? (
-                  <ShieldCheck
-                    className={`w-5 h-5 ${isDark ? "text-teal-400" : "text-teal-600"
-                      }`}
-                  />
-                ) : (
-                  <ClipboardList
-                    className={`w-5 h-5 ${isDark ? "text-orange-400" : "text-orange-600"
-                      }`}
-                  />
-                )}
-                <h3
-                  className={`font-semibold ${isDark ? "text-white" : "text-gray-900"
-                    }`}
-                >
-                  {activeTab === "generate"
-                    ? "Exam Schedule Generator"
-                    : activeTab === "schedules"
-                      ? "Generated Exam Schedules"
-                      : activeTab === "proctors"
-                        ? "Proctor Management System"
-                        : activeTab === "monitoring"
-                          ? "Proctor Attendance Monitoring"
-                          : "Rescheduling Management System"}
+                {activeTab === "generate" ? <Calendar className={`w-5 h-5 ${isDark ? "text-blue-400" : "text-blue-600"}`} /> :
+                  activeTab === "schedules" ? <CalendarDays className={`w-5 h-5 ${isDark ? "text-blue-400" : "text-blue-600"}`} /> :
+                    activeTab === "proctors" ? <Users className={`w-5 h-5 ${isDark ? "text-purple-400" : "text-purple-600"}`} /> :
+                      activeTab === "monitoring" ? <ShieldCheck className={`w-5 h-5 ${isDark ? "text-teal-400" : "text-teal-600"}`} /> :
+                        activeTab === "scheduleStatus" ? <CalendarDays className={`w-5 h-5 ${isDark ? "text-emerald-400" : "text-emerald-600"}`} /> :
+                          <ClipboardList className={`w-5 h-5 ${isDark ? "text-orange-400" : "text-orange-600"}`} />}
+                <h3 className={`font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
+                  {activeTab === "generate" ? "Exam Schedule Generator" :
+                    activeTab === "schedules" ? "Generated Exam Schedules" :
+                      activeTab === "proctors" ? "Proctor Management System" :
+                        activeTab === "monitoring" ? "Proctor Attendance Monitoring" :
+                          activeTab === "scheduleStatus" ? "Proctor Schedule Status" :
+                            "Rescheduling Management System"}
                 </h3>
               </div>
             </div>
             <div className="p-6">
-              {activeTab === "generate" ? (
-                <ExamScheduler />
-              ) : activeTab === "schedules" ? (
-                <GeneratedExamSchedules />
-              ) : activeTab === "proctors" ? (
-                <AddProctor />
-              ) : activeTab === "rules" ? (
-                <DistributionRulesManager />
-              ) : activeTab === "monitoring" ? (
-                <ProctorMonitoring />
-              ) : (
-                <ReschedulingRequests />
-              )}
+              {activeTab === "generate" ? <ExamScheduler onBeforeGenerate={checkMissingSchedulesBeforeGenerate} /> :
+                activeTab === "schedules" ? <GeneratedExamSchedules /> :
+                  activeTab === "proctors" ? <AddProctor /> :
+                    activeTab === "rules" ? <DistributionRulesManager /> :
+                      activeTab === "monitoring" ? <ProctorMonitoring /> :
+                        activeTab === "scheduleStatus" ? <ProctorScheduleStatus /> :
+                          <ReschedulingRequests />}
             </div>
           </div>
 
-          {/* Feedback Widget - Bottom Section */}
           {activeTab === "generate" && (
             <div className={`mt-6 rounded-lg border shadow-sm overflow-hidden ${isDark ? "border-gray-700" : "border-gray-200"}`}>
-              <div
-                className={`${isDark
-                  ? "bg-gray-800"
-                  : "bg-white"
-                  } p-5`}
-              >
+              <div className={`${isDark ? "bg-gray-800" : "bg-white"} p-5`}>
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className={`font-bold mb-1 ${isDark ? "text-white" : "text-gray-900"}`}>How's Your Experience?</h3>
-                    <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>
-                      Tell us more about it and rate us
-                    </p>
+                    <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>Tell us more about it and rate us</p>
                   </div>
                   <Sparkles className="w-6 h-6 text-yellow-400" />
                 </div>
@@ -614,9 +413,7 @@ export default function ProgramHeadDashboard() {
                     </div>
                   </div>
                   <div className="flex-1">
-                    <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>
-                      Scan QR or visit feedback.sti.edu
-                    </p>
+                    <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>Scan QR or visit feedback.sti.edu</p>
                     <button className={`w-full mt-2 py-2 rounded-lg font-semibold text-sm transition ${isDark ? "bg-gray-700 text-white hover:bg-gray-600" : "bg-gray-100 text-gray-900 hover:bg-gray-200"}`}>
                       Give Feedback
                     </button>

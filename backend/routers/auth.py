@@ -23,16 +23,22 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
     if not verify_password(request.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid email or password")
     
+    # Normalize role for compatibility
+    backend_role = user.role
+    if backend_role == "teacher":
+        backend_role = "proctor"
+    
     return {
         "access_token": f"dummy-token-{user.id}",
         "token_type": "bearer",
-        "role": user.role,
+        "role": backend_role,
         "name": user.name,
         "email": user.email,
         "section_name": user.section_name,
         "teacher_id": user.teacher_id,
         "proctor_id": user.proctor_id,
-        "user_id": user.id
+        "user_id": user.id,
+        "student_type": user.student_type if user.role == "student" else None   # NEW
     }
 
 @router.get("/users")
@@ -45,7 +51,8 @@ def list_users(db: Session = Depends(get_db)):
             "email": u.email,
             "role": u.role,
             "section_name": u.section_name,
-            "teacher_id": u.teacher_id
+            "teacher_id": u.teacher_id,
+            "student_type": u.student_type
         }
         for u in users
     ]

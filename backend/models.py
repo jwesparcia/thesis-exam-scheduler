@@ -8,7 +8,7 @@ class Course(Base):
     __tablename__ = "courses"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, index=True)
-    category = Column(String, default="College") # College, SHS
+    category = Column(String, default="College")
     
     sections = relationship("Section", back_populates="course")
     subjects = relationship("Subject", back_populates="course")
@@ -30,6 +30,7 @@ class Teacher(Base):
     
     subjects = relationship("Subject", back_populates="teacher")
     schedules = relationship("TeacherSchedule", back_populates="teacher")
+    teachings = relationship("TeacherTeaching", back_populates="teacher")
 
 class Section(Base):
     __tablename__ = "sections"
@@ -50,10 +51,8 @@ class Subject(Base):
     year_level_id = Column(Integer, ForeignKey("year_levels.id"))
     semester = Column(Integer)
     teacher_id = Column(Integer, ForeignKey("teachers.id"))
-    
-    # New fields
-    exam_type = Column(String, default="written") # written, practical
-    category = Column(String, default="major")    # general, major
+    exam_type = Column(String, default="written")
+    category = Column(String, default="major")
     
     course = relationship("Course", back_populates="subjects")
     year_level = relationship("YearLevel", back_populates="subjects")
@@ -71,20 +70,31 @@ class Proctor(Base):
     department = Column(String, nullable=True)
     contact = Column(String, nullable=True)
     teacher_id = Column(Integer, ForeignKey("teachers.id"), nullable=True)
+    exclude_from_scheduling = Column(Boolean, default=False)
     
     teacher = relationship("Teacher")
     availabilities = relationship("ProctorAvailability", back_populates="proctor")
+
+class TeacherTeaching(Base):
+    __tablename__ = "teacher_teachings"
+    __table_args__ = {'extend_existing': True}
+    id = Column(Integer, primary_key=True, index=True)
+    teacher_id = Column(Integer, ForeignKey("teachers.id"))
+    subject_id = Column(Integer, ForeignKey("subjects.id"))
+    section_id = Column(Integer, ForeignKey("sections.id"))
+
+    teacher = relationship("Teacher", back_populates="teachings")
+    subject = relationship("Subject")
+    section = relationship("Section")
 
 class TeacherSchedule(Base):
     __tablename__ = "teacher_schedules"
     id = Column(Integer, primary_key=True, index=True)
     teacher_id = Column(Integer, ForeignKey("teachers.id"))
-    day_of_week = Column(Integer) # 0=Monday, 6=Sunday
+    day_of_week = Column(Integer)
     start_time = Column(Time)
     end_time = Column(Time)
     subject_name = Column(String, nullable=True)
-    
-    teacher = relationship("Teacher")
     is_published = Column(Boolean, default=False)
     
     teacher = relationship("Teacher", back_populates="schedules")
@@ -93,7 +103,7 @@ class ProctorAvailability(Base):
     __tablename__ = "proctor_availabilities"
     id = Column(Integer, primary_key=True, index=True)
     proctor_id = Column(Integer, ForeignKey("proctors.id"))
-    day_of_week = Column(Integer) # 0=Monday, 6=Sunday
+    day_of_week = Column(Integer)
     start_time = Column(Time)
     end_time = Column(Time)
     
@@ -118,10 +128,8 @@ class Exam(Base):
     course_id = Column(Integer, ForeignKey("courses.id"))
     year_level_id = Column(Integer, ForeignKey("year_levels.id"))
     semester = Column(Integer)
-    status = Column(String, default="draft") # draft, posted
-    proctor_attendance = Column(String, default="pending") # pending, attended
-    
-    # Updated to link to proctors table
+    status = Column(String, default="draft")
+    proctor_attendance = Column(String, default="pending")
     proctor_id = Column(Integer, ForeignKey("proctors.id"), nullable=True)
     
     subject = relationship("Subject")
@@ -143,23 +151,19 @@ class ReschedulingRequest(Base):
     school_email = Column(String)
     course_code = Column(String)
     course_name = Column(String)
-    
     original_exam_date = Column(Date)
     original_start_time = Column(Time)
     original_end_time = Column(Time)
-    
     exam_type = Column(String)
     reason_type = Column(String)
     detailed_explanation = Column(String)
     supporting_file = Column(String, nullable=True)
-    
     requested_mode = Column(String)
     preferred_date = Column(Date, nullable=True)
     preferred_start_time = Column(Time, nullable=True)
     preferred_end_time = Column(Time, nullable=True)
-    
     acknowledged = Column(Boolean, default=False)
-    status = Column(String, default="pending") # pending, approved, rejected
+    status = Column(String, default="pending")
     reviewer_comments = Column(String, nullable=True)
     
     exam = relationship("Exam", foreign_keys=[exam_id], primaryjoin="ReschedulingRequest.exam_id == Exam.id")
@@ -167,10 +171,10 @@ class ReschedulingRequest(Base):
 class Notification(Base):
     __tablename__ = "notifications"
     id = Column(Integer, primary_key=True, index=True)
-    recipient_type = Column(String) # student, program_head, proctor
-    recipient_id = Column(String)   # section_name, "admin", teacher_name
+    recipient_type = Column(String)
+    recipient_id = Column(String)
     message = Column(String)
-    type = Column(String) # info, success, error, warning
+    type = Column(String)
     related_id = Column(Integer, nullable=True)
     is_read = Column(Boolean, default=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
@@ -178,10 +182,10 @@ class Notification(Base):
 class DistributionRule(Base):
     __tablename__ = "distribution_rules"
     id = Column(Integer, primary_key=True, index=True)
-    category_type = Column(String) # general, major
-    year_level_id = Column(Integer, ForeignKey("year_levels.id"), nullable=True) # Null for general
-    allowed_days = Column(JSON) # e.g., [1, 2]
-    allowed_session = Column(String) # morning, afternoon, any
+    category_type = Column(String)
+    year_level_id = Column(Integer, ForeignKey("year_levels.id"), nullable=True)
+    allowed_days = Column(JSON)
+    allowed_session = Column(String)
     
     year_level = relationship("YearLevel", foreign_keys=[year_level_id])
 
@@ -191,7 +195,15 @@ class User(Base):
     name = Column(String, nullable=False)
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
-    role = Column(String, nullable=False)  # program_head, teacher, student
-    section_name = Column(String, nullable=True)  # for students only
-    teacher_id = Column(Integer, ForeignKey("teachers.id"), nullable=True)  # for teachers
-    proctor_id = Column(Integer, ForeignKey("proctors.id"), nullable=True)  # for proctors
+    role = Column(String, nullable=False)
+    section_name = Column(String, nullable=True)
+    teacher_id = Column(Integer, ForeignKey("teachers.id"), nullable=True)
+    proctor_id = Column(Integer, ForeignKey("proctors.id"), nullable=True)
+    student_type = Column(String, default="regular")  
+
+class IrregularSelection(Base):
+    __tablename__ = "irregular_selections"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    subject_id = Column(Integer, ForeignKey("subjects.id"))
+    section_id = Column(Integer, ForeignKey("sections.id"))

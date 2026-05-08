@@ -4,16 +4,19 @@ import { useTheme } from "../context/themeStore";
 import api from "../api";
 import { useToast } from "../context/ToastContext";
 
-export default function ExamScheduler() {
+export default function ExamScheduler({ onBeforeGenerate }) {
   const { theme } = useTheme();
   const isDark = theme === "dark";
   const [courses, setCourses] = useState([]);
   const [years, setYears] = useState([]);
   const [selectedDept, setSelectedDept] = useState(""); // "" (None), "College", or "SHS"
+  const [courseId, setCourseId] = useState("");
+  const [yearId, setYearId] = useState("");
+  const [semester, setSemester] = useState(1);
+  const [details, setDetails] = useState({ sections: [] });
   const [loading, setLoading] = useState(false);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  const [semester, setSemester] = useState(1);
   const [subjects, setSubjects] = useState([]);
   const [excludedSubjects, setExcludedSubjects] = useState(new Set());
   const [searchQuery, setSearchQuery] = useState("");
@@ -28,10 +31,8 @@ export default function ExamScheduler() {
   useEffect(() => {
     const fetchOptions = async () => {
       try {
-        console.log("Fetching courses...");
         const courseRes = await api.get("/catalog/courses");
         const yearRes = await api.get("/catalog/year-levels");
-
         setCourses(courseRes.data);
         setYears(yearRes.data);
       } catch (err) {
@@ -60,6 +61,48 @@ export default function ExamScheduler() {
     };
     fetchSubjects();
   }, [selectedDept, semester]);
+
+  // Fetch details when specific course/year/semester changes
+  useEffect(() => {
+    loadDetails();
+  }, [courseId, yearId, semester]);
+
+  const loadDetails = async () => {
+    if (!courseId || !yearId) {
+      setDetails({ sections: [] });
+      return;
+    }
+    try {
+      const res = await api.get(`/catalog/details?course_id=${courseId}&year_level_id=${yearId}&semester=${semester}`);
+      setDetails(res.data);
+    } catch (err) {
+      console.error("Error loading details:", err);
+    }
+  };
+
+  const filteredCourses = courses.filter(c => c.category === selectedDept);
+  const filteredYears = years.filter(y =>
+    selectedDept === "SHS" ? y.name.includes("Grade") : !y.name.includes("Grade")
+  );
+
+  // Reset subordinate filters when dept changes
+  useEffect(() => {
+    setCourseId("");
+    setYearId("");
+  }, [selectedDept]);
+
+  // Check for missing schedules before generation (warning only)
+  const checkMissingSchedules = async () => {
+    try {
+      const res = await api.get("/proctors/missing-schedules");
+      const missing = res.data.filter(p => !p.excluded);
+      if (missing.length > 0) {
+        showWarning(`${missing.length} proctor(s) have not uploaded their schedule. They will be skipped during scheduling. You can manage them in the "Proctor Schedules" tab.`);
+      }
+    } catch (err) {
+      console.error("Failed to check missing schedules", err);
+    }
+  };
   // Actual execution of generation
   const executeGeneration = async () => {
     setLoading(true);
@@ -71,9 +114,8 @@ export default function ExamScheduler() {
         semester: semester,
         excluded_subjects: Array.from(excludedSubjects)
       });
-
       const data = res.data;
-      showSuccess(data.message || "Schedule Generated! View it in the Generated Schedules tab.");
+      showSuccess(data.message);
     } catch (err) {
       console.error(err);
       showError("Error generating schedule");
@@ -98,6 +140,13 @@ export default function ExamScheduler() {
       return;
     }
 
+    // Call external warning from parent (if any)
+    if (onBeforeGenerate) {
+      await onBeforeGenerate();
+    }
+    // Also call local warning
+    await checkMissingSchedules();
+
     let msg = "";
     if (diffDays < 3 || diffDays > 5) {
       msg = `The selected range is ${diffDays} days (recommended is 4). Do you want to proceed? This will regenerate the schedule for ALL ${selectedDept} courses at once.`;
@@ -120,7 +169,6 @@ export default function ExamScheduler() {
   return (
     <div className={`min-h-screen ${isDark ? "bg-gray-900" : "bg-gray-50"} rounded-2xl`}>
       <div className="max-w-7xl mx-auto px-6 py-10">
-        {/* Header */}
         <div className="flex items-center justify-between gap-3 mb-8">
           <div className="flex items-center gap-3">
             <CalendarDays className="text-blue-500 w-8 h-8" />
@@ -130,15 +178,8 @@ export default function ExamScheduler() {
           </div>
         </div>
 
-        {/* Filters Card */}
-        <div
-          className={`rounded-xl p-6 border mb-10 ${isDark ? "bg-gray-700 border-gray-700" : "bg-white border-gray-200"
-            } shadow-sm`}
-        >
-          <h2
-            className={`text-xl font-semibold ${isDark ? "text-gray-300" : "text-gray-700"
-              } mb-4 flex items-center gap-2`}
-          >
+        <div className={`rounded-xl p-6 border mb-10 ${isDark ? "bg-gray-700 border-gray-700" : "bg-white border-gray-200"} shadow-sm`}>
+          <h2 className={`text-xl font-semibold ${isDark ? "text-gray-300" : "text-gray-700"} mb-4 flex items-center gap-2`}>
             <FileText className="w-5 h-5 text-blue-500" /> Schedule Filters
           </h2>
 
@@ -193,9 +234,58 @@ export default function ExamScheduler() {
             </div>
           </div>
 
-          {/* Step 2: Sequential Filters */}
           {selectedDept ? (
             <div className="space-y-8 animate-in fade-in slide-in-from-top-4 duration-500">
+              {/* Step 2: Course & Year (Optional Preview) */}
+              <div className="pt-4 border-t border-gray-100 dark:border-gray-800">
+                <label className={`block text-sm font-semibold mb-4 ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+                  2. Preview {selectedDept === "SHS" ? "Strand & Grade" : "Course & Year"} (Optional)
+                </label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className={`block text-xs font-medium uppercase tracking-wider ${isDark ? "text-gray-500" : "text-gray-400"}`}>
+                      {selectedDept === "SHS" ? "Strand" : "Course"}
+                    </label>
+                    <select
+                      value={courseId}
+                      onChange={(e) => setCourseId(Number(e.target.value))}
+                      className={`border rounded-xl cursor-pointer p-3 w-full focus:ring-2 focus:ring-blue-400 transition-all ${isDark
+                        ? "bg-gray-800 text-gray-200 border-gray-700"
+                        : "bg-gray-50 text-gray-700 border-gray-200"
+                        }`}
+                    >
+                      <option value="">{selectedDept === "SHS" ? "Choose a strand" : "Choose a course"}</option>
+                      {filteredCourses.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className={`block text-xs font-medium uppercase tracking-wider ${isDark ? "text-gray-500" : "text-gray-400"}`}>
+                      {selectedDept === "SHS" ? "Grade" : "Year Level"}
+                    </label>
+                    <select
+                      value={yearId}
+                      onChange={(e) => setYearId(Number(e.target.value))}
+                      className={`border rounded-xl p-3 w-full cursor-pointer focus:ring-2 focus:ring-blue-400 transition-all ${isDark
+                        ? "bg-gray-800 text-gray-200 border-gray-700"
+                        : "bg-gray-50 text-gray-700 border-gray-200"
+                        }`}
+                    >
+                      <option value="">{selectedDept === "SHS" ? "Choose a grade" : "Choose a year"}</option>
+                      {filteredYears.map((y) => (
+                        <option key={y.id} value={y.id}>
+                          {y.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
               {/* Exam Range */}
               <div className="pt-4 border-t border-gray-100 dark:border-gray-800">
                 <label className={`block text-sm font-semibold mb-4 ${isDark ? "text-gray-300" : "text-gray-700"}`}>
@@ -253,7 +343,7 @@ export default function ExamScheduler() {
                     {subjects.length - excludedSubjects.size} / {subjects.length} selected
                   </span>
                 </div>
-                
+
                 <p className={`text-xs mb-4 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
                   Uncheck subjects that do not require a written exam (e.g. Practicums, Project-based).
                 </p>
@@ -267,7 +357,7 @@ export default function ExamScheduler() {
                     className={`w-full rounded-xl pl-10 pr-4 py-2 text-sm focus:ring-2 focus:ring-blue-400 transition-all ${isDark
                       ? "bg-gray-800 text-gray-200 border-gray-700"
                       : "bg-gray-50 text-gray-700 border-gray-200 border"
-                    }`}
+                      }`}
                   />
                   <FileText className={`absolute left-3 top-2.5 w-4 h-4 ${isDark ? "text-gray-500" : "text-gray-400"}`} />
                 </div>
@@ -280,15 +370,14 @@ export default function ExamScheduler() {
                         .map(subject => {
                           const isChecked = !excludedSubjects.has(subject);
                           return (
-                            <label 
+                            <label
                               key={subject}
-                              className={`flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-all border ${
-                                isChecked 
+                              className={`flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-all border ${isChecked
                                   ? isDark ? "border-blue-900/50 bg-blue-900/10" : "border-blue-100 bg-blue-50/50"
                                   : isDark ? "border-gray-700 bg-gray-800" : "border-gray-200 bg-white"
-                              }`}
+                                }`}
                             >
-                              <input 
+                              <input
                                 type="checkbox"
                                 checked={isChecked}
                                 onChange={(e) => {
@@ -302,11 +391,10 @@ export default function ExamScheduler() {
                                 }}
                                 className="mt-1 w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
                               />
-                              <span className={`text-sm ${
-                                isChecked
+                              <span className={`text-sm ${isChecked
                                   ? isDark ? "text-gray-200" : "text-gray-800"
                                   : isDark ? "text-gray-500 line-through" : "text-gray-400 line-through"
-                              }`}>
+                                }`}>
                                 {subject}
                               </span>
                             </label>
@@ -351,9 +439,52 @@ export default function ExamScheduler() {
             </div>
           )}
         </div>
+
+
+        {details.sections.length > 0 && (
+          <div className={`rounded-xl p-6 mb-10 ${isDark ? "bg-gray-700 border border-gray-700" : "bg-white border border-gray-200"} shadow-sm`}>
+            <h2 className={`text-xl font-semibold ${isDark ? "text-gray-300" : "text-gray-800"} mb-4 flex items-center gap-2`}>
+              <BookOpen className="w-5 h-5 text-blue-500" /> Sections & Subjects
+            </h2>
+            <div className="space-y-6">
+              {details.sections.map((section) => (
+                <div key={section.id} className={`border rounded-lg p-4 hover:shadow-sm transition ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"}`}>
+                  <h3 className={`text-lg font-medium mb-3 ${isDark ? "text-blue-400" : "text-blue-700"}`}>
+                    {section.name}
+                  </h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm border-separate border-spacing-0">
+                      <thead className={`${isDark ? "bg-gray-700 text-gray-300" : "bg-gray-100 text-gray-700"}`}>
+                        <tr>
+                          <th className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-left">Subject Code</th>
+                          <th className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-left">Subject</th>
+                          <th className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-left">Instructor</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {section.subjects.length > 0 ? (
+                          section.subjects.map((s) => (
+                            <tr key={s.id} className="hover:bg-gray-50 dark:hover:bg-gray-600 transition">
+                              <td className={`${isDark ? "text-gray-200" : "text-gray-900"} border border-gray-300 dark:border-gray-600 px-3 py-2`}>{s.code}</td>
+                              <td className={`${isDark ? "text-gray-200" : "text-gray-900"} border border-gray-300 dark:border-gray-600 px-3 py-2`}>{s.name}</td>
+                              <td className={`${isDark ? "text-gray-200" : "text-gray-900"} border border-gray-300 dark:border-gray-600 px-3 py-2`}>{s.teacher}</td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan="3" className={`text-center px-3 py-4 ${isDark ? "text-gray-400" : "text-gray-500"}`}>No subjects available</td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Confirmation Modal */}
       {confirmModal.isOpen && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-50 p-4">
           <div className={`${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"} border rounded-2xl shadow-2xl max-w-md w-full p-8 animate-slide-in`}>
@@ -361,25 +492,11 @@ export default function ExamScheduler() {
               <div className="w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center mb-6">
                 <CalendarDays className="w-8 h-8 text-blue-500" />
               </div>
-              <h3 className={`text-xl font-bold mb-3 ${isDark ? "text-white" : "text-gray-900"}`}>
-                Confirm Regeneration
-              </h3>
-              <p className={`text-sm mb-8 ${isDark ? "text-gray-400" : "text-gray-600"} leading-relaxed`}>
-                {confirmModal.message}
-              </p>
+              <h3 className={`text-xl font-bold mb-3 ${isDark ? "text-white" : "text-gray-900"}`}>Confirm Regeneration</h3>
+              <p className={`text-sm mb-8 ${isDark ? "text-gray-400" : "text-gray-600"} leading-relaxed`}>{confirmModal.message}</p>
               <div className="flex gap-4 w-full">
-                <button
-                  onClick={() => setConfirmModal({ ...confirmModal, isOpen: false })}
-                  className={`flex-1 px-6 py-3 rounded-xl font-semibold transition ${isDark ? "bg-gray-700 text-gray-300 hover:bg-gray-600" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={confirmModal.onConfirm}
-                  className="flex-1 px-6 py-3 rounded-xl font-semibold bg-blue-600 text-white hover:bg-blue-700 transition shadow-lg shadow-blue-500/30"
-                >
-                  Proceed
-                </button>
+                <button onClick={() => setConfirmModal({ ...confirmModal, isOpen: false })} className={`flex-1 px-6 py-3 rounded-xl font-semibold transition ${isDark ? "bg-gray-700 text-gray-300 hover:bg-gray-600" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}>Cancel</button>
+                <button onClick={confirmModal.onConfirm} className="flex-1 px-6 py-3 rounded-xl font-semibold bg-blue-600 text-white hover:bg-blue-700 transition shadow-lg shadow-blue-500/30">Proceed</button>
               </div>
             </div>
           </div>

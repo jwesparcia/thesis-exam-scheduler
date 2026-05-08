@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session
 from database import get_db
-from models import Section, Subject, Exam, Room, Timeslot, Teacher
+from models import Section, Subject, Exam, Room, Timeslot, Teacher, Exam, DistributionRule, User, Proctor, ProctorAvailability, TeacherTeaching
 from datetime import datetime, timedelta, time, date
 import random
 
