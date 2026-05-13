@@ -109,7 +109,7 @@ export default function DistributionRulesManager() {
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
-                <h3 className="text-lg font-semibold">Distribution Rules</h3>
+                <h3 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>Distribution Rules</h3>
                 <button
                     onClick={() => setShowAddForm(true)}
                     className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
@@ -121,12 +121,12 @@ export default function DistributionRulesManager() {
 
             {showAddForm && (
                 <div className="p-4 border rounded-lg bg-gray-50 dark:bg-gray-800 dark:border-gray-700">
-                    <h4 className="font-medium mb-4">New Rule Configuration</h4>
+                    <h4 className={`font-medium mb-4 ${isDark ? "text-gray-200" : "text-gray-900"}`}>New Rule Configuration</h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm mb-1">Category</label>
+                            <label className={`block text-sm mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}>Category</label>
                             <select
-                                className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600"
+                                className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                                 value={newRule.category_type}
                                 onChange={e => setNewRule({ ...newRule, category_type: e.target.value })}
                             >
@@ -136,9 +136,9 @@ export default function DistributionRulesManager() {
                         </div>
 
                         <div>
-                            <label className="block text-sm mb-1">Year Level</label>
+                            <label className={`block text-sm mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}>Year Level</label>
                             <select
-                                className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600"
+                                className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                                 value={newRule.year_level_id}
                                 onChange={e => setNewRule({ ...newRule, year_level_id: e.target.value })}
                                 disabled={newRule.category_type === "general"}
@@ -151,9 +151,9 @@ export default function DistributionRulesManager() {
                         </div>
 
                         <div>
-                            <label className="block text-sm mb-1">Allowed Session</label>
+                            <label className={`block text-sm mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}>Allowed Session</label>
                             <select
-                                className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600"
+                                className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                                 value={newRule.allowed_session}
                                 onChange={e => setNewRule({ ...newRule, allowed_session: e.target.value })}
                             >
@@ -164,7 +164,7 @@ export default function DistributionRulesManager() {
                         </div>
 
                         <div>
-                            <label className="block text-sm mb-1">Allowed Days (Indices 1-5)</label>
+                            <label className={`block text-sm mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}>Allowed Days (Indices 1-5)</label>
                             <div className="flex gap-2">
                                 {[1, 2, 3, 4, 5].map(day => (
                                     <button

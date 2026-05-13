@@ -1,122 +1,142 @@
 import React, { useEffect, useState } from "react";
-import { Plus, Users } from "lucide-react";
+import { Plus, Users, Bell, Shield, ShieldOff, CheckCircle2, XCircle, RefreshCw } from "lucide-react";
 import { useTheme } from "../context/themeStore";
 import ThemeToggle from "../components/ThemeToggle";
-
-function showToast(message, isError = false) {
-  const toast = document.createElement("div");
-  toast.textContent = message;
-  toast.className = `
-    fixed bottom-6 left-1/2 transform -translate-x-1/2 
-    px-5 py-3 rounded-lg text-white text-sm z-50 shadow-lg
-    ${isError ? "bg-red-600" : "bg-emerald-600"}
-  `;
-  document.body.appendChild(toast);
-  setTimeout(() => (toast.style.opacity = "0"), 2200);
-  setTimeout(() => toast.remove(), 2700);
-}
+import api from "../api";
+import { useToast } from "../context/ToastContext";
 
 export default function AddProctor() {
   const { theme } = useTheme();
+  const { showSuccess, showError } = useToast();
   const [proctors, setProctors] = useState([]);
-  const [name, setName] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [fetching, setFetching] = useState(false);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch("http://localhost:8000/proctors");
-        if (res.ok) setProctors(await res.json());
-      } catch (e) {
-        console.error(e);
-      }
-    })();
-  }, []);
-
-  const addProctor = async () => {
-    if (!name.trim()) return showToast("⚠️ Please enter a proctor name.", true);
-
-    setLoading(true);
+  const fetchProctors = async () => {
+    setFetching(true);
     try {
-      const res = await fetch("http://localhost:8000/proctors", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name }),
-      });
-      if (!res.ok) throw new Error("Failed to add proctor");
-
-      const newProctor = await res.json();
-      setProctors((s) => [...s, newProctor]);
-      setName("");
-      showToast("✅ Proctor added successfully!");
-    } catch (err) {
-      console.error(err);
-      showToast("❌ Failed to add proctor.", true);
+      const res = await api.get("/proctors");
+      setProctors(res.data);
+    } catch (e) {
+      console.error(e);
+      showError("Failed to fetch proctors.");
     } finally {
-      setLoading(false);
+      setFetching(false);
     }
   };
 
+  useEffect(() => {
+    fetchProctors();
+  }, []);
 
+  const toggleExclude = async (id, currentExcluded) => {
+    try {
+      await api.post(`/proctors/${id}/exclude`);
+      showSuccess(`Proctor ${currentExcluded ? "included" : "excluded"} successfully`);
+      fetchProctors();
+    } catch {
+      showError("Failed to update exclusion status.");
+    }
+  };
+
+  const sendReminder = async (id, proctorName) => {
+    try {
+      await api.post(`/proctors/${id}/send-reminder`);
+      showSuccess(`Reminder sent to ${proctorName}`);
+    } catch {
+      showError("Failed to send reminder.");
+    }
+  };
+
+  const isDark = theme === "dark";
 
   return (
-    <div className={`space-y-8 ${theme === "dark" ? "bg-gray-800 text-white" : "bg-white text-gray-800"}`}>
-      <div className={`rounded-xl p-6 border ${theme === "dark" ? "bg-gray-700 border-gray-700" : "bg-white border-slate-200"} shadow-sm`}>
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <Users className="w-6 h-6 text-blue-600" />
-            <h2 className="text-lg font-medium">Add New Proctor</h2>
+    <div className={`space-y-8 ${isDark ? "bg-gray-800 text-white" : "bg-white text-gray-800"}`}>
+      <div>
+        <div className="flex justify-between items-end mb-4">
+          <div>
+            <h3 className={`text-xl font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>Proctor Management</h3>
+            <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+              Monitor schedule uploads and manage proctor availability for the upcoming exams.
+            </p>
           </div>
-          <ThemeToggle />
-        </div>
-
-        <div className="flex flex-col sm:flex-row gap-3">
-          <input
-            type="text"
-            placeholder="Enter proctor name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className={`flex-1 px-3 py-2 rounded-lg border focus:ring-2 focus:ring-blue-400 outline-none ${
-              theme === "dark" ? "bg-gray-600 text-white border-gray-600" : "bg-white border-slate-300 text-gray-800"
-            }`}
-          />
-          <button
-            onClick={addProctor}
-            disabled={loading}
-            className={`flex items-center justify-center gap-2 px-5 py-2 rounded-lg text-white font-medium transition ${
-              loading ? "bg-blue-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"
-            }`}
+          <button 
+            onClick={fetchProctors}
+            disabled={fetching}
+            className={`p-2 rounded-lg transition ${isDark ? "hover:bg-gray-700 text-gray-400" : "hover:bg-gray-100 text-gray-600"}`}
+            title="Refresh list"
           >
-            <Plus className="w-4 h-4" />
-            {loading ? "Adding..." : "Add Proctor"}
+            <RefreshCw className={`w-5 h-5 ${fetching ? "animate-spin" : ""}`} />
           </button>
         </div>
-      </div>
 
-      {/* Proctors now upload their own schedules from their personal dashboard */}
-
-      <div>
-        <h3 className="text-xl font-semibold mb-2">Proctor List</h3>
-        <p className={`text-xs mb-4 ${theme === "dark" ? "text-gray-400" : "text-gray-500"}`}>
-          Each proctor can upload their own teaching schedule after logging in to their portal.
-        </p>
-
-        {proctors.length === 0 ? (
-          <p>No proctors added yet.</p>
+        {proctors.length === 0 && !fetching ? (
+          <p className={isDark ? "text-gray-400" : "text-gray-600"}>No proctors added yet.</p>
         ) : (
-          <div className={`overflow-x-auto rounded-xl shadow-sm ${theme === "dark" ? "bg-gray-700 border border-gray-700" : "bg-white border border-slate-200"}`}>
+          <div className={`overflow-x-auto rounded-xl shadow-sm ${isDark ? "bg-gray-700 border border-gray-700" : "bg-white border border-slate-200"}`}>
             <table className="w-full text-sm">
-              <thead className={`${theme === "dark" ? "bg-gray-600 text-gray-100" : "bg-slate-50 text-slate-600"}`}>
+              <thead className={`${isDark ? "bg-gray-600 text-gray-100" : "bg-slate-50 text-slate-600"}`}>
                 <tr>
-                  <th className="py-2 px-3 text-left font-bold">ID</th>
-                  <th className="py-2 px-3 text-left font-bold">Name</th>
+                  <th className="py-3 px-4 text-left font-bold">Name</th>
+                  <th className="py-3 px-4 text-left font-bold">Schedule Status</th>
+                  <th className="py-3 px-4 text-left font-bold">System Status</th>
+                  <th className="py-3 px-4 text-right font-bold">Actions</th>
                 </tr>
               </thead>
-              <tbody className={`divide-y ${theme === "dark" ? "divide-gray-600 text-gray-200" : "divide-slate-100 text-gray-800"}`}>
+              <tbody className={`divide-y ${isDark ? "divide-gray-600 text-gray-200" : "divide-slate-100 text-gray-800"}`}>
                 {proctors.map((p) => (
-                  <tr key={p.id} className={`border-t ${theme === "dark" ? "border-gray-600 hover:bg-gray-600" : "border-slate-100 hover:bg-slate-50"} transition`}>
-                    <td className="py-2 px-3">{p.id}</td>
-                    <td className="py-2 px-3">{p.name}</td>
+                  <tr key={p.id} className={`border-t ${isDark ? "border-gray-600 hover:bg-gray-600/50" : "border-slate-100 hover:bg-slate-50"} transition`}>
+                    <td className="py-3 px-4">
+                      <div className="font-medium">{p.name}</div>
+                      <div className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>{p.department || "General"}</div>
+                    </td>
+                    <td className="py-3 px-4">
+                      {p.has_schedule ? (
+                        <div className="flex items-center gap-1.5 text-emerald-500 font-medium">
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>Uploaded</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1.5 text-amber-500 font-medium">
+                          <XCircle className="w-4 h-4" />
+                          <span>No Schedule</span>
+                        </div>
+                      )}
+                    </td>
+                    <td className="py-3 px-4">
+                      {p.exclude_from_scheduling ? (
+                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400`}>
+                          Excluded
+                        </span>
+                      ) : (
+                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400`}>
+                          Active
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-3 px-4 text-right">
+                      <div className="flex justify-end gap-2">
+                        {!p.has_schedule && (
+                          <button
+                            onClick={() => sendReminder(p.id, p.name)}
+                            className={`p-2 rounded-lg transition ${isDark ? "hover:bg-blue-900/30 text-blue-400" : "hover:bg-blue-50 text-blue-600"}`}
+                            title="Send Reminder"
+                          >
+                            <Bell className="w-4 h-4" />
+                          </button>
+                        )}
+                        <button
+                          onClick={() => toggleExclude(p.id, p.exclude_from_scheduling)}
+                          className={`p-2 rounded-lg transition ${
+                            p.exclude_from_scheduling
+                              ? (isDark ? "hover:bg-emerald-900/30 text-emerald-400" : "hover:bg-emerald-50 text-emerald-600")
+                              : (isDark ? "hover:bg-red-900/30 text-red-400" : "hover:bg-red-50 text-red-600")
+                          }`}
+                          title={p.exclude_from_scheduling ? "Include in Scheduling" : "Exclude from Scheduling"}
+                        >
+                          {p.exclude_from_scheduling ? <Shield className="w-4 h-4" /> : <ShieldOff className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>

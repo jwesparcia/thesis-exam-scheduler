@@ -6,9 +6,7 @@ import {
   Settings,
   Bell,
   LayoutGrid,
-  TrendingUp,
   ClipboardList,
-  BookOpen,
   Target,
   Sparkles,
   CalendarDays,
@@ -23,7 +21,7 @@ import { useNavigate } from "react-router-dom";
 import DistributionRulesManager from "../components/DistributionRulesManager";
 import GeneratedExamSchedules from "../components/GeneratedExamSchedules";
 import ProctorMonitoring from "../components/ProctorMonitoring";
-import ProctorScheduleStatus from "../components/ProctorScheduleStatus";
+import SettingsDropdown from "../components/SettingsDropdown";
 
 import api from "../api";
 import { useToast } from "../context/ToastContext";
@@ -145,6 +143,7 @@ function ReschedulingRequests() {
   );
 }
 
+
 export default function ProgramHeadDashboard() {
   const [activeTab, setActiveTab] = useState("generate");
   const { theme } = useTheme();
@@ -193,7 +192,7 @@ export default function ProgramHeadDashboard() {
       const res = await api.get("/proctors/missing-schedules");
       const missing = res.data.filter(p => !p.excluded);
       if (missing.length > 0) {
-        showWarning(`${missing.length} proctor(s) have not uploaded their schedule. They will be skipped during scheduling. You can manage them in the "Proctor Schedules" tab.`);
+        showWarning(`${missing.length} proctor(s) have not uploaded their schedule. They will be skipped during scheduling. You can manage them in the "Proctor Management" tab.`);
       }
     } catch (err) {
       console.error("Failed to check missing schedules", err);
@@ -230,7 +229,7 @@ export default function ProgramHeadDashboard() {
 
           <button onClick={() => setActiveTab("proctors")} className={`w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg transition ${activeTab === "proctors" ? "bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400" : isDark ? "text-gray-300 hover:bg-gray-700" : "text-gray-700 hover:bg-gray-100"}`}>
             <Users className="w-5 h-5" />
-            <span className="text-sm font-medium">Add Proctor</span>
+            <span className="text-sm font-medium">Proctor Management</span>
           </button>
 
           <button onClick={() => setActiveTab("rescheduling")} className={`w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg transition ${activeTab === "rescheduling" ? "bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400" : isDark ? "text-gray-300 hover:bg-gray-700" : "text-gray-700 hover:bg-gray-100"}`}>
@@ -248,30 +247,9 @@ export default function ProgramHeadDashboard() {
             <span className="text-sm font-medium">Distribution Rules</span>
           </button>
 
-          <button onClick={() => setActiveTab("scheduleStatus")} className={`w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg transition ${activeTab === "scheduleStatus" ? "bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400" : isDark ? "text-gray-300 hover:bg-gray-700" : "text-gray-700 hover:bg-gray-100"}`}>
-            <CalendarDays className="w-5 h-5" />
-            <span className="text-sm font-medium">Proctor Schedules</span>
-          </button>
 
-          <button className={`w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg transition ${isDark ? "text-gray-300 hover:bg-gray-700" : "text-gray-700 hover:bg-gray-100"}`}>
-            <TrendingUp className="w-5 h-5" />
-            <span className="text-sm font-medium">Analytics</span>
-          </button>
 
-          <button className={`w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg transition ${isDark ? "text-gray-300 hover:bg-gray-700" : "text-gray-700 hover:bg-gray-100"}`}>
-            <ClipboardList className="w-5 h-5" />
-            <span className="text-sm font-medium">Reports</span>
-          </button>
 
-          <button className={`w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg transition ${isDark ? "text-gray-300 hover:bg-gray-700" : "text-gray-700 hover:bg-gray-100"}`}>
-            <BookOpen className="w-5 h-5" />
-            <span className="text-sm font-medium">Resources</span>
-          </button>
-
-          <button className={`w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg transition ${isDark ? "text-gray-300 hover:bg-gray-700" : "text-gray-700 hover:bg-gray-100"}`}>
-            <Settings className="w-5 h-5" />
-            <span className="text-sm font-medium">Settings</span>
-          </button>
         </nav>
 
         <footer className={`text-xs text-center ${isDark ? "text-gray-500" : "text-gray-400"}`}>
@@ -293,9 +271,7 @@ export default function ProgramHeadDashboard() {
                         ? "Proctor Management"
                         : activeTab === "monitoring"
                           ? "Proctor Attendance Monitoring"
-                          : activeTab === "scheduleStatus"
-                            ? "Proctor Schedule Status"
-                            : "Rescheduling Requests"}
+                          : "Rescheduling Requests"}
                 </h1>
                 <p className={`text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}>
                   Program Head Dashboard • exam scheduling & management
@@ -314,11 +290,8 @@ export default function ProgramHeadDashboard() {
                         ? "Proctor Mode"
                         : activeTab === "monitoring"
                           ? "Monitoring Mode"
-                          : activeTab === "scheduleStatus"
-                            ? "Schedule Status"
-                            : "Rescheduling Mode"}
+                          : "Rescheduling Mode"}
                 </div>
-                <ThemeToggle />
                 <div className="relative">
                   <button onClick={() => setShowNotifications(!showNotifications)} className={`relative p-2 rounded-xl transition ${isDark ? "text-gray-400 hover:text-gray-100 hover:bg-gray-700" : "text-gray-600 hover:text-gray-800 hover:bg-gray-100"}`}>
                     <Bell className="w-5 h-5" />
@@ -356,10 +329,7 @@ export default function ProgramHeadDashboard() {
                     </div>
                   )}
                 </div>
-                <button onClick={handleLogout} className={`flex items-center gap-2 px-3 py-2 rounded-xl transition group ${isDark ? "bg-gray-700 text-gray-200 hover:bg-red-900/20 hover:text-red-300" : "bg-gray-100 text-gray-700 hover:bg-red-50 hover:text-red-700"}`}>
-                  <LogOut className="w-5 h-5 transition-transform group-hover:scale-110" />
-                  <span className="text-sm font-medium">Logout</span>
-                </button>
+                <SettingsDropdown onLogout={handleLogout} isDark={isDark} />
               </div>
             </div>
           </div>
@@ -373,15 +343,13 @@ export default function ProgramHeadDashboard() {
                   activeTab === "schedules" ? <CalendarDays className={`w-5 h-5 ${isDark ? "text-blue-400" : "text-blue-600"}`} /> :
                     activeTab === "proctors" ? <Users className={`w-5 h-5 ${isDark ? "text-purple-400" : "text-purple-600"}`} /> :
                       activeTab === "monitoring" ? <ShieldCheck className={`w-5 h-5 ${isDark ? "text-teal-400" : "text-teal-600"}`} /> :
-                        activeTab === "scheduleStatus" ? <CalendarDays className={`w-5 h-5 ${isDark ? "text-emerald-400" : "text-emerald-600"}`} /> :
-                          <ClipboardList className={`w-5 h-5 ${isDark ? "text-orange-400" : "text-orange-600"}`} />}
+                        <ClipboardList className={`w-5 h-5 ${isDark ? "text-orange-400" : "text-orange-600"}`} />}
                 <h3 className={`font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
                   {activeTab === "generate" ? "Exam Schedule Generator" :
                     activeTab === "schedules" ? "Generated Exam Schedules" :
                       activeTab === "proctors" ? "Proctor Management System" :
                         activeTab === "monitoring" ? "Proctor Attendance Monitoring" :
-                          activeTab === "scheduleStatus" ? "Proctor Schedule Status" :
-                            "Rescheduling Management System"}
+                          "Rescheduling Management System"}
                 </h3>
               </div>
             </div>
@@ -391,8 +359,7 @@ export default function ProgramHeadDashboard() {
                   activeTab === "proctors" ? <AddProctor /> :
                     activeTab === "rules" ? <DistributionRulesManager /> :
                       activeTab === "monitoring" ? <ProctorMonitoring /> :
-                        activeTab === "scheduleStatus" ? <ProctorScheduleStatus /> :
-                          <ReschedulingRequests />}
+                        <ReschedulingRequests />}
             </div>
           </div>
 

@@ -21,6 +21,7 @@ import ThemeToggle from "../components/ThemeToggle";
 import { useUser } from "../context/userStore";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "../context/ToastContext";
+import SettingsDropdown from "../components/SettingsDropdown";
 
 export default function ProctorDashboard() {
   const { theme } = useTheme();
@@ -185,7 +186,7 @@ export default function ProctorDashboard() {
   if (!user) {
     return (
       <div className={`min-h-screen ${isDark ? "bg-gray-900" : "bg-gray-50"} flex items-center justify-center`}>
-        <p className={isDark ? "text-gray-400" : "text-gray-600"}>Redirecting to login...</p>
+        <p className={isDark ? "text-gray-300" : "text-gray-600"}>Redirecting to login...</p>
       </div>
     );
   }
@@ -218,10 +219,6 @@ export default function ProctorDashboard() {
             <Bell className="w-5 h-5" />
             <span className="text-sm font-medium">Notifications</span>
           </button>
-          <button onClick={() => setActiveTab("settings")} className={`w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg transition ${activeTab === "settings" ? "bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400" : isDark ? "text-gray-300 hover:bg-gray-800" : "text-gray-700 hover:bg-gray-100"}`}>
-            <Settings className="w-5 h-5" />
-            <span className="text-sm font-medium">Settings</span>
-          </button>
         </nav>
         <footer className={`text-xs text-center p-4 rounded-lg ${isDark ? "bg-gray-800/50 text-gray-500" : "bg-gray-50 text-gray-400"}`}>
           v1.0 • STI System
@@ -245,7 +242,6 @@ export default function ProctorDashboard() {
                 <div className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${isDark ? "bg-green-600/20 text-green-400 border border-green-600/30" : "bg-green-600 text-white shadow-sm"}`}>
                   PROCTOR
                 </div>
-                <ThemeToggle />
                 <div className="relative">
                   <button
                     onClick={() => setShowNotifications(!showNotifications)}
@@ -289,10 +285,7 @@ export default function ProctorDashboard() {
                     </div>
                   )}
                 </div>
-                <button onClick={handleLogout} className={`flex items-center gap-2 px-3 py-2 rounded-xl transition group ${isDark ? "bg-gray-800 text-gray-200 hover:bg-red-900/20 hover:text-red-300" : "bg-gray-100 text-gray-700 hover:bg-red-50 hover:text-red-700"}`}>
-                  <LogOut className="w-5 h-5 transition-transform group-hover:scale-110" />
-                  <span className="text-sm font-medium">Logout</span>
-                </button>
+                <SettingsDropdown onLogout={handleLogout} isDark={isDark} />
               </div>
             </div>
           </div>

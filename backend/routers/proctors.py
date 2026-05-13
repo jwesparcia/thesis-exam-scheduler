@@ -32,11 +32,20 @@ def get_proctors(db: Session = Depends(get_db)):
     proctors = db.query(models.Proctor).all()
     result = []
     for p in proctors:
+        has_schedule = False
+        if p.teacher_id:
+            sched_count = db.query(models.TeacherSchedule).filter(
+                models.TeacherSchedule.teacher_id == p.teacher_id
+            ).count()
+            has_schedule = sched_count > 0
+
         result.append({
             "id": p.id,
             "name": p.name,
             "department": p.department,
             "contact": p.contact,
+            "has_schedule": has_schedule,
+            "exclude_from_scheduling": p.exclude_from_scheduling,
             "availability": [
                 {
                     "day_of_week": a.day_of_week,

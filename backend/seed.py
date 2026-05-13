@@ -1,7 +1,7 @@
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, Session
 from database import SessionLocal, engine
-from models import Base, Course, YearLevel, Section, Subject, Room, Timeslot, Teacher, Exam, DistributionRule, User, Proctor, ProctorAvailability
+from models import Base, Course, YearLevel, Section, Subject, Room, Timeslot, Teacher, Exam, DistributionRule, User, Proctor, ProctorAvailability, IrregularSelection
 import bcrypt
 from datetime import date, time, timedelta, datetime
 import random
@@ -16,7 +16,7 @@ def reset_db():
             # List all tables to be safe.
             tables = [
                 "notifications", "rescheduling_requests", "distribution_rules", "exams",
-                "timeslots", "rooms", "subjects", "sections", "proctor_availabilities", "teacher_schedules", "proctors", "teachers", "year_levels", "courses", "users"
+                "timeslots", "rooms", "subjects", "sections", "proctor_availabilities", "teacher_schedules", "proctors", "teachers", "year_levels", "courses", "users", "irregular_selections"
             ]
             for table in tables:
                 connection.execute(text(f"DROP TABLE IF EXISTS {table} CASCADE"))
@@ -1014,9 +1014,6 @@ proctor_names = [
     "C Sulapas", "V Vargas", "J Villaganas", "R Villarete"
 ]
 
-# Add 100 more generic proctors to ensure coverage
-for i in range(1, 101):
-    proctor_names.append(f"Proctor {i}")
 
 
 for name in proctor_names:
@@ -1073,10 +1070,23 @@ for course in courses:
 
 
 db.commit()
-print(f"Successfully seeded {student_count-1} student accounts!")
+
+# --- Irregular Student Account ---
+irreg_student = User(
+    name="Irregular Student",
+    email="irreg@school.edu",
+    hashed_password=hash_password("student123"),
+    role="student",
+    student_type="irregular",
+)
+db.add(irreg_student)
+db.commit()
+
+print(f"Successfully seeded {student_count-1} student accounts and 1 irregular student account!")
 print("Dummy users seeded successfully!")
 print("\n=== DUMMY LOGIN CREDENTIALS ===")
 print("Program Head : admin@school.edu       / admin123")
+print("Irreg Student: irreg@school.edu       / student123")
 print("Students     : student1@school.edu ... student5@school.edu / student123")
 
 # ─── Step 2: Add missing DB columns (idempotent migration) ───────────────────
@@ -1084,8 +1094,17 @@ print("\n[Step 2] Running migrations...")
 from sqlalchemy import text as _text
 with engine.connect() as _conn:
     _conn.execute(_text("ALTER TABLE teacher_schedules ADD COLUMN IF NOT EXISTS is_published BOOLEAN DEFAULT FALSE"))
+    _conn.execute(_text("ALTER TABLE users ADD COLUMN IF NOT EXISTS student_type VARCHAR DEFAULT 'regular'"))
+    _conn.execute(_text("""
+        CREATE TABLE IF NOT EXISTS irregular_selections (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER REFERENCES users(id),
+            subject_id INTEGER REFERENCES subjects(id),
+            section_id INTEGER REFERENCES sections(id)
+        )
+    """))
     _conn.commit()
-print("  [OK] teacher_schedules.is_published column ensured.")
+print("  [OK] teacher_schedules.is_published, users.student_type, and irregular_selections table ensured.")
 
 # ─── Step 3: Seed proctors from Excel ───────────────────────────────────────
 # print("\n[Step 3] Seeding proctor accounts from ICT SY2526 T2.xlsx...")

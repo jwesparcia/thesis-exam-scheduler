@@ -54,7 +54,7 @@ export default function ProctorScheduleStatus() {
                         <tbody>
                             {missing.map(p => (
                                 <tr key={p.id} className={`border-t ${isDark ? "border-gray-700" : "border-gray-200"}`}>
-                                    <td className="px-4 py-3">{p.name}</td>
+                                    <td className={`px-4 py-3 ${isDark ? "text-gray-200" : "text-gray-900"}`}>{p.name}</td>
                                     <td className="px-4 py-3">{p.excluded ? <span className="px-2 py-1 rounded-full bg-red-100 text-red-700 text-xs">Excluded</span> : <span className="px-2 py-1 rounded-full bg-yellow-100 text-yellow-700 text-xs">No Schedule</span>}</td>
                                     <td className="px-4 py-3 text-right space-x-2">
                                         <button onClick={() => toggleExclude(p.id, p.excluded)} className="px-3 py-1 rounded bg-gray-200 dark:bg-gray-600 text-xs">{p.excluded ? "Include" : "Exclude"}</button>

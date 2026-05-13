@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { Search, LogOut, Calendar, Clock, MapPin, BookOpen, ChevronRight, Bell, UserCheck, Edit, X, Send } from "lucide-react";
+import { Search, LogOut, Calendar, Clock, MapPin, BookOpen, ChevronRight, Bell, UserCheck, Edit, X, Send, Settings } from "lucide-react";
 import { useTheme } from "../context/themeStore";
 import ThemeToggle from "../components/ThemeToggle";
 import { useUser } from "../context/userStore";
 import { useNavigate } from "react-router-dom";
 import api from "../api";
 import { useToast } from "../context/ToastContext";
+import SettingsDropdown from "../components/SettingsDropdown";
 
 function formatDate(dateStr) {
   if (!dateStr) return "";
@@ -241,7 +242,7 @@ export default function StudentDashboard() {
       {showTypeModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className={`p-6 rounded-2xl max-w-md w-full ${isDark ? "bg-gray-800" : "bg-white"}`}>
-            <h2 className="text-xl font-bold mb-4">Select Your Student Type</h2>
+            <h2 className={`text-xl font-bold mb-4 ${isDark ? "text-white" : "text-gray-900"}`}>Select Your Student Type</h2>
             <div className="flex gap-4 mb-6">
               <button onClick={() => setSelectedType("regular")} className={`flex-1 py-3 rounded-xl font-semibold ${selectedType === "regular" ? "bg-blue-600 text-white" : "bg-gray-200"}`}>Regular</button>
               <button onClick={() => setSelectedType("irregular")} className={`flex-1 py-3 rounded-xl font-semibold ${selectedType === "irregular" ? "bg-blue-600 text-white" : "bg-gray-200"}`}>Irregular</button>
@@ -275,29 +276,25 @@ export default function StudentDashboard() {
             <div className="flex items-center gap-3">
               <div className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${isDark ? "bg-emerald-600 text-white shadow-[0_0_15px_rgba(5,150,105,0.3)]" : "bg-emerald-600 text-white shadow-md"}`}>STUDENT</div>
               <button onClick={() => setShowTypeModal(true)} className="px-3 py-1 rounded-full text-xs font-medium bg-gray-200">Change Type</button>
-              <ThemeToggle />
-              <div className="relative">
-                <button onClick={() => setShowNotifications(!showNotifications)} className={`relative p-2 rounded-xl transition ${isDark ? "text-gray-400 hover:text-gray-100 hover:bg-gray-700" : "text-gray-600 hover:text-gray-800 hover:bg-gray-100"}`}>
-                  <Bell className="w-5 h-5" />
-                  {unreadCount > 0 && <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center">{unreadCount}</span>}
-                </button>
-                {showNotifications && (
-                  <div className={`absolute right-0 mt-2 w-80 max-h-96 overflow-y-auto rounded-xl shadow-2xl border z-50 ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
-                    <div className={`p-4 border-b ${isDark ? "border-gray-700" : "border-gray-100"}`}><h3 className={`font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>Notifications</h3></div>
-                    <div className="p-2">
-                      {notifications.length === 0 ? <div className="p-4 text-center text-sm text-gray-500">No notifications</div> : notifications.map((notif) => (
-                        <div key={notif.id} onClick={() => { if (!notif.is_read) markRead(notif.id); }} className={`p-3 rounded-lg cursor-pointer transition ${notif.is_read ? (isDark ? "hover:bg-gray-700/50 opacity-70" : "hover:bg-gray-50 opacity-70") : (isDark ? "bg-blue-900/20 hover:bg-blue-900/30 border border-blue-800/50" : "bg-blue-50 hover:bg-blue-100 border border-blue-100")}`}>
-                          <div className="flex gap-3"><div className={`mt-1 w-2 h-2 rounded-full flex-shrink-0 ${notif.is_read ? "bg-gray-400" : "bg-blue-500"}`}></div><div><p className="text-sm">{notif.message}</p><p className="text-xs mt-1 text-gray-400">{notif.created_at ? new Date(notif.created_at).toLocaleString() : "Just now"}</p></div></div>
-                        </div>
-                      ))}
+                <div className="relative">
+                  <button onClick={() => setShowNotifications(!showNotifications)} className={`relative p-2 rounded-xl transition ${isDark ? "text-gray-400 hover:text-gray-100 hover:bg-gray-700" : "text-gray-600 hover:text-gray-800 hover:bg-gray-100"}`}>
+                    <Bell className="w-5 h-5" />
+                    {unreadCount > 0 && <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center">{unreadCount}</span>}
+                  </button>
+                  {showNotifications && (
+                    <div className={`absolute right-0 mt-2 w-80 max-h-96 overflow-y-auto rounded-xl shadow-2xl border z-50 ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
+                      <div className={`p-4 border-b ${isDark ? "border-gray-700" : "border-gray-100"}`}><h3 className={`font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>Notifications</h3></div>
+                      <div className="p-2">
+                        {notifications.length === 0 ? <div className="p-4 text-center text-sm text-gray-500">No notifications</div> : notifications.map((notif) => (
+                          <div key={notif.id} onClick={() => { if (!notif.is_read) markRead(notif.id); }} className={`p-3 rounded-lg cursor-pointer transition ${notif.is_read ? (isDark ? "hover:bg-gray-700/50 opacity-70" : "hover:bg-gray-50 opacity-70") : (isDark ? "bg-blue-900/20 hover:bg-blue-900/30 border border-blue-800/50" : "bg-blue-50 hover:bg-blue-100 border border-blue-100")}`}>
+                            <div className="flex gap-3"><div className={`mt-1 w-2 h-2 rounded-full flex-shrink-0 ${notif.is_read ? "bg-gray-400" : "bg-blue-500"}`}></div><div><p className="text-sm">{notif.message}</p><p className="text-xs mt-1 text-gray-400">{notif.created_at ? new Date(notif.created_at).toLocaleString() : "Just now"}</p></div></div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
-              </div>
-              <button onClick={handleLogout} className={`flex items-center gap-2 px-3 py-2 rounded-xl transition group ${isDark ? "bg-gray-700 text-gray-200 hover:bg-red-900/20 hover:text-red-300" : "bg-gray-100 text-gray-700 hover:bg-red-50 hover:text-red-700"}`}>
-                <LogOut className="w-5 h-5 transition-transform group-hover:scale-110" />
-                <span className="text-sm font-medium">Logout</span>
-              </button>
+                  )}
+                </div>
+                <SettingsDropdown onLogout={handleLogout} isDark={isDark} />
             </div>
           </div>
         </div>
@@ -317,14 +314,14 @@ export default function StudentDashboard() {
       {user?.student_type === "irregular" && (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className={`p-5 rounded-xl shadow-sm border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
-            <h3 className="text-lg font-semibold mb-3">Customize Your Exam Schedule</h3>
+            <h3 className={`text-lg font-semibold mb-3 ${isDark ? "text-white" : "text-gray-900"}`}>Customize Your Exam Schedule</h3>
             <div className="flex gap-2 mb-4">
               <input type="text" placeholder="Search subject code or name" value={irregularSearchTerm} onChange={(e) => setIrregularSearchTerm(e.target.value)} className={`flex-1 p-2 rounded-lg border ${isDark ? "bg-gray-700 border-gray-600" : "bg-white border-gray-300"}`} />
             </div>
             <div className="max-h-64 overflow-y-auto mb-4 space-y-2">
               {availableSubjects.filter(s => s.name.toLowerCase().includes(irregularSearchTerm.toLowerCase()) || s.code.toLowerCase().includes(irregularSearchTerm.toLowerCase())).map(sub => (
                 <div key={sub.id} className={`p-3 rounded-lg border ${isDark ? "border-gray-700" : "border-gray-200"}`}>
-                  <div className="font-semibold">{sub.code} - {sub.name}</div>
+                  <div className={`font-semibold ${isDark ? "text-gray-100" : "text-gray-900"}`}>{sub.code} - {sub.name}</div>
                   <div className="flex flex-wrap gap-2 mt-2">
                     {sub.sections.map(sec => {
                       const isSubjectSelected = selectedSubjects.some(sel => sel.subject_id === sub.id);
@@ -345,14 +342,14 @@ export default function StudentDashboard() {
             </div>
             {selectedSubjects.length > 0 && (
               <div className="mt-4">
-                <h4 className="font-semibold mb-2">Selected Subjects & Sections</h4>
+                <h4 className={`font-semibold mb-2 ${isDark ? "text-white" : "text-gray-900"}`}>Selected Subjects & Sections</h4>
                 <ul className="space-y-1">
                   {selectedSubjects.map((sel, idx) => {
                     const sub = availableSubjects.find(s => s.id === sel.subject_id);
                     const sec = sub?.sections.find(s => s.id === sel.section_id);
                     return (
                       <li key={idx} className="flex justify-between items-center text-sm">
-                        <span>{sub?.code} - {sub?.name} ({sec?.name})</span>
+                        <span className={isDark ? "text-gray-200" : "text-gray-800"}>{sub?.code} - {sub?.name} ({sec?.name})</span>
                         <button onClick={() => removeSubjectSelection(idx)} className="text-red-500 text-xs">Remove</button>
                       </li>
                     );
