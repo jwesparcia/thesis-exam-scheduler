@@ -194,86 +194,111 @@ export default function ProctorDashboard() {
   const unreadCount = notifications.filter(n => !n.is_read).length;
 
   return (
-    <div className={`min-h-screen flex ${isDark ? "bg-gray-900" : "bg-gray-50"}`}>
+    <div className={`min-h-screen flex transition-colors duration-300 ${isDark ? "bg-slate-900" : "bg-slate-50"}`}>
+      {showNotifications && (
+        <div className="fixed inset-0 z-40 bg-black/20 backdrop-blur-sm transition-opacity" onClick={() => setShowNotifications(false)}></div>
+      )}
+
       {/* Sidebar */}
-      <aside className={`w-64 px-4 py-6 flex flex-col gap-6 border-r ${isDark ? "bg-gray-900 border-gray-700" : "bg-white border-gray-200 shadow-sm"}`}>
-        <div className="flex flex-col items-center gap-3">
-          <div className={`w-16 h-16 rounded-xl flex items-center justify-center ${isDark ? "bg-blue-600" : "bg-blue-700"} shadow-lg`}>
-            <img src="/images.png" alt="STI Logo" className="rounded-xl h-12 w-12 object-contain" />
+      <aside className={`w-72 flex flex-col border-r transition-all duration-300 z-30 ${isDark ? "bg-slate-900/80 border-slate-800" : "bg-white border-slate-200"}`}>
+        <div className="p-6 flex flex-col items-center gap-4 border-b border-transparent">
+          <div className={`w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg transition-transform hover:scale-105 duration-300 ${isDark ? "bg-gradient-to-br from-blue-600 to-indigo-700" : "bg-gradient-to-br from-blue-500 to-blue-700"}`}>
+            <img src="/images.png" alt="STI Logo" className="rounded-xl h-10 w-10 object-contain drop-shadow-md" />
           </div>
           <div className="text-center">
-            <h2 className={`text-lg font-bold ${isDark ? "text-white" : "text-gray-900"}`}>Proctor Portal</h2>
-            <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>STI Education System</p>
+            <h2 className={`text-lg font-bold tracking-tight ${isDark ? "text-white" : "text-slate-900"}`}>Proctor Portal</h2>
+            <p className={`text-xs font-medium tracking-wide uppercase mt-1 ${isDark ? "text-blue-400" : "text-blue-600"}`}>STI Education System</p>
           </div>
         </div>
-        <nav className="flex-1 space-y-1">
-          <button onClick={() => setActiveTab("assignments")} className={`w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg transition ${activeTab === "assignments" ? "bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400" : isDark ? "text-gray-300 hover:bg-gray-800" : "text-gray-700 hover:bg-gray-100"}`}>
-            <CalendarDays className="w-5 h-5" />
-            <span className="text-sm font-medium">My Assignments</span>
-          </button>
-          <button onClick={() => setActiveTab("schedule")} className={`w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg transition ${activeTab === "schedule" ? "bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400" : isDark ? "text-gray-300 hover:bg-gray-800" : "text-gray-700 hover:bg-gray-100"}`}>
-            <FileSpreadsheet className="w-5 h-5" />
-            <span className="text-sm font-medium">My Schedule</span>
-          </button>
-          <button onClick={() => setActiveTab("notifications")} className={`w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg transition ${activeTab === "notifications" ? "bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400" : isDark ? "text-gray-300 hover:bg-gray-800" : "text-gray-700 hover:bg-gray-100"}`}>
-            <Bell className="w-5 h-5" />
-            <span className="text-sm font-medium">Notifications</span>
-          </button>
+        
+        <nav className="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto custom-scrollbar">
+          {[
+            { id: "assignments", icon: CalendarDays, label: "My Assignments" },
+            { id: "schedule", icon: FileSpreadsheet, label: "My Schedule" },
+            { id: "notifications", icon: Bell, label: "Notifications" },
+          ].map((item) => {
+            const Icon = item.icon;
+            const isActive = activeTab === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => setActiveTab(item.id)}
+                className={`w-full flex items-center gap-3.5 px-4 py-3.5 rounded-xl transition-all duration-300 group ${
+                  isActive
+                    ? isDark 
+                      ? "bg-blue-600 text-white shadow-lg shadow-blue-900/50" 
+                      : "bg-blue-600 text-white shadow-lg shadow-blue-500/30"
+                    : isDark
+                      ? "text-slate-300 hover:bg-slate-800/60 hover:text-white"
+                      : "text-slate-600 hover:bg-blue-50 hover:text-blue-700"
+                }`}
+              >
+                <Icon className={`w-5 h-5 transition-transform duration-300 ${isActive ? "scale-110" : "group-hover:scale-110"}`} />
+                <span className="text-sm font-semibold">{item.label}</span>
+              </button>
+            );
+          })}
         </nav>
-        <footer className={`text-xs text-center p-4 rounded-lg ${isDark ? "bg-gray-800/50 text-gray-500" : "bg-gray-50 text-gray-400"}`}>
-          v1.0 • STI System
+        
+        <footer className={`p-6 text-xs text-center font-medium border-t transition-colors ${isDark ? "border-slate-800 text-slate-500" : "border-slate-100 text-slate-400"}`}>
+          v1.0 • Built with React
         </footer>
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-y-auto">
-        <header className={`sticky top-0 z-50 backdrop-blur-xl border-b ${isDark ? "bg-gray-900/70 border-gray-700" : "bg-white/70 border-gray-200 shadow-sm"}`}>
-          <div className="max-w-7xl mx-auto px-6 py-4">
+      <main className="flex-1 flex flex-col h-screen overflow-hidden relative">
+        <header className={`sticky top-0 z-20 backdrop-blur-2xl border-b transition-all duration-300 ${isDark ? "bg-slate-900/70 border-slate-800" : "bg-white/70 border-slate-200"}`}>
+          <div className="max-w-7xl mx-auto px-8 py-5">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
+                <h1 className={`text-2xl font-bold tracking-tight transition-colors ${isDark ? "text-white" : "text-slate-900"}`}>
                   {activeTab === "assignments" ? "My Proctoring Assignments" : activeTab === "schedule" ? "My Teaching Schedule" : activeTab === "notifications" ? "Notifications" : "Settings"}
                 </h1>
-                <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                <p className={`text-sm mt-1 font-medium transition-colors ${isDark ? "text-slate-400" : "text-slate-500"}`}>
                   Welcome back, {user?.name || "Proctor"}
                 </p>
               </div>
+              
               <div className="flex items-center gap-4">
-                <div className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${isDark ? "bg-green-600/20 text-green-400 border border-green-600/30" : "bg-green-600 text-white shadow-sm"}`}>
+                <div className={`hidden md:flex px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all shadow-sm ${isDark ? "bg-green-500/20 text-green-400 border border-green-500/30" : "bg-green-50 text-green-700 border border-green-100"}`}>
                   PROCTOR
                 </div>
+                
                 <div className="relative">
                   <button
                     onClick={() => setShowNotifications(!showNotifications)}
-                    className={`relative p-2 rounded-xl transition ${isDark ? "text-gray-400 hover:text-gray-100 hover:bg-gray-700" : "text-gray-600 hover:text-gray-800 hover:bg-gray-100"}`}
+                    className={`relative p-2.5 rounded-xl transition-all duration-300 ${isDark ? "text-slate-300 hover:text-white hover:bg-slate-800" : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"}`}
                   >
                     <Bell className="w-5 h-5" />
                     {unreadCount > 0 && (
-                      <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center">
-                        {unreadCount}
-                      </span>
+                      <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-red-500 ring-2 ring-white dark:ring-slate-900 animate-pulse"></span>
                     )}
                   </button>
+                  
                   {showNotifications && (
-                    <div className={`absolute right-0 mt-2 w-80 max-h-96 overflow-y-auto rounded-xl shadow-2xl border z-50 ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
-                      <div className={`p-4 border-b ${isDark ? "border-gray-700" : "border-gray-100"}`}>
-                        <h3 className={`font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>Notifications</h3>
+                    <div className={`absolute right-0 mt-3 w-80 max-h-96 flex flex-col rounded-2xl shadow-2xl border z-50 transform origin-top-right transition-all animate-in fade-in scale-95 duration-200 ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200"}`}>
+                      <div className={`px-5 py-4 border-b flex justify-between items-center ${isDark ? "border-slate-700" : "border-slate-100"}`}>
+                        <h3 className={`font-semibold ${isDark ? "text-white" : "text-slate-900"}`}>Notifications</h3>
+                        {unreadCount > 0 && <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-bold">{unreadCount} New</span>}
                       </div>
-                      <div className="p-2">
+                      <div className="overflow-y-auto p-2 custom-scrollbar flex-1">
                         {notifications.length === 0 ? (
-                          <div className={`p-4 text-center text-sm ${isDark ? "text-gray-500" : "text-gray-400"}`}>No notifications</div>
+                          <div className={`p-6 text-center text-sm ${isDark ? "text-slate-500" : "text-slate-400"}`}>
+                            <Bell className="w-8 h-8 mx-auto mb-2 opacity-20" />
+                            You're all caught up!
+                          </div>
                         ) : (
                           notifications.map((notif) => (
                             <div
                               key={notif.id}
                               onClick={() => { if (!notif.is_read) markRead(notif.id); }}
-                              className={`p-3 rounded-lg cursor-pointer transition ${notif.is_read ? (isDark ? "hover:bg-gray-700/50 opacity-70" : "hover:bg-gray-50 opacity-70") : (isDark ? "bg-blue-900/20 hover:bg-blue-900/30 border border-blue-800/50" : "bg-blue-50 hover:bg-blue-100 border border-blue-100")}`}
+                              className={`p-3.5 rounded-xl cursor-pointer transition-all duration-200 mb-1 ${notif.is_read ? (isDark ? "hover:bg-slate-700/50 opacity-60" : "hover:bg-slate-50 opacity-60") : (isDark ? "bg-blue-900/20 hover:bg-blue-900/40 border border-blue-800/30" : "bg-blue-50 hover:bg-blue-100 border border-blue-100")}`}
                             >
                               <div className="flex gap-3">
-                                <div className={`mt-1 w-2 h-2 rounded-full flex-shrink-0 ${notif.is_read ? "bg-gray-400" : "bg-blue-500"}`}></div>
+                                <div className={`mt-1.5 w-2 h-2 rounded-full flex-shrink-0 ${notif.is_read ? "bg-slate-400" : "bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.8)]"}`}></div>
                                 <div>
-                                  <p className={`text-sm ${isDark ? "text-gray-200" : "text-gray-800"}`}>{notif.message}</p>
-                                  <p className={`text-xs mt-1 ${isDark ? "text-gray-500" : "text-gray-400"}`}>
+                                  <p className={`text-sm leading-snug ${isDark ? "text-slate-200" : "text-slate-800"}`}>{notif.message}</p>
+                                  <p className={`text-[11px] mt-1.5 font-medium ${isDark ? "text-slate-500" : "text-slate-400"}`}>
                                     {notif.created_at ? new Date(notif.created_at).toLocaleString() : "Just now"}
                                   </p>
                                 </div>
@@ -285,6 +310,7 @@ export default function ProctorDashboard() {
                     </div>
                   )}
                 </div>
+                <div className="h-8 w-px bg-slate-200 dark:bg-slate-700 mx-2 hidden sm:block"></div>
                 <SettingsDropdown onLogout={handleLogout} isDark={isDark} />
               </div>
             </div>

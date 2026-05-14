@@ -237,76 +237,90 @@ export default function StudentDashboard() {
   const unreadCount = notifications.filter(n => !n.is_read).length;
 
   return (
-    <div className={`min-h-screen relative ${isDark ? "bg-gray-900" : "bg-gray-50"}`}>
-      {showNotifications && <div className="fixed inset-0 z-40 bg-transparent" onClick={() => setShowNotifications(false)}></div>}
+    <div className={`min-h-screen relative transition-colors duration-300 ${isDark ? "bg-slate-900" : "bg-slate-50"}`}>
+      {showNotifications && <div className="fixed inset-0 z-40 bg-black/20 backdrop-blur-sm transition-opacity" onClick={() => setShowNotifications(false)}></div>}
       {showTypeModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className={`p-6 rounded-2xl max-w-md w-full ${isDark ? "bg-gray-800" : "bg-white"}`}>
-            <h2 className={`text-xl font-bold mb-4 ${isDark ? "text-white" : "text-gray-900"}`}>Select Your Student Type</h2>
-            <div className="flex gap-4 mb-6">
-              <button onClick={() => setSelectedType("regular")} className={`flex-1 py-3 rounded-xl font-semibold ${selectedType === "regular" ? "bg-blue-600 text-white" : "bg-gray-200"}`}>Regular</button>
-              <button onClick={() => setSelectedType("irregular")} className={`flex-1 py-3 rounded-xl font-semibold ${selectedType === "irregular" ? "bg-blue-600 text-white" : "bg-gray-200"}`}>Irregular</button>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 transition-opacity">
+          <div className={`p-8 rounded-3xl max-w-md w-full shadow-2xl border ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200"}`}>
+            <h2 className={`text-2xl font-bold mb-6 text-center ${isDark ? "text-white" : "text-slate-900"}`}>Select Student Type</h2>
+            <div className="flex gap-4 mb-8">
+              <button onClick={() => setSelectedType("regular")} className={`flex-1 py-4 rounded-2xl font-bold transition-all duration-300 ${selectedType === "regular" ? "bg-blue-600 text-white shadow-lg shadow-blue-500/40 ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-slate-800 scale-105" : isDark ? "bg-slate-700 text-slate-300 hover:bg-slate-600" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>Regular</button>
+              <button onClick={() => setSelectedType("irregular")} className={`flex-1 py-4 rounded-2xl font-bold transition-all duration-300 ${selectedType === "irregular" ? "bg-blue-600 text-white shadow-lg shadow-blue-500/40 ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-slate-800 scale-105" : isDark ? "bg-slate-700 text-slate-300 hover:bg-slate-600" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>Irregular</button>
             </div>
-            <button onClick={saveStudentType} className="w-full py-3 bg-green-600 text-white rounded-xl">Confirm</button>
+            <button onClick={saveStudentType} disabled={!selectedType} className={`w-full py-4 rounded-2xl font-bold transition-all shadow-md ${!selectedType ? "opacity-50 cursor-not-allowed bg-slate-400 text-white" : "bg-emerald-600 hover:bg-emerald-500 text-white hover:shadow-lg hover:-translate-y-0.5"}`}>Confirm Selection</button>
           </div>
         </div>
       )}
 
       {/* Header */}
-      <header className={`sticky top-0 z-50 border-b ${isDark ? "bg-gray-900 border-gray-800" : "bg-white border-gray-200"}`}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${isDark ? "bg-blue-600" : "bg-blue-700"}`}>
-                <img src="/images.png" alt="STI Logo" className="rounded-lg h-8 w-8 object-contain" />
+      <header className={`sticky top-0 z-30 backdrop-blur-2xl border-b transition-all duration-300 ${isDark ? "bg-slate-900/80 border-slate-800" : "bg-white/80 border-slate-200"}`}>
+        <div className="max-w-7xl mx-auto px-6 lg:px-8 py-5">
+          <div className="flex items-center justify-between gap-6">
+            <div className="flex items-center gap-4">
+              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg transition-transform hover:scale-105 ${isDark ? "bg-gradient-to-br from-blue-600 to-indigo-700" : "bg-gradient-to-br from-blue-500 to-blue-700"}`}>
+                <img src="/images.png" alt="STI Logo" className="rounded-xl h-8 w-8 object-contain drop-shadow-md" />
               </div>
               <div>
-                <h1 className={`text-lg font-bold ${isDark ? "text-white" : "text-gray-900"}`}>STI Education System</h1>
-                <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>Student Portal</p>
+                <h1 className={`text-xl font-bold tracking-tight ${isDark ? "text-white" : "text-slate-900"}`}>STI Education System</h1>
+                <p className={`text-xs font-medium tracking-wide uppercase mt-0.5 ${isDark ? "text-blue-400" : "text-blue-600"}`}>Student Portal</p>
               </div>
             </div>
-            <div className="flex-1 max-w-md hidden md:block">
+            
+            <div className="flex-1 max-w-xl hidden md:block">
               {user?.student_type === "regular" && (
                 <div className="relative group">
-                  <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 transition ${isDark ? "text-gray-500 group-focus-within:text-blue-400" : "text-gray-400 group-focus-within:text-blue-500"}`} />
-                  <input type="text" placeholder="Search exams..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className={`w-full pl-10 pr-4 py-2.5 rounded-xl border outline-none transition text-sm ${isDark ? "bg-gray-800 border-gray-600 text-gray-100 placeholder-gray-500 focus:border-blue-500" : "bg-white border-gray-300 text-gray-800 placeholder-gray-400 focus:border-blue-500"}`} />
+                  <Search className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors ${isDark ? "text-slate-500 group-focus-within:text-blue-400" : "text-slate-400 group-focus-within:text-blue-500"}`} />
+                  <input type="text" placeholder="Search exams..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className={`w-full pl-12 pr-5 py-3 rounded-2xl border outline-none transition-all text-sm shadow-sm ${isDark ? "bg-slate-800/50 border-slate-700 text-slate-100 placeholder-slate-500 focus:border-blue-500 focus:bg-slate-800" : "bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10"}`} />
                 </div>
               )}
             </div>
-            <div className="flex items-center gap-3">
-              <div className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${isDark ? "bg-emerald-600 text-white shadow-[0_0_15px_rgba(5,150,105,0.3)]" : "bg-emerald-600 text-white shadow-md"}`}>STUDENT</div>
-              <button onClick={() => setShowTypeModal(true)} className="px-3 py-1 rounded-full text-xs font-medium bg-gray-200">Change Type</button>
-                <div className="relative">
-                  <button onClick={() => setShowNotifications(!showNotifications)} className={`relative p-2 rounded-xl transition ${isDark ? "text-gray-400 hover:text-gray-100 hover:bg-gray-700" : "text-gray-600 hover:text-gray-800 hover:bg-gray-100"}`}>
-                    <Bell className="w-5 h-5" />
-                    {unreadCount > 0 && <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center">{unreadCount}</span>}
-                  </button>
-                  {showNotifications && (
-                    <div className={`absolute right-0 mt-2 w-80 max-h-96 overflow-y-auto rounded-xl shadow-2xl border z-50 ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
-                      <div className={`p-4 border-b ${isDark ? "border-gray-700" : "border-gray-100"}`}><h3 className={`font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>Notifications</h3></div>
-                      <div className="p-2">
-                        {notifications.length === 0 ? <div className="p-4 text-center text-sm text-gray-500">No notifications</div> : notifications.map((notif) => (
-                          <div key={notif.id} onClick={() => { if (!notif.is_read) markRead(notif.id); }} className={`p-3 rounded-lg cursor-pointer transition ${notif.is_read ? (isDark ? "hover:bg-gray-700/50 opacity-70" : "hover:bg-gray-50 opacity-70") : (isDark ? "bg-blue-900/20 hover:bg-blue-900/30 border border-blue-800/50" : "bg-blue-50 hover:bg-blue-100 border border-blue-100")}`}>
-                            <div className="flex gap-3"><div className={`mt-1 w-2 h-2 rounded-full flex-shrink-0 ${notif.is_read ? "bg-gray-400" : "bg-blue-500"}`}></div><div><p className="text-sm">{notif.message}</p><p className="text-xs mt-1 text-gray-400">{notif.created_at ? new Date(notif.created_at).toLocaleString() : "Just now"}</p></div></div>
-                          </div>
-                        ))}
-                      </div>
+            
+            <div className="flex items-center gap-4">
+              <div className={`hidden sm:block px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider shadow-sm ${isDark ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" : "bg-emerald-50 text-emerald-700 border border-emerald-200"}`}>STUDENT</div>
+              <button onClick={() => setShowTypeModal(true)} className={`px-4 py-1.5 rounded-full text-xs font-bold transition-colors ${isDark ? "bg-slate-800 text-slate-300 hover:bg-slate-700" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>Change Type</button>
+              
+              <div className="relative">
+                <button onClick={() => setShowNotifications(!showNotifications)} className={`relative p-2.5 rounded-xl transition-all duration-300 ${isDark ? "text-slate-300 hover:text-white hover:bg-slate-800" : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"}`}>
+                  <Bell className="w-5 h-5" />
+                  {unreadCount > 0 && <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-red-500 ring-2 ring-white dark:ring-slate-900 animate-pulse"></span>}
+                </button>
+                {showNotifications && (
+                  <div className={`absolute right-0 mt-3 w-80 max-h-96 flex flex-col rounded-2xl shadow-2xl border z-50 transform origin-top-right transition-all animate-in fade-in scale-95 duration-200 ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200"}`}>
+                    <div className={`px-5 py-4 border-b flex justify-between items-center ${isDark ? "border-slate-700" : "border-slate-100"}`}>
+                      <h3 className={`font-semibold ${isDark ? "text-white" : "text-slate-900"}`}>Notifications</h3>
+                      {unreadCount > 0 && <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-bold">{unreadCount} New</span>}
                     </div>
-                  )}
-                </div>
-                <SettingsDropdown onLogout={handleLogout} isDark={isDark} />
+                    <div className="overflow-y-auto p-2 custom-scrollbar flex-1">
+                      {notifications.length === 0 ? <div className={`p-6 text-center text-sm ${isDark ? "text-slate-500" : "text-slate-400"}`}><Bell className="w-8 h-8 mx-auto mb-2 opacity-20" />You're all caught up!</div> : notifications.map((notif) => (
+                        <div key={notif.id} onClick={() => { if (!notif.is_read) markRead(notif.id); }} className={`p-3.5 rounded-xl cursor-pointer transition-all duration-200 mb-1 ${notif.is_read ? (isDark ? "hover:bg-slate-700/50 opacity-60" : "hover:bg-slate-50 opacity-60") : (isDark ? "bg-blue-900/20 hover:bg-blue-900/40 border border-blue-800/30" : "bg-blue-50 hover:bg-blue-100 border border-blue-100")}`}>
+                          <div className="flex gap-3"><div className={`mt-1.5 w-2 h-2 rounded-full flex-shrink-0 ${notif.is_read ? "bg-slate-400" : "bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.8)]"}`}></div><div><p className={`text-sm leading-snug ${isDark ? "text-slate-200" : "text-slate-800"}`}>{notif.message}</p><p className={`text-[11px] mt-1.5 font-medium ${isDark ? "text-slate-500" : "text-slate-400"}`}>{notif.created_at ? new Date(notif.created_at).toLocaleString() : "Just now"}</p></div></div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="h-8 w-px bg-slate-200 dark:bg-slate-700 mx-2 hidden sm:block"></div>
+              <SettingsDropdown onLogout={handleLogout} isDark={isDark} />
             </div>
           </div>
         </div>
       </header>
 
-      {/* Student Info */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-2">
-        <div className={`p-5 rounded-xl shadow-sm border flex items-center gap-4 ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
-          <div className={`w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold ${isDark ? "bg-blue-600 text-white" : "bg-blue-100 text-blue-700"}`}>
+      {/* Student Info Hero Section */}
+      <div className="max-w-7xl mx-auto px-6 lg:px-8 py-8">
+        <div className={`p-8 rounded-3xl shadow-sm border flex items-center gap-6 overflow-hidden relative ${isDark ? "bg-slate-800/50 border-slate-700/50" : "bg-white border-slate-200"}`}>
+          <div className="absolute right-0 top-0 w-64 h-64 bg-blue-500/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3"></div>
+          <div className={`w-20 h-20 rounded-2xl flex shrink-0 items-center justify-center text-3xl font-bold shadow-inner ${isDark ? "bg-gradient-to-br from-blue-600 to-indigo-700 text-white" : "bg-gradient-to-br from-blue-50 to-indigo-100 text-blue-700 border border-blue-200"}`}>
             {(user?.name || "S").split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2)}
           </div>
-          <div><h2 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>{user?.name || "Student"}</h2><p className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}>Section: <span className="font-medium">{user?.section_name || section || "N/A"}</span> • Type: <span className="font-medium capitalize">{user?.student_type || "not set"}</span></p></div>
+          <div className="relative z-10">
+            <h2 className={`text-3xl font-bold tracking-tight ${isDark ? "text-white" : "text-slate-900"}`}>Welcome back, {user?.name || "Student"}</h2>
+            <div className="flex flex-wrap items-center gap-4 mt-3">
+              <span className={`px-3 py-1 rounded-lg text-sm font-medium border ${isDark ? "bg-slate-700/50 border-slate-600 text-slate-300" : "bg-slate-50 border-slate-200 text-slate-600"}`}>Section: <strong className={isDark ? "text-white" : "text-slate-900"}>{user?.section_name || section || "N/A"}</strong></span>
+              <span className={`px-3 py-1 rounded-lg text-sm font-medium border ${isDark ? "bg-slate-700/50 border-slate-600 text-slate-300" : "bg-slate-50 border-slate-200 text-slate-600"}`}>Type: <strong className={`capitalize ${isDark ? "text-white" : "text-slate-900"}`}>{user?.student_type || "not set"}</strong></span>
+            </div>
+          </div>
         </div>
       </div>
 

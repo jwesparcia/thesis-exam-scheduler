@@ -4,6 +4,8 @@ from database import get_db
 from models import Section, Subject, Exam, Room, Timeslot, Teacher, Exam, DistributionRule, User, Proctor, ProctorAvailability, TeacherTeaching
 from datetime import datetime, timedelta, time, date
 import random
+from .auth import get_current_user, require_role
+from utils.logging import log_activity
 
 router = APIRouter(prefix="/scheduler", tags=["Scheduler"])
 
@@ -17,7 +19,7 @@ SCHOOL_END = time(18, 0)
 
 # ---------- API Endpoint ----------
 @router.post("/generate")
-def generate_exam_schedule(payload: dict = Body(...), db: Session = Depends(get_db)):
+def generate_exam_schedule(payload: dict = Body(...), db: Session = Depends(get_db), current_user: User = Depends(require_role(["admin"]))):
     """Generate synchronized and chronologically ordered exam schedules."""
     course_id = payload.get("course_id")
     year_level_id = payload.get("year_level_id")
@@ -185,6 +187,7 @@ def generate_exam_schedule(payload: dict = Body(...), db: Session = Depends(get_
 
     exams_data.sort(key=parse_exam_datetime)
 
+    log_activity(db, current_user.id, "LEGACY_SCHEDULER_GENERATE", f"Course: {course_id}, Year: {year_level_id}, Sem: {semester}")
     return {
         "message": f"Generated {len(created_exams)} exams ({len(subjects)} per section) from {start_date} to {end_date}.",
         "exams": exams_data

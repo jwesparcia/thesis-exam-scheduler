@@ -6,6 +6,8 @@ import pandas as pd
 import io
 from datetime import datetime, date
 from sqlalchemy import text
+from .auth import get_current_user, require_role
+from utils.logging import log_activity
 
 router = APIRouter(prefix="/proctors", tags=["Proctors"])
 
@@ -28,7 +30,11 @@ def read_excel_with_fallback(content: bytes, filename: str):
             raise Exception(f"Could not read Excel file with any engine: {str(e)}")
 
 @router.get("/")
-def get_proctors(db: Session = Depends(get_db)):
+def get_proctors(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    # Any logged in user can see proctors list (e.g. students might see proctors? 
+    # Actually, students shouldn't see full proctor list. Only Admin/Proctor).
+    if current_user.role not in ["admin", "proctor", "program_head"]:
+        raise HTTPException(status_code=403, detail="Not authorized to view proctors")
     proctors = db.query(models.Proctor).all()
     result = []
     for p in proctors:
@@ -57,7 +63,7 @@ def get_proctors(db: Session = Depends(get_db)):
     return result
 
 @router.post("/")
-def create_proctor(proctor: dict, db: Session = Depends(get_db)):
+def create_proctor(proctor: dict, db: Session = Depends(get_db), current_user: models.User = Depends(require_role(["admin"]))):
     new_p = models.Proctor(
         name=proctor["name"],
         department=proctor.get("department"),
@@ -69,7 +75,10 @@ def create_proctor(proctor: dict, db: Session = Depends(get_db)):
     return {"message": "Proctor added", "id": new_p.id}
 
 @router.post("/{proctor_id}/availability")
-def add_availability(proctor_id: int, body: dict, db: Session = Depends(get_db)):
+def add_availability(proctor_id: int, body: dict, db: Session = Depends(get_db), current_user: models.User = Depends(require_role(["admin", "proctor"]))):
+    # Only admin or the proctor themselves can add availability
+    if current_user.role == "proctor" and current_user.proctor_id != proctor_id:
+        raise HTTPException(status_code=403, detail="Not authorized to edit other proctor's availability")
     proctor = db.query(models.Proctor).get(proctor_id)
     if not proctor:
         raise HTTPException(status_code=404, detail="Proctor not found")
@@ -84,11 +93,18 @@ def add_availability(proctor_id: int, body: dict, db: Session = Depends(get_db))
     return {"message": "Availability added"}
 
 @router.post("/upload-schedules")
-async def upload_schedules(file: UploadFile = File(...), db: Session = Depends(get_db)):
+async def upload_schedules(file: UploadFile = File(...), db: Session = Depends(get_db), current_user: models.User = Depends(require_role(["admin"]))):
+    # File Upload Security: Limit size and format
+    MAX_FILE_SIZE = 5 * 1024 * 1024 # 5MB
     if not file.filename.endswith(('.xlsx', '.xls')):
-        raise HTTPException(status_code=400, detail="Invalid file format. Please upload an Excel file.")
+        raise HTTPException(status_code=400, detail="Invalid file format. Please upload an Excel file (.xlsx, .xls).")
+    
+    # Read first few bytes to check size if possible or just read all and check length
+    content = await file.read()
+    if len(content) > MAX_FILE_SIZE:
+        raise HTTPException(status_code=413, detail="File too large. Maximum size is 5MB.")
+        
     try:
-        content = await file.read()
         df = read_excel_with_fallback(content, file.filename)
         required_columns = ['Instructor Name', 'Day', 'Start Time', 'End Time']
         for col in required_columns:
@@ -400,22 +416,20 @@ def get_missing_schedules(db: Session = Depends(get_db)):
                 result.append({"id": p.id, "name": p.name, "teacher_id": p.teacher_id, "excluded": p.exclude_from_scheduling})
     return result
 
-@router.post("/{proctor_id}/exclude")
-def toggle_exclude(proctor_id: int, db: Session = Depends(get_db)):
-    proctor = db.query(models.Proctor).get(proctor_id)
+@router.post("/{id}/exclude")
+def toggle_exclude(id: int, db: Session = Depends(get_db), current_user: models.User = Depends(require_role(["admin"]))):
+    proctor = db.query(models.Proctor).get(id)
     if not proctor:
-        raise HTTPException(404, "Proctor not found")
+        raise HTTPException(status_code=404, detail="Proctor not found")
     proctor.exclude_from_scheduling = not proctor.exclude_from_scheduling
     db.commit()
-    return {"excluded": proctor.exclude_from_scheduling}
+    log_activity(db, current_user.id, "PROCTOR_EXCLUDE_TOGGLE", f"Proctor ID: {id}, New State: {proctor.exclude_from_scheduling}")
+    return {"message": "Toggled", "excluded": proctor.exclude_from_scheduling}
 
-@router.post("/{proctor_id}/send-reminder")
-def send_reminder(proctor_id: int, db: Session = Depends(get_db)):
-    proctor = db.query(models.Proctor).get(proctor_id)
+@router.post("/{id}/send-reminder")
+def send_reminder(id: int, db: Session = Depends(get_db), current_user: models.User = Depends(require_role(["admin"]))):
+    proctor = db.query(models.Proctor).get(id)
     if not proctor:
-        raise HTTPException(404, "Proctor not found")
-    user = db.query(models.User).filter(models.User.proctor_id == proctor_id).first()
-    if not user:
-        raise HTTPException(404, "User not found for this proctor")
-    print(f"REMINDER: {proctor.name} <{user.email}> needs to upload schedule.")
+        raise HTTPException(status_code=404, detail="Proctor not found")
+    log_activity(db, current_user.id, "PROCTOR_REMINDER_SENT", f"Proctor: {proctor.name}")
     return {"message": f"Reminder sent to {proctor.name}"}

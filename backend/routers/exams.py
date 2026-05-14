@@ -1,9 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from sqlalchemy.orm import Session, joinedload
 from database import get_db
-from models import Exam, Subject, Section, Room, Timeslot, Course, YearLevel, Teacher
+from models import Exam, Subject, Section, Room, Timeslot, Course, YearLevel, Teacher, User
 from utils.scheduler import generate_exam_schedule
 from datetime import datetime
+from .auth import get_current_user, require_role
+from utils.logging import log_activity
 
 router = APIRouter(prefix="/exams", tags=["Exams"])
 
@@ -16,6 +18,7 @@ def get_exams(
     semester: int = Query(None, description="Filter by semester"),
     proctor_id: int = Query(None, description="Filter by proctor (teacher) ID"),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Fetch exams with optional filters. Students can filter by their section.
@@ -106,7 +109,8 @@ def get_exams(
 def get_department_subjects(
     department: str = Query("College", description="Department category (e.g., College or SHS)"),
     semester: int = Query(1, description="Semester (1 or 2)"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Get all unique written subject names for a specific department and semester.
@@ -122,7 +126,8 @@ def get_department_subjects(
 @router.post("/generate")
 def generate_schedule(
     payload: dict = Body(default={}),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(["admin"]))
 ):
     """
     Trigger the automatic scheduling for ALL courses based on distribution rules.
@@ -165,6 +170,7 @@ def generate_schedule(
         else:
             message += "All exams have a proctor assigned."
         
+        log_activity(db, current_user.id, "EXAM_GENERATE", f"Dept: {department}, Sem: {semester}", None)
         return {"message": message}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -174,7 +180,8 @@ def post_exams(
     course_id: int = Query(..., description="Course ID to post exams for"),
     year_level_id: int = Query(..., description="Year level ID to post exams for"),
     semester: int = Query(..., description="Semester to post exams for"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(["admin"]))
 ):
     """
     Post only the draft exams for the specified course/year/semester.
@@ -193,13 +200,15 @@ def post_exams(
         exam.status = "posted"
     db.commit()
 
+    log_activity(db, current_user.id, "EXAM_POST", f"Course: {course_id}, Year: {year_level_id}, Sem: {semester}")
     return {"message": f"✅ Successfully posted {len(latest_drafts)} exams for course {course_id}, year {year_level_id}, semester {semester}."}
 
 @router.delete("/clear")
-def clear_exams(db: Session = Depends(get_db)):
+def clear_exams(db: Session = Depends(get_db), current_user: User = Depends(require_role(["admin"]))):
     """
     Delete all exams (for testing reset).
     """
     count = db.query(Exam).delete()
     db.commit()
+    log_activity(db, current_user.id, "EXAM_CLEAR", f"Deleted {count} exams")
     return {"message": f"🧹 Deleted {count} exams."}

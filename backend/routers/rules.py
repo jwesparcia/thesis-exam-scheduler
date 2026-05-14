@@ -4,6 +4,9 @@ from database import get_db
 from models import DistributionRule, YearLevel
 from pydantic import BaseModel
 from typing import List, Optional
+from .auth import get_current_user, require_role
+from utils.logging import log_activity
+from models import User
 
 router = APIRouter(prefix="/rules", tags=["Distribution Rules"])
 
@@ -22,7 +25,7 @@ class RuleSchema(RuleCreate):
         orm_mode = True
 
 @router.get("/", response_model=List[RuleSchema])
-def get_rules(db: Session = Depends(get_db)):
+def get_rules(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     rules = db.query(DistributionRule).options(joinedload(DistributionRule.year_level)).all()
     
     # Manually map to schema to handle flattening if needed, 
@@ -42,7 +45,7 @@ def get_rules(db: Session = Depends(get_db)):
     return result
 
 @router.post("/")
-def create_rule(rule: RuleCreate, db: Session = Depends(get_db)):
+def create_rule(rule: RuleCreate, db: Session = Depends(get_db), current_user: User = Depends(require_role(["admin"]))):
     new_rule = DistributionRule(
         category_type=rule.category_type,
         year_level_id=rule.year_level_id,
@@ -52,14 +55,16 @@ def create_rule(rule: RuleCreate, db: Session = Depends(get_db)):
     db.add(new_rule)
     db.commit()
     db.refresh(new_rule)
+    log_activity(db, current_user.id, "RULE_CREATE", f"Type: {rule.category_type}, YearLevel: {rule.year_level_id}")
     return new_rule
 
 @router.delete("/{rule_id}")
-def delete_rule(rule_id: int, db: Session = Depends(get_db)):
+def delete_rule(rule_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_role(["admin"]))):
     rule = db.query(DistributionRule).filter(DistributionRule.id == rule_id).first()
     if not rule:
         raise HTTPException(status_code=404, detail="Rule not found")
     
     db.delete(rule)
     db.commit()
+    log_activity(db, current_user.id, "RULE_DELETE", f"Rule ID: {rule_id}")
     return {"message": "Rule deleted"}

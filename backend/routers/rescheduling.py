@@ -1,14 +1,19 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from database import get_db
-from models import ReschedulingRequest, Exam, Notification
+from models import ReschedulingRequest, Exam, Notification, User
 from schemas import ReschedulingRequestCreate, ReschedulingRequest as ReschedulingRequestSchema, ReschedulingRequestUpdate
 from datetime import datetime
+from .auth import get_current_user, require_role
+from utils.logging import log_activity
 
 router = APIRouter(prefix="/rescheduling", tags=["Rescheduling Requests"])
 
 @router.post("/submit")
-def submit_rescheduling_request(request: ReschedulingRequestCreate, db: Session = Depends(get_db)):
+def submit_rescheduling_request(request: ReschedulingRequestCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    # Verify student is submitting for their own section
+    if current_user.role == "student" and current_user.section_name != request.section_name:
+        raise HTTPException(status_code=403, detail="Unauthorized: You can only submit requests for your own section")
     # Check if exam exists
     exam = db.query(Exam).filter(Exam.id == request.exam_id).first()
     if not exam:
@@ -77,11 +82,12 @@ def submit_rescheduling_request(request: ReschedulingRequestCreate, db: Session 
     )
     db.add(notification)
     db.commit()
-
+    
+    log_activity(db, current_user.id, "RESCHEDULING_SUBMIT", f"Exam ID: {request.exam_id}, Student: {request.student_name}")
     return {"message": "Rescheduling request submitted successfully", "id": db_request.id}
 
 @router.get("/pending")
-def get_pending_requests(db: Session = Depends(get_db)):
+def get_pending_requests(db: Session = Depends(get_db), current_user: User = Depends(require_role(["admin"]))):
     requests = db.query(ReschedulingRequest).options(
         ReschedulingRequest.exam  # load exam details
     ).filter(ReschedulingRequest.status == "pending").all()
@@ -108,7 +114,7 @@ def get_pending_requests(db: Session = Depends(get_db)):
     return result
 
 @router.put("/{request_id}/review")
-def review_request(request_id: int, update: ReschedulingRequestUpdate, db: Session = Depends(get_db)):
+def review_request(request_id: int, update: ReschedulingRequestUpdate, db: Session = Depends(get_db), current_user: User = Depends(require_role(["admin"]))):
     request = db.query(ReschedulingRequest).filter(ReschedulingRequest.id == request_id).first()
     if not request:
         raise HTTPException(status_code=404, detail="Request not found")
@@ -127,9 +133,13 @@ def review_request(request_id: int, update: ReschedulingRequestUpdate, db: Sessi
     db.add(notification)
     
     db.commit()
+    log_activity(db, current_user.id, "RESCHEDULING_REVIEW", f"Request ID: {request_id}, Status: {update.status}")
     return {"message": f"Request {update.status}"}
 
 @router.get("/my-requests/{section_name}")
-def get_my_requests(section_name: str, db: Session = Depends(get_db)):
+def get_my_requests(section_name: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    # Verify student is accessing their own section
+    if current_user.role == "student" and current_user.section_name != section_name:
+        raise HTTPException(status_code=403, detail="Unauthorized: Access denied")
     requests = db.query(ReschedulingRequest).filter(ReschedulingRequest.section_name == section_name).all()
     return [ReschedulingRequestSchema.from_orm(req) for req in requests]

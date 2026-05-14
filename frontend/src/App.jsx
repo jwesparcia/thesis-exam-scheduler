@@ -4,6 +4,7 @@ import { ThemeProvider } from "./context/themeStore";
 import { UserProvider } from "./context/userStore";
 import { ToastProvider } from "./context/ToastContext";
 import AppRoutes from "./AppRoutes";
+import SessionTimeout from "./components/SessionTimeout";
 
 export default function App() {
   return (
@@ -11,7 +12,9 @@ export default function App() {
       <UserProvider>
         <ToastProvider>
           <Router>
-            <AppRoutes />
+            <SessionTimeout>
+              <AppRoutes />
+            </SessionTimeout>
           </Router>
         </ToastProvider>
       </UserProvider>

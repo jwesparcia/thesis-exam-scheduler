@@ -200,124 +200,116 @@ export default function ProgramHeadDashboard() {
   };
 
   return (
-    <div className={`min-h-screen flex ${isDark ? "bg-gray-900" : "bg-gray-50"}`}>
+    <div className={`min-h-screen flex transition-colors duration-300 ${isDark ? "bg-slate-900" : "bg-slate-50"}`}>
       {showNotifications && (
-        <div className="fixed inset-0 z-40 bg-transparent" onClick={() => setShowNotifications(false)}></div>
+        <div className="fixed inset-0 z-40 bg-black/20 backdrop-blur-sm transition-opacity" onClick={() => setShowNotifications(false)}></div>
       )}
 
-      <aside className={`w-64 px-4 py-6 flex flex-col gap-6 border-r ${isDark ? "bg-gray-900 border-gray-700" : "bg-white border-gray-200"}`}>
-        <div className="flex flex-col items-center gap-3">
-          <div className={`w-16 h-16 rounded-xl flex items-center justify-center ${isDark ? "bg-blue-600" : "bg-blue-700"}`}>
-            <img src="/images.png" alt="STI Logo" className="rounded-xl h-12 w-12 object-contain" />
+      {/* Sidebar */}
+      <aside className={`w-72 flex flex-col border-r transition-all duration-300 z-30 ${isDark ? "bg-slate-900/80 border-slate-800" : "bg-white border-slate-200"}`}>
+        <div className="p-6 flex flex-col items-center gap-4 border-b border-transparent">
+          <div className={`w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg transition-transform hover:scale-105 duration-300 ${isDark ? "bg-gradient-to-br from-blue-600 to-indigo-700" : "bg-gradient-to-br from-blue-500 to-blue-700"}`}>
+            <img src="/images.png" alt="STI Logo" className="rounded-xl h-10 w-10 object-contain drop-shadow-md" />
           </div>
           <div className="text-center">
-            <h2 className={`text-lg font-bold ${isDark ? "text-white" : "text-gray-900"}`}>Program Head</h2>
-            <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>Exam Management</p>
+            <h2 className={`text-lg font-bold tracking-tight ${isDark ? "text-white" : "text-slate-900"}`}>Program Head</h2>
+            <p className={`text-xs font-medium tracking-wide uppercase mt-1 ${isDark ? "text-blue-400" : "text-blue-600"}`}>Exam Management</p>
           </div>
         </div>
 
-        <nav className="flex-1 space-y-2">
-          <button onClick={() => setActiveTab("generate")} className={`w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg transition ${activeTab === "generate" ? "bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400" : isDark ? "text-gray-300 hover:bg-gray-700" : "text-gray-700 hover:bg-gray-100"}`}>
-            <Calendar className="w-5 h-5" />
-            <span className="text-sm font-medium">Generate Exam Schedule</span>
-          </button>
-
-          <button onClick={() => setActiveTab("schedules")} className={`w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg transition ${activeTab === "schedules" ? "bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400" : isDark ? "text-gray-300 hover:bg-gray-700" : "text-gray-700 hover:bg-gray-100"}`}>
-            <CalendarDays className="w-5 h-5" />
-            <span className="text-sm font-medium">Generated Schedules</span>
-          </button>
-
-          <button onClick={() => setActiveTab("proctors")} className={`w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg transition ${activeTab === "proctors" ? "bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400" : isDark ? "text-gray-300 hover:bg-gray-700" : "text-gray-700 hover:bg-gray-100"}`}>
-            <Users className="w-5 h-5" />
-            <span className="text-sm font-medium">Proctor Management</span>
-          </button>
-
-          <button onClick={() => setActiveTab("rescheduling")} className={`w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg transition ${activeTab === "rescheduling" ? "bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400" : isDark ? "text-gray-300 hover:bg-gray-700" : "text-gray-700 hover:bg-gray-100"}`}>
-            <ClipboardList className="w-5 h-5" />
-            <span className="text-sm font-medium">Rescheduling Requests</span>
-          </button>
-
-          <button onClick={() => setActiveTab("monitoring")} className={`w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg transition ${activeTab === "monitoring" ? "bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400" : isDark ? "text-gray-300 hover:bg-gray-700" : "text-gray-700 hover:bg-gray-100"}`}>
-            <ShieldCheck className="w-5 h-5" />
-            <span className="text-sm font-medium">Proctor Monitoring</span>
-          </button>
-
-          <button onClick={() => setActiveTab("rules")} className={`w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg transition ${activeTab === "rules" ? "bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400" : isDark ? "text-gray-300 hover:bg-gray-700" : "text-gray-700 hover:bg-gray-100"}`}>
-            <Target className="w-5 h-5" />
-            <span className="text-sm font-medium">Distribution Rules</span>
-          </button>
-
-
-
-
+        <nav className="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto custom-scrollbar">
+          {[
+            { id: "generate", icon: Calendar, label: "Generate Schedule" },
+            { id: "schedules", icon: CalendarDays, label: "Generated Schedules" },
+            { id: "proctors", icon: Users, label: "Proctor Management" },
+            { id: "rescheduling", icon: ClipboardList, label: "Rescheduling Requests" },
+            { id: "monitoring", icon: ShieldCheck, label: "Proctor Monitoring" },
+            { id: "rules", icon: Target, label: "Distribution Rules" },
+          ].map((item) => {
+            const Icon = item.icon;
+            const isActive = activeTab === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => setActiveTab(item.id)}
+                className={`w-full flex items-center gap-3.5 px-4 py-3.5 rounded-xl transition-all duration-300 group ${
+                  isActive
+                    ? isDark 
+                      ? "bg-blue-600 text-white shadow-lg shadow-blue-900/50" 
+                      : "bg-blue-600 text-white shadow-lg shadow-blue-500/30"
+                    : isDark
+                      ? "text-slate-300 hover:bg-slate-800/60 hover:text-white"
+                      : "text-slate-600 hover:bg-blue-50 hover:text-blue-700"
+                }`}
+              >
+                <Icon className={`w-5 h-5 transition-transform duration-300 ${isActive ? "scale-110" : "group-hover:scale-110"}`} />
+                <span className="text-sm font-semibold">{item.label}</span>
+              </button>
+            );
+          })}
         </nav>
 
-        <footer className={`text-xs text-center ${isDark ? "text-gray-500" : "text-gray-400"}`}>
-          v1.0 • STI System
+        <footer className={`p-6 text-xs text-center font-medium border-t transition-colors ${isDark ? "border-slate-800 text-slate-500" : "border-slate-100 text-slate-400"}`}>
+          v1.0 • Built with React
         </footer>
       </aside>
 
-      <main className="flex-1 overflow-y-auto">
-        <header className={`sticky top-0 z-50 backdrop-blur-xl border-b ${isDark ? "bg-gray-900/70 border-gray-700" : "bg-white/70 border-gray-200"}`}>
-          <div className="max-w-7xl mx-auto px-6 py-4">
+      {/* Main Content */}
+      <main className="flex-1 flex flex-col h-screen overflow-hidden relative">
+        <header className={`sticky top-0 z-20 backdrop-blur-2xl border-b transition-all duration-300 ${isDark ? "bg-slate-900/70 border-slate-800" : "bg-white/70 border-slate-200"}`}>
+          <div className="max-w-7xl mx-auto px-8 py-5">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className={`text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
-                  {activeTab === "generate"
-                    ? "Exam Schedule Generator"
-                    : activeTab === "schedules"
-                      ? "Generated Exam Schedules"
-                      : activeTab === "proctors"
-                        ? "Proctor Management"
-                        : activeTab === "monitoring"
-                          ? "Proctor Attendance Monitoring"
-                          : "Rescheduling Requests"}
+                <h1 className={`text-2xl font-bold tracking-tight transition-colors ${isDark ? "text-white" : "text-slate-900"}`}>
+                  {activeTab === "generate" ? "Exam Schedule Generator" :
+                   activeTab === "schedules" ? "Generated Exam Schedules" :
+                   activeTab === "proctors" ? "Proctor Management" :
+                   activeTab === "monitoring" ? "Proctor Attendance Monitoring" :
+                   activeTab === "rules" ? "Distribution Rules" :
+                   "Rescheduling Requests"}
                 </h1>
-                <p className={`text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}>
-                  Program Head Dashboard • exam scheduling & management
+                <p className={`text-sm mt-1 font-medium transition-colors ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                  Dashboard • {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Mode
                 </p>
               </div>
-              <div className="flex items-center gap-3">
-                <div className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${isDark ? "bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.3)]" : "bg-blue-700 text-white shadow-md"}`}>
-                  ADMIN
+              
+              <div className="flex items-center gap-4">
+                <div className={`hidden md:flex px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all shadow-sm ${isDark ? "bg-blue-500/20 text-blue-400 border border-blue-500/30" : "bg-blue-50 text-blue-700 border border-blue-100"}`}>
+                  Administrator
                 </div>
-                <div className={`px-3 py-1 rounded-full text-xs font-medium ${isDark ? "bg-gray-700 text-gray-300" : "bg-gray-200 text-gray-700"}`}>
-                  {activeTab === "generate"
-                    ? "Schedule Mode"
-                    : activeTab === "schedules"
-                      ? "View Mode"
-                      : activeTab === "proctors"
-                        ? "Proctor Mode"
-                        : activeTab === "monitoring"
-                          ? "Monitoring Mode"
-                          : "Rescheduling Mode"}
-                </div>
+                
                 <div className="relative">
-                  <button onClick={() => setShowNotifications(!showNotifications)} className={`relative p-2 rounded-xl transition ${isDark ? "text-gray-400 hover:text-gray-100 hover:bg-gray-700" : "text-gray-600 hover:text-gray-800 hover:bg-gray-100"}`}>
+                  <button 
+                    onClick={() => setShowNotifications(!showNotifications)} 
+                    className={`relative p-2.5 rounded-xl transition-all duration-300 ${isDark ? "text-slate-300 hover:text-white hover:bg-slate-800" : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"}`}
+                  >
                     <Bell className="w-5 h-5" />
                     {unreadCount > 0 && (
-                      <span className="absolute -top-0.5 right-0.5 w-4 h-4 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center">
-                        {unreadCount}
-                      </span>
+                      <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-red-500 ring-2 ring-white dark:ring-slate-900 animate-pulse"></span>
                     )}
                   </button>
 
+                  {/* Notifications Dropdown */}
                   {showNotifications && (
-                    <div className={`absolute right-0 mt-2 w-80 max-h-96 overflow-y-auto rounded-xl shadow-2xl border z-50 ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
-                      <div className={`p-4 border-b ${isDark ? "border-gray-700" : "border-gray-100"}`}>
-                        <h3 className={`font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>Notifications</h3>
+                    <div className={`absolute right-0 mt-3 w-80 max-h-96 flex flex-col rounded-2xl shadow-2xl border z-50 transform origin-top-right transition-all animate-in fade-in scale-95 duration-200 ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200"}`}>
+                      <div className={`px-5 py-4 border-b flex justify-between items-center ${isDark ? "border-slate-700" : "border-slate-100"}`}>
+                        <h3 className={`font-semibold ${isDark ? "text-white" : "text-slate-900"}`}>Notifications</h3>
+                        {unreadCount > 0 && <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-bold">{unreadCount} New</span>}
                       </div>
-                      <div className="p-2">
+                      <div className="overflow-y-auto p-2 custom-scrollbar flex-1">
                         {notifications.length === 0 ? (
-                          <div className={`p-4 text-center text-sm ${isDark ? "text-gray-500" : "text-gray-400"}`}>No notifications</div>
+                          <div className={`p-6 text-center text-sm ${isDark ? "text-slate-500" : "text-slate-400"}`}>
+                            <Bell className="w-8 h-8 mx-auto mb-2 opacity-20" />
+                            You're all caught up!
+                          </div>
                         ) : (
                           notifications.map((notif) => (
-                            <div key={notif.id} onClick={() => { if (!notif.is_read) markRead(notif.id); }} className={`p-3 rounded-lg cursor-pointer transition ${notif.is_read ? (isDark ? "hover:bg-gray-700/50 opacity-70" : "hover:bg-gray-50 opacity-70") : (isDark ? "bg-blue-900/20 hover:bg-blue-900/30 border border-blue-800/50" : "bg-blue-50 hover:bg-blue-100 border border-blue-100")}`}>
+                            <div key={notif.id} onClick={() => { if (!notif.is_read) markRead(notif.id); }} className={`p-3.5 rounded-xl cursor-pointer transition-all duration-200 mb-1 ${notif.is_read ? (isDark ? "hover:bg-slate-700/50 opacity-60" : "hover:bg-slate-50 opacity-60") : (isDark ? "bg-blue-900/20 hover:bg-blue-900/40 border border-blue-800/30" : "bg-blue-50 hover:bg-blue-100 border border-blue-100")}`}>
                               <div className="flex gap-3">
-                                <div className={`mt-1 w-2 h-2 rounded-full flex-shrink-0 ${notif.is_read ? "bg-gray-400" : "bg-blue-500"}`}></div>
+                                <div className={`mt-1.5 w-2 h-2 rounded-full flex-shrink-0 ${notif.is_read ? "bg-slate-400" : "bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.8)]"}`}></div>
                                 <div>
-                                  <p className={`text-sm ${isDark ? "text-gray-200" : "text-gray-800"}`}>{notif.message}</p>
-                                  <p className={`text-xs mt-1 ${isDark ? "text-gray-500" : "text-gray-400"}`}>
+                                  <p className={`text-sm leading-snug ${isDark ? "text-slate-200" : "text-slate-800"}`}>{notif.message}</p>
+                                  <p className={`text-[11px] mt-1.5 font-medium ${isDark ? "text-slate-500" : "text-slate-400"}`}>
                                     {notif.created_at ? new Date(notif.created_at).toLocaleString() : "Just now"}
                                   </p>
                                 </div>
@@ -329,66 +321,46 @@ export default function ProgramHeadDashboard() {
                     </div>
                   )}
                 </div>
+                
+                <div className="h-8 w-px bg-slate-200 dark:bg-slate-700 mx-2 hidden sm:block"></div>
                 <SettingsDropdown onLogout={handleLogout} isDark={isDark} />
               </div>
             </div>
           </div>
         </header>
 
-        <div className="max-w-7xl mx-auto px-6 py-6">
-          <div className={`rounded-lg border shadow-sm overflow-hidden ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
-            <div className={`px-6 py-4 border-b ${isDark ? "border-gray-700 bg-gray-700/50" : "border-gray-200 bg-gray-50"}`}>
-              <div className="flex items-center gap-2">
-                {activeTab === "generate" ? <Calendar className={`w-5 h-5 ${isDark ? "text-blue-400" : "text-blue-600"}`} /> :
-                  activeTab === "schedules" ? <CalendarDays className={`w-5 h-5 ${isDark ? "text-blue-400" : "text-blue-600"}`} /> :
-                    activeTab === "proctors" ? <Users className={`w-5 h-5 ${isDark ? "text-purple-400" : "text-purple-600"}`} /> :
-                      activeTab === "monitoring" ? <ShieldCheck className={`w-5 h-5 ${isDark ? "text-teal-400" : "text-teal-600"}`} /> :
-                        <ClipboardList className={`w-5 h-5 ${isDark ? "text-orange-400" : "text-orange-600"}`} />}
-                <h3 className={`font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
-                  {activeTab === "generate" ? "Exam Schedule Generator" :
-                    activeTab === "schedules" ? "Generated Exam Schedules" :
-                      activeTab === "proctors" ? "Proctor Management System" :
-                        activeTab === "monitoring" ? "Proctor Attendance Monitoring" :
-                          "Rescheduling Management System"}
-                </h3>
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-6 lg:p-8">
+          <div className="max-w-7xl mx-auto space-y-6">
+            <div className={`rounded-2xl shadow-sm border overflow-hidden transition-colors duration-300 ${isDark ? "bg-slate-800/50 border-slate-700/50" : "bg-white border-slate-200"}`}>
+              <div className="p-6 md:p-8">
+                {activeTab === "generate" ? <ExamScheduler onBeforeGenerate={checkMissingSchedulesBeforeGenerate} /> :
+                  activeTab === "schedules" ? <GeneratedExamSchedules /> :
+                    activeTab === "proctors" ? <AddProctor /> :
+                      activeTab === "rules" ? <DistributionRulesManager /> :
+                        activeTab === "monitoring" ? <ProctorMonitoring /> :
+                          <ReschedulingRequests />}
               </div>
             </div>
-            <div className="p-6">
-              {activeTab === "generate" ? <ExamScheduler onBeforeGenerate={checkMissingSchedulesBeforeGenerate} /> :
-                activeTab === "schedules" ? <GeneratedExamSchedules /> :
-                  activeTab === "proctors" ? <AddProctor /> :
-                    activeTab === "rules" ? <DistributionRulesManager /> :
-                      activeTab === "monitoring" ? <ProctorMonitoring /> :
-                        <ReschedulingRequests />}
-            </div>
-          </div>
 
-          {activeTab === "generate" && (
-            <div className={`mt-6 rounded-lg border shadow-sm overflow-hidden ${isDark ? "border-gray-700" : "border-gray-200"}`}>
-              <div className={`${isDark ? "bg-gray-800" : "bg-white"} p-5`}>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className={`font-bold mb-1 ${isDark ? "text-white" : "text-gray-900"}`}>How's Your Experience?</h3>
-                    <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>Tell us more about it and rate us</p>
-                  </div>
-                  <Sparkles className="w-6 h-6 text-yellow-400" />
-                </div>
-                <div className="flex items-center gap-4 mt-4">
-                  <div className={`rounded-lg p-3 ${isDark ? "bg-gray-700" : "bg-gray-100"}`}>
-                    <div className="w-8 h-8 flex items-center justify-center">
-                      <LayoutGrid className={`w-6 h-6 ${isDark ? "text-blue-400" : "text-blue-600"}`} />
+            {activeTab === "generate" && (
+              <div className={`rounded-2xl shadow-sm border overflow-hidden transition-all duration-300 ${isDark ? "bg-slate-800/50 border-slate-700/50 hover:border-slate-600" : "bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-100 hover:shadow-md"}`}>
+                <div className="p-6 flex flex-col sm:flex-row items-center justify-between gap-6">
+                  <div className="flex items-center gap-5">
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-inner ${isDark ? "bg-slate-700 text-yellow-400" : "bg-white text-yellow-500"}`}>
+                      <Sparkles className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h3 className={`font-bold text-lg tracking-tight ${isDark ? "text-white" : "text-slate-900"}`}>How's Your Experience?</h3>
+                      <p className={`text-sm mt-0.5 ${isDark ? "text-slate-400" : "text-slate-600"}`}>Tell us what you think and help us improve.</p>
                     </div>
                   </div>
-                  <div className="flex-1">
-                    <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>Scan QR or visit feedback.sti.edu</p>
-                    <button className={`w-full mt-2 py-2 rounded-lg font-semibold text-sm transition ${isDark ? "bg-gray-700 text-white hover:bg-gray-600" : "bg-gray-100 text-gray-900 hover:bg-gray-200"}`}>
-                      Give Feedback
-                    </button>
-                  </div>
+                  <button className={`px-6 py-2.5 rounded-xl font-semibold text-sm transition-all shadow-sm hover:shadow-md hover:-translate-y-0.5 ${isDark ? "bg-slate-700 text-white hover:bg-slate-600" : "bg-white text-blue-700 border border-blue-200 hover:bg-blue-50"}`}>
+                    Give Feedback
+                  </button>
                 </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </main>
     </div>

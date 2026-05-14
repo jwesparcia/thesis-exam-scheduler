@@ -5,6 +5,8 @@ from models import Exam, Timeslot, ReschedulingRequest, User, IrregularSelection
 from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
+from .auth import get_current_user, require_role
+from utils.logging import log_activity
 
 router = APIRouter(prefix="/student", tags=["Student"])
 
@@ -51,27 +53,12 @@ def build_exam_response(exams):
     return result
 
 # Authentication
-def get_current_student(authorization: str = Header(None), db: Session = Depends(get_db)) -> User:
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    token = authorization.replace("Bearer ", "")
-    if not token.startswith("dummy-token-"):
-        raise HTTPException(status_code=401, detail="Invalid token")
-    try:
-        user_id = int(token.replace("dummy-token-", ""))
-    except ValueError:
-        raise HTTPException(status_code=401, detail="Invalid token")
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=401, detail="User not found")
-    if user.role != "student":
-        raise HTTPException(status_code=403, detail="Access denied: students only")
-    return user
+# Authentication is now handled by auth.py
 
 # Regular student: exams for their section
 @router.get("/exams")
 def get_student_exams(
-    current_user: User = Depends(get_current_student),
+    current_user: User = Depends(require_role(["student"])),
     db: Session = Depends(get_db),
 ):
     if current_user.student_type == "irregular":
@@ -100,7 +87,7 @@ def get_student_exams(
 # Regular student: conflict detection
 @router.get("/conflicts")
 def get_student_conflicts(
-    current_user: User = Depends(get_current_student),
+    current_user: User = Depends(require_role(["student"])),
     db: Session = Depends(get_db),
 ):
     if not current_user.section_name:
@@ -128,7 +115,7 @@ def get_student_conflicts(
 # Regular student: rescheduling requests
 @router.get("/requests")
 def get_student_requests(
-    current_user: User = Depends(get_current_student),
+    current_user: User = Depends(require_role(["student"])),
     db: Session = Depends(get_db),
 ):
     if not current_user.section_name:
@@ -178,7 +165,7 @@ class RescheduleRequestBody(BaseModel):
 @router.post("/reschedule-request")
 def submit_reschedule_request(
     body: RescheduleRequestBody,
-    current_user: User = Depends(get_current_student),
+    current_user: User = Depends(require_role(["student"])),
     db: Session = Depends(get_db),
 ):
     exam = db.query(Exam).filter(Exam.id == body.exam_id).first()
@@ -222,6 +209,7 @@ def submit_reschedule_request(
     db.add(db_req)
     db.commit()
     db.refresh(db_req)
+    log_activity(db, current_user.id, "STUDENT_RESCHED_SUBMIT", f"Exam ID: {body.exam_id}")
     return {"message": "Request submitted successfully", "id": db_req.id}
 
 # ========== ENDPOINTS FOR IRREGULAR STUDENTS ==========
@@ -232,18 +220,19 @@ class StudentTypeRequest(BaseModel):
 @router.post("/set-student-type")
 def set_student_type(
     req: StudentTypeRequest,
-    current_user: User = Depends(get_current_student),
+    current_user: User = Depends(require_role(["student"])),
     db: Session = Depends(get_db)
 ):
     if req.student_type not in ["regular", "irregular"]:
         raise HTTPException(status_code=400, detail="Invalid type")
     current_user.student_type = req.student_type
     db.commit()
+    log_activity(db, current_user.id, "STUDENT_TYPE_CHANGE", f"New Type: {req.student_type}")
     return {"student_type": req.student_type}
 
 @router.get("/available-subjects")
 def get_available_subjects(
-    current_user: User = Depends(get_current_student),
+    current_user: User = Depends(require_role(["student"])),
     db: Session = Depends(get_db)
 ):
     """
@@ -293,7 +282,7 @@ class SelectionItem(BaseModel):
 @router.post("/save-selected")
 def save_selected_subjects(
     selections: List[SelectionItem],
-    current_user: User = Depends(get_current_student),
+    current_user: User = Depends(require_role(["student"])),
     db: Session = Depends(get_db)
 ):
    
@@ -306,11 +295,12 @@ def save_selected_subjects(
         )
         db.add(new_sel)
     db.commit()
+    log_activity(db, current_user.id, "IRREGULAR_SELECTION_SAVE", f"Count: {len(selections)}")
     return {"message": "Selection saved"}
 
 @router.get("/custom-exams")
 def get_custom_exams(
-    current_user: User = Depends(get_current_student),
+    current_user: User = Depends(require_role(["student"])),
     db: Session = Depends(get_db)
 ):
     """For irregular students: get exams based on saved selections (match by subject name)"""
