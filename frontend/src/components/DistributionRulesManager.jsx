@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Trash2, Plus, Save, X, AlertCircle } from "lucide-react";
 import { useToast } from "../context/ToastContext";
 import { useTheme } from "../context/themeStore";
+import api from "../api";
 
 export default function DistributionRulesManager() {
     const [rules, setRules] = useState([]);
@@ -33,8 +34,8 @@ export default function DistributionRulesManager() {
     const fetchRules = async () => {
         setLoading(true);
         try {
-            const res = await fetch("http://localhost:8000/rules");
-            if (res.ok) setRules(await res.json());
+            const res = await api.get("/rules");
+            setRules(res.data);
         } catch (err) {
             console.error("Error fetching rules:", err);
         }
@@ -43,8 +44,8 @@ export default function DistributionRulesManager() {
 
     const fetchYearLevels = async () => {
         try {
-            const res = await fetch("http://localhost:8000/catalog/year-levels");
-            if (res.ok) setYearLevels(await res.json());
+            const res = await api.get("/catalog/year-levels");
+            setYearLevels(res.data);
         } catch (err) {
             console.error("Error fetching year levels:", err);
         }
@@ -61,7 +62,7 @@ export default function DistributionRulesManager() {
         const id = confirmModal.id;
         setConfirmModal({ isOpen: false, id: null });
         try {
-            await fetch(`http://localhost:8000/rules/${id}`, { method: "DELETE" });
+            await api.delete(`/rules/${id}`);
             setRules(rules.filter(r => r.id !== id));
             showSuccess("Rule deleted successfully");
         } catch (err) {
@@ -77,20 +78,11 @@ export default function DistributionRulesManager() {
                 allowed_days: newRule.allowed_days.map(Number)
             };
 
-            const res = await fetch("http://localhost:8000/rules", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload)
-            });
-
-            if (res.ok) {
-                fetchRules();
-                setShowAddForm(false);
-                setNewRule({ category_type: "general", year_level_id: "", allowed_days: [], allowed_session: "morning" });
-                showSuccess("Rule added successfully");
-            } else {
-                showError("Failed to add rule");
-            }
+            await api.post("/rules", payload);
+            fetchRules();
+            setShowAddForm(false);
+            setNewRule({ category_type: "general", year_level_id: "", allowed_days: [], allowed_session: "morning" });
+            showSuccess("Rule added successfully");
         } catch (err) {
             console.error(err);
             showError("Error adding rule");

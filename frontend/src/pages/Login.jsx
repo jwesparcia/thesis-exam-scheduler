@@ -121,7 +121,7 @@ export default function Login() {
               <img src="/images.png" alt="logo" className="rounded-xl h-10 w-10 object-contain" />
             </div>
             <h1 className={`text-3xl font-bold tracking-tight mb-2 ${isDark ? "text-white" : "text-gray-900"}`}>
-              Welcome back
+              Welcome!
             </h1>
             <p className={`text-base ${isDark ? "text-gray-400" : "text-gray-500"}`}>
               Sign in to access your dashboard
@@ -136,7 +136,7 @@ export default function Login() {
               <div className="relative group">
                 <UserCircle className={`absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 transition ${isDark ? "text-gray-500 group-focus-within:text-blue-400" : "text-gray-400 group-focus-within:text-blue-600"}`} />
                 <input
-                  type="email"
+                  type="text"
                   placeholder="Enter your email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}

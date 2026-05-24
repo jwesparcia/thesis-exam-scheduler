@@ -16,6 +16,25 @@ export default function GeneratedExamSchedules() {
     const [semester, setSemester] = useState(1);
     const [exams, setExams] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [showPostAllModal, setShowPostAllModal] = useState(false);
+
+    const handlePostAll = async () => {
+        setShowPostAllModal(false);
+        try {
+            const res = await api.post(
+                `/exams/post?semester=${semester}&department=${selectedDept}`
+            );
+            if (res.status === 200) {
+                showSuccess(`Successfully posted all ${selectedDept} schedules to students' dashboards!`);
+                fetchExams();
+            } else {
+                showError("Failed to post schedules.");
+            }
+        } catch (err) {
+            console.error(err);
+            showError(err.response?.data?.detail || "No draft schedules found to post.");
+        }
+    };
 
     // Fetch courses and year levels
     useEffect(() => {
@@ -77,13 +96,21 @@ export default function GeneratedExamSchedules() {
         <div className={`min-h-screen ${isDark ? "bg-gray-900" : "bg-gray-50"} rounded-2xl`}>
             <div className="max-w-7xl mx-auto px-6 py-10">
                 {/* Header */}
-                <div className="flex items-center justify-between gap-3 mb-8">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
                     <div className="flex items-center gap-3">
                         <CalendarDays className="text-blue-500 w-8 h-8" />
                         <h1 className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}>
                             Generated Exam Schedules
                         </h1>
                     </div>
+                    
+                    <button
+                        onClick={() => setShowPostAllModal(true)}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 transition-all hover:scale-105 active:scale-95 font-bold text-sm"
+                    >
+                        <Send className="w-4 h-4" />
+                        Post All {selectedDept} Schedules
+                    </button>
                 </div>
 
                 {/* Step 1: Select Department */}
@@ -305,8 +332,11 @@ export default function GeneratedExamSchedules() {
                                                                 <div className="font-medium">{e.start_time} - {e.end_time}</div>
                                                             </td>
                                                             <td className="px-4 py-4">
-                                                                <span className={`px-3 py-1 rounded-lg font-bold ${isDark ? "bg-gray-700 text-white" : "bg-gray-100 text-gray-800"}`}>
-                                                                    {e.room}
+                                                                <span className={`px-3 py-1 rounded-lg font-bold ${e.room && e.room !== "-"
+                                                                    ? isDark ? "bg-gray-700 text-white" : "bg-gray-100 text-gray-800"
+                                                                    : isDark ? "bg-red-500/20 text-red-200" : "bg-red-100 text-red-700"
+                                                                    }`}>
+                                                                    {e.room && e.room !== "-" ? e.room : "No Room"}
                                                                 </span>
                                                             </td>
                                                         </tr>
@@ -349,6 +379,39 @@ export default function GeneratedExamSchedules() {
                     </div>
                 )}
             </div>
+
+            {/* Confirmation Modal */}
+            {showPostAllModal && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+                    <div className={`p-8 rounded-3xl shadow-2xl max-w-md w-full transform transition-all scale-100 ${isDark ? "bg-gray-800 border border-gray-700" : "bg-white"}`}>
+                        <div className="flex flex-col items-center text-center">
+                            <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-6 shadow-lg ${isDark ? "bg-emerald-900/50 shadow-emerald-900/20" : "bg-emerald-100 shadow-emerald-200/50"}`}>
+                                <Send className={`w-8 h-8 ${isDark ? "text-emerald-400" : "text-emerald-600"}`} />
+                            </div>
+                            <h3 className={`text-2xl font-bold mb-3 ${isDark ? "text-white" : "text-gray-900"}`}>
+                                Post All Schedules?
+                            </h3>
+                            <p className={`mb-8 text-sm leading-relaxed ${isDark ? "text-gray-300" : "text-gray-600"}`}>
+                                Are you sure you want to post ALL draft schedules for <span className="font-bold">{selectedDept}</span> (Semester {semester}) to students? This action will make them visible on their dashboards.
+                            </p>
+                            <div className="flex gap-4 w-full">
+                                <button
+                                    onClick={() => setShowPostAllModal(false)}
+                                    className={`flex-1 py-3.5 rounded-xl font-bold transition-all active:scale-95 ${isDark ? "bg-gray-700 hover:bg-gray-600 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-800"}`}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handlePostAll}
+                                    className="flex-1 py-3.5 rounded-xl font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition-all shadow-lg shadow-emerald-600/30 active:scale-95"
+                                >
+                                    Yes, Post All
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

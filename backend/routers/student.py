@@ -84,21 +84,64 @@ def get_student_exams(
     )
     return build_exam_response(exams)
 
-# Regular student: conflict detection
+# Student: conflict detection (supports regular and irregular students)
 @router.get("/conflicts")
 def get_student_conflicts(
     current_user: User = Depends(require_role(["student"])),
     db: Session = Depends(get_db),
 ):
-    if not current_user.section_name:
-        return []
-    exams = (
-        db.query(Exam)
-        .options(joinedload(Exam.timeslot))
-        .filter(Exam.status == "posted")
-        .filter(Exam.section.has(name=current_user.section_name))
-        .all()
-    )
+    if current_user.student_type == "irregular":
+        selections = db.query(IrregularSelection).filter(IrregularSelection.user_id == current_user.id).all()
+        if not selections:
+            return []
+        
+        # Get all subject names from the selected subject_ids
+        selected_subject_ids = [sel.subject_id for sel in selections]
+        selected_subjects = db.query(Subject).filter(Subject.id.in_(selected_subject_ids)).all()
+        selected_names = [sub.name for sub in selected_subjects]
+        
+        all_matching_subjects = db.query(Subject).filter(
+            Subject.name.in_(selected_names),
+            Subject.exam_type == "written"
+        ).all()
+        
+        subject_name_to_ids = {}
+        for sub in all_matching_subjects:
+            subject_name_to_ids.setdefault(sub.name, []).append(sub.id)
+        
+        from sqlalchemy import or_
+        conditions = []
+        for sel in selections:
+            subject = db.query(Subject).get(sel.subject_id)
+            if subject and subject.name in subject_name_to_ids:
+                matching_ids = subject_name_to_ids[subject.name]
+                conditions.append(
+                    (Exam.subject_id.in_(matching_ids)) & (Exam.section_id == sel.section_id)
+                )
+        
+        if not conditions:
+            return []
+        
+        exams = (
+            db.query(Exam)
+            .options(joinedload(Exam.timeslot))
+            .filter(
+                Exam.status == "posted",
+                or_(*conditions)
+            )
+            .all()
+        )
+    else:
+        if not current_user.section_name:
+            return []
+        exams = (
+            db.query(Exam)
+            .options(joinedload(Exam.timeslot))
+            .filter(Exam.status == "posted")
+            .filter(Exam.section.has(name=current_user.section_name))
+            .all()
+        )
+    
     conflicts = []
     for i, e1 in enumerate(exams):
         for e2 in exams[i+1:]:
@@ -112,19 +155,26 @@ def get_student_conflicts(
                     })
     return conflicts
 
-# Regular student: rescheduling requests
+# Student: rescheduling requests (supports regular and irregular students)
 @router.get("/requests")
 def get_student_requests(
     current_user: User = Depends(require_role(["student"])),
     db: Session = Depends(get_db),
 ):
-    if not current_user.section_name:
-        return []
-    requests = (
-        db.query(ReschedulingRequest)
-        .filter(ReschedulingRequest.section_name == current_user.section_name)
-        .all()
-    )
+    if current_user.student_type == "irregular":
+        requests = (
+            db.query(ReschedulingRequest)
+            .filter(ReschedulingRequest.school_email == current_user.email)
+            .all()
+        )
+    else:
+        if not current_user.section_name:
+            return []
+        requests = (
+            db.query(ReschedulingRequest)
+            .filter(ReschedulingRequest.section_name == current_user.section_name)
+            .all()
+        )
     return [
         {
             "id": r.id,
@@ -139,7 +189,7 @@ def get_student_requests(
         for r in requests
     ]
 
-# Regular student: submit reschedule request
+# Student: submit reschedule request
 class RescheduleRequestBody(BaseModel):
     exam_id: int
     section_name: str
@@ -171,8 +221,21 @@ def submit_reschedule_request(
     exam = db.query(Exam).filter(Exam.id == body.exam_id).first()
     if not exam:
         raise HTTPException(status_code=404, detail="Exam not found")
-    if exam.section and exam.section.name != current_user.section_name:
-        raise HTTPException(status_code=403, detail="Unauthorized: section mismatch")
+        
+    if current_user.student_type == "irregular":
+        is_selected = False
+        if exam.subject and exam.section_id:
+            selections = db.query(IrregularSelection).filter(IrregularSelection.user_id == current_user.id).all()
+            for sel in selections:
+                sel_subject = db.query(Subject).filter(Subject.id == sel.subject_id).first()
+                if sel_subject and sel_subject.name == exam.subject.name and sel.section_id == exam.section_id:
+                    is_selected = True
+                    break
+        if not is_selected:
+            raise HTTPException(status_code=403, detail="Unauthorized: this exam is not in your selected schedule")
+    else:
+        if exam.section and exam.section.name != current_user.section_name:
+            raise HTTPException(status_code=403, detail="Unauthorized: section mismatch")
     
     def parse_date(s):
         return datetime.strptime(s, "%Y-%m-%d").date() if s else None
@@ -216,6 +279,7 @@ def submit_reschedule_request(
 
 class StudentTypeRequest(BaseModel):
     student_type: str
+    course_id: Optional[int] = None
 
 @router.post("/set-student-type")
 def set_student_type(
@@ -226,9 +290,25 @@ def set_student_type(
     if req.student_type not in ["regular", "irregular"]:
         raise HTTPException(status_code=400, detail="Invalid type")
     current_user.student_type = req.student_type
+    if req.course_id is not None:
+        current_user.course_id = req.course_id
     db.commit()
-    log_activity(db, current_user.id, "STUDENT_TYPE_CHANGE", f"New Type: {req.student_type}")
-    return {"student_type": req.student_type}
+    log_activity(db, current_user.id, "STUDENT_TYPE_CHANGE", f"New Type: {req.student_type}, Course: {req.course_id}")
+    return {"student_type": req.student_type, "course_id": current_user.course_id}
+
+class SetCourseRequest(BaseModel):
+    course_id: int
+
+@router.post("/set-course")
+def set_student_course(
+    req: SetCourseRequest,
+    current_user: User = Depends(require_role(["student"])),
+    db: Session = Depends(get_db)
+):
+    current_user.course_id = req.course_id
+    db.commit()
+    log_activity(db, current_user.id, "STUDENT_COURSE_CHANGE", f"New Course ID: {req.course_id}")
+    return {"course_id": current_user.course_id}
 
 @router.get("/available-subjects")
 def get_available_subjects(
@@ -236,11 +316,12 @@ def get_available_subjects(
     db: Session = Depends(get_db)
 ):
     """
-    Return all unique subject names with all sections from any course
-    that offers that subject. This allows an irregular student to choose
-    a section from any course (e.g., BSIT or BSCS) for the same subject name.
+    Return unique subject names with sections related to the student's selected course.
     """
     from collections import defaultdict
+
+    if not current_user.course_id:
+        return []
 
     # Group sections by subject name
     subject_map = defaultdict(lambda: {
@@ -250,7 +331,11 @@ def get_available_subjects(
         "sections": []      
     })
 
-    subjects = db.query(Subject).all()
+    # Filter subjects by student's course and ensure it is a written exam
+    subjects = db.query(Subject).filter(
+        Subject.course_id == current_user.course_id,
+        Subject.exam_type == "written"
+    ).all()
     for sub in subjects:
         name = sub.name
         # Use first occurrence's id and code
@@ -298,6 +383,14 @@ def save_selected_subjects(
     log_activity(db, current_user.id, "IRREGULAR_SELECTION_SAVE", f"Count: {len(selections)}")
     return {"message": "Selection saved"}
 
+@router.get("/selected-subjects")
+def get_selected_subjects(
+    current_user: User = Depends(require_role(["student"])),
+    db: Session = Depends(get_db)
+):
+    selections = db.query(IrregularSelection).filter(IrregularSelection.user_id == current_user.id).all()
+    return [{"subject_id": s.subject_id, "section_id": s.section_id} for s in selections]
+
 @router.get("/custom-exams")
 def get_custom_exams(
     current_user: User = Depends(require_role(["student"])),
@@ -313,9 +406,16 @@ def get_custom_exams(
     
     # Get all subject names from the selected subject_ids
     selected_subject_ids = [sel.subject_id for sel in selections]
-    subjects = db.query(Subject).filter(Subject.id.in_(selected_subject_ids)).all()
+    selected_subjects = db.query(Subject).filter(Subject.id.in_(selected_subject_ids)).all()
+    selected_names = [sub.name for sub in selected_subjects]
+    
+    all_matching_subjects = db.query(Subject).filter(
+        Subject.name.in_(selected_names),
+        Subject.exam_type == "written"
+    ).all()
+    
     subject_name_to_ids = {}
-    for sub in subjects:
+    for sub in all_matching_subjects:
         subject_name_to_ids.setdefault(sub.name, []).append(sub.id)
     
     from sqlalchemy import or_

@@ -1,10 +1,17 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { CalendarDays, FileText, Loader2, BookOpen, Sparkles } from "lucide-react";
 import { useTheme } from "../context/themeStore";
 import api from "../api";
 import { useToast } from "../context/ToastContext";
 
-export default function ExamScheduler({ onBeforeGenerate }) {
+const INITIAL_GENERATION_PROGRESS = {
+  status: "idle",
+  percent: 0,
+  phase: "Idle",
+  detail: "",
+};
+
+export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChange }) {
   const { theme } = useTheme();
   const isDark = theme === "dark";
   const [courses, setCourses] = useState([]);
@@ -15,17 +22,29 @@ export default function ExamScheduler({ onBeforeGenerate }) {
   const [semester, setSemester] = useState(1);
   const [details, setDetails] = useState({ sections: [] });
   const [loading, setLoading] = useState(false);
+  const progressPollRef = useRef(null);
+  const activeProgressJobRef = useRef(null);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [subjects, setSubjects] = useState([]);
+  const [subjectsLoading, setSubjectsLoading] = useState(false);
+  const [subjectsError, setSubjectsError] = useState("");
   const [excludedSubjects, setExcludedSubjects] = useState(new Set());
   const [searchQuery, setSearchQuery] = useState("");
+  const [generationProgress, setGenerationProgress] = useState(INITIAL_GENERATION_PROGRESS);
   const { showSuccess, showError, showWarning } = useToast();
   const [confirmModal, setConfirmModal] = useState({
     isOpen: false,
     message: "",
     onConfirm: null
   });
+
+  useEffect(() => {
+    onGenerationStateChange?.({
+      loading,
+      progress: generationProgress,
+    });
+  }, [loading, generationProgress, onGenerationStateChange]);
 
   // Fetch courses and year levels
   useEffect(() => {
@@ -47,25 +66,64 @@ export default function ExamScheduler({ onBeforeGenerate }) {
   useEffect(() => {
     if (!selectedDept) {
       setSubjects([]);
+      setSubjectsLoading(false);
+      setSubjectsError("");
       setExcludedSubjects(new Set());
       return;
     }
+
+    let isCurrentRequest = true;
     const fetchSubjects = async () => {
+      setSubjectsLoading(true);
+      setSubjectsError("");
+      setSearchQuery("");
       try {
-        const res = await api.get(`/exams/subjects?department=${selectedDept}&semester=${semester}`);
-        setSubjects(res.data);
+        const res = await api.get("/exams/subjects", {
+          params: {
+            department: selectedDept,
+            semester,
+          },
+        });
+        if (!isCurrentRequest) return;
+
+        const subjectNames = Array.isArray(res.data)
+          ? res.data.filter(Boolean).map(String)
+          : [];
+        setSubjects(subjectNames);
         setExcludedSubjects(new Set());
       } catch (err) {
+        if (!isCurrentRequest) return;
         console.error("Error loading subjects:", err);
+        const message = err.response?.data?.detail || "Unable to load subjects for this selection.";
+        setSubjects([]);
+        setSubjectsError(message);
+        showError(message);
+      } finally {
+        if (isCurrentRequest) {
+          setSubjectsLoading(false);
+        }
       }
     };
     fetchSubjects();
+
+    return () => {
+      isCurrentRequest = false;
+    };
   }, [selectedDept, semester]);
 
   // Fetch details when specific course/year/semester changes
   useEffect(() => {
     loadDetails();
   }, [courseId, yearId, semester]);
+
+  useEffect(() => {
+    return () => {
+      if (progressPollRef.current) {
+        clearInterval(progressPollRef.current);
+      }
+      activeProgressJobRef.current = null;
+    };
+  }, []);
 
   const loadDetails = async () => {
     if (!courseId || !yearId) {
@@ -103,24 +161,81 @@ export default function ExamScheduler({ onBeforeGenerate }) {
       console.error("Failed to check missing schedules", err);
     }
   };
+
+  const stopProgressPolling = (jobId = null) => {
+    if (progressPollRef.current) {
+      clearInterval(progressPollRef.current);
+      progressPollRef.current = null;
+    }
+    if (!jobId || activeProgressJobRef.current === jobId) {
+      activeProgressJobRef.current = null;
+    }
+  };
+
+  const fetchGenerationProgress = async (jobId) => {
+    try {
+      const res = await api.get("/exams/generate/progress", {
+        params: { job_id: jobId }
+      });
+      if (activeProgressJobRef.current !== jobId) {
+        return;
+      }
+      setGenerationProgress(res.data);
+    } catch (err) {
+      console.error("Failed to fetch generation progress", err);
+    }
+  };
+
+  const startProgressPolling = (jobId) => {
+    stopProgressPolling();
+    activeProgressJobRef.current = jobId;
+    fetchGenerationProgress(jobId);
+    progressPollRef.current = setInterval(() => fetchGenerationProgress(jobId), 700);
+  };
+
   // Actual execution of generation
   const executeGeneration = async () => {
+    const jobId = `schedule-${Date.now()}`;
     setLoading(true);
+    setGenerationProgress({
+      status: "running",
+      percent: 1,
+      phase: "Preparing schedule",
+      detail: "Sending generation request to the scheduler",
+    });
+    startProgressPolling(jobId);
+
     try {
       const res = await api.post("/exams/generate", {
         start_date: startDate,
         end_date: endDate,
         department: selectedDept,
         semester: semester,
-        excluded_subjects: Array.from(excludedSubjects)
+        excluded_subjects: Array.from(excludedSubjects),
+        job_id: jobId
       });
       const data = res.data;
+      setGenerationProgress({
+        status: "completed",
+        percent: 100,
+        phase: "Schedule generated",
+        detail: data.message,
+      });
       showSuccess(data.message);
     } catch (err) {
       console.error(err);
-      showError("Error generating schedule");
+      const message = err.response?.data?.detail || "Error generating schedule";
+      setGenerationProgress((current) => ({
+        ...current,
+        status: "failed",
+        phase: "Generation failed",
+        detail: message,
+      }));
+      showError(message);
+    } finally {
+      stopProgressPolling(jobId);
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   // Generate exam schedule with confirmation
@@ -132,13 +247,14 @@ export default function ExamScheduler({ onBeforeGenerate }) {
 
     const start = new Date(startDate);
     const end = new Date(endDate);
-    const diffTime = Math.abs(end - start);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    const diffTime = end - start;
 
-    if (diffDays < 1) {
+    if (diffTime < 0) {
       showError("End date must be after start date.");
       return;
     }
+
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
 
     // Call external warning from parent (if any)
     if (onBeforeGenerate) {
@@ -165,6 +281,17 @@ export default function ExamScheduler({ onBeforeGenerate }) {
       }
     });
   };
+
+  const generationPercent = Math.max(0, Math.min(100, Number(generationProgress.percent) || 0));
+  const showGenerationProgress = loading || generationProgress.status !== "idle";
+  const progressBarColor = generationProgress.status === "failed"
+    ? "bg-red-500"
+    : generationProgress.status === "completed"
+      ? "bg-emerald-500"
+      : "bg-blue-600";
+  const filteredSubjects = subjects.filter(subject =>
+    subject.toLowerCase().includes(searchQuery.trim().toLowerCase())
+  );
 
   return (
     <div className={`min-h-screen ${isDark ? "bg-gray-900" : "bg-gray-50"} rounded-2xl`}>
@@ -363,10 +490,18 @@ export default function ExamScheduler({ onBeforeGenerate }) {
                 </div>
 
                 <div className={`max-h-64 overflow-y-auto rounded-xl border p-2 ${isDark ? "border-gray-700 bg-gray-800/50" : "border-gray-200 bg-gray-50"}`}>
-                  {subjects.filter(s => s.toLowerCase().includes(searchQuery.toLowerCase())).length > 0 ? (
+                  {subjectsLoading ? (
+                    <div className={`p-4 text-center text-sm flex items-center justify-center gap-2 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Loading subjects...
+                    </div>
+                  ) : subjectsError ? (
+                    <div className={`p-4 text-center text-sm ${isDark ? "text-red-300" : "text-red-600"}`}>
+                      {subjectsError}
+                    </div>
+                  ) : filteredSubjects.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                      {subjects
-                        .filter(s => s.toLowerCase().includes(searchQuery.toLowerCase()))
+                      {filteredSubjects
                         .map(subject => {
                           const isChecked = !excludedSubjects.has(subject);
                           return (
@@ -401,8 +536,12 @@ export default function ExamScheduler({ onBeforeGenerate }) {
                           );
                         })}
                     </div>
+                  ) : subjects.length === 0 ? (
+                    <div className={`p-4 text-center text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                      No written exam subjects found for {selectedDept} semester {semester}.
+                    </div>
                   ) : (
-                    <div className="p-4 text-center text-sm text-gray-500">
+                    <div className={`p-4 text-center text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}>
                       No subjects match your search.
                     </div>
                   )}
@@ -410,6 +549,36 @@ export default function ExamScheduler({ onBeforeGenerate }) {
               </div>
 
               <div className="pt-6 border-t border-gray-100 dark:border-gray-800 pb-8">
+                {showGenerationProgress && (
+                  <div className={`mb-5 rounded-2xl border p-4 ${isDark ? "bg-gray-800/70 border-gray-700" : "bg-blue-50/60 border-blue-100"}`}>
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0">
+                        <p className={`text-sm font-bold ${isDark ? "text-gray-100" : "text-gray-800"}`}>
+                          {generationProgress.phase || (loading ? "Generating schedule" : "Schedule status")}
+                        </p>
+                        <p className={`mt-1 text-xs leading-relaxed ${isDark ? "text-gray-400" : "text-gray-600"}`}>
+                          {generationProgress.detail || (loading ? "Preparing scheduler tasks..." : "Generation status is ready.")}
+                        </p>
+                      </div>
+                      <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${isDark ? "bg-gray-700 text-gray-100" : "bg-white text-blue-700 border border-blue-100"}`}>
+                        {generationPercent}%
+                      </span>
+                    </div>
+                    <div
+                      className={`mt-4 h-3 overflow-hidden rounded-full ${isDark ? "bg-gray-700" : "bg-white"}`}
+                      role="progressbar"
+                      aria-valuenow={generationPercent}
+                      aria-valuemin="0"
+                      aria-valuemax="100"
+                    >
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${progressBarColor}`}
+                        style={{ width: `${generationPercent}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                )}
+
                 <button
                   onClick={generate}
                   disabled={loading}

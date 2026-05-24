@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session
 from database import get_db
-from models import Section, Subject, Exam, Room, Timeslot, Teacher, Exam, DistributionRule, User, Proctor, ProctorAvailability, TeacherTeaching
+from models import Section, Subject, Exam, Room, Timeslot, Teacher, Exam, DistributionRule, User, Proctor, ProctorAvailability, TeacherTeaching, Course
+from room_data import get_room_names_for_department
 from datetime import datetime, timedelta, time, date
 import random
 from .auth import get_current_user, require_role
@@ -44,10 +45,12 @@ def generate_exam_schedule(payload: dict = Body(...), db: Session = Depends(get_
         Subject.year_level_id == year_level_id,
         Subject.semester == semester
     ).all()
-    rooms = db.query(Room).all()
+    course = db.query(Course).filter(Course.id == course_id).first()
+    room_names = get_room_names_for_department(course.category if course else None)
+    rooms = db.query(Room).filter(Room.name.in_(room_names)).order_by(Room.name).all()
 
     if not sections or not subjects or not rooms:
-        raise HTTPException(status_code=404, detail="Missing sections, subjects, or rooms")
+        raise HTTPException(status_code=404, detail="Missing sections, subjects, or available rooms")
 
     # Use all subjects
     # subjects = subjects[:7]  <-- Removed limit

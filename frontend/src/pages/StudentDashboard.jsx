@@ -42,6 +42,8 @@ export default function StudentDashboard() {
   const [selectedSubjects, setSelectedSubjects] = useState([]);
   const [irregularSearchTerm, setIrregularSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("schedule");
+  const [coursesList, setCoursesList] = useState([]);
+  const [selectedCourseId, setSelectedCourseId] = useState("");
 
   // Reschedule form states
   const [studentName, setStudentName] = useState(user?.name || "");
@@ -65,15 +67,37 @@ export default function StudentDashboard() {
   const [acknowledged, setAcknowledged] = useState(false);
   const [loadingRequest, setLoadingRequest] = useState(false);
 
+  // Fetch courses list
+  const fetchCourses = async () => {
+    try {
+      const res = await api.get("/catalog/courses");
+      setCoursesList(res.data);
+    } catch (err) {
+      console.error("Error fetching courses:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchCourses();
+  }, []);
+
   // Check if student type is set on first load
   useEffect(() => {
-    if (user && user.role === "student" && (!user.student_type || user.student_type === "")) {
-      setShowTypeModal(true);
-    } else if (user && user.role === "student" && user.student_type === "irregular") {
-      fetchAvailableSubjects();
-      fetchCustomExams();
-    } else if (user && user.role === "student" && user.student_type === "regular") {
-      fetchData();
+    if (user && user.role === "student") {
+      if (!user.student_type || user.student_type === "") {
+        setShowTypeModal(true);
+      } else if (user.student_type === "irregular" && !user.course_id) {
+        setSelectedType("irregular");
+        setShowTypeModal(true);
+      } else if (user.student_type === "irregular") {
+        if (user.course_id) {
+          setSelectedCourseId(user.course_id.toString());
+        }
+        fetchAvailableSubjects();
+        fetchCustomExams();
+      } else if (user.student_type === "regular") {
+        fetchData();
+      }
     }
   }, [user]);
 
@@ -109,6 +133,12 @@ export default function StudentDashboard() {
     try {
       const res = await api.get("/student/available-subjects");
       setAvailableSubjects(res.data);
+      try {
+        const savedRes = await api.get("/student/selected-subjects");
+        setSelectedSubjects(savedRes.data);
+      } catch (e) {
+        console.error("Error fetching saved selections:", e);
+      }
     } catch (err) {
       console.error(err);
     }
@@ -125,6 +155,19 @@ export default function StudentDashboard() {
       if (res.data.length === 0) {
         console.warn("No exams found for your selections. Make sure exams are posted for those subjects/sections.");
       }
+      try {
+        const conflictsRes = await api.get("/student/conflicts");
+        const conflictSet = new Set();
+        conflictsRes.data.forEach(c => {
+          conflictSet.add(c.exam1.id);
+          conflictSet.add(c.exam2.id);
+        });
+        setConflictIds(conflictSet);
+      } catch (e) { }
+      try {
+        const requestsRes = await api.get("/student/requests");
+        setMyRequests(requestsRes.data);
+      } catch (e) { }
     } catch (err) {
       console.error("Error fetching custom exams:", err);
     } finally {
@@ -167,11 +210,25 @@ export default function StudentDashboard() {
   // Set student type (regular/irregular)
   const saveStudentType = async () => {
     if (!selectedType) return;
+    if (selectedType === "irregular" && !selectedCourseId) {
+      showWarning("Please select your course.");
+      return;
+    }
     try {
-      await api.post("/student/set-student-type", { student_type: selectedType });
-      const updatedUser = { ...user, student_type: selectedType };
+      const payload = {
+        student_type: selectedType,
+        course_id: selectedType === "irregular" ? parseInt(selectedCourseId) : null
+      };
+      const res = await api.post("/student/set-student-type", payload);
+      
+      const updatedUser = { 
+        ...user, 
+        student_type: selectedType, 
+        course_id: res.data.course_id 
+      };
       login(updatedUser);
       setShowTypeModal(false);
+      
       if (selectedType === "irregular") {
         fetchAvailableSubjects();
         fetchCustomExams();
@@ -243,11 +300,37 @@ export default function StudentDashboard() {
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 transition-opacity">
           <div className={`p-8 rounded-3xl max-w-md w-full shadow-2xl border ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200"}`}>
             <h2 className={`text-2xl font-bold mb-6 text-center ${isDark ? "text-white" : "text-slate-900"}`}>Select Student Type</h2>
-            <div className="flex gap-4 mb-8">
+            <div className="flex gap-4 mb-6">
               <button onClick={() => setSelectedType("regular")} className={`flex-1 py-4 rounded-2xl font-bold transition-all duration-300 ${selectedType === "regular" ? "bg-blue-600 text-white shadow-lg shadow-blue-500/40 ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-slate-800 scale-105" : isDark ? "bg-slate-700 text-slate-300 hover:bg-slate-600" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>Regular</button>
               <button onClick={() => setSelectedType("irregular")} className={`flex-1 py-4 rounded-2xl font-bold transition-all duration-300 ${selectedType === "irregular" ? "bg-blue-600 text-white shadow-lg shadow-blue-500/40 ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-slate-800 scale-105" : isDark ? "bg-slate-700 text-slate-300 hover:bg-slate-600" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>Irregular</button>
             </div>
-            <button onClick={saveStudentType} disabled={!selectedType} className={`w-full py-4 rounded-2xl font-bold transition-all shadow-md ${!selectedType ? "opacity-50 cursor-not-allowed bg-slate-400 text-white" : "bg-emerald-600 hover:bg-emerald-500 text-white hover:shadow-lg hover:-translate-y-0.5"}`}>Confirm Selection</button>
+
+            {selectedType === "irregular" && (
+              <div className="mb-6 animate-fadeIn">
+                <label className={`block text-sm font-semibold mb-2 ${isDark ? "text-slate-300" : "text-slate-700"}`}>
+                  What is your Course?
+                </label>
+                <select
+                  value={selectedCourseId}
+                  onChange={(e) => setSelectedCourseId(e.target.value)}
+                  className={`w-full p-3 rounded-xl border outline-none font-medium transition-all ${
+                    isDark
+                      ? "bg-slate-700 border-slate-600 text-white focus:border-blue-500"
+                      : "bg-slate-50 border-slate-200 text-slate-800 focus:border-blue-500 focus:bg-white"
+                  }`}
+                  required
+                >
+                  <option value="">-- Choose your course --</option>
+                  {coursesList.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} ({c.category})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <button onClick={saveStudentType} disabled={!selectedType || (selectedType === "irregular" && !selectedCourseId)} className={`w-full py-4 rounded-2xl font-bold transition-all shadow-md ${(!selectedType || (selectedType === "irregular" && !selectedCourseId)) ? "opacity-50 cursor-not-allowed bg-slate-400 text-white" : "bg-emerald-600 hover:bg-emerald-500 text-white hover:shadow-lg hover:-translate-y-0.5"}`}>Confirm Selection</button>
           </div>
         </div>
       )}
@@ -319,6 +402,11 @@ export default function StudentDashboard() {
             <div className="flex flex-wrap items-center gap-4 mt-3">
               <span className={`px-3 py-1 rounded-lg text-sm font-medium border ${isDark ? "bg-slate-700/50 border-slate-600 text-slate-300" : "bg-slate-50 border-slate-200 text-slate-600"}`}>Section: <strong className={isDark ? "text-white" : "text-slate-900"}>{user?.section_name || section || "N/A"}</strong></span>
               <span className={`px-3 py-1 rounded-lg text-sm font-medium border ${isDark ? "bg-slate-700/50 border-slate-600 text-slate-300" : "bg-slate-50 border-slate-200 text-slate-600"}`}>Type: <strong className={`capitalize ${isDark ? "text-white" : "text-slate-900"}`}>{user?.student_type || "not set"}</strong></span>
+              {user?.student_type === "irregular" && user?.course_id && (
+                <span className={`px-3 py-1 rounded-lg text-sm font-medium border ${isDark ? "bg-slate-700/50 border-slate-600 text-slate-300" : "bg-slate-50 border-slate-200 text-slate-600"}`}>
+                  Course: <strong className={isDark ? "text-white" : "text-slate-900"}>{coursesList.find(c => c.id === user.course_id)?.name || "Loaded"}</strong>
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -330,7 +418,7 @@ export default function StudentDashboard() {
           <div className={`p-5 rounded-xl shadow-sm border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
             <h3 className={`text-lg font-semibold mb-3 ${isDark ? "text-white" : "text-gray-900"}`}>Customize Your Exam Schedule</h3>
             <div className="flex gap-2 mb-4">
-              <input type="text" placeholder="Search subject code or name" value={irregularSearchTerm} onChange={(e) => setIrregularSearchTerm(e.target.value)} className={`flex-1 p-2 rounded-lg border ${isDark ? "bg-gray-700 border-gray-600" : "bg-white border-gray-300"}`} />
+              <input type="text" placeholder="Search subject code or name" value={irregularSearchTerm} onChange={(e) => setIrregularSearchTerm(e.target.value)} className={`flex-1 p-2 rounded-lg border ${isDark ? "bg-gray-700 border-gray-600 text-white" : "bg-white border-gray-300"}`} />
             </div>
             <div className="max-h-64 overflow-y-auto mb-4 space-y-2">
               {availableSubjects.filter(s => s.name.toLowerCase().includes(irregularSearchTerm.toLowerCase()) || s.code.toLowerCase().includes(irregularSearchTerm.toLowerCase())).map(sub => (

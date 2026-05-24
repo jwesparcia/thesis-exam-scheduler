@@ -244,6 +244,18 @@ async def upload_my_schedule(proctor_id: int, file: UploadFile = File(...), db: 
                     db.add(new_sched)
                     records += 1
             db.commit()
+            
+            # Notify Admin
+            notif = models.Notification(
+                recipient_type="program_head",
+                recipient_id="admin",
+                message=f"Proctor {proctor.name} has uploaded their teaching schedule.",
+                type="info",
+                related_id=proctor.id
+            )
+            db.add(notif)
+            db.commit()
+            
             return {"message": f"Successfully processed grid schedule with {records} entries."}
         # Standard row-based format
         required_columns = ['Day', 'Start Time', 'End Time']
@@ -288,6 +300,18 @@ async def upload_my_schedule(proctor_id: int, file: UploadFile = File(...), db: 
             db.add(new_sched)
             records_processed += 1
         db.commit()
+        
+        # Notify Admin
+        notif = models.Notification(
+            recipient_type="program_head",
+            recipient_id="admin",
+            message=f"Proctor {proctor.name} has uploaded their teaching schedule.",
+            type="info",
+            related_id=proctor.id
+        )
+        db.add(notif)
+        db.commit()
+        
         return {"message": f"Successfully processed {records_processed} schedule entries."}
     except Exception as e:
         db.rollback()

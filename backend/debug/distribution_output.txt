@@ -1,0 +1,1530 @@
+Looking for .env at: C:\Users\jhune\thesis-exam-scheduler\backend\.env
+Loaded DATABASE_URL: postgresql://postgres:may312005@localhost:5432/exam_scheduler
+Attempting to connect to database...
+Database connection successful!
+--- Verification: Daily Exam Distribution ---
+Total exams in DB: 880
+
+Section: BSIT-1A | Total Written Subjects: 13
+  Date: 2026-05-20 | Count: 1 | Exams: ['Philippine Popular Culture']
+    [FAIL] Violation for BSIT-1A on 2026-05-20: 1 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 2 | Exams: ['Purposive Communication', 'Understanding the Self']
+    [FAIL] Violation for BSIT-1A on 2026-05-21: 2 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 1 | Exams: ['The Contemporary World']
+    [FAIL] Violation for BSIT-1A on 2026-05-22: 1 exams (Allowed: 3-4)
+  Date: 2026-05-25 | Count: 2 | Exams: ['Introduction to Computing', 'Computer Programming 1']
+    [FAIL] Violation for BSIT-1A on 2026-05-25: 2 exams (Allowed: 3-4)
+
+Section: BSIT-1B | Total Written Subjects: 13
+  Date: 2026-05-20 | Count: 1 | Exams: ['Philippine Popular Culture']
+    [FAIL] Violation for BSIT-1B on 2026-05-20: 1 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 2 | Exams: ['Purposive Communication', 'Understanding the Self']
+    [FAIL] Violation for BSIT-1B on 2026-05-21: 2 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 1 | Exams: ['The Contemporary World']
+    [FAIL] Violation for BSIT-1B on 2026-05-22: 1 exams (Allowed: 3-4)
+  Date: 2026-05-25 | Count: 2 | Exams: ['Introduction to Computing', 'Computer Programming 1']
+    [FAIL] Violation for BSIT-1B on 2026-05-25: 2 exams (Allowed: 3-4)
+
+Section: BSIT-1C | Total Written Subjects: 13
+  Date: 2026-05-20 | Count: 1 | Exams: ['Philippine Popular Culture']
+    [FAIL] Violation for BSIT-1C on 2026-05-20: 1 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 2 | Exams: ['Purposive Communication', 'Understanding the Self']
+    [FAIL] Violation for BSIT-1C on 2026-05-21: 2 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 1 | Exams: ['The Contemporary World']
+    [FAIL] Violation for BSIT-1C on 2026-05-22: 1 exams (Allowed: 3-4)
+  Date: 2026-05-25 | Count: 2 | Exams: ['Introduction to Computing', 'Computer Programming 1']
+    [FAIL] Violation for BSIT-1C on 2026-05-25: 2 exams (Allowed: 3-4)
+
+Section: BSIT-1D | Total Written Subjects: 13
+  Date: 2026-05-20 | Count: 1 | Exams: ['Philippine Popular Culture']
+    [FAIL] Violation for BSIT-1D on 2026-05-20: 1 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 2 | Exams: ['Purposive Communication', 'Understanding the Self']
+    [FAIL] Violation for BSIT-1D on 2026-05-21: 2 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 1 | Exams: ['The Contemporary World']
+    [FAIL] Violation for BSIT-1D on 2026-05-22: 1 exams (Allowed: 3-4)
+  Date: 2026-05-25 | Count: 2 | Exams: ['Introduction to Computing', 'Computer Programming 1']
+    [FAIL] Violation for BSIT-1D on 2026-05-25: 2 exams (Allowed: 3-4)
+
+Section: BSCS-1A | Total Written Subjects: 11
+  Date: 2026-05-21 | Count: 2 | Exams: ['Purposive Communication', 'Understanding the Self']
+    [FAIL] Violation for BSCS-1A on 2026-05-21: 2 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 1 | Exams: ['The Contemporary World']
+    [FAIL] Violation for BSCS-1A on 2026-05-22: 1 exams (Allowed: 3-4)
+  Date: 2026-05-25 | Count: 2 | Exams: ['Introduction to Computing', 'Computer Programming 1']
+    [FAIL] Violation for BSCS-1A on 2026-05-25: 2 exams (Allowed: 3-4)
+
+Section: BSCS-1B | Total Written Subjects: 11
+  Date: 2026-05-21 | Count: 2 | Exams: ['Purposive Communication', 'Understanding the Self']
+    [FAIL] Violation for BSCS-1B on 2026-05-21: 2 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 1 | Exams: ['The Contemporary World']
+    [FAIL] Violation for BSCS-1B on 2026-05-22: 1 exams (Allowed: 3-4)
+  Date: 2026-05-25 | Count: 2 | Exams: ['Introduction to Computing', 'Computer Programming 1']
+    [FAIL] Violation for BSCS-1B on 2026-05-25: 2 exams (Allowed: 3-4)
+
+Section: BSCS-1C | Total Written Subjects: 11
+  Date: 2026-05-21 | Count: 2 | Exams: ['Purposive Communication', 'Understanding the Self']
+    [FAIL] Violation for BSCS-1C on 2026-05-21: 2 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 1 | Exams: ['The Contemporary World']
+    [FAIL] Violation for BSCS-1C on 2026-05-22: 1 exams (Allowed: 3-4)
+  Date: 2026-05-25 | Count: 2 | Exams: ['Introduction to Computing', 'Computer Programming 1']
+    [FAIL] Violation for BSCS-1C on 2026-05-25: 2 exams (Allowed: 3-4)
+
+Section: BSCS-1D | Total Written Subjects: 11
+  Date: 2026-05-21 | Count: 2 | Exams: ['Purposive Communication', 'Understanding the Self']
+    [FAIL] Violation for BSCS-1D on 2026-05-21: 2 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 1 | Exams: ['The Contemporary World']
+    [FAIL] Violation for BSCS-1D on 2026-05-22: 1 exams (Allowed: 3-4)
+  Date: 2026-05-25 | Count: 2 | Exams: ['Introduction to Computing', 'Computer Programming 1']
+    [FAIL] Violation for BSCS-1D on 2026-05-25: 2 exams (Allowed: 3-4)
+
+Section: BSCpE-1A | Total Written Subjects: 14
+  Date: 2026-05-21 | Count: 2 | Exams: ['Understanding the Self', 'Mathematics in the Modern World']
+    [FAIL] Violation for BSCpE-1A on 2026-05-21: 2 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 3 | Exams: ['The Contemporary World', 'Programming Logic and Design', 'Chemistry for Engineers']
+    [PASS]
+  Date: 2026-05-25 | Count: 2 | Exams: ['College Calculus (Differential)', 'Computer Engineering as a Discipline']
+    [FAIL] Violation for BSCpE-1A on 2026-05-25: 2 exams (Allowed: 3-4)
+
+Section: BSCpE-1B | Total Written Subjects: 14
+  Date: 2026-05-21 | Count: 2 | Exams: ['Understanding the Self', 'Mathematics in the Modern World']
+    [FAIL] Violation for BSCpE-1B on 2026-05-21: 2 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 3 | Exams: ['The Contemporary World', 'Programming Logic and Design', 'Chemistry for Engineers']
+    [PASS]
+  Date: 2026-05-25 | Count: 2 | Exams: ['College Calculus (Differential)', 'Computer Engineering as a Discipline']
+    [FAIL] Violation for BSCpE-1B on 2026-05-25: 2 exams (Allowed: 3-4)
+
+Section: BSCpE-1C | Total Written Subjects: 14
+  Date: 2026-05-21 | Count: 2 | Exams: ['Understanding the Self', 'Mathematics in the Modern World']
+    [FAIL] Violation for BSCpE-1C on 2026-05-21: 2 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 3 | Exams: ['The Contemporary World', 'Programming Logic and Design', 'Chemistry for Engineers']
+    [PASS]
+  Date: 2026-05-25 | Count: 2 | Exams: ['College Calculus (Differential)', 'Computer Engineering as a Discipline']
+    [FAIL] Violation for BSCpE-1C on 2026-05-25: 2 exams (Allowed: 3-4)
+
+Section: BSCpE-1D | Total Written Subjects: 14
+  Date: 2026-05-21 | Count: 2 | Exams: ['Understanding the Self', 'Mathematics in the Modern World']
+    [FAIL] Violation for BSCpE-1D on 2026-05-21: 2 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 3 | Exams: ['The Contemporary World', 'Programming Logic and Design', 'Chemistry for Engineers']
+    [PASS]
+  Date: 2026-05-25 | Count: 2 | Exams: ['College Calculus (Differential)', 'Computer Engineering as a Discipline']
+    [FAIL] Violation for BSCpE-1D on 2026-05-25: 2 exams (Allowed: 3-4)
+
+Section: BSHM-4A | Total Written Subjects: 4
+  Date: 2026-05-20 | Count: 1 | Exams: ['Specialty Cuisine with Food Exhibit']
+    [FAIL] Violation for BSHM-4A on 2026-05-20: 1 exams (Allowed: 2-3)
+  Date: 2026-05-21 | Count: 2 | Exams: ["Rizal's Life and Works", 'Research in Hospitality']
+    [PASS]
+  Date: 2026-05-22 | Count: 1 | Exams: ['The Contemporary World']
+    [FAIL] Violation for BSHM-4A on 2026-05-22: 1 exams (Allowed: 2-3)
+
+Section: BSHM-4B | Total Written Subjects: 4
+  Date: 2026-05-20 | Count: 1 | Exams: ['Specialty Cuisine with Food Exhibit']
+    [FAIL] Violation for BSHM-4B on 2026-05-20: 1 exams (Allowed: 2-3)
+  Date: 2026-05-21 | Count: 2 | Exams: ["Rizal's Life and Works", 'Research in Hospitality']
+    [PASS]
+  Date: 2026-05-22 | Count: 1 | Exams: ['The Contemporary World']
+    [FAIL] Violation for BSHM-4B on 2026-05-22: 1 exams (Allowed: 2-3)
+
+Section: BSHM-4C | Total Written Subjects: 4
+  Date: 2026-05-20 | Count: 1 | Exams: ['Specialty Cuisine with Food Exhibit']
+    [FAIL] Violation for BSHM-4C on 2026-05-20: 1 exams (Allowed: 2-3)
+  Date: 2026-05-21 | Count: 2 | Exams: ["Rizal's Life and Works", 'Research in Hospitality']
+    [PASS]
+  Date: 2026-05-22 | Count: 1 | Exams: ['The Contemporary World']
+    [FAIL] Violation for BSHM-4C on 2026-05-22: 1 exams (Allowed: 2-3)
+
+Section: BSHM-4D | Total Written Subjects: 4
+  Date: 2026-05-20 | Count: 1 | Exams: ['Specialty Cuisine with Food Exhibit']
+    [FAIL] Violation for BSHM-4D on 2026-05-20: 1 exams (Allowed: 2-3)
+  Date: 2026-05-21 | Count: 2 | Exams: ["Rizal's Life and Works", 'Research in Hospitality']
+    [PASS]
+  Date: 2026-05-22 | Count: 1 | Exams: ['The Contemporary World']
+    [FAIL] Violation for BSHM-4D on 2026-05-22: 1 exams (Allowed: 2-3)
+
+Section: BSA-1A | Total Written Subjects: 14
+  Date: 2026-05-20 | Count: 3 | Exams: ['Philippine Popular Culture', 'Readings in Philippine History', 'Basic Accounting']
+    [PASS]
+  Date: 2026-05-21 | Count: 1 | Exams: ['Understanding the Self']
+    [FAIL] Violation for BSA-1A on 2026-05-21: 1 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 2 | Exams: ['The Contemporary World', 'Science, Technology and Society']
+    [FAIL] Violation for BSA-1A on 2026-05-22: 2 exams (Allowed: 3-4)
+
+Section: BSA-1B | Total Written Subjects: 14
+  Date: 2026-05-20 | Count: 3 | Exams: ['Philippine Popular Culture', 'Readings in Philippine History', 'Basic Accounting']
+    [PASS]
+  Date: 2026-05-21 | Count: 1 | Exams: ['Understanding the Self']
+    [FAIL] Violation for BSA-1B on 2026-05-21: 1 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 2 | Exams: ['The Contemporary World', 'Science, Technology and Society']
+    [FAIL] Violation for BSA-1B on 2026-05-22: 2 exams (Allowed: 3-4)
+
+Section: BSA-1C | Total Written Subjects: 14
+  Date: 2026-05-20 | Count: 3 | Exams: ['Philippine Popular Culture', 'Readings in Philippine History', 'Basic Accounting']
+    [PASS]
+  Date: 2026-05-21 | Count: 1 | Exams: ['Understanding the Self']
+    [FAIL] Violation for BSA-1C on 2026-05-21: 1 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 2 | Exams: ['The Contemporary World', 'Science, Technology and Society']
+    [FAIL] Violation for BSA-1C on 2026-05-22: 2 exams (Allowed: 3-4)
+
+Section: BSA-1D | Total Written Subjects: 14
+  Date: 2026-05-20 | Count: 3 | Exams: ['Philippine Popular Culture', 'Readings in Philippine History', 'Basic Accounting']
+    [PASS]
+  Date: 2026-05-21 | Count: 1 | Exams: ['Understanding the Self']
+    [FAIL] Violation for BSA-1D on 2026-05-21: 1 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 2 | Exams: ['The Contemporary World', 'Science, Technology and Society']
+    [FAIL] Violation for BSA-1D on 2026-05-22: 2 exams (Allowed: 3-4)
+
+Section: BSPsych-2A | Total Written Subjects: 10
+  Date: 2026-05-20 | Count: 1 | Exams: ['Readings in Philippine History']
+    [FAIL] Violation for BSPsych-2A on 2026-05-20: 1 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 1 | Exams: ['Developmental Psychology']
+    [FAIL] Violation for BSPsych-2A on 2026-05-21: 1 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 3 | Exams: ['The Contemporary World', 'The Entrepreneurial Mind', 'Physiological/Biological Psychology']
+    [PASS]
+
+Section: BSPsych-2B | Total Written Subjects: 10
+  Date: 2026-05-20 | Count: 1 | Exams: ['Readings in Philippine History']
+    [FAIL] Violation for BSPsych-2B on 2026-05-20: 1 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 1 | Exams: ['Developmental Psychology']
+    [FAIL] Violation for BSPsych-2B on 2026-05-21: 1 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 3 | Exams: ['The Contemporary World', 'The Entrepreneurial Mind', 'Physiological/Biological Psychology']
+    [PASS]
+
+Section: BSPsych-2C | Total Written Subjects: 10
+  Date: 2026-05-20 | Count: 1 | Exams: ['Readings in Philippine History']
+    [FAIL] Violation for BSPsych-2C on 2026-05-20: 1 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 1 | Exams: ['Developmental Psychology']
+    [FAIL] Violation for BSPsych-2C on 2026-05-21: 1 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 3 | Exams: ['The Contemporary World', 'The Entrepreneurial Mind', 'Physiological/Biological Psychology']
+    [PASS]
+
+Section: BSPsych-2D | Total Written Subjects: 10
+  Date: 2026-05-20 | Count: 1 | Exams: ['Readings in Philippine History']
+    [FAIL] Violation for BSPsych-2D on 2026-05-20: 1 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 1 | Exams: ['Developmental Psychology']
+    [FAIL] Violation for BSPsych-2D on 2026-05-21: 1 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 3 | Exams: ['The Contemporary World', 'The Entrepreneurial Mind', 'Physiological/Biological Psychology']
+    [PASS]
+
+Section: BSCrim-1A | Total Written Subjects: 12
+  Date: 2026-05-20 | Count: 2 | Exams: ['Readings in Philippine History', 'Introduction to Criminology']
+    [FAIL] Violation for BSCrim-1A on 2026-05-20: 2 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 2 | Exams: ['Understanding the Self', 'Mathematics in the Modern World']
+    [FAIL] Violation for BSCrim-1A on 2026-05-21: 2 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 1 | Exams: ['The Contemporary World']
+    [FAIL] Violation for BSCrim-1A on 2026-05-22: 1 exams (Allowed: 3-4)
+
+Section: BSCrim-1B | Total Written Subjects: 12
+  Date: 2026-05-20 | Count: 2 | Exams: ['Readings in Philippine History', 'Introduction to Criminology']
+    [FAIL] Violation for BSCrim-1B on 2026-05-20: 2 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 2 | Exams: ['Understanding the Self', 'Mathematics in the Modern World']
+    [FAIL] Violation for BSCrim-1B on 2026-05-21: 2 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 1 | Exams: ['The Contemporary World']
+    [FAIL] Violation for BSCrim-1B on 2026-05-22: 1 exams (Allowed: 3-4)
+
+Section: BSCrim-1C | Total Written Subjects: 12
+  Date: 2026-05-20 | Count: 2 | Exams: ['Readings in Philippine History', 'Introduction to Criminology']
+    [FAIL] Violation for BSCrim-1C on 2026-05-20: 2 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 2 | Exams: ['Understanding the Self', 'Mathematics in the Modern World']
+    [FAIL] Violation for BSCrim-1C on 2026-05-21: 2 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 1 | Exams: ['The Contemporary World']
+    [FAIL] Violation for BSCrim-1C on 2026-05-22: 1 exams (Allowed: 3-4)
+
+Section: BSCrim-1D | Total Written Subjects: 12
+  Date: 2026-05-20 | Count: 2 | Exams: ['Readings in Philippine History', 'Introduction to Criminology']
+    [FAIL] Violation for BSCrim-1D on 2026-05-20: 2 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 2 | Exams: ['Understanding the Self', 'Mathematics in the Modern World']
+    [FAIL] Violation for BSCrim-1D on 2026-05-21: 2 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 1 | Exams: ['The Contemporary World']
+    [FAIL] Violation for BSCrim-1D on 2026-05-22: 1 exams (Allowed: 3-4)
+
+Section: BMMA-1A | Total Written Subjects: 11
+  Date: 2026-05-20 | Count: 1 | Exams: ['Readings in Philippine History']
+    [FAIL] Violation for BMMA-1A on 2026-05-20: 1 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 3 | Exams: ['Understanding the Self', 'Mathematics in the Modern World', 'Introduction to Multimedia Arts']
+    [PASS]
+  Date: 2026-05-22 | Count: 1 | Exams: ['The Contemporary World']
+    [FAIL] Violation for BMMA-1A on 2026-05-22: 1 exams (Allowed: 3-4)
+
+Section: BMMA-1B | Total Written Subjects: 11
+  Date: 2026-05-20 | Count: 1 | Exams: ['Readings in Philippine History']
+    [FAIL] Violation for BMMA-1B on 2026-05-20: 1 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 3 | Exams: ['Understanding the Self', 'Mathematics in the Modern World', 'Introduction to Multimedia Arts']
+    [PASS]
+  Date: 2026-05-22 | Count: 1 | Exams: ['The Contemporary World']
+    [FAIL] Violation for BMMA-1B on 2026-05-22: 1 exams (Allowed: 3-4)
+
+Section: BMMA-1C | Total Written Subjects: 11
+  Date: 2026-05-20 | Count: 1 | Exams: ['Readings in Philippine History']
+    [FAIL] Violation for BMMA-1C on 2026-05-20: 1 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 3 | Exams: ['Understanding the Self', 'Mathematics in the Modern World', 'Introduction to Multimedia Arts']
+    [PASS]
+  Date: 2026-05-22 | Count: 1 | Exams: ['The Contemporary World']
+    [FAIL] Violation for BMMA-1C on 2026-05-22: 1 exams (Allowed: 3-4)
+
+Section: BMMA-1D | Total Written Subjects: 11
+  Date: 2026-05-20 | Count: 1 | Exams: ['Readings in Philippine History']
+    [FAIL] Violation for BMMA-1D on 2026-05-20: 1 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 3 | Exams: ['Understanding the Self', 'Mathematics in the Modern World', 'Introduction to Multimedia Arts']
+    [PASS]
+  Date: 2026-05-22 | Count: 1 | Exams: ['The Contemporary World']
+    [FAIL] Violation for BMMA-1D on 2026-05-22: 1 exams (Allowed: 3-4)
+
+Section: BACOMM-2A | Total Written Subjects: 10
+  Date: 2026-05-21 | Count: 1 | Exams: ["Rizal's Life and Works"]
+    [FAIL] Violation for BACOMM-2A on 2026-05-21: 1 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 2 | Exams: ['The Contemporary World', 'The Entrepreneurial Mind']
+    [FAIL] Violation for BACOMM-2A on 2026-05-22: 2 exams (Allowed: 3-4)
+  Date: 2026-05-25 | Count: 2 | Exams: ['Broadcasting Principles and Practices', 'Journalism Principles and Practices']
+    [FAIL] Violation for BACOMM-2A on 2026-05-25: 2 exams (Allowed: 3-4)
+
+Section: BACOMM-2B | Total Written Subjects: 10
+  Date: 2026-05-21 | Count: 1 | Exams: ["Rizal's Life and Works"]
+    [FAIL] Violation for BACOMM-2B on 2026-05-21: 1 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 2 | Exams: ['The Contemporary World', 'The Entrepreneurial Mind']
+    [FAIL] Violation for BACOMM-2B on 2026-05-22: 2 exams (Allowed: 3-4)
+  Date: 2026-05-25 | Count: 2 | Exams: ['Broadcasting Principles and Practices', 'Journalism Principles and Practices']
+    [FAIL] Violation for BACOMM-2B on 2026-05-25: 2 exams (Allowed: 3-4)
+
+Section: BACOMM-2C | Total Written Subjects: 10
+  Date: 2026-05-21 | Count: 1 | Exams: ["Rizal's Life and Works"]
+    [FAIL] Violation for BACOMM-2C on 2026-05-21: 1 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 2 | Exams: ['The Contemporary World', 'The Entrepreneurial Mind']
+    [FAIL] Violation for BACOMM-2C on 2026-05-22: 2 exams (Allowed: 3-4)
+  Date: 2026-05-25 | Count: 2 | Exams: ['Broadcasting Principles and Practices', 'Journalism Principles and Practices']
+    [FAIL] Violation for BACOMM-2C on 2026-05-25: 2 exams (Allowed: 3-4)
+
+Section: BACOMM-2D | Total Written Subjects: 10
+  Date: 2026-05-21 | Count: 1 | Exams: ["Rizal's Life and Works"]
+    [FAIL] Violation for BACOMM-2D on 2026-05-21: 1 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 2 | Exams: ['The Contemporary World', 'The Entrepreneurial Mind']
+    [FAIL] Violation for BACOMM-2D on 2026-05-22: 2 exams (Allowed: 3-4)
+  Date: 2026-05-25 | Count: 2 | Exams: ['Broadcasting Principles and Practices', 'Journalism Principles and Practices']
+    [FAIL] Violation for BACOMM-2D on 2026-05-25: 2 exams (Allowed: 3-4)
+
+Section: BSA-2A | Total Written Subjects: 16
+  Date: 2026-05-20 | Count: 1 | Exams: ['IT Application Tools in Business']
+    [FAIL] Violation for BSA-2A on 2026-05-20: 1 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 4 | Exams: ['Purposive Communication', "Rizal's Life and Works", 'Great Books', 'Strategic Management']
+    [PASS]
+  Date: 2026-05-22 | Count: 3 | Exams: ['Business Laws and Regulations', 'Intermediate Accounting 1', 'Managerial Economics']
+    [PASS]
+
+Section: BSA-2B | Total Written Subjects: 16
+  Date: 2026-05-20 | Count: 1 | Exams: ['IT Application Tools in Business']
+    [FAIL] Violation for BSA-2B on 2026-05-20: 1 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 4 | Exams: ['Purposive Communication', "Rizal's Life and Works", 'Great Books', 'Strategic Management']
+    [PASS]
+  Date: 2026-05-22 | Count: 3 | Exams: ['Business Laws and Regulations', 'Intermediate Accounting 1', 'Managerial Economics']
+    [PASS]
+
+Section: BSA-2C | Total Written Subjects: 16
+  Date: 2026-05-20 | Count: 1 | Exams: ['IT Application Tools in Business']
+    [FAIL] Violation for BSA-2C on 2026-05-20: 1 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 4 | Exams: ['Purposive Communication', "Rizal's Life and Works", 'Great Books', 'Strategic Management']
+    [PASS]
+  Date: 2026-05-22 | Count: 3 | Exams: ['Business Laws and Regulations', 'Intermediate Accounting 1', 'Managerial Economics']
+    [PASS]
+
+Section: BSA-2D | Total Written Subjects: 16
+  Date: 2026-05-20 | Count: 1 | Exams: ['IT Application Tools in Business']
+    [FAIL] Violation for BSA-2D on 2026-05-20: 1 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 4 | Exams: ['Purposive Communication', "Rizal's Life and Works", 'Great Books', 'Strategic Management']
+    [PASS]
+  Date: 2026-05-22 | Count: 3 | Exams: ['Business Laws and Regulations', 'Intermediate Accounting 1', 'Managerial Economics']
+    [PASS]
+
+Section: BSTM-1A | Total Written Subjects: 10
+  Date: 2026-05-20 | Count: 2 | Exams: ['Readings in Philippine History', 'Risk Management as Applied to Safety, Security, and Sanitation']
+    [FAIL] Violation for BSTM-1A on 2026-05-20: 2 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 2 | Exams: ['Understanding the Self', 'Mathematics in the Modern World']
+    [FAIL] Violation for BSTM-1A on 2026-05-21: 2 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 1 | Exams: ['Macro Perspective of Tourism and Hospitality']
+    [FAIL] Violation for BSTM-1A on 2026-05-22: 1 exams (Allowed: 3-4)
+
+Section: BSTM-1B | Total Written Subjects: 10
+  Date: 2026-05-20 | Count: 2 | Exams: ['Readings in Philippine History', 'Risk Management as Applied to Safety, Security, and Sanitation']
+    [FAIL] Violation for BSTM-1B on 2026-05-20: 2 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 2 | Exams: ['Understanding the Self', 'Mathematics in the Modern World']
+    [FAIL] Violation for BSTM-1B on 2026-05-21: 2 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 1 | Exams: ['Macro Perspective of Tourism and Hospitality']
+    [FAIL] Violation for BSTM-1B on 2026-05-22: 1 exams (Allowed: 3-4)
+
+Section: BSTM-1C | Total Written Subjects: 10
+  Date: 2026-05-20 | Count: 2 | Exams: ['Readings in Philippine History', 'Risk Management as Applied to Safety, Security, and Sanitation']
+    [FAIL] Violation for BSTM-1C on 2026-05-20: 2 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 2 | Exams: ['Understanding the Self', 'Mathematics in the Modern World']
+    [FAIL] Violation for BSTM-1C on 2026-05-21: 2 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 1 | Exams: ['Macro Perspective of Tourism and Hospitality']
+    [FAIL] Violation for BSTM-1C on 2026-05-22: 1 exams (Allowed: 3-4)
+
+Section: BSTM-1D | Total Written Subjects: 10
+  Date: 2026-05-20 | Count: 2 | Exams: ['Readings in Philippine History', 'Risk Management as Applied to Safety, Security, and Sanitation']
+    [FAIL] Violation for BSTM-1D on 2026-05-20: 2 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 2 | Exams: ['Understanding the Self', 'Mathematics in the Modern World']
+    [FAIL] Violation for BSTM-1D on 2026-05-21: 2 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 1 | Exams: ['Macro Perspective of Tourism and Hospitality']
+    [FAIL] Violation for BSTM-1D on 2026-05-22: 1 exams (Allowed: 3-4)
+
+Section: BSHM-1A | Total Written Subjects: 10
+  Date: 2026-05-20 | Count: 2 | Exams: ['Readings in Philippine History', 'Risk Management as Applied to Safety, Security, and Sanitation']
+    [FAIL] Violation for BSHM-1A on 2026-05-20: 2 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 2 | Exams: ['Understanding the Self', 'Mathematics in the Modern World']
+    [FAIL] Violation for BSHM-1A on 2026-05-21: 2 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 1 | Exams: ['Macro Perspective of Tourism and Hospitality']
+    [FAIL] Violation for BSHM-1A on 2026-05-22: 1 exams (Allowed: 3-4)
+
+Section: BSHM-1B | Total Written Subjects: 10
+  Date: 2026-05-20 | Count: 2 | Exams: ['Readings in Philippine History', 'Risk Management as Applied to Safety, Security, and Sanitation']
+    [FAIL] Violation for BSHM-1B on 2026-05-20: 2 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 2 | Exams: ['Understanding the Self', 'Mathematics in the Modern World']
+    [FAIL] Violation for BSHM-1B on 2026-05-21: 2 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 1 | Exams: ['Macro Perspective of Tourism and Hospitality']
+    [FAIL] Violation for BSHM-1B on 2026-05-22: 1 exams (Allowed: 3-4)
+
+Section: BSHM-1C | Total Written Subjects: 10
+  Date: 2026-05-20 | Count: 2 | Exams: ['Readings in Philippine History', 'Risk Management as Applied to Safety, Security, and Sanitation']
+    [FAIL] Violation for BSHM-1C on 2026-05-20: 2 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 2 | Exams: ['Understanding the Self', 'Mathematics in the Modern World']
+    [FAIL] Violation for BSHM-1C on 2026-05-21: 2 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 1 | Exams: ['Macro Perspective of Tourism and Hospitality']
+    [FAIL] Violation for BSHM-1C on 2026-05-22: 1 exams (Allowed: 3-4)
+
+Section: BSHM-1D | Total Written Subjects: 10
+  Date: 2026-05-20 | Count: 2 | Exams: ['Readings in Philippine History', 'Risk Management as Applied to Safety, Security, and Sanitation']
+    [FAIL] Violation for BSHM-1D on 2026-05-20: 2 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 2 | Exams: ['Understanding the Self', 'Mathematics in the Modern World']
+    [FAIL] Violation for BSHM-1D on 2026-05-21: 2 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 1 | Exams: ['Macro Perspective of Tourism and Hospitality']
+    [FAIL] Violation for BSHM-1D on 2026-05-22: 1 exams (Allowed: 3-4)
+
+Section: BSPsych-1A | Total Written Subjects: 8
+  Date: 2026-05-20 | Count: 2 | Exams: ['Computer Productivity Tools', 'Introduction to Psychology']
+    [FAIL] Violation for BSPsych-1A on 2026-05-20: 2 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 2 | Exams: ['Understanding the Self', 'Mathematics in the Modern World']
+    [FAIL] Violation for BSPsych-1A on 2026-05-21: 2 exams (Allowed: 3-4)
+
+Section: BSPsych-1B | Total Written Subjects: 8
+  Date: 2026-05-20 | Count: 2 | Exams: ['Computer Productivity Tools', 'Introduction to Psychology']
+    [FAIL] Violation for BSPsych-1B on 2026-05-20: 2 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 2 | Exams: ['Understanding the Self', 'Mathematics in the Modern World']
+    [FAIL] Violation for BSPsych-1B on 2026-05-21: 2 exams (Allowed: 3-4)
+
+Section: BSPsych-1C | Total Written Subjects: 8
+  Date: 2026-05-20 | Count: 2 | Exams: ['Computer Productivity Tools', 'Introduction to Psychology']
+    [FAIL] Violation for BSPsych-1C on 2026-05-20: 2 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 2 | Exams: ['Understanding the Self', 'Mathematics in the Modern World']
+    [FAIL] Violation for BSPsych-1C on 2026-05-21: 2 exams (Allowed: 3-4)
+
+Section: BSPsych-1D | Total Written Subjects: 8
+  Date: 2026-05-20 | Count: 2 | Exams: ['Computer Productivity Tools', 'Introduction to Psychology']
+    [FAIL] Violation for BSPsych-1D on 2026-05-20: 2 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 2 | Exams: ['Understanding the Self', 'Mathematics in the Modern World']
+    [FAIL] Violation for BSPsych-1D on 2026-05-21: 2 exams (Allowed: 3-4)
+
+Section: BACOMM-1A | Total Written Subjects: 8
+  Date: 2026-05-20 | Count: 1 | Exams: ['Readings in Philippine History']
+    [FAIL] Violation for BACOMM-1A on 2026-05-20: 1 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 2 | Exams: ['Understanding the Self', 'Mathematics in the Modern World']
+    [FAIL] Violation for BACOMM-1A on 2026-05-21: 2 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 1 | Exams: ['Introduction to Communication Media']
+    [FAIL] Violation for BACOMM-1A on 2026-05-22: 1 exams (Allowed: 3-4)
+
+Section: BACOMM-1B | Total Written Subjects: 8
+  Date: 2026-05-20 | Count: 1 | Exams: ['Readings in Philippine History']
+    [FAIL] Violation for BACOMM-1B on 2026-05-20: 1 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 2 | Exams: ['Understanding the Self', 'Mathematics in the Modern World']
+    [FAIL] Violation for BACOMM-1B on 2026-05-21: 2 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 1 | Exams: ['Introduction to Communication Media']
+    [FAIL] Violation for BACOMM-1B on 2026-05-22: 1 exams (Allowed: 3-4)
+
+Section: BACOMM-1C | Total Written Subjects: 8
+  Date: 2026-05-20 | Count: 1 | Exams: ['Readings in Philippine History']
+    [FAIL] Violation for BACOMM-1C on 2026-05-20: 1 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 2 | Exams: ['Understanding the Self', 'Mathematics in the Modern World']
+    [FAIL] Violation for BACOMM-1C on 2026-05-21: 2 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 1 | Exams: ['Introduction to Communication Media']
+    [FAIL] Violation for BACOMM-1C on 2026-05-22: 1 exams (Allowed: 3-4)
+
+Section: BACOMM-1D | Total Written Subjects: 8
+  Date: 2026-05-20 | Count: 1 | Exams: ['Readings in Philippine History']
+    [FAIL] Violation for BACOMM-1D on 2026-05-20: 1 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 2 | Exams: ['Understanding the Self', 'Mathematics in the Modern World']
+    [FAIL] Violation for BACOMM-1D on 2026-05-21: 2 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 1 | Exams: ['Introduction to Communication Media']
+    [FAIL] Violation for BACOMM-1D on 2026-05-22: 1 exams (Allowed: 3-4)
+
+Section: BSCS-2A | Total Written Subjects: 15
+  Date: 2026-05-20 | Count: 4 | Exams: ['Philippine Popular Culture', 'Readings in Philippine History', 'Principles of Communications', 'Computer Programming 3']
+    [PASS]
+  Date: 2026-05-21 | Count: 3 | Exams: ['Data Structures and Algorithms', "Rizal's Life and Works", 'Discrete Structures 2']
+    [PASS]
+
+Section: BSCS-2B | Total Written Subjects: 15
+  Date: 2026-05-20 | Count: 4 | Exams: ['Philippine Popular Culture', 'Readings in Philippine History', 'Principles of Communications', 'Computer Programming 3']
+    [PASS]
+  Date: 2026-05-21 | Count: 3 | Exams: ['Data Structures and Algorithms', "Rizal's Life and Works", 'Discrete Structures 2']
+    [PASS]
+
+Section: BSCS-2C | Total Written Subjects: 15
+  Date: 2026-05-20 | Count: 4 | Exams: ['Philippine Popular Culture', 'Readings in Philippine History', 'Principles of Communications', 'Computer Programming 3']
+    [PASS]
+  Date: 2026-05-21 | Count: 3 | Exams: ['Data Structures and Algorithms', "Rizal's Life and Works", 'Discrete Structures 2']
+    [PASS]
+
+Section: BSCS-2D | Total Written Subjects: 15
+  Date: 2026-05-20 | Count: 4 | Exams: ['Philippine Popular Culture', 'Readings in Philippine History', 'Principles of Communications', 'Computer Programming 3']
+    [PASS]
+  Date: 2026-05-21 | Count: 3 | Exams: ['Data Structures and Algorithms', "Rizal's Life and Works", 'Discrete Structures 2']
+    [PASS]
+
+Section: BSIT-2A | Total Written Subjects: 13
+  Date: 2026-05-20 | Count: 2 | Exams: ['Readings in Philippine History', 'Principles of Communications']
+    [FAIL] Violation for BSIT-2A on 2026-05-20: 2 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 3 | Exams: ['Data Structures and Algorithms', "Rizal's Life and Works", 'Human-Computer Interaction']
+    [PASS]
+  Date: 2026-05-25 | Count: 2 | Exams: ['Object-Oriented Programming', 'Platform Technology (Operating Systems)']
+    [FAIL] Violation for BSIT-2A on 2026-05-25: 2 exams (Allowed: 3-4)
+
+Section: BSIT-2B | Total Written Subjects: 13
+  Date: 2026-05-20 | Count: 2 | Exams: ['Readings in Philippine History', 'Principles of Communications']
+    [FAIL] Violation for BSIT-2B on 2026-05-20: 2 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 3 | Exams: ['Data Structures and Algorithms', "Rizal's Life and Works", 'Human-Computer Interaction']
+    [PASS]
+  Date: 2026-05-25 | Count: 2 | Exams: ['Object-Oriented Programming', 'Platform Technology (Operating Systems)']
+    [FAIL] Violation for BSIT-2B on 2026-05-25: 2 exams (Allowed: 3-4)
+
+Section: BSIT-2C | Total Written Subjects: 13
+  Date: 2026-05-20 | Count: 2 | Exams: ['Readings in Philippine History', 'Principles of Communications']
+    [FAIL] Violation for BSIT-2C on 2026-05-20: 2 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 3 | Exams: ['Data Structures and Algorithms', "Rizal's Life and Works", 'Human-Computer Interaction']
+    [PASS]
+  Date: 2026-05-25 | Count: 2 | Exams: ['Object-Oriented Programming', 'Platform Technology (Operating Systems)']
+    [FAIL] Violation for BSIT-2C on 2026-05-25: 2 exams (Allowed: 3-4)
+
+Section: BSIT-2D | Total Written Subjects: 13
+  Date: 2026-05-20 | Count: 2 | Exams: ['Readings in Philippine History', 'Principles of Communications']
+    [FAIL] Violation for BSIT-2D on 2026-05-20: 2 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 3 | Exams: ['Data Structures and Algorithms', "Rizal's Life and Works", 'Human-Computer Interaction']
+    [PASS]
+  Date: 2026-05-25 | Count: 2 | Exams: ['Object-Oriented Programming', 'Platform Technology (Operating Systems)']
+    [FAIL] Violation for BSIT-2D on 2026-05-25: 2 exams (Allowed: 3-4)
+
+Section: BSCpE-2A | Total Written Subjects: 16
+  Date: 2026-05-20 | Count: 3 | Exams: ['Readings in Philippine History', 'Fundamentals of Electrical Circuits', 'Operating Systems']
+    [PASS]
+  Date: 2026-05-21 | Count: 4 | Exams: ['Data Structures and Algorithms', "Rizal's Life and Works", 'Emerging Technologies in CpE', 'Differential Equations']
+    [PASS]
+  Date: 2026-05-22 | Count: 1 | Exams: ['The Entrepreneurial Mind']
+    [FAIL] Violation for BSCpE-2A on 2026-05-22: 1 exams (Allowed: 3-4)
+
+Section: BSCpE-2B | Total Written Subjects: 16
+  Date: 2026-05-20 | Count: 3 | Exams: ['Readings in Philippine History', 'Fundamentals of Electrical Circuits', 'Operating Systems']
+    [PASS]
+  Date: 2026-05-21 | Count: 4 | Exams: ['Data Structures and Algorithms', "Rizal's Life and Works", 'Emerging Technologies in CpE', 'Differential Equations']
+    [PASS]
+  Date: 2026-05-22 | Count: 1 | Exams: ['The Entrepreneurial Mind']
+    [FAIL] Violation for BSCpE-2B on 2026-05-22: 1 exams (Allowed: 3-4)
+
+Section: BSCpE-2C | Total Written Subjects: 16
+  Date: 2026-05-20 | Count: 3 | Exams: ['Readings in Philippine History', 'Fundamentals of Electrical Circuits', 'Operating Systems']
+    [PASS]
+  Date: 2026-05-21 | Count: 4 | Exams: ['Data Structures and Algorithms', "Rizal's Life and Works", 'Emerging Technologies in CpE', 'Differential Equations']
+    [PASS]
+  Date: 2026-05-22 | Count: 1 | Exams: ['The Entrepreneurial Mind']
+    [FAIL] Violation for BSCpE-2C on 2026-05-22: 1 exams (Allowed: 3-4)
+
+Section: BSCpE-2D | Total Written Subjects: 16
+  Date: 2026-05-20 | Count: 3 | Exams: ['Readings in Philippine History', 'Fundamentals of Electrical Circuits', 'Operating Systems']
+    [PASS]
+  Date: 2026-05-21 | Count: 4 | Exams: ['Data Structures and Algorithms', "Rizal's Life and Works", 'Emerging Technologies in CpE', 'Differential Equations']
+    [PASS]
+  Date: 2026-05-22 | Count: 1 | Exams: ['The Entrepreneurial Mind']
+    [FAIL] Violation for BSCpE-2D on 2026-05-22: 1 exams (Allowed: 3-4)
+
+Section: BSPsych-3A | Total Written Subjects: 10
+  Date: 2026-05-21 | Count: 3 | Exams: ["Rizal's Life and Works", 'Great Books', 'Field Methods in Psychology']
+    [PASS]
+  Date: 2026-05-22 | Count: 2 | Exams: ['Abnormal Psychology', 'Social Psychology']
+    [FAIL] Violation for BSPsych-3A on 2026-05-22: 2 exams (Allowed: 3-4)
+
+Section: BSPsych-3B | Total Written Subjects: 10
+  Date: 2026-05-21 | Count: 3 | Exams: ["Rizal's Life and Works", 'Great Books', 'Field Methods in Psychology']
+    [PASS]
+  Date: 2026-05-22 | Count: 2 | Exams: ['Abnormal Psychology', 'Social Psychology']
+    [FAIL] Violation for BSPsych-3B on 2026-05-22: 2 exams (Allowed: 3-4)
+
+Section: BSPsych-3C | Total Written Subjects: 10
+  Date: 2026-05-21 | Count: 3 | Exams: ["Rizal's Life and Works", 'Great Books', 'Field Methods in Psychology']
+    [PASS]
+  Date: 2026-05-22 | Count: 2 | Exams: ['Abnormal Psychology', 'Social Psychology']
+    [FAIL] Violation for BSPsych-3C on 2026-05-22: 2 exams (Allowed: 3-4)
+
+Section: BSPsych-3D | Total Written Subjects: 10
+  Date: 2026-05-21 | Count: 3 | Exams: ["Rizal's Life and Works", 'Great Books', 'Field Methods in Psychology']
+    [PASS]
+  Date: 2026-05-22 | Count: 2 | Exams: ['Abnormal Psychology', 'Social Psychology']
+    [FAIL] Violation for BSPsych-3D on 2026-05-22: 2 exams (Allowed: 3-4)
+
+Section: BMMA-2A | Total Written Subjects: 8
+  Date: 2026-05-21 | Count: 2 | Exams: ["Rizal's Life and Works", '3D Modeling']
+    [FAIL] Violation for BMMA-2A on 2026-05-21: 2 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 2 | Exams: ['The Entrepreneurial Mind', 'Color Theory']
+    [FAIL] Violation for BMMA-2A on 2026-05-22: 2 exams (Allowed: 3-4)
+
+Section: BMMA-2B | Total Written Subjects: 8
+  Date: 2026-05-21 | Count: 2 | Exams: ["Rizal's Life and Works", '3D Modeling']
+    [FAIL] Violation for BMMA-2B on 2026-05-21: 2 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 2 | Exams: ['The Entrepreneurial Mind', 'Color Theory']
+    [FAIL] Violation for BMMA-2B on 2026-05-22: 2 exams (Allowed: 3-4)
+
+Section: BMMA-2C | Total Written Subjects: 8
+  Date: 2026-05-21 | Count: 2 | Exams: ["Rizal's Life and Works", '3D Modeling']
+    [FAIL] Violation for BMMA-2C on 2026-05-21: 2 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 2 | Exams: ['The Entrepreneurial Mind', 'Color Theory']
+    [FAIL] Violation for BMMA-2C on 2026-05-22: 2 exams (Allowed: 3-4)
+
+Section: BMMA-2D | Total Written Subjects: 8
+  Date: 2026-05-21 | Count: 2 | Exams: ["Rizal's Life and Works", '3D Modeling']
+    [FAIL] Violation for BMMA-2D on 2026-05-21: 2 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 2 | Exams: ['The Entrepreneurial Mind', 'Color Theory']
+    [FAIL] Violation for BMMA-2D on 2026-05-22: 2 exams (Allowed: 3-4)
+
+Section: BSCS-4A | Total Written Subjects: 6
+  Date: 2026-05-20 | Count: 2 | Exams: ['Network Technology 1', 'Software Quality Assurance']
+    [PASS]
+  Date: 2026-05-22 | Count: 2 | Exams: ['Information Assurance and Security (Data Privacy)', 'Technopreneurship']
+    [PASS]
+  Date: 2026-05-25 | Count: 2 | Exams: ['Platform Technology (Operating Systems)', 'Professional Issues in Information Systems and Technology']
+    [PASS]
+
+Section: BSCS-4B | Total Written Subjects: 6
+  Date: 2026-05-20 | Count: 2 | Exams: ['Network Technology 1', 'Software Quality Assurance']
+    [PASS]
+  Date: 2026-05-22 | Count: 2 | Exams: ['Information Assurance and Security (Data Privacy)', 'Technopreneurship']
+    [PASS]
+  Date: 2026-05-25 | Count: 2 | Exams: ['Platform Technology (Operating Systems)', 'Professional Issues in Information Systems and Technology']
+    [PASS]
+
+Section: BSCS-4C | Total Written Subjects: 6
+  Date: 2026-05-20 | Count: 2 | Exams: ['Network Technology 1', 'Software Quality Assurance']
+    [PASS]
+  Date: 2026-05-22 | Count: 2 | Exams: ['Information Assurance and Security (Data Privacy)', 'Technopreneurship']
+    [PASS]
+  Date: 2026-05-25 | Count: 2 | Exams: ['Platform Technology (Operating Systems)', 'Professional Issues in Information Systems and Technology']
+    [PASS]
+
+Section: BSCS-4D | Total Written Subjects: 6
+  Date: 2026-05-20 | Count: 2 | Exams: ['Network Technology 1', 'Software Quality Assurance']
+    [PASS]
+  Date: 2026-05-22 | Count: 2 | Exams: ['Information Assurance and Security (Data Privacy)', 'Technopreneurship']
+    [PASS]
+  Date: 2026-05-25 | Count: 2 | Exams: ['Platform Technology (Operating Systems)', 'Professional Issues in Information Systems and Technology']
+    [PASS]
+
+Section: BSIT-3A | Total Written Subjects: 13
+  Date: 2026-05-20 | Count: 2 | Exams: ['Data and Digital Communications (Data Communications)', 'Enterprise Architecture']
+    [FAIL] Violation for BSIT-3A on 2026-05-20: 2 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 1 | Exams: ['Event-Driven Programming']
+    [FAIL] Violation for BSIT-3A on 2026-05-21: 1 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 2 | Exams: ['Application Development and Emerging Technologies', 'Advanced Database Systems']
+    [FAIL] Violation for BSIT-3A on 2026-05-22: 2 exams (Allowed: 3-4)
+  Date: 2026-05-25 | Count: 2 | Exams: ['Professional Issues in Information Systems and Technology', 'Advanced Systems Integration and Architecture']
+    [FAIL] Violation for BSIT-3A on 2026-05-25: 2 exams (Allowed: 3-4)
+
+Section: BSIT-3B | Total Written Subjects: 13
+  Date: 2026-05-20 | Count: 2 | Exams: ['Data and Digital Communications (Data Communications)', 'Enterprise Architecture']
+    [FAIL] Violation for BSIT-3B on 2026-05-20: 2 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 1 | Exams: ['Event-Driven Programming']
+    [FAIL] Violation for BSIT-3B on 2026-05-21: 1 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 2 | Exams: ['Application Development and Emerging Technologies', 'Advanced Database Systems']
+    [FAIL] Violation for BSIT-3B on 2026-05-22: 2 exams (Allowed: 3-4)
+  Date: 2026-05-25 | Count: 2 | Exams: ['Professional Issues in Information Systems and Technology', 'Advanced Systems Integration and Architecture']
+    [FAIL] Violation for BSIT-3B on 2026-05-25: 2 exams (Allowed: 3-4)
+
+Section: BSIT-3C | Total Written Subjects: 13
+  Date: 2026-05-20 | Count: 2 | Exams: ['Data and Digital Communications (Data Communications)', 'Enterprise Architecture']
+    [FAIL] Violation for BSIT-3C on 2026-05-20: 2 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 1 | Exams: ['Event-Driven Programming']
+    [FAIL] Violation for BSIT-3C on 2026-05-21: 1 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 2 | Exams: ['Application Development and Emerging Technologies', 'Advanced Database Systems']
+    [FAIL] Violation for BSIT-3C on 2026-05-22: 2 exams (Allowed: 3-4)
+  Date: 2026-05-25 | Count: 2 | Exams: ['Professional Issues in Information Systems and Technology', 'Advanced Systems Integration and Architecture']
+    [FAIL] Violation for BSIT-3C on 2026-05-25: 2 exams (Allowed: 3-4)
+
+Section: BSIT-3D | Total Written Subjects: 13
+  Date: 2026-05-20 | Count: 2 | Exams: ['Data and Digital Communications (Data Communications)', 'Enterprise Architecture']
+    [FAIL] Violation for BSIT-3D on 2026-05-20: 2 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 1 | Exams: ['Event-Driven Programming']
+    [FAIL] Violation for BSIT-3D on 2026-05-21: 1 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 2 | Exams: ['Application Development and Emerging Technologies', 'Advanced Database Systems']
+    [FAIL] Violation for BSIT-3D on 2026-05-22: 2 exams (Allowed: 3-4)
+  Date: 2026-05-25 | Count: 2 | Exams: ['Professional Issues in Information Systems and Technology', 'Advanced Systems Integration and Architecture']
+    [FAIL] Violation for BSIT-3D on 2026-05-25: 2 exams (Allowed: 3-4)
+
+Section: BSCS-3A | Total Written Subjects: 14
+  Date: 2026-05-20 | Count: 1 | Exams: ['Theory of Computations with Automata']
+    [FAIL] Violation for BSCS-3A on 2026-05-20: 1 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 1 | Exams: ['Intermediate Web Programming']
+    [FAIL] Violation for BSCS-3A on 2026-05-21: 1 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 2 | Exams: ['Application Development and Emerging Technologies', 'Quantitative Methods (Data Analysis)']
+    [FAIL] Violation for BSCS-3A on 2026-05-22: 2 exams (Allowed: 3-4)
+  Date: 2026-05-25 | Count: 4 | Exams: ['Information Assurance and Security (Cybersecurity Fundamentals)', 'Artificial Intelligence', 'Software Engineering 1', 'Methods of Research']
+    [PASS]
+
+Section: BSCS-3B | Total Written Subjects: 14
+  Date: 2026-05-20 | Count: 1 | Exams: ['Theory of Computations with Automata']
+    [FAIL] Violation for BSCS-3B on 2026-05-20: 1 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 1 | Exams: ['Intermediate Web Programming']
+    [FAIL] Violation for BSCS-3B on 2026-05-21: 1 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 2 | Exams: ['Application Development and Emerging Technologies', 'Quantitative Methods (Data Analysis)']
+    [FAIL] Violation for BSCS-3B on 2026-05-22: 2 exams (Allowed: 3-4)
+  Date: 2026-05-25 | Count: 4 | Exams: ['Information Assurance and Security (Cybersecurity Fundamentals)', 'Artificial Intelligence', 'Software Engineering 1', 'Methods of Research']
+    [PASS]
+
+Section: BSCS-3C | Total Written Subjects: 14
+  Date: 2026-05-20 | Count: 1 | Exams: ['Theory of Computations with Automata']
+    [FAIL] Violation for BSCS-3C on 2026-05-20: 1 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 1 | Exams: ['Intermediate Web Programming']
+    [FAIL] Violation for BSCS-3C on 2026-05-21: 1 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 2 | Exams: ['Application Development and Emerging Technologies', 'Quantitative Methods (Data Analysis)']
+    [FAIL] Violation for BSCS-3C on 2026-05-22: 2 exams (Allowed: 3-4)
+  Date: 2026-05-25 | Count: 4 | Exams: ['Information Assurance and Security (Cybersecurity Fundamentals)', 'Artificial Intelligence', 'Software Engineering 1', 'Methods of Research']
+    [PASS]
+
+Section: BSCS-3D | Total Written Subjects: 14
+  Date: 2026-05-20 | Count: 1 | Exams: ['Theory of Computations with Automata']
+    [FAIL] Violation for BSCS-3D on 2026-05-20: 1 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 1 | Exams: ['Intermediate Web Programming']
+    [FAIL] Violation for BSCS-3D on 2026-05-21: 1 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 2 | Exams: ['Application Development and Emerging Technologies', 'Quantitative Methods (Data Analysis)']
+    [FAIL] Violation for BSCS-3D on 2026-05-22: 2 exams (Allowed: 3-4)
+  Date: 2026-05-25 | Count: 4 | Exams: ['Information Assurance and Security (Cybersecurity Fundamentals)', 'Artificial Intelligence', 'Software Engineering 1', 'Methods of Research']
+    [PASS]
+
+Section: BSCpE-3A | Total Written Subjects: 14
+  Date: 2026-05-20 | Count: 3 | Exams: ['Data and Digital Communications (Data Communications)', 'Fundamentals of Mixed Signals and Sensors', 'Computer-Aided Drafting']
+    [PASS]
+  Date: 2026-05-21 | Count: 3 | Exams: ['Computer Systems Architecture', 'Computer Engineering Drafting and Design', 'Feedback and Control Systems']
+    [PASS]
+  Date: 2026-05-25 | Count: 3 | Exams: ['Methods of Research', 'Logic Circuits and Design', 'Engineering Economics']
+    [PASS]
+
+Section: BSCpE-3B | Total Written Subjects: 14
+  Date: 2026-05-20 | Count: 3 | Exams: ['Data and Digital Communications (Data Communications)', 'Fundamentals of Mixed Signals and Sensors', 'Computer-Aided Drafting']
+    [PASS]
+  Date: 2026-05-21 | Count: 3 | Exams: ['Computer Systems Architecture', 'Computer Engineering Drafting and Design', 'Feedback and Control Systems']
+    [PASS]
+  Date: 2026-05-25 | Count: 3 | Exams: ['Methods of Research', 'Logic Circuits and Design', 'Engineering Economics']
+    [PASS]
+
+Section: BSCpE-3C | Total Written Subjects: 14
+  Date: 2026-05-20 | Count: 3 | Exams: ['Data and Digital Communications (Data Communications)', 'Fundamentals of Mixed Signals and Sensors', 'Computer-Aided Drafting']
+    [PASS]
+  Date: 2026-05-21 | Count: 3 | Exams: ['Computer Systems Architecture', 'Computer Engineering Drafting and Design', 'Feedback and Control Systems']
+    [PASS]
+  Date: 2026-05-25 | Count: 3 | Exams: ['Methods of Research', 'Logic Circuits and Design', 'Engineering Economics']
+    [PASS]
+
+Section: BSCpE-3D | Total Written Subjects: 14
+  Date: 2026-05-20 | Count: 3 | Exams: ['Data and Digital Communications (Data Communications)', 'Fundamentals of Mixed Signals and Sensors', 'Computer-Aided Drafting']
+    [PASS]
+  Date: 2026-05-21 | Count: 3 | Exams: ['Computer Systems Architecture', 'Computer Engineering Drafting and Design', 'Feedback and Control Systems']
+    [PASS]
+  Date: 2026-05-25 | Count: 3 | Exams: ['Methods of Research', 'Logic Circuits and Design', 'Engineering Economics']
+    [PASS]
+
+Section: BSIT-4A | Total Written Subjects: 5
+  Date: 2026-05-20 | Count: 1 | Exams: ['Computer Graphics Programming']
+    [FAIL] Violation for BSIT-4A on 2026-05-20: 1 exams (Allowed: 2-3)
+  Date: 2026-05-21 | Count: 3 | Exams: ['Game Development', 'IT Service Management', 'Network Technology 2']
+    [PASS]
+  Date: 2026-05-22 | Count: 1 | Exams: ['Information Assurance and Security (Data Privacy)']
+    [FAIL] Violation for BSIT-4A on 2026-05-22: 1 exams (Allowed: 2-3)
+
+Section: BSIT-4B | Total Written Subjects: 5
+  Date: 2026-05-20 | Count: 1 | Exams: ['Computer Graphics Programming']
+    [FAIL] Violation for BSIT-4B on 2026-05-20: 1 exams (Allowed: 2-3)
+  Date: 2026-05-21 | Count: 3 | Exams: ['Game Development', 'IT Service Management', 'Network Technology 2']
+    [PASS]
+  Date: 2026-05-22 | Count: 1 | Exams: ['Information Assurance and Security (Data Privacy)']
+    [FAIL] Violation for BSIT-4B on 2026-05-22: 1 exams (Allowed: 2-3)
+
+Section: BSIT-4C | Total Written Subjects: 5
+  Date: 2026-05-20 | Count: 1 | Exams: ['Computer Graphics Programming']
+    [FAIL] Violation for BSIT-4C on 2026-05-20: 1 exams (Allowed: 2-3)
+  Date: 2026-05-21 | Count: 3 | Exams: ['Game Development', 'IT Service Management', 'Network Technology 2']
+    [PASS]
+  Date: 2026-05-22 | Count: 1 | Exams: ['Information Assurance and Security (Data Privacy)']
+    [FAIL] Violation for BSIT-4C on 2026-05-22: 1 exams (Allowed: 2-3)
+
+Section: BSIT-4D | Total Written Subjects: 5
+  Date: 2026-05-20 | Count: 1 | Exams: ['Computer Graphics Programming']
+    [FAIL] Violation for BSIT-4D on 2026-05-20: 1 exams (Allowed: 2-3)
+  Date: 2026-05-21 | Count: 3 | Exams: ['Game Development', 'IT Service Management', 'Network Technology 2']
+    [PASS]
+  Date: 2026-05-22 | Count: 1 | Exams: ['Information Assurance and Security (Data Privacy)']
+    [FAIL] Violation for BSIT-4D on 2026-05-22: 1 exams (Allowed: 2-3)
+
+Section: BSTM-3A | Total Written Subjects: 13
+  Date: 2026-05-21 | Count: 3 | Exams: ['Operations Management (TQM)', 'Great Books', 'Multicultural Diversity in Workplace for the Tourism Professional']
+    [PASS]
+  Date: 2026-05-22 | Count: 2 | Exams: ['The Entrepreneurial Mind', 'Professional Development and Applied Ethics']
+    [FAIL] Violation for BSTM-3A on 2026-05-22: 2 exams (Allowed: 3-4)
+  Date: 2026-05-25 | Count: 2 | Exams: ['Tourism and Hospitality Marketing', 'Applied Business Tools and Technologies in Tourism']
+    [FAIL] Violation for BSTM-3A on 2026-05-25: 2 exams (Allowed: 3-4)
+
+Section: BSTM-3B | Total Written Subjects: 13
+  Date: 2026-05-21 | Count: 3 | Exams: ['Operations Management (TQM)', 'Great Books', 'Multicultural Diversity in Workplace for the Tourism Professional']
+    [PASS]
+  Date: 2026-05-22 | Count: 2 | Exams: ['The Entrepreneurial Mind', 'Professional Development and Applied Ethics']
+    [FAIL] Violation for BSTM-3B on 2026-05-22: 2 exams (Allowed: 3-4)
+  Date: 2026-05-25 | Count: 2 | Exams: ['Tourism and Hospitality Marketing', 'Applied Business Tools and Technologies in Tourism']
+    [FAIL] Violation for BSTM-3B on 2026-05-25: 2 exams (Allowed: 3-4)
+
+Section: BSTM-3C | Total Written Subjects: 13
+  Date: 2026-05-21 | Count: 3 | Exams: ['Operations Management (TQM)', 'Great Books', 'Multicultural Diversity in Workplace for the Tourism Professional']
+    [PASS]
+  Date: 2026-05-22 | Count: 2 | Exams: ['The Entrepreneurial Mind', 'Professional Development and Applied Ethics']
+    [FAIL] Violation for BSTM-3C on 2026-05-22: 2 exams (Allowed: 3-4)
+  Date: 2026-05-25 | Count: 2 | Exams: ['Tourism and Hospitality Marketing', 'Applied Business Tools and Technologies in Tourism']
+    [FAIL] Violation for BSTM-3C on 2026-05-25: 2 exams (Allowed: 3-4)
+
+Section: BSTM-3D | Total Written Subjects: 13
+  Date: 2026-05-21 | Count: 3 | Exams: ['Operations Management (TQM)', 'Great Books', 'Multicultural Diversity in Workplace for the Tourism Professional']
+    [PASS]
+  Date: 2026-05-22 | Count: 2 | Exams: ['The Entrepreneurial Mind', 'Professional Development and Applied Ethics']
+    [FAIL] Violation for BSTM-3D on 2026-05-22: 2 exams (Allowed: 3-4)
+  Date: 2026-05-25 | Count: 2 | Exams: ['Tourism and Hospitality Marketing', 'Applied Business Tools and Technologies in Tourism']
+    [FAIL] Violation for BSTM-3D on 2026-05-25: 2 exams (Allowed: 3-4)
+
+Section: BSHM-3A | Total Written Subjects: 15
+  Date: 2026-05-20 | Count: 1 | Exams: ['Applied Business Tools and Technologies in Hospitality']
+    [FAIL] Violation for BSHM-3A on 2026-05-20: 1 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 4 | Exams: ['Operations Management (TQM)', 'Great Books', 'Multicultural Diversity in Workplace for the Tourism Professional', 'Pastry Arts and Bakery Management']
+    [PASS]
+  Date: 2026-05-22 | Count: 2 | Exams: ['The Entrepreneurial Mind', 'Professional Development and Applied Ethics']
+    [FAIL] Violation for BSHM-3A on 2026-05-22: 2 exams (Allowed: 3-4)
+  Date: 2026-05-25 | Count: 1 | Exams: ['Tourism and Hospitality Marketing']
+    [FAIL] Violation for BSHM-3A on 2026-05-25: 1 exams (Allowed: 3-4)
+
+Section: BSHM-3B | Total Written Subjects: 15
+  Date: 2026-05-20 | Count: 1 | Exams: ['Applied Business Tools and Technologies in Hospitality']
+    [FAIL] Violation for BSHM-3B on 2026-05-20: 1 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 4 | Exams: ['Operations Management (TQM)', 'Great Books', 'Multicultural Diversity in Workplace for the Tourism Professional', 'Pastry Arts and Bakery Management']
+    [PASS]
+  Date: 2026-05-22 | Count: 2 | Exams: ['The Entrepreneurial Mind', 'Professional Development and Applied Ethics']
+    [FAIL] Violation for BSHM-3B on 2026-05-22: 2 exams (Allowed: 3-4)
+  Date: 2026-05-25 | Count: 1 | Exams: ['Tourism and Hospitality Marketing']
+    [FAIL] Violation for BSHM-3B on 2026-05-25: 1 exams (Allowed: 3-4)
+
+Section: BSHM-3C | Total Written Subjects: 15
+  Date: 2026-05-20 | Count: 1 | Exams: ['Applied Business Tools and Technologies in Hospitality']
+    [FAIL] Violation for BSHM-3C on 2026-05-20: 1 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 4 | Exams: ['Operations Management (TQM)', 'Great Books', 'Multicultural Diversity in Workplace for the Tourism Professional', 'Pastry Arts and Bakery Management']
+    [PASS]
+  Date: 2026-05-22 | Count: 2 | Exams: ['The Entrepreneurial Mind', 'Professional Development and Applied Ethics']
+    [FAIL] Violation for BSHM-3C on 2026-05-22: 2 exams (Allowed: 3-4)
+  Date: 2026-05-25 | Count: 1 | Exams: ['Tourism and Hospitality Marketing']
+    [FAIL] Violation for BSHM-3C on 2026-05-25: 1 exams (Allowed: 3-4)
+
+Section: BSHM-3D | Total Written Subjects: 15
+  Date: 2026-05-20 | Count: 1 | Exams: ['Applied Business Tools and Technologies in Hospitality']
+    [FAIL] Violation for BSHM-3D on 2026-05-20: 1 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 4 | Exams: ['Operations Management (TQM)', 'Great Books', 'Multicultural Diversity in Workplace for the Tourism Professional', 'Pastry Arts and Bakery Management']
+    [PASS]
+  Date: 2026-05-22 | Count: 2 | Exams: ['The Entrepreneurial Mind', 'Professional Development and Applied Ethics']
+    [FAIL] Violation for BSHM-3D on 2026-05-22: 2 exams (Allowed: 3-4)
+  Date: 2026-05-25 | Count: 1 | Exams: ['Tourism and Hospitality Marketing']
+    [FAIL] Violation for BSHM-3D on 2026-05-25: 1 exams (Allowed: 3-4)
+
+Section: BSCrim-2A | Total Written Subjects: 14
+  Date: 2026-05-20 | Count: 3 | Exams: ['Law Enforcement Organization and Administration (Inter-Agency Approach)', 'Theories of Crime Causation', 'Introduction to Computing (with Computing Productivity Tools)']
+    [PASS]
+  Date: 2026-05-21 | Count: 3 | Exams: ['Life and Works of Rizal', 'Fundamentals of Criminal Investigation and Intelligence', 'Comparative Models in Policing']
+    [PASS]
+  Date: 2026-05-22 | Count: 1 | Exams: ['The Entrepreneurial Mind']
+    [FAIL] Violation for BSCrim-2A on 2026-05-22: 1 exams (Allowed: 3-4)
+
+Section: BSCrim-2B | Total Written Subjects: 14
+  Date: 2026-05-20 | Count: 3 | Exams: ['Law Enforcement Organization and Administration (Inter-Agency Approach)', 'Theories of Crime Causation', 'Introduction to Computing (with Computing Productivity Tools)']
+    [PASS]
+  Date: 2026-05-21 | Count: 3 | Exams: ['Life and Works of Rizal', 'Fundamentals of Criminal Investigation and Intelligence', 'Comparative Models in Policing']
+    [PASS]
+  Date: 2026-05-22 | Count: 1 | Exams: ['The Entrepreneurial Mind']
+    [FAIL] Violation for BSCrim-2B on 2026-05-22: 1 exams (Allowed: 3-4)
+
+Section: BSCrim-2C | Total Written Subjects: 14
+  Date: 2026-05-20 | Count: 3 | Exams: ['Law Enforcement Organization and Administration (Inter-Agency Approach)', 'Theories of Crime Causation', 'Introduction to Computing (with Computing Productivity Tools)']
+    [PASS]
+  Date: 2026-05-21 | Count: 3 | Exams: ['Life and Works of Rizal', 'Fundamentals of Criminal Investigation and Intelligence', 'Comparative Models in Policing']
+    [PASS]
+  Date: 2026-05-22 | Count: 1 | Exams: ['The Entrepreneurial Mind']
+    [FAIL] Violation for BSCrim-2C on 2026-05-22: 1 exams (Allowed: 3-4)
+
+Section: BSCrim-2D | Total Written Subjects: 14
+  Date: 2026-05-20 | Count: 3 | Exams: ['Law Enforcement Organization and Administration (Inter-Agency Approach)', 'Theories of Crime Causation', 'Introduction to Computing (with Computing Productivity Tools)']
+    [PASS]
+  Date: 2026-05-21 | Count: 3 | Exams: ['Life and Works of Rizal', 'Fundamentals of Criminal Investigation and Intelligence', 'Comparative Models in Policing']
+    [PASS]
+  Date: 2026-05-22 | Count: 1 | Exams: ['The Entrepreneurial Mind']
+    [FAIL] Violation for BSCrim-2D on 2026-05-22: 1 exams (Allowed: 3-4)
+
+Section: BSCpE-4A | Total Written Subjects: 6
+  Date: 2026-05-20 | Count: 1 | Exams: ['Computer Architecture and Organization']
+    [FAIL] Violation for BSCpE-4A on 2026-05-20: 1 exams (Allowed: 2-3)
+  Date: 2026-05-22 | Count: 3 | Exams: ['Computer Network and Security', 'Robot Assembly and Programming', 'Seminars and Fieldtrips']
+    [PASS]
+  Date: 2026-05-25 | Count: 2 | Exams: ['CpE Laws and Professional Practice', 'Embedded Systems']
+    [PASS]
+
+Section: BSCpE-4B | Total Written Subjects: 6
+  Date: 2026-05-20 | Count: 1 | Exams: ['Computer Architecture and Organization']
+    [FAIL] Violation for BSCpE-4B on 2026-05-20: 1 exams (Allowed: 2-3)
+  Date: 2026-05-22 | Count: 3 | Exams: ['Computer Network and Security', 'Robot Assembly and Programming', 'Seminars and Fieldtrips']
+    [PASS]
+  Date: 2026-05-25 | Count: 2 | Exams: ['CpE Laws and Professional Practice', 'Embedded Systems']
+    [PASS]
+
+Section: BSCpE-4C | Total Written Subjects: 6
+  Date: 2026-05-20 | Count: 1 | Exams: ['Computer Architecture and Organization']
+    [FAIL] Violation for BSCpE-4C on 2026-05-20: 1 exams (Allowed: 2-3)
+  Date: 2026-05-22 | Count: 3 | Exams: ['Computer Network and Security', 'Robot Assembly and Programming', 'Seminars and Fieldtrips']
+    [PASS]
+  Date: 2026-05-25 | Count: 2 | Exams: ['CpE Laws and Professional Practice', 'Embedded Systems']
+    [PASS]
+
+Section: BSCpE-4D | Total Written Subjects: 6
+  Date: 2026-05-20 | Count: 1 | Exams: ['Computer Architecture and Organization']
+    [FAIL] Violation for BSCpE-4D on 2026-05-20: 1 exams (Allowed: 2-3)
+  Date: 2026-05-22 | Count: 3 | Exams: ['Computer Network and Security', 'Robot Assembly and Programming', 'Seminars and Fieldtrips']
+    [PASS]
+  Date: 2026-05-25 | Count: 2 | Exams: ['CpE Laws and Professional Practice', 'Embedded Systems']
+    [PASS]
+
+Section: BSTM-2A | Total Written Subjects: 12
+  Date: 2026-05-20 | Count: 2 | Exams: ['Tour and Travel Management', 'Sustainable Tourism']
+    [FAIL] Violation for BSTM-2A on 2026-05-20: 2 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 1 | Exams: ['Art Appreciation']
+    [FAIL] Violation for BSTM-2A on 2026-05-21: 1 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 1 | Exams: ['Foreign Language 1']
+    [FAIL] Violation for BSTM-2A on 2026-05-22: 1 exams (Allowed: 3-4)
+  Date: 2026-05-25 | Count: 2 | Exams: ['Quality Service Management in Tourism and Hospitality', 'Accommodation Operations and Management']
+    [FAIL] Violation for BSTM-2A on 2026-05-25: 2 exams (Allowed: 3-4)
+
+Section: BSTM-2B | Total Written Subjects: 12
+  Date: 2026-05-20 | Count: 2 | Exams: ['Tour and Travel Management', 'Sustainable Tourism']
+    [FAIL] Violation for BSTM-2B on 2026-05-20: 2 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 1 | Exams: ['Art Appreciation']
+    [FAIL] Violation for BSTM-2B on 2026-05-21: 1 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 1 | Exams: ['Foreign Language 1']
+    [FAIL] Violation for BSTM-2B on 2026-05-22: 1 exams (Allowed: 3-4)
+  Date: 2026-05-25 | Count: 2 | Exams: ['Quality Service Management in Tourism and Hospitality', 'Accommodation Operations and Management']
+    [FAIL] Violation for BSTM-2B on 2026-05-25: 2 exams (Allowed: 3-4)
+
+Section: BSTM-2C | Total Written Subjects: 12
+  Date: 2026-05-20 | Count: 2 | Exams: ['Tour and Travel Management', 'Sustainable Tourism']
+    [FAIL] Violation for BSTM-2C on 2026-05-20: 2 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 1 | Exams: ['Art Appreciation']
+    [FAIL] Violation for BSTM-2C on 2026-05-21: 1 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 1 | Exams: ['Foreign Language 1']
+    [FAIL] Violation for BSTM-2C on 2026-05-22: 1 exams (Allowed: 3-4)
+  Date: 2026-05-25 | Count: 2 | Exams: ['Quality Service Management in Tourism and Hospitality', 'Accommodation Operations and Management']
+    [FAIL] Violation for BSTM-2C on 2026-05-25: 2 exams (Allowed: 3-4)
+
+Section: BSTM-2D | Total Written Subjects: 12
+  Date: 2026-05-20 | Count: 2 | Exams: ['Tour and Travel Management', 'Sustainable Tourism']
+    [FAIL] Violation for BSTM-2D on 2026-05-20: 2 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 1 | Exams: ['Art Appreciation']
+    [FAIL] Violation for BSTM-2D on 2026-05-21: 1 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 1 | Exams: ['Foreign Language 1']
+    [FAIL] Violation for BSTM-2D on 2026-05-22: 1 exams (Allowed: 3-4)
+  Date: 2026-05-25 | Count: 2 | Exams: ['Quality Service Management in Tourism and Hospitality', 'Accommodation Operations and Management']
+    [FAIL] Violation for BSTM-2D on 2026-05-25: 2 exams (Allowed: 3-4)
+
+Section: BSHM-2A | Total Written Subjects: 13
+  Date: 2026-05-20 | Count: 2 | Exams: ['Hotel Front Office Operations Management', 'Philippine Regional Cuisines with Food Styling and Design']
+    [FAIL] Violation for BSHM-2A on 2026-05-20: 2 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 2 | Exams: ['Art Appreciation', 'Fundamentals in Lodging Operations']
+    [FAIL] Violation for BSHM-2A on 2026-05-21: 2 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 1 | Exams: ['Foreign Language 1']
+    [FAIL] Violation for BSHM-2A on 2026-05-22: 1 exams (Allowed: 3-4)
+  Date: 2026-05-25 | Count: 1 | Exams: ['Quality Service Management in Tourism and Hospitality']
+    [FAIL] Violation for BSHM-2A on 2026-05-25: 1 exams (Allowed: 3-4)
+
+Section: BSHM-2B | Total Written Subjects: 13
+  Date: 2026-05-20 | Count: 2 | Exams: ['Hotel Front Office Operations Management', 'Philippine Regional Cuisines with Food Styling and Design']
+    [FAIL] Violation for BSHM-2B on 2026-05-20: 2 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 2 | Exams: ['Art Appreciation', 'Fundamentals in Lodging Operations']
+    [FAIL] Violation for BSHM-2B on 2026-05-21: 2 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 1 | Exams: ['Foreign Language 1']
+    [FAIL] Violation for BSHM-2B on 2026-05-22: 1 exams (Allowed: 3-4)
+  Date: 2026-05-25 | Count: 1 | Exams: ['Quality Service Management in Tourism and Hospitality']
+    [FAIL] Violation for BSHM-2B on 2026-05-25: 1 exams (Allowed: 3-4)
+
+Section: BSHM-2C | Total Written Subjects: 13
+  Date: 2026-05-20 | Count: 2 | Exams: ['Hotel Front Office Operations Management', 'Philippine Regional Cuisines with Food Styling and Design']
+    [FAIL] Violation for BSHM-2C on 2026-05-20: 2 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 2 | Exams: ['Art Appreciation', 'Fundamentals in Lodging Operations']
+    [FAIL] Violation for BSHM-2C on 2026-05-21: 2 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 1 | Exams: ['Foreign Language 1']
+    [FAIL] Violation for BSHM-2C on 2026-05-22: 1 exams (Allowed: 3-4)
+  Date: 2026-05-25 | Count: 1 | Exams: ['Quality Service Management in Tourism and Hospitality']
+    [FAIL] Violation for BSHM-2C on 2026-05-25: 1 exams (Allowed: 3-4)
+
+Section: BSHM-2D | Total Written Subjects: 13
+  Date: 2026-05-20 | Count: 2 | Exams: ['Hotel Front Office Operations Management', 'Philippine Regional Cuisines with Food Styling and Design']
+    [FAIL] Violation for BSHM-2D on 2026-05-20: 2 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 2 | Exams: ['Art Appreciation', 'Fundamentals in Lodging Operations']
+    [FAIL] Violation for BSHM-2D on 2026-05-21: 2 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 1 | Exams: ['Foreign Language 1']
+    [FAIL] Violation for BSHM-2D on 2026-05-22: 1 exams (Allowed: 3-4)
+  Date: 2026-05-25 | Count: 1 | Exams: ['Quality Service Management in Tourism and Hospitality']
+    [FAIL] Violation for BSHM-2D on 2026-05-25: 1 exams (Allowed: 3-4)
+
+Section: BMMA-3A | Total Written Subjects: 10
+  Date: 2026-05-21 | Count: 3 | Exams: ['Great Books', 'Business Ventures in Multimedia', 'Typography and Layout']
+    [PASS]
+  Date: 2026-05-22 | Count: 2 | Exams: ['Brand Communication and Design', 'Web Programming']
+    [FAIL] Violation for BMMA-3A on 2026-05-22: 2 exams (Allowed: 3-4)
+
+Section: BMMA-3B | Total Written Subjects: 10
+  Date: 2026-05-21 | Count: 3 | Exams: ['Great Books', 'Business Ventures in Multimedia', 'Typography and Layout']
+    [PASS]
+  Date: 2026-05-22 | Count: 2 | Exams: ['Brand Communication and Design', 'Web Programming']
+    [FAIL] Violation for BMMA-3B on 2026-05-22: 2 exams (Allowed: 3-4)
+
+Section: BMMA-3C | Total Written Subjects: 10
+  Date: 2026-05-21 | Count: 3 | Exams: ['Great Books', 'Business Ventures in Multimedia', 'Typography and Layout']
+    [PASS]
+  Date: 2026-05-22 | Count: 2 | Exams: ['Brand Communication and Design', 'Web Programming']
+    [FAIL] Violation for BMMA-3C on 2026-05-22: 2 exams (Allowed: 3-4)
+
+Section: BMMA-3D | Total Written Subjects: 10
+  Date: 2026-05-21 | Count: 3 | Exams: ['Great Books', 'Business Ventures in Multimedia', 'Typography and Layout']
+    [PASS]
+  Date: 2026-05-22 | Count: 2 | Exams: ['Brand Communication and Design', 'Web Programming']
+    [FAIL] Violation for BMMA-3D on 2026-05-22: 2 exams (Allowed: 3-4)
+
+Section: BACOMM-3A | Total Written Subjects: 13
+  Date: 2026-05-20 | Count: 2 | Exams: ['Advertising Principles and Practices', 'Multimedia Journalism']
+    [FAIL] Violation for BACOMM-3A on 2026-05-20: 2 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 4 | Exams: ['Great Books', 'Communication Media Laws and Ethics', 'Risk, Disaster, and Humanitarian Communication', 'Social Media Principles and Practices']
+    [PASS]
+
+Section: BACOMM-3B | Total Written Subjects: 13
+  Date: 2026-05-20 | Count: 2 | Exams: ['Advertising Principles and Practices', 'Multimedia Journalism']
+    [FAIL] Violation for BACOMM-3B on 2026-05-20: 2 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 4 | Exams: ['Great Books', 'Communication Media Laws and Ethics', 'Risk, Disaster, and Humanitarian Communication', 'Social Media Principles and Practices']
+    [PASS]
+
+Section: BACOMM-3C | Total Written Subjects: 13
+  Date: 2026-05-20 | Count: 2 | Exams: ['Advertising Principles and Practices', 'Multimedia Journalism']
+    [FAIL] Violation for BACOMM-3C on 2026-05-20: 2 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 4 | Exams: ['Great Books', 'Communication Media Laws and Ethics', 'Risk, Disaster, and Humanitarian Communication', 'Social Media Principles and Practices']
+    [PASS]
+
+Section: BACOMM-3D | Total Written Subjects: 13
+  Date: 2026-05-20 | Count: 2 | Exams: ['Advertising Principles and Practices', 'Multimedia Journalism']
+    [FAIL] Violation for BACOMM-3D on 2026-05-20: 2 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 4 | Exams: ['Great Books', 'Communication Media Laws and Ethics', 'Risk, Disaster, and Humanitarian Communication', 'Social Media Principles and Practices']
+    [PASS]
+
+Section: BSA-3A | Total Written Subjects: 15
+  Date: 2026-05-20 | Count: 1 | Exams: ['International Business and Trade']
+    [FAIL] Violation for BSA-3A on 2026-05-20: 1 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 3 | Exams: ['Cost Accounting and Control', 'Economic Development', 'Governance, Business Ethics, Risk Management, and Internal Control']
+    [PASS]
+  Date: 2026-05-22 | Count: 2 | Exams: ['Intermediate Accounting 3', 'Auditing and Assurance: Concepts and Applications 1']
+    [FAIL] Violation for BSA-3A on 2026-05-22: 2 exams (Allowed: 3-4)
+  Date: 2026-05-25 | Count: 2 | Exams: ['Financial Markets', 'Statistical Analysis with Software Application']
+    [FAIL] Violation for BSA-3A on 2026-05-25: 2 exams (Allowed: 3-4)
+
+Section: BSA-3B | Total Written Subjects: 15
+  Date: 2026-05-20 | Count: 1 | Exams: ['International Business and Trade']
+    [FAIL] Violation for BSA-3B on 2026-05-20: 1 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 3 | Exams: ['Cost Accounting and Control', 'Economic Development', 'Governance, Business Ethics, Risk Management, and Internal Control']
+    [PASS]
+  Date: 2026-05-22 | Count: 2 | Exams: ['Intermediate Accounting 3', 'Auditing and Assurance: Concepts and Applications 1']
+    [FAIL] Violation for BSA-3B on 2026-05-22: 2 exams (Allowed: 3-4)
+  Date: 2026-05-25 | Count: 2 | Exams: ['Financial Markets', 'Statistical Analysis with Software Application']
+    [FAIL] Violation for BSA-3B on 2026-05-25: 2 exams (Allowed: 3-4)
+
+Section: BSA-3C | Total Written Subjects: 15
+  Date: 2026-05-20 | Count: 1 | Exams: ['International Business and Trade']
+    [FAIL] Violation for BSA-3C on 2026-05-20: 1 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 3 | Exams: ['Cost Accounting and Control', 'Economic Development', 'Governance, Business Ethics, Risk Management, and Internal Control']
+    [PASS]
+  Date: 2026-05-22 | Count: 2 | Exams: ['Intermediate Accounting 3', 'Auditing and Assurance: Concepts and Applications 1']
+    [FAIL] Violation for BSA-3C on 2026-05-22: 2 exams (Allowed: 3-4)
+  Date: 2026-05-25 | Count: 2 | Exams: ['Financial Markets', 'Statistical Analysis with Software Application']
+    [FAIL] Violation for BSA-3C on 2026-05-25: 2 exams (Allowed: 3-4)
+
+Section: BSA-3D | Total Written Subjects: 15
+  Date: 2026-05-20 | Count: 1 | Exams: ['International Business and Trade']
+    [FAIL] Violation for BSA-3D on 2026-05-20: 1 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 3 | Exams: ['Cost Accounting and Control', 'Economic Development', 'Governance, Business Ethics, Risk Management, and Internal Control']
+    [PASS]
+  Date: 2026-05-22 | Count: 2 | Exams: ['Intermediate Accounting 3', 'Auditing and Assurance: Concepts and Applications 1']
+    [FAIL] Violation for BSA-3D on 2026-05-22: 2 exams (Allowed: 3-4)
+  Date: 2026-05-25 | Count: 2 | Exams: ['Financial Markets', 'Statistical Analysis with Software Application']
+    [FAIL] Violation for BSA-3D on 2026-05-25: 2 exams (Allowed: 3-4)
+
+Section: BSPsych-4A | Total Written Subjects: 3
+  Date: 2026-05-20 | Count: 1 | Exams: ['Gender and Sexuality Perception']
+    [FAIL] Violation for BSPsych-4A on 2026-05-20: 1 exams (Allowed: 2-3)
+  Date: 2026-05-21 | Count: 1 | Exams: ['Introduction to Counseling']
+    [FAIL] Violation for BSPsych-4A on 2026-05-21: 1 exams (Allowed: 2-3)
+  Date: 2026-05-25 | Count: 1 | Exams: ['Research in Psychology 2']
+    [FAIL] Violation for BSPsych-4A on 2026-05-25: 1 exams (Allowed: 2-3)
+
+Section: BSPsych-4B | Total Written Subjects: 3
+  Date: 2026-05-20 | Count: 1 | Exams: ['Gender and Sexuality Perception']
+    [FAIL] Violation for BSPsych-4B on 2026-05-20: 1 exams (Allowed: 2-3)
+  Date: 2026-05-21 | Count: 1 | Exams: ['Introduction to Counseling']
+    [FAIL] Violation for BSPsych-4B on 2026-05-21: 1 exams (Allowed: 2-3)
+  Date: 2026-05-25 | Count: 1 | Exams: ['Research in Psychology 2']
+    [FAIL] Violation for BSPsych-4B on 2026-05-25: 1 exams (Allowed: 2-3)
+
+Section: BSPsych-4C | Total Written Subjects: 3
+  Date: 2026-05-20 | Count: 1 | Exams: ['Gender and Sexuality Perception']
+    [FAIL] Violation for BSPsych-4C on 2026-05-20: 1 exams (Allowed: 2-3)
+  Date: 2026-05-21 | Count: 1 | Exams: ['Introduction to Counseling']
+    [FAIL] Violation for BSPsych-4C on 2026-05-21: 1 exams (Allowed: 2-3)
+  Date: 2026-05-25 | Count: 1 | Exams: ['Research in Psychology 2']
+    [FAIL] Violation for BSPsych-4C on 2026-05-25: 1 exams (Allowed: 2-3)
+
+Section: BSPsych-4D | Total Written Subjects: 3
+  Date: 2026-05-20 | Count: 1 | Exams: ['Gender and Sexuality Perception']
+    [FAIL] Violation for BSPsych-4D on 2026-05-20: 1 exams (Allowed: 2-3)
+  Date: 2026-05-21 | Count: 1 | Exams: ['Introduction to Counseling']
+    [FAIL] Violation for BSPsych-4D on 2026-05-21: 1 exams (Allowed: 2-3)
+  Date: 2026-05-25 | Count: 1 | Exams: ['Research in Psychology 2']
+    [FAIL] Violation for BSPsych-4D on 2026-05-25: 1 exams (Allowed: 2-3)
+
+Section: BSCrim-3A | Total Written Subjects: 16
+  Date: 2026-05-20 | Count: 2 | Exams: ['Forensic Chemistry and Toxicology', 'Criminal Law (Book 1)']
+    [FAIL] Violation for BSCrim-3A on 2026-05-20: 2 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 2 | Exams: ['Traffic Management and Accident Investigation with Driving', 'Professional Conduct and Ethical Standards']
+    [FAIL] Violation for BSCrim-3A on 2026-05-21: 2 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 1 | Exams: ['Human Rights Education']
+    [FAIL] Violation for BSCrim-3A on 2026-05-22: 1 exams (Allowed: 3-4)
+  Date: 2026-05-25 | Count: 3 | Exams: ['Character Formation 2 - Leadership, Decision Making, Management, and Administration', 'Specialized Crime Investigation 2 with Simulation on Interrogation and Interview', 'Law Enforcement Operations and Planning with Crime Mapping']
+    [PASS]
+
+Section: BSCrim-3B | Total Written Subjects: 16
+  Date: 2026-05-20 | Count: 2 | Exams: ['Forensic Chemistry and Toxicology', 'Criminal Law (Book 1)']
+    [FAIL] Violation for BSCrim-3B on 2026-05-20: 2 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 2 | Exams: ['Traffic Management and Accident Investigation with Driving', 'Professional Conduct and Ethical Standards']
+    [FAIL] Violation for BSCrim-3B on 2026-05-21: 2 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 1 | Exams: ['Human Rights Education']
+    [FAIL] Violation for BSCrim-3B on 2026-05-22: 1 exams (Allowed: 3-4)
+  Date: 2026-05-25 | Count: 3 | Exams: ['Character Formation 2 - Leadership, Decision Making, Management, and Administration', 'Specialized Crime Investigation 2 with Simulation on Interrogation and Interview', 'Law Enforcement Operations and Planning with Crime Mapping']
+    [PASS]
+
+Section: BSCrim-3C | Total Written Subjects: 16
+  Date: 2026-05-20 | Count: 2 | Exams: ['Forensic Chemistry and Toxicology', 'Criminal Law (Book 1)']
+    [FAIL] Violation for BSCrim-3C on 2026-05-20: 2 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 2 | Exams: ['Traffic Management and Accident Investigation with Driving', 'Professional Conduct and Ethical Standards']
+    [FAIL] Violation for BSCrim-3C on 2026-05-21: 2 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 1 | Exams: ['Human Rights Education']
+    [FAIL] Violation for BSCrim-3C on 2026-05-22: 1 exams (Allowed: 3-4)
+  Date: 2026-05-25 | Count: 3 | Exams: ['Character Formation 2 - Leadership, Decision Making, Management, and Administration', 'Specialized Crime Investigation 2 with Simulation on Interrogation and Interview', 'Law Enforcement Operations and Planning with Crime Mapping']
+    [PASS]
+
+Section: BSCrim-3D | Total Written Subjects: 16
+  Date: 2026-05-20 | Count: 2 | Exams: ['Forensic Chemistry and Toxicology', 'Criminal Law (Book 1)']
+    [FAIL] Violation for BSCrim-3D on 2026-05-20: 2 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 2 | Exams: ['Traffic Management and Accident Investigation with Driving', 'Professional Conduct and Ethical Standards']
+    [FAIL] Violation for BSCrim-3D on 2026-05-21: 2 exams (Allowed: 3-4)
+  Date: 2026-05-22 | Count: 1 | Exams: ['Human Rights Education']
+    [FAIL] Violation for BSCrim-3D on 2026-05-22: 1 exams (Allowed: 3-4)
+  Date: 2026-05-25 | Count: 3 | Exams: ['Character Formation 2 - Leadership, Decision Making, Management, and Administration', 'Specialized Crime Investigation 2 with Simulation on Interrogation and Interview', 'Law Enforcement Operations and Planning with Crime Mapping']
+    [PASS]
+
+Section: BSCrim-4A | Total Written Subjects: 12
+  Date: 2026-05-20 | Count: 1 | Exams: ['Vice and Drug Education and Control']
+    [FAIL] Violation for BSCrim-4A on 2026-05-20: 1 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 3 | Exams: ['Internship 1', 'Dispute Resolution and Crises/Incidents Management', 'Cybersecurity Management and Analytics']
+    [PASS]
+  Date: 2026-05-22 | Count: 1 | Exams: ['Therapeutic Modalities']
+    [FAIL] Violation for BSCrim-4A on 2026-05-22: 1 exams (Allowed: 3-4)
+  Date: 2026-05-25 | Count: 2 | Exams: ['Evidence', 'Criminological Research 1 (Research Methods with Applied Statistics)']
+    [FAIL] Violation for BSCrim-4A on 2026-05-25: 2 exams (Allowed: 3-4)
+
+Section: BSCrim-4B | Total Written Subjects: 12
+  Date: 2026-05-20 | Count: 1 | Exams: ['Vice and Drug Education and Control']
+    [FAIL] Violation for BSCrim-4B on 2026-05-20: 1 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 3 | Exams: ['Internship 1', 'Dispute Resolution and Crises/Incidents Management', 'Cybersecurity Management and Analytics']
+    [PASS]
+  Date: 2026-05-22 | Count: 1 | Exams: ['Therapeutic Modalities']
+    [FAIL] Violation for BSCrim-4B on 2026-05-22: 1 exams (Allowed: 3-4)
+  Date: 2026-05-25 | Count: 2 | Exams: ['Evidence', 'Criminological Research 1 (Research Methods with Applied Statistics)']
+    [FAIL] Violation for BSCrim-4B on 2026-05-25: 2 exams (Allowed: 3-4)
+
+Section: BSCrim-4C | Total Written Subjects: 12
+  Date: 2026-05-20 | Count: 1 | Exams: ['Vice and Drug Education and Control']
+    [FAIL] Violation for BSCrim-4C on 2026-05-20: 1 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 3 | Exams: ['Internship 1', 'Dispute Resolution and Crises/Incidents Management', 'Cybersecurity Management and Analytics']
+    [PASS]
+  Date: 2026-05-22 | Count: 1 | Exams: ['Therapeutic Modalities']
+    [FAIL] Violation for BSCrim-4C on 2026-05-22: 1 exams (Allowed: 3-4)
+  Date: 2026-05-25 | Count: 2 | Exams: ['Evidence', 'Criminological Research 1 (Research Methods with Applied Statistics)']
+    [FAIL] Violation for BSCrim-4C on 2026-05-25: 2 exams (Allowed: 3-4)
+
+Section: BSCrim-4D | Total Written Subjects: 12
+  Date: 2026-05-20 | Count: 1 | Exams: ['Vice and Drug Education and Control']
+    [FAIL] Violation for BSCrim-4D on 2026-05-20: 1 exams (Allowed: 3-4)
+  Date: 2026-05-21 | Count: 3 | Exams: ['Internship 1', 'Dispute Resolution and Crises/Incidents Management', 'Cybersecurity Management and Analytics']
+    [PASS]
+  Date: 2026-05-22 | Count: 1 | Exams: ['Therapeutic Modalities']
+    [FAIL] Violation for BSCrim-4D on 2026-05-22: 1 exams (Allowed: 3-4)
+  Date: 2026-05-25 | Count: 2 | Exams: ['Evidence', 'Criminological Research 1 (Research Methods with Applied Statistics)']
+    [FAIL] Violation for BSCrim-4D on 2026-05-25: 2 exams (Allowed: 3-4)
+
+Section: BMMA-4A | Total Written Subjects: 4
+  Date: 2026-05-21 | Count: 2 | Exams: ['Multimedia Seminars', 'World Literature']
+    [PASS]
+  Date: 2026-05-22 | Count: 1 | Exams: ['Interactive Media Design']
+    [FAIL] Violation for BMMA-4A on 2026-05-22: 1 exams (Allowed: 2-3)
+
+Section: BMMA-4B | Total Written Subjects: 4
+  Date: 2026-05-21 | Count: 2 | Exams: ['Multimedia Seminars', 'World Literature']
+    [PASS]
+  Date: 2026-05-22 | Count: 1 | Exams: ['Interactive Media Design']
+    [FAIL] Violation for BMMA-4B on 2026-05-22: 1 exams (Allowed: 2-3)
+
+Section: BMMA-4C | Total Written Subjects: 4
+  Date: 2026-05-21 | Count: 2 | Exams: ['Multimedia Seminars', 'World Literature']
+    [PASS]
+  Date: 2026-05-22 | Count: 1 | Exams: ['Interactive Media Design']
+    [FAIL] Violation for BMMA-4C on 2026-05-22: 1 exams (Allowed: 2-3)
+
+Section: BMMA-4D | Total Written Subjects: 4
+  Date: 2026-05-21 | Count: 2 | Exams: ['Multimedia Seminars', 'World Literature']
+    [PASS]
+  Date: 2026-05-22 | Count: 1 | Exams: ['Interactive Media Design']
+    [FAIL] Violation for BMMA-4D on 2026-05-22: 1 exams (Allowed: 2-3)
+
+=== VERIFICATION SUMMARY ===
+Sections Checked: 148
+FAIL: Found 320 violations!
+  - Violation for BSIT-1A on 2026-05-20: 1 exams (Allowed: 3-4)
+  - Violation for BSIT-1A on 2026-05-21: 2 exams (Allowed: 3-4)
+  - Violation for BSIT-1A on 2026-05-22: 1 exams (Allowed: 3-4)
+  - Violation for BSIT-1A on 2026-05-25: 2 exams (Allowed: 3-4)
+  - Violation for BSIT-1B on 2026-05-20: 1 exams (Allowed: 3-4)
+  - Violation for BSIT-1B on 2026-05-21: 2 exams (Allowed: 3-4)
+  - Violation for BSIT-1B on 2026-05-22: 1 exams (Allowed: 3-4)
+  - Violation for BSIT-1B on 2026-05-25: 2 exams (Allowed: 3-4)
+  - Violation for BSIT-1C on 2026-05-20: 1 exams (Allowed: 3-4)
+  - Violation for BSIT-1C on 2026-05-21: 2 exams (Allowed: 3-4)
+  - Violation for BSIT-1C on 2026-05-22: 1 exams (Allowed: 3-4)
+  - Violation for BSIT-1C on 2026-05-25: 2 exams (Allowed: 3-4)
+  - Violation for BSIT-1D on 2026-05-20: 1 exams (Allowed: 3-4)
+  - Violation for BSIT-1D on 2026-05-21: 2 exams (Allowed: 3-4)
+  - Violation for BSIT-1D on 2026-05-22: 1 exams (Allowed: 3-4)
+  - Violation for BSIT-1D on 2026-05-25: 2 exams (Allowed: 3-4)
+  - Violation for BSCS-1A on 2026-05-21: 2 exams (Allowed: 3-4)
+  - Violation for BSCS-1A on 2026-05-22: 1 exams (Allowed: 3-4)
+  - Violation for BSCS-1A on 2026-05-25: 2 exams (Allowed: 3-4)
+  - Violation for BSCS-1B on 2026-05-21: 2 exams (Allowed: 3-4)
+  - Violation for BSCS-1B on 2026-05-22: 1 exams (Allowed: 3-4)
+  - Violation for BSCS-1B on 2026-05-25: 2 exams (Allowed: 3-4)
+  - Violation for BSCS-1C on 2026-05-21: 2 exams (Allowed: 3-4)
+  - Violation for BSCS-1C on 2026-05-22: 1 exams (Allowed: 3-4)
+  - Violation for BSCS-1C on 2026-05-25: 2 exams (Allowed: 3-4)
+  - Violation for BSCS-1D on 2026-05-21: 2 exams (Allowed: 3-4)
+  - Violation for BSCS-1D on 2026-05-22: 1 exams (Allowed: 3-4)
+  - Violation for BSCS-1D on 2026-05-25: 2 exams (Allowed: 3-4)
+  - Violation for BSCpE-1A on 2026-05-21: 2 exams (Allowed: 3-4)
+  - Violation for BSCpE-1A on 2026-05-25: 2 exams (Allowed: 3-4)
+  - Violation for BSCpE-1B on 2026-05-21: 2 exams (Allowed: 3-4)
+  - Violation for BSCpE-1B on 2026-05-25: 2 exams (Allowed: 3-4)
+  - Violation for BSCpE-1C on 2026-05-21: 2 exams (Allowed: 3-4)
+  - Violation for BSCpE-1C on 2026-05-25: 2 exams (Allowed: 3-4)
+  - Violation for BSCpE-1D on 2026-05-21: 2 exams (Allowed: 3-4)
+  - Violation for BSCpE-1D on 2026-05-25: 2 exams (Allowed: 3-4)
+  - Violation for BSHM-4A on 2026-05-20: 1 exams (Allowed: 2-3)
+  - Violation for BSHM-4A on 2026-05-22: 1 exams (Allowed: 2-3)
+  - Violation for BSHM-4B on 2026-05-20: 1 exams (Allowed: 2-3)
+  - Violation for BSHM-4B on 2026-05-22: 1 exams (Allowed: 2-3)
+  - Violation for BSHM-4C on 2026-05-20: 1 exams (Allowed: 2-3)
+  - Violation for BSHM-4C on 2026-05-22: 1 exams (Allowed: 2-3)
+  - Violation for BSHM-4D on 2026-05-20: 1 exams (Allowed: 2-3)
+  - Violation for BSHM-4D on 2026-05-22: 1 exams (Allowed: 2-3)
+  - Violation for BSA-1A on 2026-05-21: 1 exams (Allowed: 3-4)
+  - Violation for BSA-1A on 2026-05-22: 2 exams (Allowed: 3-4)
+  - Violation for BSA-1B on 2026-05-21: 1 exams (Allowed: 3-4)
+  - Violation for BSA-1B on 2026-05-22: 2 exams (Allowed: 3-4)
+  - Violation for BSA-1C on 2026-05-21: 1 exams (Allowed: 3-4)
+  - Violation for BSA-1C on 2026-05-22: 2 exams (Allowed: 3-4)
+  - Violation for BSA-1D on 2026-05-21: 1 exams (Allowed: 3-4)
+  - Violation for BSA-1D on 2026-05-22: 2 exams (Allowed: 3-4)
+  - Violation for BSPsych-2A on 2026-05-20: 1 exams (Allowed: 3-4)
+  - Violation for BSPsych-2A on 2026-05-21: 1 exams (Allowed: 3-4)
+  - Violation for BSPsych-2B on 2026-05-20: 1 exams (Allowed: 3-4)
+  - Violation for BSPsych-2B on 2026-05-21: 1 exams (Allowed: 3-4)
+  - Violation for BSPsych-2C on 2026-05-20: 1 exams (Allowed: 3-4)
+  - Violation for BSPsych-2C on 2026-05-21: 1 exams (Allowed: 3-4)
+  - Violation for BSPsych-2D on 2026-05-20: 1 exams (Allowed: 3-4)
+  - Violation for BSPsych-2D on 2026-05-21: 1 exams (Allowed: 3-4)
+  - Violation for BSCrim-1A on 2026-05-20: 2 exams (Allowed: 3-4)
+  - Violation for BSCrim-1A on 2026-05-21: 2 exams (Allowed: 3-4)
+  - Violation for BSCrim-1A on 2026-05-22: 1 exams (Allowed: 3-4)
+  - Violation for BSCrim-1B on 2026-05-20: 2 exams (Allowed: 3-4)
+  - Violation for BSCrim-1B on 2026-05-21: 2 exams (Allowed: 3-4)
+  - Violation for BSCrim-1B on 2026-05-22: 1 exams (Allowed: 3-4)
+  - Violation for BSCrim-1C on 2026-05-20: 2 exams (Allowed: 3-4)
+  - Violation for BSCrim-1C on 2026-05-21: 2 exams (Allowed: 3-4)
+  - Violation for BSCrim-1C on 2026-05-22: 1 exams (Allowed: 3-4)
+  - Violation for BSCrim-1D on 2026-05-20: 2 exams (Allowed: 3-4)
+  - Violation for BSCrim-1D on 2026-05-21: 2 exams (Allowed: 3-4)
+  - Violation for BSCrim-1D on 2026-05-22: 1 exams (Allowed: 3-4)
+  - Violation for BMMA-1A on 2026-05-20: 1 exams (Allowed: 3-4)
+  - Violation for BMMA-1A on 2026-05-22: 1 exams (Allowed: 3-4)
+  - Violation for BMMA-1B on 2026-05-20: 1 exams (Allowed: 3-4)
+  - Violation for BMMA-1B on 2026-05-22: 1 exams (Allowed: 3-4)
+  - Violation for BMMA-1C on 2026-05-20: 1 exams (Allowed: 3-4)
+  - Violation for BMMA-1C on 2026-05-22: 1 exams (Allowed: 3-4)
+  - Violation for BMMA-1D on 2026-05-20: 1 exams (Allowed: 3-4)
+  - Violation for BMMA-1D on 2026-05-22: 1 exams (Allowed: 3-4)
+  - Violation for BACOMM-2A on 2026-05-21: 1 exams (Allowed: 3-4)
+  - Violation for BACOMM-2A on 2026-05-22: 2 exams (Allowed: 3-4)
+  - Violation for BACOMM-2A on 2026-05-25: 2 exams (Allowed: 3-4)
+  - Violation for BACOMM-2B on 2026-05-21: 1 exams (Allowed: 3-4)
+  - Violation for BACOMM-2B on 2026-05-22: 2 exams (Allowed: 3-4)
+  - Violation for BACOMM-2B on 2026-05-25: 2 exams (Allowed: 3-4)
+  - Violation for BACOMM-2C on 2026-05-21: 1 exams (Allowed: 3-4)
+  - Violation for BACOMM-2C on 2026-05-22: 2 exams (Allowed: 3-4)
+  - Violation for BACOMM-2C on 2026-05-25: 2 exams (Allowed: 3-4)
+  - Violation for BACOMM-2D on 2026-05-21: 1 exams (Allowed: 3-4)
+  - Violation for BACOMM-2D on 2026-05-22: 2 exams (Allowed: 3-4)
+  - Violation for BACOMM-2D on 2026-05-25: 2 exams (Allowed: 3-4)
+  - Violation for BSA-2A on 2026-05-20: 1 exams (Allowed: 3-4)
+  - Violation for BSA-2B on 2026-05-20: 1 exams (Allowed: 3-4)
+  - Violation for BSA-2C on 2026-05-20: 1 exams (Allowed: 3-4)
+  - Violation for BSA-2D on 2026-05-20: 1 exams (Allowed: 3-4)
+  - Violation for BSTM-1A on 2026-05-20: 2 exams (Allowed: 3-4)
+  - Violation for BSTM-1A on 2026-05-21: 2 exams (Allowed: 3-4)
+  - Violation for BSTM-1A on 2026-05-22: 1 exams (Allowed: 3-4)
+  - Violation for BSTM-1B on 2026-05-20: 2 exams (Allowed: 3-4)
+  - Violation for BSTM-1B on 2026-05-21: 2 exams (Allowed: 3-4)
+  - Violation for BSTM-1B on 2026-05-22: 1 exams (Allowed: 3-4)
+  - Violation for BSTM-1C on 2026-05-20: 2 exams (Allowed: 3-4)
+  - Violation for BSTM-1C on 2026-05-21: 2 exams (Allowed: 3-4)
+  - Violation for BSTM-1C on 2026-05-22: 1 exams (Allowed: 3-4)
+  - Violation for BSTM-1D on 2026-05-20: 2 exams (Allowed: 3-4)
+  - Violation for BSTM-1D on 2026-05-21: 2 exams (Allowed: 3-4)
+  - Violation for BSTM-1D on 2026-05-22: 1 exams (Allowed: 3-4)
+  - Violation for BSHM-1A on 2026-05-20: 2 exams (Allowed: 3-4)
+  - Violation for BSHM-1A on 2026-05-21: 2 exams (Allowed: 3-4)
+  - Violation for BSHM-1A on 2026-05-22: 1 exams (Allowed: 3-4)
+  - Violation for BSHM-1B on 2026-05-20: 2 exams (Allowed: 3-4)
+  - Violation for BSHM-1B on 2026-05-21: 2 exams (Allowed: 3-4)
+  - Violation for BSHM-1B on 2026-05-22: 1 exams (Allowed: 3-4)
+  - Violation for BSHM-1C on 2026-05-20: 2 exams (Allowed: 3-4)
+  - Violation for BSHM-1C on 2026-05-21: 2 exams (Allowed: 3-4)
+  - Violation for BSHM-1C on 2026-05-22: 1 exams (Allowed: 3-4)
+  - Violation for BSHM-1D on 2026-05-20: 2 exams (Allowed: 3-4)
+  - Violation for BSHM-1D on 2026-05-21: 2 exams (Allowed: 3-4)
+  - Violation for BSHM-1D on 2026-05-22: 1 exams (Allowed: 3-4)
+  - Violation for BSPsych-1A on 2026-05-20: 2 exams (Allowed: 3-4)
+  - Violation for BSPsych-1A on 2026-05-21: 2 exams (Allowed: 3-4)
+  - Violation for BSPsych-1B on 2026-05-20: 2 exams (Allowed: 3-4)
+  - Violation for BSPsych-1B on 2026-05-21: 2 exams (Allowed: 3-4)
+  - Violation for BSPsych-1C on 2026-05-20: 2 exams (Allowed: 3-4)
+  - Violation for BSPsych-1C on 2026-05-21: 2 exams (Allowed: 3-4)
+  - Violation for BSPsych-1D on 2026-05-20: 2 exams (Allowed: 3-4)
+  - Violation for BSPsych-1D on 2026-05-21: 2 exams (Allowed: 3-4)
+  - Violation for BACOMM-1A on 2026-05-20: 1 exams (Allowed: 3-4)
+  - Violation for BACOMM-1A on 2026-05-21: 2 exams (Allowed: 3-4)
+  - Violation for BACOMM-1A on 2026-05-22: 1 exams (Allowed: 3-4)
+  - Violation for BACOMM-1B on 2026-05-20: 1 exams (Allowed: 3-4)
+  - Violation for BACOMM-1B on 2026-05-21: 2 exams (Allowed: 3-4)
+  - Violation for BACOMM-1B on 2026-05-22: 1 exams (Allowed: 3-4)
+  - Violation for BACOMM-1C on 2026-05-20: 1 exams (Allowed: 3-4)
+  - Violation for BACOMM-1C on 2026-05-21: 2 exams (Allowed: 3-4)
+  - Violation for BACOMM-1C on 2026-05-22: 1 exams (Allowed: 3-4)
+  - Violation for BACOMM-1D on 2026-05-20: 1 exams (Allowed: 3-4)
+  - Violation for BACOMM-1D on 2026-05-21: 2 exams (Allowed: 3-4)
+  - Violation for BACOMM-1D on 2026-05-22: 1 exams (Allowed: 3-4)
+  - Violation for BSIT-2A on 2026-05-20: 2 exams (Allowed: 3-4)
+  - Violation for BSIT-2A on 2026-05-25: 2 exams (Allowed: 3-4)
+  - Violation for BSIT-2B on 2026-05-20: 2 exams (Allowed: 3-4)
+  - Violation for BSIT-2B on 2026-05-25: 2 exams (Allowed: 3-4)
+  - Violation for BSIT-2C on 2026-05-20: 2 exams (Allowed: 3-4)
+  - Violation for BSIT-2C on 2026-05-25: 2 exams (Allowed: 3-4)
+  - Violation for BSIT-2D on 2026-05-20: 2 exams (Allowed: 3-4)
+  - Violation for BSIT-2D on 2026-05-25: 2 exams (Allowed: 3-4)
+  - Violation for BSCpE-2A on 2026-05-22: 1 exams (Allowed: 3-4)
+  - Violation for BSCpE-2B on 2026-05-22: 1 exams (Allowed: 3-4)
+  - Violation for BSCpE-2C on 2026-05-22: 1 exams (Allowed: 3-4)
+  - Violation for BSCpE-2D on 2026-05-22: 1 exams (Allowed: 3-4)
+  - Violation for BSPsych-3A on 2026-05-22: 2 exams (Allowed: 3-4)
+  - Violation for BSPsych-3B on 2026-05-22: 2 exams (Allowed: 3-4)
+  - Violation for BSPsych-3C on 2026-05-22: 2 exams (Allowed: 3-4)
+  - Violation for BSPsych-3D on 2026-05-22: 2 exams (Allowed: 3-4)
+  - Violation for BMMA-2A on 2026-05-21: 2 exams (Allowed: 3-4)
+  - Violation for BMMA-2A on 2026-05-22: 2 exams (Allowed: 3-4)
+  - Violation for BMMA-2B on 2026-05-21: 2 exams (Allowed: 3-4)
+  - Violation for BMMA-2B on 2026-05-22: 2 exams (Allowed: 3-4)
+  - Violation for BMMA-2C on 2026-05-21: 2 exams (Allowed: 3-4)
+  - Violation for BMMA-2C on 2026-05-22: 2 exams (Allowed: 3-4)
+  - Violation for BMMA-2D on 2026-05-21: 2 exams (Allowed: 3-4)
+  - Violation for BMMA-2D on 2026-05-22: 2 exams (Allowed: 3-4)
+  - Violation for BSIT-3A on 2026-05-20: 2 exams (Allowed: 3-4)
+  - Violation for BSIT-3A on 2026-05-21: 1 exams (Allowed: 3-4)
+  - Violation for BSIT-3A on 2026-05-22: 2 exams (Allowed: 3-4)
+  - Violation for BSIT-3A on 2026-05-25: 2 exams (Allowed: 3-4)
+  - Violation for BSIT-3B on 2026-05-20: 2 exams (Allowed: 3-4)
+  - Violation for BSIT-3B on 2026-05-21: 1 exams (Allowed: 3-4)
+  - Violation for BSIT-3B on 2026-05-22: 2 exams (Allowed: 3-4)
+  - Violation for BSIT-3B on 2026-05-25: 2 exams (Allowed: 3-4)
+  - Violation for BSIT-3C on 2026-05-20: 2 exams (Allowed: 3-4)
+  - Violation for BSIT-3C on 2026-05-21: 1 exams (Allowed: 3-4)
+  - Violation for BSIT-3C on 2026-05-22: 2 exams (Allowed: 3-4)
+  - Violation for BSIT-3C on 2026-05-25: 2 exams (Allowed: 3-4)
+  - Violation for BSIT-3D on 2026-05-20: 2 exams (Allowed: 3-4)
+  - Violation for BSIT-3D on 2026-05-21: 1 exams (Allowed: 3-4)
+  - Violation for BSIT-3D on 2026-05-22: 2 exams (Allowed: 3-4)
+  - Violation for BSIT-3D on 2026-05-25: 2 exams (Allowed: 3-4)
+  - Violation for BSCS-3A on 2026-05-20: 1 exams (Allowed: 3-4)
+  - Violation for BSCS-3A on 2026-05-21: 1 exams (Allowed: 3-4)
+  - Violation for BSCS-3A on 2026-05-22: 2 exams (Allowed: 3-4)
+  - Violation for BSCS-3B on 2026-05-20: 1 exams (Allowed: 3-4)
+  - Violation for BSCS-3B on 2026-05-21: 1 exams (Allowed: 3-4)
+  - Violation for BSCS-3B on 2026-05-22: 2 exams (Allowed: 3-4)
+  - Violation for BSCS-3C on 2026-05-20: 1 exams (Allowed: 3-4)
+  - Violation for BSCS-3C on 2026-05-21: 1 exams (Allowed: 3-4)
+  - Violation for BSCS-3C on 2026-05-22: 2 exams (Allowed: 3-4)
+  - Violation for BSCS-3D on 2026-05-20: 1 exams (Allowed: 3-4)
+  - Violation for BSCS-3D on 2026-05-21: 1 exams (Allowed: 3-4)
+  - Violation for BSCS-3D on 2026-05-22: 2 exams (Allowed: 3-4)
+  - Violation for BSIT-4A on 2026-05-20: 1 exams (Allowed: 2-3)
+  - Violation for BSIT-4A on 2026-05-22: 1 exams (Allowed: 2-3)
+  - Violation for BSIT-4B on 2026-05-20: 1 exams (Allowed: 2-3)
+  - Violation for BSIT-4B on 2026-05-22: 1 exams (Allowed: 2-3)
+  - Violation for BSIT-4C on 2026-05-20: 1 exams (Allowed: 2-3)
+  - Violation for BSIT-4C on 2026-05-22: 1 exams (Allowed: 2-3)
+  - Violation for BSIT-4D on 2026-05-20: 1 exams (Allowed: 2-3)
+  - Violation for BSIT-4D on 2026-05-22: 1 exams (Allowed: 2-3)
+  - Violation for BSTM-3A on 2026-05-22: 2 exams (Allowed: 3-4)
+  - Violation for BSTM-3A on 2026-05-25: 2 exams (Allowed: 3-4)
+  - Violation for BSTM-3B on 2026-05-22: 2 exams (Allowed: 3-4)
+  - Violation for BSTM-3B on 2026-05-25: 2 exams (Allowed: 3-4)
+  - Violation for BSTM-3C on 2026-05-22: 2 exams (Allowed: 3-4)
+  - Violation for BSTM-3C on 2026-05-25: 2 exams (Allowed: 3-4)
+  - Violation for BSTM-3D on 2026-05-22: 2 exams (Allowed: 3-4)
+  - Violation for BSTM-3D on 2026-05-25: 2 exams (Allowed: 3-4)
+  - Violation for BSHM-3A on 2026-05-20: 1 exams (Allowed: 3-4)
+  - Violation for BSHM-3A on 2026-05-22: 2 exams (Allowed: 3-4)
+  - Violation for BSHM-3A on 2026-05-25: 1 exams (Allowed: 3-4)
+  - Violation for BSHM-3B on 2026-05-20: 1 exams (Allowed: 3-4)
+  - Violation for BSHM-3B on 2026-05-22: 2 exams (Allowed: 3-4)
+  - Violation for BSHM-3B on 2026-05-25: 1 exams (Allowed: 3-4)
+  - Violation for BSHM-3C on 2026-05-20: 1 exams (Allowed: 3-4)
+  - Violation for BSHM-3C on 2026-05-22: 2 exams (Allowed: 3-4)
+  - Violation for BSHM-3C on 2026-05-25: 1 exams (Allowed: 3-4)
+  - Violation for BSHM-3D on 2026-05-20: 1 exams (Allowed: 3-4)
+  - Violation for BSHM-3D on 2026-05-22: 2 exams (Allowed: 3-4)
+  - Violation for BSHM-3D on 2026-05-25: 1 exams (Allowed: 3-4)
+  - Violation for BSCrim-2A on 2026-05-22: 1 exams (Allowed: 3-4)
+  - Violation for BSCrim-2B on 2026-05-22: 1 exams (Allowed: 3-4)
+  - Violation for BSCrim-2C on 2026-05-22: 1 exams (Allowed: 3-4)
+  - Violation for BSCrim-2D on 2026-05-22: 1 exams (Allowed: 3-4)
+  - Violation for BSCpE-4A on 2026-05-20: 1 exams (Allowed: 2-3)
+  - Violation for BSCpE-4B on 2026-05-20: 1 exams (Allowed: 2-3)
+  - Violation for BSCpE-4C on 2026-05-20: 1 exams (Allowed: 2-3)
+  - Violation for BSCpE-4D on 2026-05-20: 1 exams (Allowed: 2-3)
+  - Violation for BSTM-2A on 2026-05-20: 2 exams (Allowed: 3-4)
+  - Violation for BSTM-2A on 2026-05-21: 1 exams (Allowed: 3-4)
+  - Violation for BSTM-2A on 2026-05-22: 1 exams (Allowed: 3-4)
+  - Violation for BSTM-2A on 2026-05-25: 2 exams (Allowed: 3-4)
+  - Violation for BSTM-2B on 2026-05-20: 2 exams (Allowed: 3-4)
+  - Violation for BSTM-2B on 2026-05-21: 1 exams (Allowed: 3-4)
+  - Violation for BSTM-2B on 2026-05-22: 1 exams (Allowed: 3-4)
+  - Violation for BSTM-2B on 2026-05-25: 2 exams (Allowed: 3-4)
+  - Violation for BSTM-2C on 2026-05-20: 2 exams (Allowed: 3-4)
+  - Violation for BSTM-2C on 2026-05-21: 1 exams (Allowed: 3-4)
+  - Violation for BSTM-2C on 2026-05-22: 1 exams (Allowed: 3-4)
+  - Violation for BSTM-2C on 2026-05-25: 2 exams (Allowed: 3-4)
+  - Violation for BSTM-2D on 2026-05-20: 2 exams (Allowed: 3-4)
+  - Violation for BSTM-2D on 2026-05-21: 1 exams (Allowed: 3-4)
+  - Violation for BSTM-2D on 2026-05-22: 1 exams (Allowed: 3-4)
+  - Violation for BSTM-2D on 2026-05-25: 2 exams (Allowed: 3-4)
+  - Violation for BSHM-2A on 2026-05-20: 2 exams (Allowed: 3-4)
+  - Violation for BSHM-2A on 2026-05-21: 2 exams (Allowed: 3-4)
+  - Violation for BSHM-2A on 2026-05-22: 1 exams (Allowed: 3-4)
+  - Violation for BSHM-2A on 2026-05-25: 1 exams (Allowed: 3-4)
+  - Violation for BSHM-2B on 2026-05-20: 2 exams (Allowed: 3-4)
+  - Violation for BSHM-2B on 2026-05-21: 2 exams (Allowed: 3-4)
+  - Violation for BSHM-2B on 2026-05-22: 1 exams (Allowed: 3-4)
+  - Violation for BSHM-2B on 2026-05-25: 1 exams (Allowed: 3-4)
+  - Violation for BSHM-2C on 2026-05-20: 2 exams (Allowed: 3-4)
+  - Violation for BSHM-2C on 2026-05-21: 2 exams (Allowed: 3-4)
+  - Violation for BSHM-2C on 2026-05-22: 1 exams (Allowed: 3-4)
+  - Violation for BSHM-2C on 2026-05-25: 1 exams (Allowed: 3-4)
+  - Violation for BSHM-2D on 2026-05-20: 2 exams (Allowed: 3-4)
+  - Violation for BSHM-2D on 2026-05-21: 2 exams (Allowed: 3-4)
+  - Violation for BSHM-2D on 2026-05-22: 1 exams (Allowed: 3-4)
+  - Violation for BSHM-2D on 2026-05-25: 1 exams (Allowed: 3-4)
+  - Violation for BMMA-3A on 2026-05-22: 2 exams (Allowed: 3-4)
+  - Violation for BMMA-3B on 2026-05-22: 2 exams (Allowed: 3-4)
+  - Violation for BMMA-3C on 2026-05-22: 2 exams (Allowed: 3-4)
+  - Violation for BMMA-3D on 2026-05-22: 2 exams (Allowed: 3-4)
+  - Violation for BACOMM-3A on 2026-05-20: 2 exams (Allowed: 3-4)
+  - Violation for BACOMM-3B on 2026-05-20: 2 exams (Allowed: 3-4)
+  - Violation for BACOMM-3C on 2026-05-20: 2 exams (Allowed: 3-4)
+  - Violation for BACOMM-3D on 2026-05-20: 2 exams (Allowed: 3-4)
+  - Violation for BSA-3A on 2026-05-20: 1 exams (Allowed: 3-4)
+  - Violation for BSA-3A on 2026-05-22: 2 exams (Allowed: 3-4)
+  - Violation for BSA-3A on 2026-05-25: 2 exams (Allowed: 3-4)
+  - Violation for BSA-3B on 2026-05-20: 1 exams (Allowed: 3-4)
+  - Violation for BSA-3B on 2026-05-22: 2 exams (Allowed: 3-4)
+  - Violation for BSA-3B on 2026-05-25: 2 exams (Allowed: 3-4)
+  - Violation for BSA-3C on 2026-05-20: 1 exams (Allowed: 3-4)
+  - Violation for BSA-3C on 2026-05-22: 2 exams (Allowed: 3-4)
+  - Violation for BSA-3C on 2026-05-25: 2 exams (Allowed: 3-4)
+  - Violation for BSA-3D on 2026-05-20: 1 exams (Allowed: 3-4)
+  - Violation for BSA-3D on 2026-05-22: 2 exams (Allowed: 3-4)
+  - Violation for BSA-3D on 2026-05-25: 2 exams (Allowed: 3-4)
+  - Violation for BSPsych-4A on 2026-05-20: 1 exams (Allowed: 2-3)
+  - Violation for BSPsych-4A on 2026-05-21: 1 exams (Allowed: 2-3)
+  - Violation for BSPsych-4A on 2026-05-25: 1 exams (Allowed: 2-3)
+  - Violation for BSPsych-4B on 2026-05-20: 1 exams (Allowed: 2-3)
+  - Violation for BSPsych-4B on 2026-05-21: 1 exams (Allowed: 2-3)
+  - Violation for BSPsych-4B on 2026-05-25: 1 exams (Allowed: 2-3)
+  - Violation for BSPsych-4C on 2026-05-20: 1 exams (Allowed: 2-3)
+  - Violation for BSPsych-4C on 2026-05-21: 1 exams (Allowed: 2-3)
+  - Violation for BSPsych-4C on 2026-05-25: 1 exams (Allowed: 2-3)
+  - Violation for BSPsych-4D on 2026-05-20: 1 exams (Allowed: 2-3)
+  - Violation for BSPsych-4D on 2026-05-21: 1 exams (Allowed: 2-3)
+  - Violation for BSPsych-4D on 2026-05-25: 1 exams (Allowed: 2-3)
+  - Violation for BSCrim-3A on 2026-05-20: 2 exams (Allowed: 3-4)
+  - Violation for BSCrim-3A on 2026-05-21: 2 exams (Allowed: 3-4)
+  - Violation for BSCrim-3A on 2026-05-22: 1 exams (Allowed: 3-4)
+  - Violation for BSCrim-3B on 2026-05-20: 2 exams (Allowed: 3-4)
+  - Violation for BSCrim-3B on 2026-05-21: 2 exams (Allowed: 3-4)
+  - Violation for BSCrim-3B on 2026-05-22: 1 exams (Allowed: 3-4)
+  - Violation for BSCrim-3C on 2026-05-20: 2 exams (Allowed: 3-4)
+  - Violation for BSCrim-3C on 2026-05-21: 2 exams (Allowed: 3-4)
+  - Violation for BSCrim-3C on 2026-05-22: 1 exams (Allowed: 3-4)
+  - Violation for BSCrim-3D on 2026-05-20: 2 exams (Allowed: 3-4)
+  - Violation for BSCrim-3D on 2026-05-21: 2 exams (Allowed: 3-4)
+  - Violation for BSCrim-3D on 2026-05-22: 1 exams (Allowed: 3-4)
+  - Violation for BSCrim-4A on 2026-05-20: 1 exams (Allowed: 3-4)
+  - Violation for BSCrim-4A on 2026-05-22: 1 exams (Allowed: 3-4)
+  - Violation for BSCrim-4A on 2026-05-25: 2 exams (Allowed: 3-4)
+  - Violation for BSCrim-4B on 2026-05-20: 1 exams (Allowed: 3-4)
+  - Violation for BSCrim-4B on 2026-05-22: 1 exams (Allowed: 3-4)
+  - Violation for BSCrim-4B on 2026-05-25: 2 exams (Allowed: 3-4)
+  - Violation for BSCrim-4C on 2026-05-20: 1 exams (Allowed: 3-4)
+  - Violation for BSCrim-4C on 2026-05-22: 1 exams (Allowed: 3-4)
+  - Violation for BSCrim-4C on 2026-05-25: 2 exams (Allowed: 3-4)
+  - Violation for BSCrim-4D on 2026-05-20: 1 exams (Allowed: 3-4)
+  - Violation for BSCrim-4D on 2026-05-22: 1 exams (Allowed: 3-4)
+  - Violation for BSCrim-4D on 2026-05-25: 2 exams (Allowed: 3-4)
+  - Violation for BMMA-4A on 2026-05-22: 1 exams (Allowed: 2-3)
+  - Violation for BMMA-4B on 2026-05-22: 1 exams (Allowed: 2-3)
+  - Violation for BMMA-4C on 2026-05-22: 1 exams (Allowed: 2-3)
+  - Violation for BMMA-4D on 2026-05-22: 1 exams (Allowed: 2-3)

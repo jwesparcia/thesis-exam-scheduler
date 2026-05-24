@@ -147,7 +147,8 @@ def login(request: Request, login_data: LoginRequest, db: Session = Depends(get_
             "section_name": user.section_name,
             "teacher_id": user.teacher_id,
             "proctor_id": user.proctor_id,
-            "student_type": user.student_type
+            "student_type": user.student_type,
+            "course_id": user.course_id
         }
     }
 
@@ -165,5 +166,6 @@ def read_users_me(current_user: User = Depends(get_current_user)):
         "section_name": current_user.section_name,
         "teacher_id": current_user.teacher_id,
         "proctor_id": current_user.proctor_id,
-        "student_type": current_user.student_type
+        "student_type": current_user.student_type,
+        "course_id": current_user.course_id
     }

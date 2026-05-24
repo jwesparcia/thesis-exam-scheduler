@@ -1,7 +1,8 @@
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy import text
+from sqlalchemy.orm import Session
 from database import SessionLocal, engine
 from models import Base, Course, YearLevel, Section, Subject, Room, Timeslot, Teacher, Exam, DistributionRule, User, Proctor, ProctorAvailability, IrregularSelection
+from room_data import AVAILABLE_EXAM_ROOMS
 import bcrypt
 from datetime import date, time, timedelta, datetime
 import random
@@ -16,12 +17,15 @@ def reset_db():
             # List all tables to be safe.
             tables = [
                 "notifications", "rescheduling_requests", "distribution_rules", "exams",
-                "timeslots", "rooms", "subjects", "sections", "proctor_availabilities", "teacher_schedules", "proctors", "teachers", "year_levels", "courses", "users", "irregular_selections"
+                "timeslots", "rooms", "subjects", "sections", "proctor_availabilities",
+                "teacher_schedules", "teacher_teachings", "proctors", "teachers",
+                "year_levels", "courses", "irregular_selections", "activity_logs",
+                "password_reset_tokens", "users"
             ]
             for table in tables:
                 connection.execute(text(f"DROP TABLE IF EXISTS {table} CASCADE"))
             connection.commit()
-            
+
         Base.metadata.create_all(bind=engine)
         print("Database reset successfully!")
     except Exception as e:
@@ -940,7 +944,7 @@ print("Database seeded successfully!")
 # -------------------------
 # Rooms
 # -------------------------
-rooms = [Room(name=f"Room {i}") for i in range(101, 301)]  # 200 rooms to fit all sections and concurrent exams
+rooms = [Room(name=room["name"]) for room in AVAILABLE_EXAM_ROOMS]
 db.add_all(rooms)
 
 # -------------------------
@@ -1125,4 +1129,12 @@ print("  [OK] teacher_schedules.is_published, users.student_type, and irregular_
 print("\n=== SETUP COMPLETE ===")
 print("Proctors: <name>@school.edu / proctor123")
 print("  e.g.  kertney.pionelo.balasuela@school.edu / proctor123")
+print("Irreg Student: irreg@school.edu       / student123")
+
+# Add dummy schedules from sched.xlsx
+try:
+    from debug.add_dummy_schedules import add_dummy_schedules
+    add_dummy_schedules()
+except Exception as e:
+    print(f"Failed to add dummy schedules: {e}")
 

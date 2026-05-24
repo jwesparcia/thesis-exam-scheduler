@@ -1,3 +1,7 @@
+import sys
+import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 from sqlalchemy import create_engine, text
 
 engine = create_engine('postgresql+psycopg2://postgres:may312005@localhost:5432/exam_scheduler')

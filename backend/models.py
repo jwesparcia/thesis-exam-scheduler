@@ -200,6 +200,7 @@ class User(Base):
     teacher_id = Column(Integer, ForeignKey("teachers.id"), nullable=True)
     proctor_id = Column(Integer, ForeignKey("proctors.id"), nullable=True)
     student_type = Column(String, default="regular")  
+    course_id = Column(Integer, ForeignKey("courses.id"), nullable=True)
 
 class IrregularSelection(Base):
     __tablename__ = "irregular_selections"

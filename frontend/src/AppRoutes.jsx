@@ -10,7 +10,7 @@ function ProtectedRoute({ children, allowedRoles }) {
   const { user } = useUser();
   const navigate = useNavigate();
 
-  if (!user) return <Navigate to="/login" replace />;
+  if (!user || !user.access_token) return <Navigate to="/login" replace />;
   if (!allowedRoles.includes(user.role)) {
     if (user.role === "program_head")
       return <Navigate to="/program-head" replace />;
@@ -26,7 +26,7 @@ function ProtectedRoute({ children, allowedRoles }) {
 function NavigateToDashboard() {
   const { user } = useUser();
 
-  if (!user) return <Navigate to="/login" replace />;
+  if (!user || !user.access_token) return <Navigate to="/login" replace />;
 
   if (user.role === "program_head")
     return <Navigate to="/program-head" replace />;

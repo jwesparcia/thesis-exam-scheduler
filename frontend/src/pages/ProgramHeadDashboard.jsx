@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Calendar,
   Users,
@@ -10,7 +10,9 @@ import {
   Target,
   Sparkles,
   CalendarDays,
+  Loader2,
   ShieldCheck,
+  DoorOpen,
 } from "lucide-react";
 import ExamScheduler from "../components/ExamScheduler";
 import AddProctor from "../components/AddProctor";
@@ -21,10 +23,21 @@ import { useNavigate } from "react-router-dom";
 import DistributionRulesManager from "../components/DistributionRulesManager";
 import GeneratedExamSchedules from "../components/GeneratedExamSchedules";
 import ProctorMonitoring from "../components/ProctorMonitoring";
+import RoomManagement from "../components/RoomManagement";
 import SettingsDropdown from "../components/SettingsDropdown";
 
 import api from "../api";
 import { useToast } from "../context/ToastContext";
+
+const INITIAL_GENERATION_STATE = {
+  loading: false,
+  progress: {
+    status: "idle",
+    percent: 0,
+    phase: "Idle",
+    detail: "",
+  },
+};
 
 function ReschedulingRequests() {
   const { theme } = useTheme();
@@ -146,6 +159,7 @@ function ReschedulingRequests() {
 
 export default function ProgramHeadDashboard() {
   const [activeTab, setActiveTab] = useState("generate");
+  const [generationState, setGenerationState] = useState(INITIAL_GENERATION_STATE);
   const { theme } = useTheme();
   const { logout } = useUser();
   const navigate = useNavigate();
@@ -155,6 +169,12 @@ export default function ProgramHeadDashboard() {
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const unreadCount = notifications.filter(n => !n.is_read).length;
+  const handleGenerationStateChange = useCallback((nextState) => {
+    setGenerationState(nextState);
+  }, []);
+  const generationProgress = generationState.progress || INITIAL_GENERATION_STATE.progress;
+  const generationPercent = Math.max(0, Math.min(100, Number(generationProgress.percent) || 0));
+  const isGenerationRunning = generationState.loading || generationProgress.status === "running";
 
   useEffect(() => {
     const fetchNotifications = async () => {
@@ -202,7 +222,7 @@ export default function ProgramHeadDashboard() {
   return (
     <div className={`min-h-screen flex transition-colors duration-300 ${isDark ? "bg-slate-900" : "bg-slate-50"}`}>
       {showNotifications && (
-        <div className="fixed inset-0 z-40 bg-black/20 backdrop-blur-sm transition-opacity" onClick={() => setShowNotifications(false)}></div>
+        <div className="fixed inset-0 z-40" onClick={() => setShowNotifications(false)}></div>
       )}
 
       {/* Sidebar */}
@@ -222,6 +242,7 @@ export default function ProgramHeadDashboard() {
             { id: "generate", icon: Calendar, label: "Generate Schedule" },
             { id: "schedules", icon: CalendarDays, label: "Generated Schedules" },
             { id: "proctors", icon: Users, label: "Proctor Management" },
+            { id: "rooms", icon: DoorOpen, label: "Room Management" },
             { id: "rescheduling", icon: ClipboardList, label: "Rescheduling Requests" },
             { id: "monitoring", icon: ShieldCheck, label: "Proctor Monitoring" },
             { id: "rules", icon: Target, label: "Distribution Rules" },
@@ -264,6 +285,7 @@ export default function ProgramHeadDashboard() {
                   {activeTab === "generate" ? "Exam Schedule Generator" :
                    activeTab === "schedules" ? "Generated Exam Schedules" :
                    activeTab === "proctors" ? "Proctor Management" :
+                   activeTab === "rooms" ? "Room Management" :
                    activeTab === "monitoring" ? "Proctor Attendance Monitoring" :
                    activeTab === "rules" ? "Distribution Rules" :
                    "Rescheduling Requests"}
@@ -331,14 +353,55 @@ export default function ProgramHeadDashboard() {
 
         <div className="flex-1 overflow-y-auto custom-scrollbar p-6 lg:p-8">
           <div className="max-w-7xl mx-auto space-y-6">
+            {activeTab !== "generate" && isGenerationRunning && (
+              <div className={`rounded-2xl border overflow-hidden transition-colors duration-300 ${isDark ? "bg-blue-950/40 border-blue-900/60" : "bg-blue-50 border-blue-100"}`}>
+                <div className="p-4 md:p-5">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div className="flex items-start gap-3 min-w-0">
+                      <div className={`mt-0.5 w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${isDark ? "bg-blue-500/20 text-blue-300" : "bg-white text-blue-600 shadow-sm"}`}>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className={`text-sm font-bold ${isDark ? "text-blue-100" : "text-blue-900"}`}>
+                          {generationProgress.phase || "Generating schedule"}
+                        </p>
+                        <p className={`mt-1 text-xs leading-relaxed ${isDark ? "text-blue-200/80" : "text-blue-700"}`}>
+                          {generationProgress.detail || "Generation is running in the background."}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setActiveTab("generate")}
+                      className={`shrink-0 px-4 py-2 rounded-xl text-sm font-semibold transition ${isDark ? "bg-blue-500 text-white hover:bg-blue-400" : "bg-blue-600 text-white hover:bg-blue-700"}`}
+                    >
+                      View Progress
+                    </button>
+                  </div>
+                  <div className={`mt-4 h-2 overflow-hidden rounded-full ${isDark ? "bg-blue-950" : "bg-white"}`}>
+                    <div
+                      className="h-full rounded-full bg-blue-600 transition-all duration-500"
+                      style={{ width: `${generationPercent}%` }}
+                    ></div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className={`rounded-2xl shadow-sm border overflow-hidden transition-colors duration-300 ${isDark ? "bg-slate-800/50 border-slate-700/50" : "bg-white border-slate-200"}`}>
               <div className="p-6 md:p-8">
-                {activeTab === "generate" ? <ExamScheduler onBeforeGenerate={checkMissingSchedulesBeforeGenerate} /> :
-                  activeTab === "schedules" ? <GeneratedExamSchedules /> :
-                    activeTab === "proctors" ? <AddProctor /> :
+                <div className={activeTab === "generate" ? "block" : "hidden"}>
+                  <ExamScheduler
+                    onBeforeGenerate={checkMissingSchedulesBeforeGenerate}
+                    onGenerationStateChange={handleGenerationStateChange}
+                  />
+                </div>
+                {activeTab === "schedules" ? <GeneratedExamSchedules /> :
+                  activeTab === "proctors" ? <AddProctor /> :
+                    activeTab === "rooms" ? <RoomManagement /> :
                       activeTab === "rules" ? <DistributionRulesManager /> :
                         activeTab === "monitoring" ? <ProctorMonitoring /> :
-                          <ReschedulingRequests />}
+                          activeTab === "rescheduling" ? <ReschedulingRequests /> :
+                            null}
               </div>
             </div>
 
