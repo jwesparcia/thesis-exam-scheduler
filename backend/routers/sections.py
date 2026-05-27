@@ -4,8 +4,23 @@ from sqlalchemy.orm import Session
 from database import get_db
 import crud
 from models import Section 
+from pydantic import BaseModel
+from typing import Optional
 
 router = APIRouter(prefix="/sections", tags=["Sections"])
+
+class PreferredRoomRequest(BaseModel):
+    preferred_room_id: Optional[int] = None
+
+@router.put("/{section_id}/preferred-room")
+def update_preferred_room(section_id: int, body: PreferredRoomRequest, db: Session = Depends(get_db)):
+    section = db.query(Section).filter(Section.id == section_id).first()
+    if not section:
+        raise HTTPException(status_code=404, detail="Section not found")
+    section.preferred_room_id = body.preferred_room_id
+    db.commit()
+    return {"message": "Preferred room updated", "preferred_room_id": section.preferred_room_id}
+
 
 @router.get("/{year_name}")
 def get_sections(year_name: str, db: Session = Depends(get_db)):

@@ -21,6 +21,7 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
   const [yearId, setYearId] = useState("");
   const [semester, setSemester] = useState(1);
   const [details, setDetails] = useState({ sections: [] });
+  const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(false);
   const progressPollRef = useRef(null);
   const activeProgressJobRef = useRef(null);
@@ -110,6 +111,45 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
       isCurrentRequest = false;
     };
   }, [selectedDept, semester]);
+
+  // Fetch rooms when selected department changes
+  useEffect(() => {
+    if (!selectedDept) {
+      setRooms([]);
+      return;
+    }
+    const fetchRooms = async () => {
+      try {
+        const res = await api.get("/exams/rooms", {
+          params: { department: selectedDept }
+        });
+        setRooms(res.data);
+      } catch (err) {
+        console.error("Error loading rooms:", err);
+      }
+    };
+    fetchRooms();
+  }, [selectedDept]);
+
+  const handlePreferredRoomChange = async (sectionId, roomIdVal) => {
+    const roomId = roomIdVal ? parseInt(roomIdVal, 10) : null;
+    try {
+      await api.put(`/sections/${sectionId}/preferred-room`, {
+        preferred_room_id: roomId
+      });
+      // Update local state to reflect the change
+      setDetails(prev => ({
+        ...prev,
+        sections: prev.sections.map(s => 
+          s.id === sectionId ? { ...s, preferred_room_id: roomId } : s
+        )
+      }));
+      showSuccess("Preferred room updated successfully");
+    } catch (err) {
+      console.error("Failed to update preferred room:", err);
+      showError("Failed to update preferred room");
+    }
+  };
 
   // Fetch details when specific course/year/semester changes
   useEffect(() => {
@@ -456,7 +496,7 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
                   </div>
                 </div>
                 <p className={`mt-3 text-xs ${isDark ? "text-gray-500" : "text-gray-400"} italic`}>
-                  Recommended: Select a 4-day range. Weekends are automatically skipped.
+                  Recommended: Select a 4-day range. Sundays are automatically skipped.
                 </p>
               </div>
 
@@ -618,9 +658,32 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
             <div className="space-y-6">
               {details.sections.map((section) => (
                 <div key={section.id} className={`border rounded-lg p-4 hover:shadow-sm transition ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"}`}>
-                  <h3 className={`text-lg font-medium mb-3 ${isDark ? "text-blue-400" : "text-blue-700"}`}>
-                    {section.name}
-                  </h3>
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+                    <h3 className={`text-lg font-bold ${isDark ? "text-blue-400" : "text-blue-700"}`}>
+                      {section.name}
+                    </h3>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xs font-semibold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                        Preferred Room:
+                      </span>
+                      <select
+                        value={section.preferred_room_id || ""}
+                        onChange={(e) => handlePreferredRoomChange(section.id, e.target.value)}
+                        className={`text-sm rounded-lg px-3 py-1.5 border font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all ${
+                          isDark 
+                            ? "bg-gray-700 border-gray-600 text-white" 
+                            : "bg-white border-gray-300 text-gray-700 hover:border-gray-400"
+                        }`}
+                      >
+                        <option value="">No Preference (Auto)</option>
+                        {rooms.map((r) => (
+                          <option key={r.id} value={r.id}>
+                            {r.name} {r.capacity ? `(Cap: ${r.capacity})` : ""}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm border-separate border-spacing-0">
                       <thead className={`${isDark ? "bg-gray-700 text-gray-300" : "bg-gray-100 text-gray-700"}`}>

@@ -13,11 +13,12 @@ import {
   Loader2,
   ShieldCheck,
   DoorOpen,
+  BookOpen,
+  User,
 } from "lucide-react";
 import ExamScheduler from "../components/ExamScheduler";
 import AddProctor from "../components/AddProctor";
 import { useTheme } from "../context/themeStore";
-import ThemeToggle from "../components/ThemeToggle";
 import { useUser } from "../context/userStore";
 import { useNavigate } from "react-router-dom";
 import DistributionRulesManager from "../components/DistributionRulesManager";
@@ -90,14 +91,14 @@ function ReschedulingRequests() {
       {requests.map((req) => (
         <div
           key={req.id}
-          className={`p-6 rounded-xl border shadow-lg ${isDark ? "bg-gray-700 border-gray-600" : "bg-white border-gray-300"}`}
+          className={`p-6 rounded-xl border shadow-lg `}
         >
           <div className="flex justify-between items-start mb-4">
             <div>
-              <h4 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
+              <h4 className={`	ext-lg font-semibold `}>
                 {req.course_name} - {req.section_name}
               </h4>
-              <p className={`text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}>
+              <p className={`	ext-sm `}>
                 Student: {req.student_name} ({req.student_id})
               </p>
             </div>
@@ -121,17 +122,17 @@ function ReschedulingRequests() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className={`p-4 rounded-lg ${isDark ? "bg-gray-600" : "bg-gray-50"}`}>
-              <h5 className={`font-medium mb-2 ${isDark ? "text-white" : "text-gray-900"}`}>Current Exam Details</h5>
-              <p className={`text-sm ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+            <div className={`p-4 rounded-lg `}>
+              <h5 className={`ont-medium mb-2 `}>Current Exam Details</h5>
+              <p className={`	ext-sm `}>
                 Date: {req.original_exam_date}<br />
                 Time: {req.original_time}<br />
                 Type: {req.exam_type}
               </p>
             </div>
-            <div className={`p-4 rounded-lg ${isDark ? "bg-blue-900/30" : "bg-blue-50"}`}>
-              <h5 className={`font-medium mb-2 ${isDark ? "text-white" : "text-gray-900"}`}>Requested Reschedule</h5>
-              <p className={`text-sm ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+            <div className={`p-4 rounded-lg `}>
+              <h5 className={`ont-medium mb-2 `}>Requested Reschedule</h5>
+              <p className={`	ext-sm `}>
                 Mode: {req.requested_mode}<br />
                 Date: {req.preferred_date || "N/A"}<br />
                 Time: {req.preferred_time || "N/A"}
@@ -140,12 +141,12 @@ function ReschedulingRequests() {
           </div>
 
           <div className="mt-4">
-            <h5 className={`font-medium mb-2 ${isDark ? "text-white" : "text-gray-900"}`}>Reason for Request</h5>
-            <p className={`text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}>
+            <h5 className={`ont-medium mb-2 `}>Reason for Request</h5>
+            <p className={`	ext-sm `}>
               <strong>{req.reason_type}:</strong> {req.detailed_explanation}
             </p>
             {req.supporting_file && (
-              <p className={`text-sm mt-2 ${isDark ? "text-blue-300" : "text-blue-600"}`}>
+              <p className={`	ext-sm mt-2 `}>
                 Supporting document uploaded
               </p>
             )}
@@ -155,13 +156,239 @@ function ReschedulingRequests() {
     </div>
   );
 }
+function ProgramHeadManual() {
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
+  const [activeSubTab, setActiveSubTab] = useState("generation");
 
+  const topics = [
+    { id: "generation", label: "Schedule Generation", icon: Calendar },
+    { id: "rooms", label: "Room & Capacity Rules", icon: DoorOpen },
+    { id: "proctors", label: "Proctor Management", icon: Users },
+    { id: "rescheduling", label: "Rescheduling Requests", icon: ClipboardList },
+    { id: "rules", label: "Distribution Rules", icon: Target },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <div className={`p-6 rounded-2xl border ${isDark ? "bg-slate-800/40 border-slate-700" : "bg-gradient-to-r from-blue-500/10 to-indigo-500/10 border-blue-100"}`}>
+        <div className="flex items-center gap-4">
+          <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${isDark ? "bg-blue-500/20 text-blue-300" : "bg-blue-600 text-white shadow-md shadow-blue-500/20"}`}>
+            <BookOpen className="w-6 h-6" />
+          </div>
+          <div>
+            <h2 className={`text-xl font-bold tracking-tight ${isDark ? "text-white" : "text-slate-900"}`}>
+              Program Head Interactive Guide
+            </h2>
+            <p className={`text-sm mt-1 ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+              Learn how to run the genetic algorithm, configure capacity constraints, set distribution rules, and manage proctoring assignments.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-2 pb-2 border-b border-slate-200 dark:border-slate-700">
+        {topics.map((t) => {
+          const SubIcon = t.icon;
+          const isSelected = activeSubTab === t.id;
+          return (
+            <button
+              key={t.id}
+              onClick={() => setActiveSubTab(t.id)}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                isSelected
+                  ? isDark 
+                    ? "bg-blue-600 text-white" 
+                    : "bg-blue-600 text-white shadow-md shadow-blue-500/25"
+                  : isDark
+                    ? "text-slate-400 hover:bg-slate-800 hover:text-white"
+                    : "text-slate-600 hover:bg-blue-50 hover:text-blue-700"
+              }`}
+            >
+              <SubIcon className="w-4 h-4" />
+              {t.label}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className={`p-6 md:p-8 rounded-2xl border transition-all ${isDark ? "bg-slate-800/20 border-slate-800" : "bg-white border-slate-200/60"}`}>
+        {activeSubTab === "generation" && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-sm">1</div>
+              <h3 className={`text-lg font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Generating the Exam Schedule</h3>
+            </div>
+            
+            <p className={`text-sm leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+              The scheduling engine uses a multi-generation Genetic Algorithm (GA) to satisfy hard constraints (no student clashes, no proctor clashes) and optimize soft constraints (high-floor targets, balanced rooms).
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className={`p-4 rounded-xl border ${isDark ? "bg-slate-900/40 border-slate-800" : "bg-slate-50 border-slate-100"}`}>
+                <h4 className={`font-bold text-sm mb-2 flex items-center gap-2 ${isDark ? "text-slate-200" : "text-slate-800"}`}>
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span> Steps to Run Generation
+                </h4>
+                <ul className={`text-xs space-y-2.5 ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+                  <li className="flex items-start gap-2">
+                    <span className="text-blue-500 font-bold">•</span>
+                    <span>Navigate to <strong>Generate Schedule</strong>, select the academic <strong>Department</strong> (College/SHS).</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-blue-500 font-bold">•</span>
+                    <span>Set the <strong>Start Date</strong> and <strong>End Date</strong> for the exam cycle.</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-blue-500 font-bold">•</span>
+                    <span>Click <strong>Generate Schedule</strong> to start the GA optimization. A live progress bar will track each phase.</span>
+                  </li>
+                </ul>
+              </div>
+
+              <div className={`p-4 rounded-xl border ${isDark ? "bg-slate-900/40 border-slate-800" : "bg-slate-50 border-slate-100"}`}>
+                <h4 className={`font-bold text-sm mb-2 flex items-center gap-2 ${isDark ? "text-slate-200" : "text-slate-800"}`}>
+                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span> Excluding Subjects
+                </h4>
+                <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                  Use the search and multi-checkbox interface to exclude specific subjects (like online-only or practical subjects) from the auto-scheduler. Excluded subjects will be skipped.
+                </p>
+                <div className={`mt-3 p-3 rounded-lg border text-[11px] leading-relaxed flex gap-2 ${isDark ? "bg-amber-500/10 border-amber-500/20 text-amber-300" : "bg-amber-50 border-amber-100 text-amber-700"}`}>
+                  <span><strong>Important:</strong> Modifying options resets draft schedules. Publishes are immutable and will be visible to students and proctors immediately.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeSubTab === "rooms" && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-sm">2</div>
+              <h3 className={`text-lg font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Room Allocation & Capacity Constraints</h3>
+            </div>
+            
+            <p className={`text-sm leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+              Each room in the system has a maximum seating capacity. If a section's enrollment exceeds a room's seat limit, the schedule might fail or violate student distancing rules.
+            </p>
+
+            <div className={`p-4 rounded-xl border ${isDark ? "bg-blue-950/20 border-blue-900/40 text-blue-200" : "bg-blue-50 border-blue-100 text-blue-800"} text-xs leading-relaxed flex gap-3`}>
+              <div>
+                <strong className="block text-sm mb-1 font-bold">How to resolve room capacity limits:</strong>
+                Before scheduling, go to the <strong>Generate Schedule</strong> dashboard. Next to each section (e.g. BSIT 3-201), use the <strong>Preferred Room</strong> dropdown to assign a specific room that accommodates the section size (e.g. Computer Lab 1 with capacity 40). The algorithm will attempt to reserve that room for all exam timeslots of that section, ensuring students are not cramped or split.
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className={`p-4 rounded-xl border ${isDark ? "bg-slate-900/40 border-slate-800" : "bg-slate-50 border-slate-100"}`}>
+                <h4 className={`font-bold text-sm mb-1.5 ${isDark ? "text-slate-200" : "text-slate-800"}`}>Auto-Allocation (Default)</h4>
+                <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                  If no room is preferred, the scheduler greedy-assigns rooms, preferring higher floor levels first and balancing loads across rooms.
+                </p>
+              </div>
+              <div className={`p-4 rounded-xl border ${isDark ? "bg-slate-900/40 border-slate-800" : "bg-slate-50 border-slate-100"}`}>
+                <h4 className={`font-bold text-sm mb-1.5 ${isDark ? "text-slate-200" : "text-slate-800"}`}>Preferred Allocation (Override)</h4>
+                <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                  Specifying a preferred room tells the GA to schedule the section's exams in that room unless there's a scheduling conflict, in which case it dynamically falls back to an available room.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeSubTab === "proctors" && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-sm">3</div>
+              <h3 className={`text-lg font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Proctor Management & Uploads</h3>
+            </div>
+            
+            <p className={`text-sm leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+              Proctors oversee examinations. To prevent assigning proctors during their teaching hours, you must upload their schedule from an Excel spreadsheet or define their availability.
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className={`p-4 rounded-xl border ${isDark ? "bg-slate-900/40 border-slate-800" : "bg-slate-50 border-slate-100"}`}>
+                <h4 className={`font-bold text-sm mb-2 ${isDark ? "text-slate-200" : "text-slate-800"}`}>1. Excel Upload</h4>
+                <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                  Go to <strong>Proctor Management</strong>. Use the file selector to upload the official faculty loading sheets. The backend parses classrooms, teacher courses, and schedules.
+                </p>
+              </div>
+              <div className={`p-4 rounded-xl border ${isDark ? "bg-slate-900/40 border-slate-800" : "bg-slate-50 border-slate-100"}`}>
+                <h4 className={`font-bold text-sm mb-2 ${isDark ? "text-slate-200" : "text-slate-800"}`}>2. Exclusions</h4>
+                <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                  Toggle the "Exclude from scheduling" switch for specific teachers (e.g. part-time, administrative heads) so they aren't assigned supervising duties.
+                </p>
+              </div>
+              <div className={`p-4 rounded-xl border ${isDark ? "bg-slate-900/40 border-slate-800" : "bg-slate-50 border-slate-100"}`}>
+                <h4 className={`font-bold text-sm mb-2 ${isDark ? "text-slate-200" : "text-slate-800"}`}>3. Check-ins</h4>
+                <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                  Monitor proctor attendance in real time on the <strong>Proctor Monitoring</strong> tab. Check-ins are marked by proctors through their respective dashboard.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeSubTab === "rescheduling" && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-sm">4</div>
+              <h3 className={`text-lg font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Rescheduling Requests</h3>
+            </div>
+            
+            <p className={`text-sm leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+              Students who experience an exam clash (e.g. irregular schedules where two exams fall in the same timeslot) will submit a Rescheduling Request with supporting files.
+            </p>
+
+            <div className={`p-4 rounded-xl border ${isDark ? "bg-slate-900/40 border-slate-800" : "bg-slate-50 border-slate-100"} text-xs space-y-3`}>
+              <h4 className={`font-bold text-sm ${isDark ? "text-slate-200" : "text-slate-800"}`}>Workflow:</h4>
+              <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center justify-between text-slate-500">
+                <span className="flex-1 text-center py-2 px-3 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-lg font-bold">1. View Pending</span>
+                <span className="text-slate-400 text-center sm:block hidden">→</span>
+                <span className="flex-1 text-center py-2 px-3 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 rounded-lg font-bold">2. Check Proofs</span>
+                <span className="text-slate-400 text-center sm:block hidden">→</span>
+                <span className="flex-1 text-center py-2 px-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-lg font-bold">3. Approve / Deny</span>
+              </div>
+              <p className={`pt-2 leading-relaxed ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+                Each request lists the student's name, email, details of conflict, and uploaded proof. You can add feedback notes before hitting **Approve** or **Reject**. Approved students will automatically be assigned their requested rescheduled timeslot.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {activeSubTab === "rules" && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-sm">5</div>
+              <h3 className={`text-lg font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Distribution Rules</h3>
+            </div>
+            
+            <p className={`text-sm leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+              Distribute exams logically to balance student workload. For example, ensure SHS Grade 11 exams only occur in the morning session, or major subjects are distributed over specific weekdays.
+            </p>
+
+            <div className={`p-4 rounded-xl border ${isDark ? "bg-slate-900/40 border-slate-800" : "bg-slate-50 border-slate-100"}`}>
+              <h4 className={`font-bold text-sm mb-2 ${isDark ? "text-slate-200" : "text-slate-800"}`}>How to Configure Rules</h4>
+              <ul className={`text-xs space-y-2 ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+                <li>• Go to the <strong>Distribution Rules</strong> tab in the sidebar.</li>
+                <li>• Add a new rule by specifying the Subject Category (major / general / shs-core etc.).</li>
+                <li>• Select the allowable days (e.g. Mon, Wed, Fri only).</li>
+                <li>• Select the permissible session (e.g. morning, afternoon, or any session).</li>
+                <li>• The genetic algorithm constraints evaluator will read these rules and penalize/exclude placements violating these criteria.</li>
+              </ul>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function ProgramHeadDashboard() {
   const [activeTab, setActiveTab] = useState("generate");
   const [generationState, setGenerationState] = useState(INITIAL_GENERATION_STATE);
   const { theme } = useTheme();
-  const { logout } = useUser();
+  const { user, logout } = useUser();
   const navigate = useNavigate();
   const isDark = theme === "dark";
   const { showWarning } = useToast();
@@ -229,10 +456,10 @@ export default function ProgramHeadDashboard() {
       <aside className={`w-72 flex flex-col border-r transition-all duration-300 z-30 ${isDark ? "bg-slate-900/80 border-slate-800" : "bg-white border-slate-200"}`}>
         <div className="p-6 flex flex-col items-center gap-4 border-b border-transparent">
           <div className={`w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg transition-transform hover:scale-105 duration-300 ${isDark ? "bg-gradient-to-br from-blue-600 to-indigo-700" : "bg-gradient-to-br from-blue-500 to-blue-700"}`}>
-            <img src="/images.png" alt="STI Logo" className="rounded-xl h-10 w-10 object-contain drop-shadow-md" />
+            <User className="w-8 h-8 text-white" />
           </div>
           <div className="text-center">
-            <h2 className={`text-lg font-bold tracking-tight ${isDark ? "text-white" : "text-slate-900"}`}>Program Head</h2>
+            <h2 className={`text-lg font-bold tracking-tight ${isDark ? "text-white" : "text-slate-900"}`}>{user?.name || "Admin"}</h2>
             <p className={`text-xs font-medium tracking-wide uppercase mt-1 ${isDark ? "text-blue-400" : "text-blue-600"}`}>Exam Management</p>
           </div>
         </div>
@@ -246,6 +473,7 @@ export default function ProgramHeadDashboard() {
             { id: "rescheduling", icon: ClipboardList, label: "Rescheduling Requests" },
             { id: "monitoring", icon: ShieldCheck, label: "Proctor Monitoring" },
             { id: "rules", icon: Target, label: "Distribution Rules" },
+            { id: "manual", icon: BookOpen, label: "User Manual" },
           ].map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
@@ -287,14 +515,11 @@ export default function ProgramHeadDashboard() {
                    activeTab === "proctors" ? "Proctor Management" :
                    activeTab === "rooms" ? "Room Management" :
                    activeTab === "monitoring" ? "Proctor Attendance Monitoring" :
+                   activeTab === "rescheduling" ? "Rescheduling Requests" :
                    activeTab === "rules" ? "Distribution Rules" :
-                   "Rescheduling Requests"}
+                   activeTab === "manual" ? "User Manual" : "Program Head Dashboard"}
                 </h1>
-                <p className={`text-sm mt-1 font-medium transition-colors ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-                  Dashboard • {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Mode
-                </p>
               </div>
-              
               <div className="flex items-center gap-4">
                 <div className={`hidden md:flex px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all shadow-sm ${isDark ? "bg-blue-500/20 text-blue-400 border border-blue-500/30" : "bg-blue-50 text-blue-700 border border-blue-100"}`}>
                   Administrator
@@ -401,7 +626,8 @@ export default function ProgramHeadDashboard() {
                       activeTab === "rules" ? <DistributionRulesManager /> :
                         activeTab === "monitoring" ? <ProctorMonitoring /> :
                           activeTab === "rescheduling" ? <ReschedulingRequests /> :
-                            null}
+                            activeTab === "manual" ? <ProgramHeadManual /> :
+                              null}
               </div>
             </div>
 

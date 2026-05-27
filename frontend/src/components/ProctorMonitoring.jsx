@@ -104,7 +104,7 @@ export default function ProctorMonitoring() {
     isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
   }`;
   const th = `px-4 py-3 text-left text-xs font-bold uppercase tracking-wider ${
-    isDark ? "text-gray-300 bg-gray-750" : "text-gray-500 bg-gray-50"
+    isDark ? "text-gray-300 bg-gray-800" : "text-gray-500 bg-gray-50"
   }`;
   const td = `px-4 py-3 text-sm ${isDark ? "text-gray-200" : "text-gray-700"}`;
   const inputCls = `border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
@@ -300,7 +300,7 @@ export default function ProctorMonitoring() {
                   {/* Course Header */}
                   <div
                     className={`flex items-center justify-between px-6 py-4 border-b ${
-                      isDark ? "border-gray-700 bg-gray-750/40" : "border-gray-100 bg-gray-50"
+                      isDark ? "border-gray-700 bg-gray-800/40" : "border-gray-100 bg-gray-50"
                     } rounded-t-2xl`}
                   >
                     <div className="flex items-center gap-3">

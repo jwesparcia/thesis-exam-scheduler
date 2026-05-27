@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { CalendarDays, FileText, Loader2, Send } from "lucide-react";
+import { CalendarDays, FileText, Loader2, Send, Download, Trash2 } from "lucide-react";
 import { useTheme } from "../context/themeStore";
 import api from "../api";
 import { useToast } from "../context/ToastContext";
@@ -17,6 +17,41 @@ export default function GeneratedExamSchedules() {
     const [exams, setExams] = useState([]);
     const [loading, setLoading] = useState(false);
     const [showPostAllModal, setShowPostAllModal] = useState(false);
+    const [downloading, setDownloading] = useState(false);
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [deleting, setDeleting] = useState(false);
+    const [deleteScope, setDeleteScope] = useState("dept"); // "dept" or "all"
+
+    const handleDownload = async () => {
+        setDownloading(true);
+        try {
+            const params = new URLSearchParams({ semester });
+            if (selectedDept)  params.append("department",    selectedDept);
+
+            const res = await api.get(`/exams/download?${params}`, {
+                responseType: "blob",
+            });
+
+            const disposition = res.headers["content-disposition"] || "";
+            const match = disposition.match(/filename="?([^"]+)"?/);
+            const filename = match ? match[1] : `ExamSchedule_${selectedDept}_Sem${semester}.xlsx`;
+
+            const url = window.URL.createObjectURL(new Blob([res.data]));
+            const link = document.createElement("a");
+            link.href = url;
+            link.setAttribute("download", filename);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+            showSuccess(`Master schedule downloaded as "${filename}"`);
+        } catch (err) {
+            console.error("Download failed:", err);
+            showError("Failed to download schedule. Please try again.");
+        } finally {
+            setDownloading(false);
+        }
+    };
 
     const handlePostAll = async () => {
         setShowPostAllModal(false);
@@ -33,6 +68,30 @@ export default function GeneratedExamSchedules() {
         } catch (err) {
             console.error(err);
             showError(err.response?.data?.detail || "No draft schedules found to post.");
+        }
+    };
+
+    const handleDeleteSchedule = async () => {
+        setDeleting(true);
+        try {
+            let url = "/exams/clear";
+            if (deleteScope === "dept") {
+                url += `?department=${selectedDept}&semester=${semester}`;
+            }
+            const res = await api.delete(url);
+            if (res.status === 200) {
+                showSuccess(res.data.message || "Schedule cleared successfully!");
+                setExams([]);
+                fetchExams();
+            } else {
+                showError("Failed to delete schedules.");
+            }
+        } catch (err) {
+            console.error("Delete failed:", err);
+            showError(err.response?.data?.detail || "Failed to clear schedule. Please try again.");
+        } finally {
+            setDeleting(false);
+            setShowDeleteModal(false);
         }
     };
 
@@ -96,7 +155,7 @@ export default function GeneratedExamSchedules() {
         <div className={`min-h-screen ${isDark ? "bg-gray-900" : "bg-gray-50"} rounded-2xl`}>
             <div className="max-w-7xl mx-auto px-6 py-10">
                 {/* Header */}
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
+                <div className="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4 mb-8">
                     <div className="flex items-center gap-3">
                         <CalendarDays className="text-blue-500 w-8 h-8" />
                         <h1 className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}>
@@ -104,13 +163,47 @@ export default function GeneratedExamSchedules() {
                         </h1>
                     </div>
                     
-                    <button
-                        onClick={() => setShowPostAllModal(true)}
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 transition-all hover:scale-105 active:scale-95 font-bold text-sm"
-                    >
-                        <Send className="w-4 h-4" />
-                        Post All {selectedDept} Schedules
-                    </button>
+                    <div className="flex flex-wrap gap-3 items-center">
+                        <button
+                            onClick={() => {
+                                setDeleteScope("all");
+                                setShowDeleteModal(true);
+                            }}
+                            className="bg-red-600 hover:bg-red-700 text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 transition-all hover:scale-105 active:scale-95 font-bold text-sm"
+                        >
+                            <Trash2 className="w-4 h-4" />
+                            Delete All Schedules
+                        </button>
+                        <button
+                            onClick={() => {
+                                setDeleteScope("dept");
+                                setShowDeleteModal(true);
+                            }}
+                            className="bg-red-500 hover:bg-red-600 text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 transition-all hover:scale-105 active:scale-95 font-bold text-sm"
+                        >
+                            <Trash2 className="w-4 h-4" />
+                            Delete {selectedDept} Schedule
+                        </button>
+                        <button
+                            onClick={() => setShowPostAllModal(true)}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 transition-all hover:scale-105 active:scale-95 font-bold text-sm"
+                        >
+                            <Send className="w-4 h-4" />
+                            Post All {selectedDept} Schedules
+                        </button>
+                        <button
+                            onClick={handleDownload}
+                            disabled={downloading}
+                            className="bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 transition-all hover:scale-105 active:scale-95 font-bold text-sm"
+                        >
+                            {downloading ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                                <Download className="w-4 h-4" />
+                            )}
+                            {downloading ? "Downloading..." : "Download Master Schedule"}
+                        </button>
+                    </div>
                 </div>
 
                 {/* Step 1: Select Department */}
@@ -328,7 +421,9 @@ export default function GeneratedExamSchedules() {
                                                                 {e.exam_date}
                                                             </td>
                                                             <td className={`px-4 py-4 whitespace-nowrap ${isDark ? "text-gray-200" : "text-gray-900"}`}>
-                                                                <div className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"} mb-1`}>Morning Session</div>
+                                                                <div className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"} mb-1`}>
+                                                                    {e.start_time && (e.start_time.includes("PM") || (parseInt(e.start_time.split(":")[0], 10) >= 12 && !e.start_time.includes("AM"))) ? "Afternoon Session" : "Morning Session"}
+                                                                </div>
                                                                 <div className="font-medium">{e.start_time} - {e.end_time}</div>
                                                             </td>
                                                             <td className="px-4 py-4">
@@ -406,6 +501,51 @@ export default function GeneratedExamSchedules() {
                                     className="flex-1 py-3.5 rounded-xl font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition-all shadow-lg shadow-emerald-600/30 active:scale-95"
                                 >
                                     Yes, Post All
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Delete Confirmation Modal */}
+            {showDeleteModal && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+                    <div className={`p-8 rounded-3xl shadow-2xl max-w-md w-full transform transition-all scale-100 ${isDark ? "bg-gray-800 border border-gray-700" : "bg-white"}`}>
+                        <div className="flex flex-col items-center text-center">
+                            <div className="w-16 h-16 rounded-full flex items-center justify-center mb-6 bg-red-100 dark:bg-red-900/50 shadow-lg shadow-red-200/50 dark:shadow-red-900/20">
+                                <Trash2 className="w-8 h-8 text-red-600 dark:text-red-400" />
+                            </div>
+                            <h3 className={`text-2xl font-bold mb-3 ${isDark ? "text-white" : "text-gray-900"}`}>
+                                {deleteScope === "all" ? "Delete All Schedules?" : `Delete ${selectedDept} Schedule?`}
+                            </h3>
+                            <p className={`mb-8 text-sm leading-relaxed ${isDark ? "text-gray-300" : "text-gray-600"}`}>
+                                {deleteScope === "all" 
+                                    ? "Are you sure you want to delete ALL generated exam schedules across the entire platform? This operation is permanent and cannot be undone."
+                                    : `Are you sure you want to delete all generated exam schedules for ${selectedDept} (Semester ${semester})? This operation is permanent and cannot be undone.`
+                                }
+                            </p>
+                            <div className="flex gap-4 w-full">
+                                <button
+                                    onClick={() => setShowDeleteModal(false)}
+                                    disabled={deleting}
+                                    className={`flex-1 py-3.5 rounded-xl font-bold transition-all active:scale-95 disabled:opacity-55 ${isDark ? "bg-gray-700 hover:bg-gray-600 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-800"}`}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleDeleteSchedule}
+                                    disabled={deleting}
+                                    className="flex-1 py-3.5 rounded-xl font-bold bg-red-600 hover:bg-red-700 text-white transition-all shadow-lg shadow-red-600/30 active:scale-95 disabled:opacity-55 flex items-center justify-center gap-2"
+                                >
+                                    {deleting ? (
+                                        <>
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                            <span>Deleting...</span>
+                                        </>
+                                    ) : (
+                                        <span>Yes, Delete</span>
+                                    )}
                                 </button>
                             </div>
                         </div>

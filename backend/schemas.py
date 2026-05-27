@@ -79,3 +79,19 @@ class ReschedulingRequest(ReschedulingRequestBase):
 class ReschedulingRequestUpdate(BaseModel):
     status: str
     reviewer_comments: str = None
+
+
+# ----- Room Schemas -----
+class RoomBase(BaseModel):
+    name: str
+    building: str
+    capacity: int
+
+class RoomCreate(RoomBase):
+    pass
+
+class Room(RoomBase):
+    id: int
+    department: str
+    class Config:
+        orm_mode = True

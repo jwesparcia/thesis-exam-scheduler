@@ -108,7 +108,7 @@ def generate_exam_schedule(db: Session, start_date: date, end_date: date = None,
     exam_days = []
     curr = start_date
     while len(exam_days) < NUM_EXAM_DAYS:
-        if curr.weekday() < 5:
+        if curr.weekday() != 6:
             exam_days.append(curr)
         curr += timedelta(days=1)
 
@@ -145,7 +145,11 @@ def generate_exam_schedule(db: Session, start_date: date, end_date: date = None,
     if not room_ids:
         raise ValueError(f"No available exam rooms found for {department}. Sync or seed the Exam-Rooms.xlsx room list first.")
     rules = db.query(DistributionRule).all()
-    sections = db.query(Section).join(Course).filter(Course.category == department).all()
+    from sqlalchemy import or_
+    sections = db.query(Section).join(Course).filter(
+        Course.category == department,
+        or_(Section.semester == semester, Section.semester.is_(None))
+    ).all()
     
     # Pre-calculate count of written exam subjects per section
     subjects_per_section = {}
@@ -271,14 +275,20 @@ def generate_exam_schedule(db: Session, start_date: date, end_date: date = None,
     # -------------------------
     # Preprocessing for Performance
     # -------------------------
-    # Precompute timeslot information to avoid database/ORM overhead and time parsing in the loop
-    timeslot_info = {}
+    # Map database IDs to sequential list indices
+    timeslot_ids = list(timeslot_map.keys())
+    num_timeslots = len(timeslot_ids)
+    timeslot_id_to_idx = {tid: idx for idx, tid in enumerate(timeslot_ids)}
+    timeslot_idx_to_id = {idx: tid for idx, tid in enumerate(timeslot_ids)}
+
+    timeslot_info_list = [None] * num_timeslots
     from datetime import time as dt_time
     LIMIT_TIME = dt_time(11, 30)
     for ts_id, ts in timeslot_map.items():
+        slot_idx = timeslot_id_to_idx[ts_id]
         start_m = ts.start_time.hour * 60 + ts.start_time.minute
         end_m = ts.end_time.hour * 60 + ts.end_time.minute
-        timeslot_info[ts_id] = {
+        timeslot_info_list[slot_idx] = {
             "id": ts.id,
             "date": ts.date,
             "start_time": ts.start_time,
@@ -290,6 +300,20 @@ def generate_exam_schedule(db: Session, start_date: date, end_date: date = None,
             "weekday": ts.date.weekday(),
             "timeslot_obj": ts
         }
+
+    generated_timeslot_indices = {timeslot_id_to_idx[ts_id] for ts_id in generated_timeslot_ids}
+
+    # Rooms sequential indexing
+    num_rooms = len(room_ids)
+    room_id_to_idx = {r_id: idx for idx, r_id in enumerate(room_ids)}
+    room_floors = [room_floor_by_id[r_id] for r_id in room_ids]
+    room_names = [room_name_by_id[r_id] for r_id in room_ids]
+
+    # Proctors sequential indexing
+    proctor_ids = list(proctor_data.keys())
+    num_proctors = len(proctor_ids)
+    proctor_id_to_idx = {pid: idx for idx, pid in enumerate(proctor_ids)}
+    proctor_max_assignments = [proctor_data[pid]["max_assignments"] for pid in proctor_ids]
 
     # Preprocess groups to avoid ORM access inside the GA loops
     report_progress(40, "Preparing optimizer", "Precomputing valid slots and proctor candidates")
@@ -307,6 +331,7 @@ def generate_exam_schedule(db: Session, start_date: date, end_date: date = None,
                 "year_level_id": sub.year_level_id,
                 "semester": sub.semester,
                 "subjects_per_section": subjects_per_section.get(sec.id, 0),
+                "preferred_room_id": sec.preferred_room_id,
                 "idx_in_g": idx_in_g
             })
             section_ids_set.add(sec.id)
@@ -314,11 +339,13 @@ def generate_exam_schedule(db: Session, start_date: date, end_date: date = None,
         # Precompute slot proctors list for every allowed timeslot in this group
         slot_proctors = {}
         for slot_id in set(g["allowed_slots"]) | generated_timeslot_ids:
-            ts_inf = timeslot_info[slot_id]
-            slot_proctors[slot_id] = []
+            slot_idx = timeslot_id_to_idx[slot_id]
+            ts_inf = timeslot_info_list[slot_idx]
+            slot_proctors[slot_idx] = []
             for sec, sub in g["sections"]:
                 candidates = []
-                for pid, pdata in proctor_data.items():
+                for p_idx, pid in enumerate(proctor_ids):
+                    pdata = proctor_data[pid]
                     dow = ts_inf["weekday"]
                     if dow not in pdata["availability"]:
                         continue
@@ -333,13 +360,13 @@ def generate_exam_schedule(db: Session, start_date: date, end_date: date = None,
                         continue
                     if (sub.id, sec.id) in pdata["forbidden"]:
                         continue
-                    candidates.append(pid)
-                slot_proctors[slot_id].append(candidates)
+                    candidates.append(p_idx)
+                slot_proctors[slot_idx].append(candidates)
                 
         preprocessed_groups.append({
             "name": g["name"],
             "sections": prep_sections,
-            "allowed_slots": g["allowed_slots"],
+            "allowed_slots": [timeslot_id_to_idx[sid] for sid in g["allowed_slots"]],
             "classification": g["classification"],
             "section_ids_set": section_ids_set,
             "slot_proctors": slot_proctors
@@ -350,90 +377,65 @@ def generate_exam_schedule(db: Session, start_date: date, end_date: date = None,
     )
 
     # Pre-evaluate posted exams into plain lists/dicts to completely avoid database queries in fitness
-    posted_section_slots = {}
-    posted_room_slots = {}
-    posted_proctor_slots = {}
+    posted_room_loads_init = [0] * num_rooms
+    posted_proctor_counts_init = [0] * num_proctors
+
+    posted_section_slots_set = set()
+    posted_room_slots_set = set()
+    posted_proctor_slots_set = set()
+
     posted_section_day_counts = {}
-    posted_proctor_counts_init = {pid: 0 for pid in proctor_data}
-    posted_room_loads_init = {r_id: 0 for r_id in room_ids}
     posted_section_day_slots = {}
 
     for e in posted_exams:
         if not e.timeslot:
             continue
         slot_id = e.timeslot.id
-        ts_inf = timeslot_info.get(slot_id)
-        if not ts_inf:
+        if slot_id not in timeslot_id_to_idx:
             continue
-        posted_section_slots.setdefault(e.section_id, set()).add(slot_id)
-        if e.room_id in room_ids_set:
-            posted_room_slots.setdefault(e.room_id, set()).add(slot_id)
-            posted_room_loads_init[e.room_id] = posted_room_loads_init.get(e.room_id, 0) + 1
-        if e.proctor_id:
-            posted_proctor_slots.setdefault(e.proctor_id, set()).add(slot_id)
-            if e.proctor_id in posted_proctor_counts_init:
-                posted_proctor_counts_init[e.proctor_id] += 1
+        slot_idx = timeslot_id_to_idx[slot_id]
+        ts_inf = timeslot_info_list[slot_idx]
+        
+        posted_section_slots_set.add((e.section_id, slot_idx))
+        
+        if e.room_id in room_id_to_idx:
+            r_idx = room_id_to_idx[e.room_id]
+            posted_room_slots_set.add((r_idx, slot_idx))
+            posted_room_loads_init[r_idx] += 1
+            
+        if e.proctor_id in proctor_id_to_idx:
+            p_idx = proctor_id_to_idx[e.proctor_id]
+            posted_proctor_slots_set.add((p_idx, slot_idx))
+            posted_proctor_counts_init[p_idx] += 1
+            
         day = ts_inf["date"]
-        posted_section_day_counts.setdefault(e.section_id, {}).setdefault(day, 0)
-        posted_section_day_counts[e.section_id][day] += 1
-        posted_section_day_slots.setdefault(e.section_id, {}).setdefault(day, []).append(ts_inf)
+        posted_section_day_counts[(e.section_id, day)] = posted_section_day_counts.get((e.section_id, day), 0) + 1
+        posted_section_day_slots.setdefault((e.section_id, day), []).append(ts_inf)
 
-    def choose_available_room(slot_id, room_slots, room_loads):
-        available_rooms = [
-            r_id for r_id in room_ids
-            if slot_id not in room_slots.get(r_id, set())
-        ]
-        if not available_rooms:
-            return None
-
-        return min(
-            available_rooms,
-            key=lambda r_id: (
-                0 if room_floor_by_id.get(r_id, 0) >= HIGH_FLOOR_MIN and room_loads.get(r_id, 0) < ROOM_BOOKING_TARGET else
-                1 if room_loads.get(r_id, 0) < ROOM_BOOKING_TARGET else
-                2,
-                room_loads.get(r_id, 0),
-                -room_floor_by_id.get(r_id, 0),
-                room_name_by_id.get(r_id, ""),
-            ),
-        )
-
-    def assign_room(slot_id, room_slots, room_loads):
-        room_id = choose_available_room(slot_id, room_slots, room_loads)
-        if room_id is None:
-            return None
-
-        room_slots.setdefault(room_id, set()).add(slot_id)
-        room_loads[room_id] = room_loads.get(room_id, 0) + 1
-        return room_id
-
-    slot_room_capacity = {}
-    for slot_id in timeslot_info:
+    slot_room_capacity = [num_rooms] * num_timeslots
+    for slot_idx in range(num_timeslots):
         posted_room_count = sum(
-            1 for r_id in room_ids
-            if slot_id in posted_room_slots.get(r_id, set())
+            1 for r_idx in range(num_rooms)
+            if (r_idx, slot_idx) in posted_room_slots_set
         )
-        slot_room_capacity[slot_id] = max(0, len(room_ids) - posted_room_count)
+        slot_room_capacity[slot_idx] = max(0, num_rooms - posted_room_count)
 
-    def group_room_demand(group_idx):
-        return len(preprocessed_groups[group_idx]["sections"])
+    group_room_demands = [len(g["sections"]) for g in preprocessed_groups]
 
     def get_slot_room_demand(individual, exclude_group_idx=None):
-        demand_by_slot = {}
-        for group_idx, slot_id in enumerate(individual):
-            if group_idx == exclude_group_idx or slot_id is None:
+        demand_by_slot = [0] * num_timeslots
+        for group_idx, slot_idx in enumerate(individual):
+            if group_idx == exclude_group_idx or slot_idx is None:
                 continue
-            if group_idx >= len(preprocessed_groups):
-                continue
-            demand_by_slot[slot_id] = demand_by_slot.get(slot_id, 0) + group_room_demand(group_idx)
+            demand_by_slot[slot_idx] += group_room_demands[group_idx]
         return demand_by_slot
 
     def get_capacity_safe_slots(group_idx, candidate_slots, current_individual=None):
         demand_by_slot = get_slot_room_demand(current_individual or [], exclude_group_idx=group_idx)
-        group_demand = group_room_demand(group_idx)
+        group_demand = group_room_demands[group_idx]
         return [
-            slot_id for slot_id in candidate_slots
-            if slot_room_capacity.get(slot_id, len(room_ids)) - demand_by_slot.get(slot_id, 0) >= group_demand
+            slot_idx for slot_idx in candidate_slots
+            if slot_room_capacity[slot_idx] - demand_by_slot[slot_idx] >= group_demand
         ]
 
     def choose_capacity_balanced_slot(group_idx, candidate_slots, current_individual=None):
@@ -441,12 +443,12 @@ def generate_exam_schedule(db: Session, start_date: date, end_date: date = None,
             return None
 
         demand_by_slot = get_slot_room_demand(current_individual or [], exclude_group_idx=group_idx)
-        group_demand = group_room_demand(group_idx)
+        group_demand = group_room_demands[group_idx]
         return max(
             candidate_slots,
-            key=lambda slot_id: (
-                slot_room_capacity.get(slot_id, len(room_ids)) - demand_by_slot.get(slot_id, 0) - group_demand,
-                -demand_by_slot.get(slot_id, 0),
+            key=lambda slot_idx: (
+                slot_room_capacity[slot_idx] - demand_by_slot[slot_idx] - group_demand,
+                -demand_by_slot[slot_idx],
                 random.random(),
             ),
         )
@@ -461,24 +463,24 @@ def generate_exam_schedule(db: Session, start_date: date, end_date: date = None,
         if current_individual is not None:
             used_slots = set()
             my_sec_ids = group["section_ids_set"]
-            for i, slot_id in enumerate(current_individual):
-                if i == group_idx:
+            for i, slot_idx in enumerate(current_individual):
+                if i == group_idx or slot_idx is None:
                     continue
                 other_sec_ids = preprocessed_groups[i]["section_ids_set"]
                 if my_sec_ids.intersection(other_sec_ids):
-                    used_slots.add(slot_id)
+                    used_slots.add(slot_idx)
                     
             free_slots = [s for s in group["allowed_slots"] if s not in used_slots]
             candidate_slots = free_slots or group["allowed_slots"]
         else:
             candidate_slots = group["allowed_slots"]
         capacity_slots = get_capacity_safe_slots(group_idx, candidate_slots, current_individual)
-        slot_id = choose_capacity_balanced_slot(
+        slot_idx = choose_capacity_balanced_slot(
             group_idx,
             capacity_slots or candidate_slots,
             current_individual,
         )
-        return slot_id
+        return slot_idx
 
     def create_individual():
         ind = []
@@ -490,42 +492,78 @@ def generate_exam_schedule(db: Session, start_date: date, end_date: date = None,
     def copy_individual(ind):
         return list(ind)
 
+    # Precompute static penalties for sections not in active_run_sections
+    active_run_sections = {sec_id for g in preprocessed_groups for sec_id in g["section_ids_set"]}
+    posted_sec_ids = {k[0] for k in posted_section_day_slots.keys()}
+    
+    static_penalty = 0
+    for sec_id in posted_sec_ids:
+        if sec_id in active_run_sections:
+            continue
+        
+        day_slots_map = {}
+        for (s_id, day), slots in posted_section_day_slots.items():
+            if s_id == sec_id:
+                day_slots_map[day] = slots
+                
+        total_section_exams = sum(len(slots) for slots in day_slots_map.values())
+        for day, slots in day_slots_map.items():
+            num_exams = len(slots)
+            total_subjects = subjects_per_section.get(sec_id, 0)
+            if total_subjects >= 8:
+                if num_exams < 3:
+                    static_penalty -= 10000
+                elif num_exams > 4:
+                    static_penalty -= 10000
+            else:
+                if total_section_exams >= 2 and num_exams == 1:
+                    static_penalty -= 10000
+                elif num_exams > 3:
+                    static_penalty -= 10000
+            
+            if num_exams >= 2:
+                sorted_slots = sorted(slots, key=lambda s: s["start_m"])
+                for i in range(len(sorted_slots) - 1):
+                    gap_minutes = sorted_slots[i+1]["start_m"] - sorted_slots[i]["end_m"]
+                    if gap_minutes > 90:
+                        static_penalty -= 15000
+
     def fitness(individual):
-        score = 0
+        score = static_penalty
         
         # Group individuals by timeslot to process allocations sequentially
         slot_allocations = {}
-        for idx, slot_id in enumerate(individual):
-            slot_allocations.setdefault(slot_id, []).append(idx)
-        for slot_id, group_indices in slot_allocations.items():
-            room_demand = sum(group_room_demand(group_idx) for group_idx in group_indices)
-            room_capacity = slot_room_capacity.get(slot_id, len(room_ids))
+        for idx, slot_idx in enumerate(individual):
+            if slot_idx is not None:
+                slot_allocations.setdefault(slot_idx, []).append(idx)
+                
+        for slot_idx, group_indices in slot_allocations.items():
+            room_demand = sum(group_room_demands[group_idx] for group_idx in group_indices)
+            room_capacity = slot_room_capacity[slot_idx]
             if room_demand > room_capacity:
                 score -= (room_demand - room_capacity) * 2000000
             else:
                 score += (room_capacity - room_demand) * 25
              
-        proctor_counts = dict(posted_proctor_counts_init)
+        proctor_counts = list(posted_proctor_counts_init)
         
-        # Deep/shallow copies of precomputed values
-        section_slots = {k: set(v) for k, v in posted_section_slots.items()}
-        room_slots = {k: set(v) for k, v in posted_room_slots.items()}
-        room_loads = dict(posted_room_loads_init)
-        proctor_slots = {k: set(v) for k, v in posted_proctor_slots.items()}
-        section_day_counts = {k: dict(v) for k, v in posted_section_day_counts.items()}
-        section_day_slots = {k: {day: list(slots) for day, slots in days.items()} for k, days in posted_section_day_slots.items()}
+        section_slots_set = set()
+        room_slots_set = set()
+        room_loads = list(posted_room_loads_init)
+        proctor_slots_set = set()
+        section_day_counts = {}
+        section_day_slots = {}
         
-        # Tracking Day 2 Afternoon major exams per section
         section_day2_major_counts = {}
         
         # Process timeslot allocations
-        for slot_id, group_indices in slot_allocations.items():
-            ts_inf = timeslot_info[slot_id]
+        for slot_idx, group_indices in slot_allocations.items():
+            ts_inf = timeslot_info_list[slot_idx]
             day = ts_inf["date"]
             day_num = ts_inf["day_num"]
             is_morning = ts_inf["is_morning"]
             
-            # Flatten all section/exam requirements for this slot_id
+            # Flatten all section/exam requirements for this slot_idx
             slot_exams = []
             for g_idx in group_indices:
                 group = preprocessed_groups[g_idx]
@@ -533,7 +571,7 @@ def generate_exam_schedule(db: Session, start_date: date, end_date: date = None,
                     slot_exams.append({
                         "g_idx": g_idx,
                         "prep_sec": prep_sec,
-                        "candidates": group["slot_proctors"][slot_id][prep_sec["idx_in_g"]]
+                        "candidates": group["slot_proctors"][slot_idx][prep_sec["idx_in_g"]]
                     })
             
             # Assign proctors greedily (sort by constraints, most restricted first)
@@ -550,46 +588,75 @@ def generate_exam_schedule(db: Session, start_date: date, end_date: date = None,
                 
                 # Track Day 2 Afternoon majors
                 if classification == "MAJOR" and day_num == 2 and not is_morning:
-                    section_day2_major_counts.setdefault(sec_id, 0)
-                    section_day2_major_counts[sec_id] += 1
+                    section_day2_major_counts[sec_id] = section_day2_major_counts.get(sec_id, 0) + 1
                 
                 # Section overlap
-                if slot_id in section_slots.get(sec_id, set()):
+                if (sec_id, slot_idx) in section_slots_set or (sec_id, slot_idx) in posted_section_slots_set:
                     score -= 500000
                 else:
-                    section_slots.setdefault(sec_id, set()).add(slot_id)
+                    section_slots_set.add((sec_id, slot_idx))
                     
                 # Max exams per day
-                d_count = section_day_counts.setdefault(sec_id, {}).get(day, 0) + 1
-                section_day_counts[sec_id][day] = d_count
+                d_key = (sec_id, day)
+                d_count = section_day_counts.get(d_key, 0)
+                if d_count == 0:
+                    d_count = posted_section_day_counts.get(d_key, 0)
+                d_count += 1
+                section_day_counts[d_key] = d_count
+                
                 limit = 4 if prep_sec["subjects_per_section"] >= 8 else 3
                 if d_count > limit:
                     score -= 20000
                     
                 # Collect slot per section per day
-                section_day_slots.setdefault(sec_id, {}).setdefault(day, []).append(ts_inf)
+                section_day_slots.setdefault(d_key, []).append(ts_inf)
                 
-                r_id = assign_room(slot_id, room_slots, room_loads)
-                if not r_id:
+                # Inline highly-optimized room selection
+                best_room_idx = -1
+                best_val = (3, 99999, 99999, "")  # Prio, load, -floor, name
+                for r_idx in range(num_rooms):
+                    if (r_idx, slot_idx) in room_slots_set or (r_idx, slot_idx) in posted_room_slots_set:
+                        continue
+                    
+                    load = room_loads[r_idx]
+                    floor = room_floors[r_idx]
+                    
+                    if floor >= HIGH_FLOOR_MIN and load < ROOM_BOOKING_TARGET:
+                        prio = 0
+                    elif load < ROOM_BOOKING_TARGET:
+                        prio = 1
+                    else:
+                        prio = 2
+                        
+                    val = (prio, load, -floor, room_names[r_idx])
+                    if val < best_val:
+                        best_val = val
+                        best_room_idx = r_idx
+                        
+                r_idx = best_room_idx
+                if r_idx != -1:
+                    room_slots_set.add((r_idx, slot_idx))
+                    room_loads[r_idx] += 1
+                else:
                     score -= 1000000  # Strong penalty because roomless exams require admin repair.
                 
                 # Greedy Proctor Assignment
-                p_id = None
+                p_idx = -1
                 best_count = 99999
-                for pid in exam["candidates"]:
-                    if slot_id in proctor_slots.get(pid, set()) or pid in assigned_proctors_in_slot:
+                for pidx in exam["candidates"]:
+                    if (pidx, slot_idx) in proctor_slots_set or (pidx, slot_idx) in posted_proctor_slots_set or pidx in assigned_proctors_in_slot:
                         continue
-                    if proctor_counts[pid] >= proctor_data[pid]["max_assignments"]:
+                    if proctor_counts[pidx] >= proctor_max_assignments[pidx]:
                         continue
-                    if proctor_counts[pid] < best_count:
-                        best_count = proctor_counts[pid]
-                        p_id = pid
+                    if proctor_counts[pidx] < best_count:
+                        best_count = proctor_counts[pidx]
+                        p_idx = pidx
                         
-                if p_id:
-                    proctor_slots.setdefault(p_id, set()).add(slot_id)
-                    assigned_proctors_in_slot.add(p_id)
-                    proctor_counts[p_id] += 1
-                    if proctor_counts[p_id] > proctor_data[p_id]["max_assignments"]:
+                if p_idx != -1:
+                    proctor_slots_set.add((p_idx, slot_idx))
+                    assigned_proctors_in_slot.add(p_idx)
+                    proctor_counts[p_idx] += 1
+                    if proctor_counts[p_idx] > proctor_max_assignments[p_idx]:
                         score -= 10000
                     score += 50
                 else:
@@ -601,22 +668,40 @@ def generate_exam_schedule(db: Session, start_date: date, end_date: date = None,
                 score -= 10000
 
         # Reward for spreading exams
-        for sec_id, days in section_day_counts.items():
-            if len(days) >= 3:
+        active_days_by_sec = {}
+        for sec_id in active_run_sections:
+            for (posted_sec_id, day) in posted_section_day_counts.keys():
+                if posted_sec_id == sec_id:
+                    active_days_by_sec.setdefault(sec_id, set()).add(day)
+        for (sec_id, day) in section_day_counts.keys():
+            active_days_by_sec.setdefault(sec_id, set()).add(day)
+            
+        for sec_id, days_set in active_days_by_sec.items():
+            if len(days_set) >= 3:
                 score += 1000
 
         # Check daily counts and gap limits for each section
-        for sec_id, day_slots_map in section_day_slots.items():
-            total_section_exams = sum(len(slots) for slots in day_slots_map.values())
-            for day, slots in day_slots_map.items():
+        for sec_id in active_run_sections:
+            new_days = {day for (s_id, day) in section_day_slots.keys() if s_id == sec_id}
+            posted_days = {day for (s_id, day) in posted_section_day_slots.keys() if s_id == sec_id}
+            all_days = new_days | posted_days
+            
+            total_section_exams = 0
+            for day in all_days:
+                new_slots = section_day_slots.get((sec_id, day), [])
+                posted_slots = posted_section_day_slots.get((sec_id, day), [])
+                total_section_exams += len(new_slots) + len(posted_slots)
+                
+            for day in all_days:
+                new_slots = section_day_slots.get((sec_id, day), [])
+                posted_slots = posted_section_day_slots.get((sec_id, day), [])
+                slots = new_slots + posted_slots
                 num_exams = len(slots)
                 
                 # Constraint 1: Validate daily exam counts per section/student
                 total_subjects = subjects_per_section.get(sec_id, 0)
                 if total_subjects >= 8:
-                    if num_exams < 3:
-                        score -= 10000
-                    elif num_exams > 4:
+                    if num_exams < 3 or num_exams > 4:
                         score -= 10000
                 else:
                     if total_section_exams >= 2 and num_exams == 1:
@@ -634,43 +719,43 @@ def generate_exam_schedule(db: Session, start_date: date, end_date: date = None,
 
         return score
 
-    def group_has_section_conflict(individual, group_idx, target_slot_id):
+    def group_has_section_conflict(individual, group_idx, target_slot_idx):
         section_ids = preprocessed_groups[group_idx]["section_ids_set"]
         for sec_id in section_ids:
-            if target_slot_id in posted_section_slots.get(sec_id, set()):
+            if (sec_id, target_slot_idx) in posted_section_slots_set:
                 return True
 
-        for other_idx, other_slot_id in enumerate(individual):
-            if other_idx == group_idx or other_slot_id != target_slot_id:
+        for other_idx, other_slot_idx in enumerate(individual):
+            if other_idx == group_idx or other_slot_idx != target_slot_idx:
                 continue
             if section_ids.intersection(preprocessed_groups[other_idx]["section_ids_set"]):
                 return True
 
         return False
 
-    def find_room_repair_target(individual, demand_by_slot, group_idx, current_slot_id):
+    def find_room_repair_target(individual, demand_by_slot, group_idx, current_slot_idx):
         group = preprocessed_groups[group_idx]
-        demand = group_room_demand(group_idx)
+        demand = group_room_demands[group_idx]
         candidates = []
 
-        for slot_id in group["allowed_slots"]:
-            if slot_id == current_slot_id:
+        for slot_idx in group["allowed_slots"]:
+            if slot_idx == current_slot_idx:
                 continue
-            if group_has_section_conflict(individual, group_idx, slot_id):
+            if group_has_section_conflict(individual, group_idx, slot_idx):
                 continue
 
-            remaining_capacity = slot_room_capacity.get(slot_id, len(room_ids)) - demand_by_slot.get(slot_id, 0)
+            remaining_capacity = slot_room_capacity[slot_idx] - demand_by_slot[slot_idx]
             if remaining_capacity < demand:
                 continue
 
-            target_info = timeslot_info[slot_id]
-            current_info = timeslot_info[current_slot_id]
+            target_info = timeslot_info_list[slot_idx]
+            current_info = timeslot_info_list[current_slot_idx]
             candidates.append((
                 0 if target_info["date"] == current_info["date"] else 1,
                 -remaining_capacity,
                 target_info["date"],
                 target_info["start_time"],
-                slot_id,
+                slot_idx,
             ))
 
         if not candidates:
@@ -687,25 +772,25 @@ def generate_exam_schedule(db: Session, start_date: date, end_date: date = None,
         for _ in range(max_passes):
             demand_by_slot = get_slot_room_demand(repaired)
             overflows = [
-                (slot_id, demand - slot_room_capacity.get(slot_id, len(room_ids)))
-                for slot_id, demand in demand_by_slot.items()
-                if demand > slot_room_capacity.get(slot_id, len(room_ids))
+                (slot_idx, demand - slot_room_capacity[slot_idx])
+                for slot_idx, demand in enumerate(demand_by_slot)
+                if demand > slot_room_capacity[slot_idx]
             ]
             if not overflows:
                 return repaired, moves, []
 
             moved = False
-            for slot_id, _overflow in sorted(overflows, key=lambda item: item[1], reverse=True):
-                group_indices = [idx for idx, assigned_slot in enumerate(repaired) if assigned_slot == slot_id]
-                group_indices.sort(key=lambda idx: (len(preprocessed_groups[idx]["allowed_slots"]), -group_room_demand(idx)))
+            for slot_idx, _overflow in sorted(overflows, key=lambda item: item[1], reverse=True):
+                group_indices = [idx for idx, assigned_slot in enumerate(repaired) if assigned_slot == slot_idx]
+                group_indices.sort(key=lambda idx: (len(preprocessed_groups[idx]["allowed_slots"]), -group_room_demands[idx]))
 
                 for group_idx in group_indices:
-                    target_slot_id = find_room_repair_target(repaired, demand_by_slot, group_idx, slot_id)
-                    if not target_slot_id:
+                    target_slot_idx = find_room_repair_target(repaired, demand_by_slot, group_idx, slot_idx)
+                    if not target_slot_idx:
                         continue
 
-                    repaired[group_idx] = target_slot_id
-                    moves.append((group_idx, slot_id, target_slot_id))
+                    repaired[group_idx] = target_slot_idx
+                    moves.append((group_idx, slot_idx, target_slot_idx))
                     moved = True
                     break
 
@@ -717,9 +802,9 @@ def generate_exam_schedule(db: Session, start_date: date, end_date: date = None,
 
         demand_by_slot = get_slot_room_demand(repaired)
         overflows = [
-            (slot_id, demand - slot_room_capacity.get(slot_id, len(room_ids)))
-            for slot_id, demand in demand_by_slot.items()
-            if demand > slot_room_capacity.get(slot_id, len(room_ids))
+            (slot_idx, demand - slot_room_capacity[slot_idx])
+            for slot_idx, demand in enumerate(demand_by_slot)
+            if demand > slot_room_capacity[slot_idx]
         ]
         return repaired, moves, overflows
 
@@ -727,7 +812,7 @@ def generate_exam_schedule(db: Session, start_date: date, end_date: date = None,
         assigned = [None] * len(preprocessed_groups)
         group_order = sorted(
             range(len(preprocessed_groups)),
-            key=lambda idx: (len(preprocessed_groups[idx]["allowed_slots"]), -group_room_demand(idx)),
+            key=lambda idx: (len(preprocessed_groups[idx]["allowed_slots"]), -group_room_demands[idx]),
         )
 
         for group_idx in group_order:
@@ -735,16 +820,16 @@ def generate_exam_schedule(db: Session, start_date: date, end_date: date = None,
             preferred_slot = seed_individual[group_idx] if seed_individual else None
             candidate_slots = list(group["allowed_slots"])
             candidate_slots.sort(
-                key=lambda slot_id: (
-                    0 if slot_id == preferred_slot else 1,
-                    timeslot_info[slot_id]["date"],
-                    timeslot_info[slot_id]["start_time"],
+                key=lambda slot_idx: (
+                    0 if slot_idx == preferred_slot else 1,
+                    timeslot_info_list[slot_idx]["date"],
+                    timeslot_info_list[slot_idx]["start_time"],
                 )
             )
 
             non_conflicting_slots = [
-                slot_id for slot_id in candidate_slots
-                if not group_has_section_conflict(assigned, group_idx, slot_id)
+                slot_idx for slot_idx in candidate_slots
+                if not group_has_section_conflict(assigned, group_idx, slot_idx)
             ]
             capacity_slots = get_capacity_safe_slots(group_idx, non_conflicting_slots, assigned)
             chosen_slot = choose_capacity_balanced_slot(group_idx, capacity_slots, assigned)
@@ -753,8 +838,8 @@ def generate_exam_schedule(db: Session, start_date: date, end_date: date = None,
                 chosen_slot = choose_capacity_balanced_slot(group_idx, non_conflicting_slots, assigned)
             if chosen_slot is None:
                 all_non_conflicting_slots = [
-                    slot_id for slot_id in generated_timeslot_ids
-                    if not group_has_section_conflict(assigned, group_idx, slot_id)
+                    slot_idx for slot_idx in range(num_timeslots)
+                    if not group_has_section_conflict(assigned, group_idx, slot_idx)
                 ]
                 all_capacity_slots = get_capacity_safe_slots(group_idx, all_non_conflicting_slots, assigned)
                 chosen_slot = choose_capacity_balanced_slot(group_idx, all_capacity_slots, assigned)
@@ -796,13 +881,13 @@ def generate_exam_schedule(db: Session, start_date: date, end_date: date = None,
             
             t3 = random.choice(pop_fitness)
             t4 = random.choice(pop_fitness)
-            parent2 = t3[0] if t3[1] > t4[1] else t4[0]
+            parent2 = t3[0] if t3[1] > t4[1] else t3[0]
             
             # Crossover (Uniform)
             child = []
             for i in range(len(preprocessed_groups)):
-                slot_id = parent1[i] if random.random() < 0.5 else parent2[i]
-                child.append(slot_id)
+                slot_idx = parent1[i] if random.random() < 0.5 else parent2[i]
+                child.append(slot_idx)
                     
             # Mutation
             for i in range(len(preprocessed_groups)):
@@ -819,8 +904,8 @@ def generate_exam_schedule(db: Session, start_date: date, end_date: date = None,
             print(f"[SCHEDULER] Room capacity repair moved {len(room_repair_moves)} subject group(s) to open slots.")
         if room_overflows:
             overflow_details = []
-            for slot_id, overflow_count in room_overflows[:5]:
-                ts_inf = timeslot_info[slot_id]
+            for slot_idx, overflow_count in room_overflows[:5]:
+                ts_inf = timeslot_info_list[slot_idx]
                 overflow_details.append(
                     f"{ts_inf['date']} {ts_inf['start_time'].strftime('%I:%M %p')} (+{overflow_count})"
                 )
@@ -837,19 +922,19 @@ def generate_exam_schedule(db: Session, start_date: date, end_date: date = None,
     # Print breakdown of best individual
     report_progress(88, "Validating schedule", "Checking the best generated timetable")
     if best_individual:
-        # Reconstruct exactly as done in fitness to print final metrics
         slot_allocations = {}
-        for idx, slot_id in enumerate(best_individual):
-            slot_allocations.setdefault(slot_id, []).append(idx)
+        for idx, slot_idx in enumerate(best_individual):
+            if slot_idx is not None:
+                slot_allocations.setdefault(slot_idx, []).append(idx)
             
-        proctor_counts = dict(posted_proctor_counts_init)
+        proctor_counts = list(posted_proctor_counts_init)
         
-        section_slots = {k: set(v) for k, v in posted_section_slots.items()}
-        room_slots = {k: set(v) for k, v in posted_room_slots.items()}
-        room_loads = dict(posted_room_loads_init)
-        proctor_slots = {k: set(v) for k, v in posted_proctor_slots.items()}
-        section_day_counts = {k: dict(v) for k, v in posted_section_day_counts.items()}
-        section_day_slots = {k: {day: list(slots) for day, slots in days.items()} for k, days in posted_section_day_slots.items()}
+        section_slots_set = set()
+        room_slots_set = set(posted_room_slots_set)
+        room_loads = list(posted_room_loads_init)
+        proctor_slots_set = set(posted_proctor_slots_set)
+        section_day_counts = {}
+        section_day_slots = {}
         section_day2_major_counts = {}
         
         sec_overlap = 0
@@ -860,8 +945,8 @@ def generate_exam_schedule(db: Session, start_date: date, end_date: date = None,
         daily_viol = 0
         gap_viol = 0
         
-        for slot_id, group_indices in slot_allocations.items():
-            ts_inf = timeslot_info[slot_id]
+        for slot_idx, group_indices in slot_allocations.items():
+            ts_inf = timeslot_info_list[slot_idx]
             day = ts_inf["date"]
             day_num = ts_inf["day_num"]
             is_morning = ts_inf["is_morning"]
@@ -873,7 +958,7 @@ def generate_exam_schedule(db: Session, start_date: date, end_date: date = None,
                     slot_exams.append({
                         "g_idx": g_idx,
                         "prep_sec": prep_sec,
-                        "candidates": group["slot_proctors"][slot_id][prep_sec["idx_in_g"]]
+                        "candidates": group["slot_proctors"][slot_idx][prep_sec["idx_in_g"]]
                     })
                     
             slot_exams.sort(key=lambda x: len(x["candidates"]))
@@ -890,45 +975,93 @@ def generate_exam_schedule(db: Session, start_date: date, end_date: date = None,
                     section_day2_major_counts.setdefault(sec_id, 0)
                     section_day2_major_counts[sec_id] += 1
                 
-                if slot_id in section_slots.get(sec_id, set()):
+                if (sec_id, slot_idx) in section_slots_set or (sec_id, slot_idx) in posted_section_slots_set:
                     sec_overlap += 1
                 else:
-                    section_slots.setdefault(sec_id, set()).add(slot_id)
+                    section_slots_set.add((sec_id, slot_idx))
                     
-                d_count = section_day_counts.setdefault(sec_id, {}).get(day, 0) + 1
-                section_day_counts[sec_id][day] = d_count
+                d_key = (sec_id, day)
+                d_count = section_day_counts.get(d_key, 0)
+                if d_count == 0:
+                    d_count = posted_section_day_counts.get(d_key, 0)
+                d_count += 1
+                section_day_counts[d_key] = d_count
+                
                 limit = 4 if prep_sec["subjects_per_section"] >= 8 else 3
                 if d_count > limit:
                     sec_limit += 1
                     
-                section_day_slots.setdefault(sec_id, {}).setdefault(day, []).append(ts_inf)
+                section_day_slots.setdefault(d_key, []).append(ts_inf)
                 
-                r_id = assign_room(slot_id, room_slots, room_loads)
-                if not r_id:
+                # Room selection (mock/run assignment for metrics)
+                best_room_idx = -1
+                best_val = (3, 99999, 99999, "")
+                for r_idx in range(num_rooms):
+                    if (r_idx, slot_idx) in room_slots_set:
+                        continue
+                    load = room_loads[r_idx]
+                    floor = room_floors[r_idx]
+                    if floor >= HIGH_FLOOR_MIN and load < ROOM_BOOKING_TARGET:
+                        prio = 0
+                    elif load < ROOM_BOOKING_TARGET:
+                        prio = 1
+                    else:
+                        prio = 2
+                    val = (prio, load, -floor, room_names[r_idx])
+                    if val < best_val:
+                        best_val = val
+                        best_room_idx = r_idx
+                        
+                r_idx = best_room_idx
+                if r_idx != -1:
+                    room_slots_set.add((r_idx, slot_idx))
+                    room_loads[r_idx] += 1
+                else:
                     room_overlap += 1
                 
-                p_id = None
+                p_idx = -1
                 best_count = 99999
-                for pid in exam["candidates"]:
-                    if slot_id in proctor_slots.get(pid, set()) or pid in assigned_proctors_in_slot:
+                for pidx in exam["candidates"]:
+                    if (pidx, slot_idx) in proctor_slots_set or pidx in assigned_proctors_in_slot:
                         continue
-                    if proctor_counts[pid] >= proctor_data[pid]["max_assignments"]:
+                    if proctor_counts[pidx] >= proctor_max_assignments[pidx]:
                         continue
-                    if proctor_counts[pid] < best_count:
-                        best_count = proctor_counts[pid]
-                        p_id = pid
+                    if proctor_counts[pidx] < best_count:
+                        best_count = proctor_counts[pidx]
+                        p_idx = pidx
                         
-                if p_id:
-                    proctor_slots.setdefault(p_id, set()).add(slot_id)
-                    assigned_proctors_in_slot.add(p_id)
-                    proctor_counts[p_id] += 1
-                    if proctor_counts[p_id] > proctor_data[p_id]["max_assignments"]:
+                if p_idx != -1:
+                    proctor_slots_set.add((p_idx, slot_idx))
+                    assigned_proctors_in_slot.add(p_idx)
+                    proctor_counts[p_idx] += 1
+                    if proctor_counts[p_idx] > proctor_max_assignments[p_idx]:
                         proc_limit += 1
-                        
-        for sec_id, day_slots_map in section_day_slots.items():
-            total_section_exams = sum(len(slots) for slots in day_slots_map.values())
-            for day, slots in day_slots_map.items():
+
+        active_days_by_sec = {}
+        for sec_id in active_run_sections:
+            for (posted_sec_id, day) in posted_section_day_counts.keys():
+                if posted_sec_id == sec_id:
+                    active_days_by_sec.setdefault(sec_id, set()).add(day)
+        for (sec_id, day) in section_day_counts.keys():
+            active_days_by_sec.setdefault(sec_id, set()).add(day)
+
+        for sec_id in active_run_sections:
+            new_days = {day for (s_id, day) in section_day_slots.keys() if s_id == sec_id}
+            posted_days = {day for (s_id, day) in posted_section_day_slots.keys() if s_id == sec_id}
+            all_days = new_days | posted_days
+            
+            total_section_exams = 0
+            for day in all_days:
+                new_slots = section_day_slots.get((sec_id, day), [])
+                posted_slots = posted_section_day_slots.get((sec_id, day), [])
+                total_section_exams += len(new_slots) + len(posted_slots)
+                
+            for day in all_days:
+                new_slots = section_day_slots.get((sec_id, day), [])
+                posted_slots = posted_section_day_slots.get((sec_id, day), [])
+                slots = new_slots + posted_slots
                 num_exams = len(slots)
+                
                 total_subjects = subjects_per_section.get(sec_id, 0)
                 if total_subjects >= 8:
                     if num_exams < 3 or num_exams > 4:
@@ -966,96 +1099,129 @@ def generate_exam_schedule(db: Session, start_date: date, end_date: date = None,
     assigned_room_count = 0
     
     if best_individual:
-        proctor_counts = dict(posted_proctor_counts_init)
-        room_slots = {k: set(v) for k, v in posted_room_slots.items()}
-        room_loads = dict(posted_room_loads_init)
-        proctor_slots = {k: set(v) for k, v in posted_proctor_slots.items()}
-        section_slots = {k: set(v) for k, v in posted_section_slots.items()}
+        proctor_counts = list(posted_proctor_counts_init)
+        room_slots_set = set(posted_room_slots_set)
+        room_loads = list(posted_room_loads_init)
+        proctor_slots_set = set(posted_proctor_slots_set)
+        section_slots_set = set(posted_section_slots_set)
 
-        def available_room_count(slot_id):
+        def available_room_count(slot_idx):
             return sum(
-                1 for r_id in room_ids
-                if slot_id not in room_slots.get(r_id, set())
+                1 for r_idx in range(num_rooms)
+                if (r_idx, slot_idx) not in room_slots_set
             )
 
-        def target_high_floor_count(slot_id):
+        def target_high_floor_count(slot_idx):
             return sum(
-                1 for r_id in room_ids
+                1 for r_idx in range(num_rooms)
                 if (
-                    slot_id not in room_slots.get(r_id, set())
-                    and room_floor_by_id.get(r_id, 0) >= HIGH_FLOOR_MIN
-                    and room_loads.get(r_id, 0) < ROOM_BOOKING_TARGET
+                    (r_idx, slot_idx) not in room_slots_set
+                    and room_floors[r_idx] >= HIGH_FLOOR_MIN
+                    and room_loads[r_idx] < ROOM_BOOKING_TARGET
                 )
             )
 
-        def group_has_final_section_conflict(group, slot_id):
+        def group_has_final_section_conflict(group, slot_idx):
             return any(
-                slot_id in section_slots.get(sec_id, set())
+                (sec_id, slot_idx) in section_slots_set
                 for sec_id in group["section_ids_set"]
             )
 
-        def pick_group_slot(group_idx, preferred_slot_id):
+        def pick_group_slot(group_idx, preferred_slot_idx):
             group = preprocessed_groups[group_idx]
             candidate_slots = list(dict.fromkeys(
-                [preferred_slot_id] + list(group["allowed_slots"]) + list(generated_timeslot_ids)
+                [preferred_slot_idx] + list(group["allowed_slots"]) + list(timeslot_id_to_idx.values())
             ))
             demand = len(group["sections"])
 
             for require_no_section_conflict in (True, False):
                 room_safe_slots = [
-                    slot_id for slot_id in candidate_slots
-                    if available_room_count(slot_id) >= demand
+                    slot_idx for slot_idx in candidate_slots
+                    if available_room_count(slot_idx) >= demand
                     and (
                         not require_no_section_conflict
-                        or not group_has_final_section_conflict(group, slot_id)
+                        or not group_has_final_section_conflict(group, slot_idx)
                     )
                 ]
                 if room_safe_slots:
                     return max(
                         room_safe_slots,
-                        key=lambda slot_id: (
-                            1 if slot_id == preferred_slot_id else 0,
-                            target_high_floor_count(slot_id),
-                            available_room_count(slot_id),
-                            -timeslot_info[slot_id]["day_num"],
+                        key=lambda slot_idx: (
+                            1 if slot_idx == preferred_slot_idx else 0,
+                            target_high_floor_count(slot_idx),
+                            available_room_count(slot_idx),
+                            -timeslot_info_list[slot_idx]["day_num"],
                         ),
                     )
 
             non_conflicting_slots = [
-                slot_id for slot_id in candidate_slots
-                if not group_has_final_section_conflict(group, slot_id)
+                slot_idx for slot_idx in candidate_slots
+                if not group_has_final_section_conflict(group, slot_idx)
             ]
             fallback_slots = non_conflicting_slots or candidate_slots
             return max(
                 fallback_slots,
-                key=lambda slot_id: (
-                    target_high_floor_count(slot_id),
-                    available_room_count(slot_id),
+                key=lambda slot_idx: (
+                    target_high_floor_count(slot_idx),
+                    available_room_count(slot_idx),
                 ),
             )
 
-        def pick_exam_slot(preferred_slot_id, section_id):
-            candidate_slots = list(dict.fromkeys([preferred_slot_id] + list(generated_timeslot_ids)))
+        def pick_exam_slot(preferred_slot_idx, section_id):
+            candidate_slots = list(dict.fromkeys([preferred_slot_idx] + list(timeslot_id_to_idx.values())))
             room_safe_slots = [
-                slot_id for slot_id in candidate_slots
-                if available_room_count(slot_id) > 0
-                and slot_id not in section_slots.get(section_id, set())
+                slot_idx for slot_idx in candidate_slots
+                if available_room_count(slot_idx) > 0
+                and (section_id, slot_idx) not in section_slots_set
             ]
             if not room_safe_slots:
                 room_safe_slots = [
-                    slot_id for slot_id in candidate_slots
-                    if available_room_count(slot_id) > 0
+                    slot_idx for slot_idx in candidate_slots
+                    if available_room_count(slot_idx) > 0
                 ]
             if not room_safe_slots:
-                return preferred_slot_id
+                return preferred_slot_idx
             return max(
                 room_safe_slots,
-                key=lambda slot_id: (
-                    1 if slot_id == preferred_slot_id else 0,
-                    target_high_floor_count(slot_id),
-                    available_room_count(slot_id),
+                key=lambda slot_idx: (
+                    1 if slot_idx == preferred_slot_idx else 0,
+                    target_high_floor_count(slot_idx),
+                    available_room_count(slot_idx),
                 ),
             )
+
+        def assign_room_idx(slot_idx, preferred_room_id=None):
+            # Try to honour the section's preferred room first
+            if preferred_room_id and preferred_room_id in room_id_to_idx:
+                pref_idx = room_id_to_idx[preferred_room_id]
+                if (pref_idx, slot_idx) not in room_slots_set:
+                    room_slots_set.add((pref_idx, slot_idx))
+                    room_loads[pref_idx] += 1
+                    return room_ids[pref_idx]
+
+            best_room_idx = -1
+            best_val = (3, 99999, 99999, "")
+            for r_idx in range(num_rooms):
+                if (r_idx, slot_idx) in room_slots_set:
+                    continue
+                load = room_loads[r_idx]
+                floor = room_floors[r_idx]
+                if floor >= HIGH_FLOOR_MIN and load < ROOM_BOOKING_TARGET:
+                    prio = 0
+                elif load < ROOM_BOOKING_TARGET:
+                    prio = 1
+                else:
+                    prio = 2
+                val = (prio, load, -floor, room_names[r_idx])
+                if val < best_val:
+                    best_val = val
+                    best_room_idx = r_idx
+            
+            if best_room_idx != -1:
+                room_slots_set.add((best_room_idx, slot_idx))
+                room_loads[best_room_idx] += 1
+                return room_ids[best_room_idx]
+            return None
 
         group_order = sorted(
             range(len(preprocessed_groups)),
@@ -1069,26 +1235,27 @@ def generate_exam_schedule(db: Session, start_date: date, end_date: date = None,
                 report_progress(apply_percent, "Creating exams", f"Applying subject group {group_position} of {total_groups_to_apply}")
 
             group = preprocessed_groups[g_idx]
-            preferred_slot_id = best_individual[g_idx]
-            slot_id = pick_group_slot(g_idx, preferred_slot_id)
+            preferred_slot_idx = best_individual[g_idx]
+            slot_idx = pick_group_slot(g_idx, preferred_slot_idx)
             slot_exams = sorted(
                 group["sections"],
-                key=lambda prep_sec: len(group["slot_proctors"][slot_id][prep_sec["idx_in_g"]])
+                key=lambda prep_sec: len(group["slot_proctors"][slot_idx][prep_sec["idx_in_g"]])
             )
 
             for prep_sec in slot_exams:
                 sec_id = prep_sec["sec_id"]
                 sub_id = prep_sec["sub_id"]
+                pref_room_id = prep_sec.get("preferred_room_id")
                 
-                exam_slot_id = slot_id
-                r_id = assign_room(exam_slot_id, room_slots, room_loads)
+                exam_slot_idx = slot_idx
+                r_id = assign_room_idx(exam_slot_idx, preferred_room_id=pref_room_id)
                 if not r_id:
-                    exam_slot_id = pick_exam_slot(slot_id, sec_id)
-                    r_id = assign_room(exam_slot_id, room_slots, room_loads)
+                    exam_slot_idx = pick_exam_slot(slot_idx, sec_id)
+                    r_id = assign_room_idx(exam_slot_idx, preferred_room_id=pref_room_id)
                 if not r_id:
                     subject_name = prep_sec.get("sub_name") or f"Subject {sub_id}"
                     section_name = prep_sec.get("sec_name") or f"Section {sec_id}"
-                    slot = timeslot_map[exam_slot_id]
+                    slot = timeslot_info_list[exam_slot_idx]["timeslot_obj"]
                     raise ValueError(
                         f"No available room for {subject_name} ({section_name}) on "
                         f"{slot.date.strftime('%A, %B %d, %Y')} "
@@ -1098,22 +1265,23 @@ def generate_exam_schedule(db: Session, start_date: date, end_date: date = None,
 
                 p_id = None
                 best_count = 99999
-                candidates = group["slot_proctors"][exam_slot_id][prep_sec["idx_in_g"]]
-                for pid in candidates:
-                    if exam_slot_id in proctor_slots.get(pid, set()):
+                candidates = group["slot_proctors"][exam_slot_idx][prep_sec["idx_in_g"]]
+                for pidx in candidates:
+                    if (pidx, exam_slot_idx) in proctor_slots_set:
                         continue
-                    if proctor_counts[pid] >= proctor_data[pid]["max_assignments"]:
+                    if proctor_counts[pidx] >= proctor_max_assignments[pidx]:
                         continue
-                    if proctor_counts[pid] < best_count:
-                        best_count = proctor_counts[pid]
-                        p_id = pid
+                    if proctor_counts[pidx] < best_count:
+                        best_count = proctor_counts[pidx]
+                        p_id = proctor_ids[pidx]
                         
                 if p_id:
-                    proctor_slots.setdefault(p_id, set()).add(exam_slot_id)
-                    proctor_counts[p_id] += 1
+                    p_idx = proctor_id_to_idx[p_id]
+                    proctor_slots_set.add((p_idx, exam_slot_idx))
+                    proctor_counts[p_idx] += 1
 
-                section_slots.setdefault(sec_id, set()).add(exam_slot_id)
-                slot = timeslot_map[exam_slot_id]
+                section_slots_set.add((sec_id, exam_slot_idx))
+                slot = timeslot_info_list[exam_slot_idx]["timeslot_obj"]
                 new_exam = Exam(
                     subject_id=sub_id,
                     section_id=sec_id,

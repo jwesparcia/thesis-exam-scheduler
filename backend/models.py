@@ -38,9 +38,12 @@ class Section(Base):
     name = Column(String, index=True)
     course_id = Column(Integer, ForeignKey("courses.id"))
     year_level_id = Column(Integer, ForeignKey("year_levels.id"))
+    preferred_room_id = Column(Integer, ForeignKey("rooms.id"), nullable=True)
+    semester = Column(Integer, nullable=True)  # 1 or 2 for college sections; None for SHS
     
     course = relationship("Course", back_populates="sections")
     year_level = relationship("YearLevel", back_populates="sections")
+    preferred_room = relationship("Room")
 
 class Subject(Base):
     __tablename__ = "subjects"
@@ -62,6 +65,9 @@ class Room(Base):
     __tablename__ = "rooms"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, index=True)
+    building = Column(String, nullable=True)
+    capacity = Column(Integer, nullable=True)
+    department = Column(String, nullable=True)
 
 class Proctor(Base):
     __tablename__ = "proctors"

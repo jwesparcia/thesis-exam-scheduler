@@ -36,9 +36,11 @@ def generate_exam_schedule(payload: dict = Body(...), db: Session = Depends(get_
     total_days = (end_date - start_date).days + 1
 
     # --- Fetch data ---
+    from sqlalchemy import or_
     sections = db.query(Section).filter(
         Section.course_id == course_id,
-        Section.year_level_id == year_level_id
+        Section.year_level_id == year_level_id,
+        or_(Section.semester == semester, Section.semester.is_(None))
     ).all()
     subjects = db.query(Subject).filter(
         Subject.course_id == course_id,
@@ -79,8 +81,8 @@ def generate_exam_schedule(payload: dict = Body(...), db: Session = Depends(get_
     exam_days = []
     day_index = 0
     for subject in subjects:
-        # Skip weekends (Saturday and Sunday)
-        while (start_date + timedelta(days=day_index)).weekday() >= 5:  # 5=Saturday, 6=Sunday
+        # Skip Sunday (6)
+        while (start_date + timedelta(days=day_index)).weekday() == 6:  # 6=Sunday
             day_index += 1
 
         exam_date = start_date + timedelta(days=day_index % total_days)

@@ -13,7 +13,9 @@ import {
   FileSpreadsheet,
   Upload,
   CheckCircle2,
-  X
+  X,
+  Trash2,
+  Loader2
 } from "lucide-react";
 import { useTheme } from "../context/themeStore";
 import { useUser } from "../context/userStore";
@@ -21,6 +23,154 @@ import { useNavigate } from "react-router-dom";
 import { useToast } from "../context/ToastContext";
 import SettingsDropdown from "../components/SettingsDropdown";
 import api from "../api";
+
+function ProctorManual() {
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
+  const [activeSubTab, setActiveSubTab] = useState("supervision");
+
+  const topics = [
+    { id: "supervision", label: "Supervision Duties", icon: CalendarDays },
+    { id: "attendance", label: "Attendance Check-in", icon: UserCheck },
+    { id: "schedule", label: "Teaching Schedule Uploads", icon: FileSpreadsheet },
+  ];
+
+  return (
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className={`p-6 rounded-2xl border ${isDark ? "bg-slate-800/40 border-slate-700" : "bg-gradient-to-r from-blue-500/10 to-indigo-500/10 border-blue-100"}`}>
+        <div className="flex items-center gap-4">
+          <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${isDark ? "bg-blue-500/20 text-blue-300" : "bg-blue-600 text-white shadow-md shadow-blue-500/20"}`}>
+            <BookOpen className="w-6 h-6" />
+          </div>
+          <div>
+            <h2 className={`text-xl font-bold tracking-tight ${isDark ? "text-white" : "text-slate-900"}`}>
+              Proctor Interactive Guide
+            </h2>
+            <p className={`text-sm mt-1 ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+              Understand how to track your assigned sessions, execute exam check-ins, and upload teaching hours to avoid scheduling conflicts.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-2 pb-2 border-b border-slate-200 dark:border-slate-700">
+        {topics.map((t) => {
+          const SubIcon = t.icon;
+          const isSelected = activeSubTab === t.id;
+          return (
+            <button
+              key={t.id}
+              onClick={() => setActiveSubTab(t.id)}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                isSelected
+                  ? isDark 
+                    ? "bg-blue-600 text-white" 
+                    : "bg-blue-600 text-white shadow-md shadow-blue-500/25"
+                  : isDark
+                    ? "text-slate-400 hover:bg-slate-800 hover:text-white"
+                    : "text-slate-600 hover:bg-blue-50 hover:text-blue-700"
+              }`}
+            >
+              <SubIcon className="w-4 h-4" />
+              {t.label}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className={`p-6 md:p-8 rounded-2xl border transition-all ${isDark ? "bg-slate-800/20 border-slate-800" : "bg-white border-slate-200/60"}`}>
+        {activeSubTab === "supervision" && (
+          <div className="space-y-6">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-sm">1</div>
+              <h3 className={`text-lg font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Viewing Supervision Assignments</h3>
+            </div>
+            
+            <p className={`text-sm leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+              The **My Assignments** tab lists all the exam sessions you are scheduled to proctor. Each assignment contains the following details:
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className={`p-4 rounded-xl border ${isDark ? "bg-slate-900/40 border-slate-800" : "bg-slate-50 border-slate-100"}`}>
+                <h4 className={`font-bold text-sm mb-1.5 flex items-center gap-2 ${isDark ? "text-slate-200" : "text-slate-800"}`}>
+                  <Clock className="w-4 h-4 text-blue-500" /> Date & Time
+                </h4>
+                <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                  The exact date and timeslot range (e.g. 7:30 AM - 9:00 AM) of the exam. Make sure to arrive 15 minutes before.
+                </p>
+              </div>
+              <div className={`p-4 rounded-xl border ${isDark ? "bg-slate-900/40 border-slate-800" : "bg-slate-50 border-slate-100"}`}>
+                <h4 className={`font-bold text-sm mb-1.5 flex items-center gap-2 ${isDark ? "text-slate-200" : "text-slate-800"}`}>
+                  <MapPin className="w-4 h-4 text-indigo-500" /> Location / Room
+                </h4>
+                <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                  The room (e.g., Computer Lab 1, Room 403) allocated for the exam. Check seating guidelines for the room.
+                </p>
+              </div>
+              <div className={`p-4 rounded-xl border ${isDark ? "bg-slate-900/40 border-slate-800" : "bg-slate-50 border-slate-100"}`}>
+                <h4 className={`font-bold text-sm mb-1.5 flex items-center gap-2 ${isDark ? "text-slate-200" : "text-slate-800"}`}>
+                  <BookOpen className="w-4 h-4 text-emerald-500" /> Class Info
+                </h4>
+                <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                  The subject code, subject description, and the section (e.g., BSIT 3-201) you will be supervising.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeSubTab === "attendance" && (
+          <div className="space-y-6">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-sm">2</div>
+              <h3 className={`text-lg font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Executing Attendance Check-ins</h3>
+            </div>
+            
+            <p className={`text-sm leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+              To allow administrators to monitor live coverage of exams, you are required to perform a check-in upon arriving at the designated examination room.
+            </p>
+
+            <div className={`p-4 rounded-xl border ${isDark ? "bg-blue-950/20 border-blue-900/40 text-blue-200" : "bg-blue-50 border-blue-100 text-blue-800"} text-xs leading-relaxed`}>
+              <strong className="block text-sm mb-1 font-bold">Check-in Steps:</strong>
+              1. Open the <strong>My Assignments</strong> tab on your dashboard.<br />
+              2. Find the active assignment for the current timeslot.<br />
+              3. Click the <strong>Check In</strong> button. The status badge will change from "Pending" to "Checked In".<br />
+              4. The Program Head will instantly see your updated attendance status on their monitoring board.
+            </div>
+          </div>
+        )}
+
+        {activeSubTab === "schedule" && (
+          <div className="space-y-6">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-sm">3</div>
+              <h3 className={`text-lg font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Teaching Schedule Upload</h3>
+            </div>
+            
+            <p className={`text-sm leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+              Uploading your schedule is crucial to ensure you aren't assigned to proctor during hours when you have classes to teach.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className={`p-4 rounded-xl border ${isDark ? "bg-slate-900/40 border-slate-800" : "bg-slate-50 border-slate-100"}`}>
+                <h4 className={`font-bold text-sm mb-1.5 ${isDark ? "text-slate-200" : "text-slate-800"}`}>How to Upload</h4>
+                <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                  Go to the <strong>My Schedule</strong> tab, select your official faculty load Excel sheet, and click <strong>Confirm Upload</strong>. The system will parse the classrooms, class slots, and automatically block out those slots.
+                </p>
+              </div>
+              <div className={`p-4 rounded-xl border ${isDark ? "bg-slate-900/40 border-slate-800" : "bg-slate-50 border-slate-100"}`}>
+                <h4 className={`font-bold text-sm mb-1.5 ${isDark ? "text-slate-200" : "text-slate-800"}`}>Verification</h4>
+                <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                  After a successful upload, your weekly teaching grid will be displayed underneath. Verify that all timeslots align correctly.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function ProctorDashboard() {
   const { theme } = useTheme();
@@ -38,6 +188,28 @@ export default function ProctorDashboard() {
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [showDeleteScheduleModal, setShowDeleteScheduleModal] = useState(false);
+  const [deletingSchedule, setDeletingSchedule] = useState(false);
+
+  const handleDeleteSchedule = async () => {
+    if (!user?.proctor_id) return;
+    setDeletingSchedule(true);
+    try {
+      const res = await api.delete(`/proctors/${user.proctor_id}/schedule`);
+      if (res.status === 200) {
+        showSuccess(res.data.message || "Schedule deleted successfully!");
+        setMySchedule([]);
+      } else {
+        showError("Failed to delete schedule.");
+      }
+    } catch (err) {
+      console.error(err);
+      showError(err.response?.data?.detail || "Failed to delete schedule. Please try again.");
+    } finally {
+      setDeletingSchedule(false);
+      setShowDeleteScheduleModal(false);
+    }
+  };
 
   const fetchMySchedule = useCallback(async () => {
     if (!user?.teacher_id) return;
@@ -298,6 +470,7 @@ export default function ProctorDashboard() {
           {[
             { id: "assignments", icon: CalendarDays, label: "My Assignments" },
             { id: "schedule", icon: FileSpreadsheet, label: "My Schedule" },
+            { id: "manual", icon: BookOpen, label: "User Manual" },
           ].map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
@@ -347,7 +520,7 @@ export default function ProctorDashboard() {
                 </button>
                 <div className="min-w-0">
                   <h1 className={`text-base sm:text-2xl font-bold tracking-tight transition-colors truncate ${isDark ? "text-white" : "text-slate-900"}`}>
-                    {activeTab === "assignments" ? "My Proctoring Assignments" : activeTab === "schedule" ? "My Teaching Schedule" : activeTab === "notifications" ? "Notifications" : "Settings"}
+                    {activeTab === "assignments" ? "My Proctoring Assignments" : activeTab === "schedule" ? "My Teaching Schedule" : activeTab === "manual" ? "User Manual" : activeTab === "notifications" ? "Notifications" : "Settings"}
                   </h1>
                   <p className={`text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium transition-colors truncate ${isDark ? "text-slate-400" : "text-slate-500"}`}>
                     Welcome back, {user?.name || "Proctor"}
@@ -510,11 +683,20 @@ export default function ProctorDashboard() {
                   mySchedule.forEach(s => { const key = `${s.start_time}|||${s.end_time}|||${s.day_of_week}`; if (!lookup[key]) lookup[key] = []; lookup[key].push(s.subject); });
                   return (
                     <div className="space-y-4">
-                      <div className="flex items-center gap-3 px-2">
-                        <div className={`p-2 rounded-xl ${isDark ? "bg-blue-500/20" : "bg-blue-100"}`}>
-                          <Calendar className={`w-5 h-5 ${isDark ? "text-blue-400" : "text-blue-600"}`} />
+                      <div className="flex items-center justify-between px-2">
+                        <div className="flex items-center gap-3">
+                          <div className={`p-2 rounded-xl ${isDark ? "bg-blue-500/20" : "bg-blue-100"}`}>
+                            <Calendar className={`w-5 h-5 ${isDark ? "text-blue-400" : "text-blue-600"}`} />
+                          </div>
+                          <h3 className={`text-xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Weekly Teaching Schedule</h3>
                         </div>
-                        <h3 className={`text-xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Weekly Teaching Schedule</h3>
+                        <button
+                          onClick={() => setShowDeleteScheduleModal(true)}
+                          className="bg-red-500 hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-700 text-white px-4 py-2.5 rounded-xl shadow-md flex items-center gap-2 transition-all hover:scale-105 active:scale-95 font-bold text-xs"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          Delete My Schedule
+                        </button>
                       </div>
                       <div className={`overflow-x-auto rounded-2xl sm:rounded-3xl border ${isDark ? "bg-slate-800/80 border-slate-700/50 backdrop-blur-xl" : "bg-white/80 border-slate-200 backdrop-blur-xl"} shadow-sm custom-scrollbar`}>
                         <table className="w-full text-xs text-center border-collapse min-w-[720px]">
@@ -546,6 +728,8 @@ export default function ProctorDashboard() {
                   </div>
                 )}
               </div>
+            ) : activeTab === "manual" ? (
+              <ProctorManual />
             ) : exams.length === 0 ? (
               <div className={`text-center py-14 sm:py-24 px-4 rounded-2xl sm:rounded-3xl border-2 border-dashed transition-all animate-in fade-in zoom-in-95 duration-500 ${isDark ? "border-slate-700 bg-slate-800/30" : "border-slate-300 bg-white/50 backdrop-blur-sm"}`}>
                 <div className="max-w-sm mx-auto">
@@ -626,6 +810,48 @@ export default function ProctorDashboard() {
           </div>
         </div>
       </main>
+
+      {/* Delete Schedule Confirmation Modal */}
+      {showDeleteScheduleModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className={`p-8 rounded-3xl shadow-2xl max-w-md w-full transform transition-all scale-100 ${isDark ? "bg-slate-800 border border-slate-700" : "bg-white border border-slate-200"}`}>
+            <div className="flex flex-col items-center text-center">
+              <div className="w-16 h-16 rounded-full flex items-center justify-center mb-6 bg-red-100 dark:bg-red-900/50 shadow-lg shadow-red-200/50 dark:shadow-red-900/20">
+                <Trash2 className="w-8 h-8 text-red-600 dark:text-red-400" />
+              </div>
+              <h3 className={`text-2xl font-bold mb-3 ${isDark ? "text-white" : "text-slate-900"}`}>
+                Delete My Schedule?
+              </h3>
+              <p className={`mb-8 text-sm leading-relaxed ${isDark ? "text-slate-300" : "text-slate-500"}`}>
+                Are you sure you want to delete your uploaded teaching schedule? Doing so will clear all blocked slots and revert to an empty schedule, notifying the administrator. This action is permanent.
+              </p>
+              <div className="flex gap-4 w-full">
+                <button
+                  onClick={() => setShowDeleteScheduleModal(false)}
+                  disabled={deletingSchedule}
+                  className={`flex-1 py-3.5 rounded-xl font-bold transition-all active:scale-95 disabled:opacity-55 ${isDark ? "bg-slate-700 hover:bg-slate-600 text-white" : "bg-slate-100 hover:bg-slate-200 text-slate-800"}`}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteSchedule}
+                  disabled={deletingSchedule}
+                  className="flex-1 py-3.5 rounded-xl font-bold bg-red-600 hover:bg-red-700 text-white transition-all shadow-lg shadow-red-600/30 active:scale-95 disabled:opacity-55 flex items-center justify-center gap-2"
+                >
+                  {deletingSchedule ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Deleting...</span>
+                    </>
+                  ) : (
+                    <span>Yes, Delete</span>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

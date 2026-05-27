@@ -143,7 +143,7 @@ bscs_subjects = {
     2: {1: ["Data Structures and Algorithms", "Discrete Structures 2", "Philippine Popular Culture", "P.E./PATHFIT 3: Individual-Dual Sports", "Readings in Philippine History", "Principles of Communication", "Computer Programming 3", "Rizal's Life and Works"],
         2: ["Design and Analysis of Algorithms", "Information Management", "The Entrepreneurial Mind", "Ethics", "P.E./PATHFIT 4: Team Sports", "Computer Systems Architecture", "Human-Computer Interaction", "Fundamentals of Web Programming", "Great Books"]},
     3: {1: ["Theory of Computations with Automata", "Application Development and Emerging Technologies", "Information Assurance and Security (Cybersecurity Fundamentals)", "Quantitative Methods (Data Analysis)", "Intermediate Web Programming", "Artificial Intelligence", "Software Engineering 1", "Methods of Research"],
-        2: ["Modeling and Simulation", "Game Programming", "Programming Languages", "Computer Organization", "Software Engineering 2", "GE 11", "Advanced Web Programming", "CS Thesis 1"]},
+        2: ["Modeling and Simulation", "Game Programming", "Programming Languages", "Computer Organization", "Software Engineering 2", "Advanced Web Programming", "CS Thesis 1"]},
     4: {1: ["Platform Technology (Operating Systems)", "Network Technology 1", "CS Thesis 2", "Euthenics 2", "Technopreneurship", "Professional Issues in Information Systems and Technology", "Information Assurance and Security (Data Privacy)", "Software Quality Assurance"],
         2: ["CS Practicum (300 hours)"]}
 }
@@ -835,8 +835,7 @@ def classify_subject(name: str):
     practical_keywords = [
         "Physical Education", "National Service Training Program", "Euthenics", 
         "Thesis", "Practicum", "NSTP", "Immersion", "Capstone", "Laboratory",
-        "Cookery", "Production", "3D Modelling", "Video & Audio Production",
-        "Drawing", "Photography", "Animation", "PATHFIT", "P.E."
+        "PATHFIT", "P.E."
     ]
     if any(keyword in name for keyword in practical_keywords):
         exam_type = "practical"
@@ -923,13 +922,27 @@ def generate_subjects(course, year, semester):
 
 for course in courses:
     for year in year_levels:
-        for s in range(1, 5):  # 4 sections
-            section = Section(
-                name=f"{course.name}-{year.id}{chr(64+s)}",
-                course_id=course.id,
-                year_level_id=year.id,
-            )
-            sections.append(section)
+        if course.category == "College" and "Year" in year.name:
+            # College sections: one set per semester, e.g. "BSCS 3-201" (Year 3, Sem 2, Section 01)
+            year_num = year.id  # 1=1st Year, 2=2nd Year, 3=3rd Year, 4=4th Year
+            for sem in [1, 2]:
+                for s in range(1, 5):  # 4 sections per semester
+                    section = Section(
+                        name=f"{course.name} {year_num}-{sem}{s:02d}",
+                        course_id=course.id,
+                        year_level_id=year.id,
+                        semester=sem,
+                    )
+                    sections.append(section)
+        elif course.category != "College" and "Grade" in year.name:
+            # SHS sections keep original format, e.g. "STEM-5A"
+            for s in range(1, 5):
+                section = Section(
+                    name=f"{course.name}-{year.id}{chr(64+s)}",
+                    course_id=course.id,
+                    year_level_id=year.id,
+                )
+                sections.append(section)
 
         # Add subjects for all available semesters (1, 2, and optionally 3 for summer)
         for semester in [1, 2, 3]:
@@ -1054,23 +1067,46 @@ for course in courses:
         relevant_years = [y for y in year_levels if "Year" in y.name]
 
     for year in relevant_years:
-        # Find the first section for this course + year combination
-        section = db.query(Section).filter(
-            Section.course_id == course.id,
-            Section.year_level_id == year.id
-        ).first()
-        
-        if section:
-            email_prefix = f"student_{course.name.lower().replace(' ', '_').replace('-', '_')}_{year.name.lower().replace(' ', '_')}"
-            student_user = User(
-                name=f"Student {course.name} ({year.name})",
-                email=f"{email_prefix}@school.edu",
-                hashed_password=hash_password("student123"),
-                role="student",
-                section_name=section.name,
-            )
-            db.add(student_user)
-            student_count += 1
+        if course.category == "College":
+            # For College, generate one student for Sem 1 and one for Sem 2
+            for sem in [1, 2]:
+                section = db.query(Section).filter(
+                    Section.course_id == course.id,
+                    Section.year_level_id == year.id,
+                    Section.semester == sem
+                ).first()
+                if section:
+                    email_prefix = f"student_{course.name.lower().replace(' ', '_').replace('-', '_')}_{year.name.lower().replace(' ', '_')}"
+                    if sem == 2:
+                        email_prefix += "_sem2"
+                    
+                    student_user = User(
+                        name=f"Student {course.name} ({year.name}) Sem {sem}" if sem == 2 else f"Student {course.name} ({year.name})",
+                        email=f"{email_prefix}@school.edu",
+                        hashed_password=hash_password("student123"),
+                        role="student",
+                        section_name=section.name,
+                    )
+                    db.add(student_user)
+                    student_count += 1
+        else:
+            # For SHS, keep existing logic (single student)
+            section = db.query(Section).filter(
+                Section.course_id == course.id,
+                Section.year_level_id == year.id
+            ).first()
+            
+            if section:
+                email_prefix = f"student_{course.name.lower().replace(' ', '_').replace('-', '_')}_{year.name.lower().replace(' ', '_')}"
+                student_user = User(
+                    name=f"Student {course.name} ({year.name})",
+                    email=f"{email_prefix}@school.edu",
+                    hashed_password=hash_password("student123"),
+                    role="student",
+                    section_name=section.name,
+                )
+                db.add(student_user)
+                student_count += 1
 
 
 db.commit()

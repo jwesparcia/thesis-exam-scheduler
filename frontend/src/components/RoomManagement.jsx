@@ -7,9 +7,11 @@ import {
   Loader2,
   RefreshCw,
   Search,
+  Trash2,
 } from "lucide-react";
 import { useTheme } from "../context/themeStore";
 import { useToast } from "../context/ToastContext";
+import { useUser } from "../context/userStore";
 import api from "../api";
 
 const statusLabels = {
@@ -21,7 +23,10 @@ const statusLabels = {
 export default function RoomManagement() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
-  const { showError } = useToast();
+  const { showError, showSuccess } = useToast();
+  const { user: currentUser } = useUser();
+  const isAdmin = currentUser?.role === "admin" || currentUser?.role === "program_head";
+
   const [department, setDepartment] = useState("College");
   const [semester, setSemester] = useState(1);
   const [scheduleStatus, setScheduleStatus] = useState("all");
@@ -30,6 +35,61 @@ export default function RoomManagement() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [selectedRoomId, setSelectedRoomId] = useState(null);
+
+  // Add room modal states
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newRoomName, setNewRoomName] = useState("");
+  const [newRoomBuilding, setNewRoomBuilding] = useState("B");
+  const [newRoomCapacity, setNewRoomCapacity] = useState(40);
+  const [submitting, setSubmitting] = useState(false);
+
+  // Delete room states
+  const [deleting, setDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  const handleAddRoom = async (e) => {
+    e.preventDefault();
+    if (!newRoomName.trim()) {
+      showError("Room name is required");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await api.post("/exams/rooms", {
+        name: newRoomName.trim(),
+        building: newRoomBuilding,
+        capacity: newRoomCapacity,
+      });
+      showSuccess("Room created successfully!");
+      setShowAddModal(false);
+      setNewRoomName("");
+      setNewRoomBuilding("B");
+      setNewRoomCapacity(40);
+      fetchRoomStatus();
+    } catch (err) {
+      console.error("Failed to create room", err);
+      showError(err.response?.data?.detail || "Failed to create room");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDeleteRoom = async () => {
+    if (!selectedRoomId) return;
+    setDeleting(true);
+    try {
+      await api.delete(`/exams/rooms/${selectedRoomId}`);
+      showSuccess(`Room "${selectedRoom?.name}" deleted successfully!`);
+      setSelectedRoomId(null);
+      setShowDeleteConfirm(false);
+      fetchRoomStatus();
+    } catch (err) {
+      console.error("Failed to delete room", err);
+      showError(err.response?.data?.detail || "Failed to delete room");
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const fetchRoomStatus = async () => {
     setLoading(true);
@@ -53,6 +113,10 @@ export default function RoomManagement() {
   useEffect(() => {
     fetchRoomStatus();
   }, [department, semester, scheduleStatus]);
+
+  useEffect(() => {
+    setShowDeleteConfirm(false);
+  }, [selectedRoomId]);
 
   const rooms = data?.rooms || [];
   const summary = data?.summary || {};
@@ -135,14 +199,24 @@ export default function RoomManagement() {
             <DoorOpen className="w-8 h-8 text-blue-500" />
             <h1 className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}>Room Management</h1>
           </div>
-          <button
-            onClick={fetchRoomStatus}
-            disabled={loading}
-            className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition ${isDark ? "bg-gray-800 text-gray-100 hover:bg-gray-700" : "bg-white text-gray-700 border border-gray-200 hover:bg-gray-50"}`}
-          >
-            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-            Refresh
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={fetchRoomStatus}
+              disabled={loading}
+              className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition ${isDark ? "bg-gray-800 text-gray-100 hover:bg-gray-700" : "bg-white text-gray-700 border border-gray-200 hover:bg-gray-50"}`}
+            >
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+              Refresh
+            </button>
+            {isAdmin && (
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 text-sm font-bold transition shadow-md shadow-blue-500/20"
+              >
+                + Add Room
+              </button>
+            )}
+          </div>
         </div>
 
         <div className={`rounded-2xl border p-5 ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"} shadow-sm`}>
@@ -241,6 +315,7 @@ export default function RoomManagement() {
                   <tr>
                     <th className="px-5 py-3 text-left font-bold">Room</th>
                     <th className="px-5 py-3 text-left font-bold">Building</th>
+                    <th className="px-5 py-3 text-left font-bold">Capacity</th>
                     <th className="px-5 py-3 text-left font-bold">For</th>
                     <th className="px-5 py-3 text-left font-bold">Total Section</th>
                     <th className="px-5 py-3 text-left font-bold">Status</th>
@@ -249,13 +324,13 @@ export default function RoomManagement() {
                 <tbody className={isDark ? "divide-y divide-gray-700" : "divide-y divide-gray-100"}>
                   {loading ? (
                     <tr>
-                      <td colSpan="5" className="px-5 py-12 text-center">
+                      <td colSpan="6" className="px-5 py-12 text-center">
                         <Loader2 className="w-8 h-8 animate-spin text-blue-500 mx-auto" />
                       </td>
                     </tr>
                   ) : filteredRooms.length === 0 ? (
                     <tr>
-                      <td colSpan="5" className={`px-5 py-12 text-center ${isDark ? "text-gray-500" : "text-gray-400"}`}>No rooms found.</td>
+                      <td colSpan="6" className={`px-5 py-12 text-center ${isDark ? "text-gray-500" : "text-gray-400"}`}>No rooms found.</td>
                     </tr>
                   ) : (
                     filteredRooms.map((room) => (
@@ -266,6 +341,7 @@ export default function RoomManagement() {
                       >
                         <td className={`px-5 py-4 font-black ${isDark ? "text-white" : "text-gray-900"}`}>{room.name}</td>
                         <td className={`px-5 py-4 ${isDark ? "text-gray-300" : "text-gray-700"}`}>Building {room.building}</td>
+                        <td className={`px-5 py-4 ${isDark ? "text-gray-300" : "text-gray-700"}`}>{room.capacity} seats</td>
                         <td className={`px-5 py-4 ${isDark ? "text-gray-300" : "text-gray-700"}`}>{room.department}</td>
                         <td className={`px-5 py-4 ${isDark ? "text-gray-300" : "text-gray-700"}`}>{room.booking_count}</td>
                         <td className="px-5 py-4">
@@ -293,10 +369,14 @@ export default function RoomManagement() {
                 </div>
 
                 <div className={`mt-5 rounded-xl border p-4 ${isDark ? "border-gray-700 bg-gray-900/40" : "border-gray-100 bg-gray-50"}`}>
-                  <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div className="grid grid-cols-3 gap-4 text-sm">
                     <div>
                       <p className={isDark ? "text-gray-500" : "text-gray-400"}>Building</p>
                       <p className={`font-bold ${isDark ? "text-gray-100" : "text-gray-800"}`}>{selectedRoom.building}</p>
+                    </div>
+                    <div>
+                      <p className={isDark ? "text-gray-500" : "text-gray-400"}>Capacity</p>
+                      <p className={`font-bold ${isDark ? "text-gray-100" : "text-gray-800"}`}>{selectedRoom.capacity} seats</p>
                     </div>
                     <div>
                       <p className={isDark ? "text-gray-500" : "text-gray-400"}>Total Section</p>
@@ -304,6 +384,60 @@ export default function RoomManagement() {
                     </div>
                   </div>
                 </div>
+
+                {isAdmin && (
+                  <div className="mt-4 pt-4 border-t border-dashed border-gray-200 dark:border-gray-700">
+                    {!showDeleteConfirm ? (
+                      <button
+                        onClick={() => setShowDeleteConfirm(true)}
+                        className={`w-full inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition ${
+                          isDark
+                            ? "bg-red-500/10 text-red-400 hover:bg-red-500/20"
+                            : "bg-red-50 text-red-600 hover:bg-red-100"
+                        }`}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        Delete Room
+                      </button>
+                    ) : (
+                      <div className={`rounded-xl border p-4 ${isDark ? "bg-red-500/10 border-red-500/20" : "bg-red-50 border-red-100"}`}>
+                        <p className={`text-xs font-bold ${isDark ? "text-red-300" : "text-red-800"}`}>
+                          Are you sure you want to delete room "{selectedRoom.name}"?
+                        </p>
+                        <p className={`text-[11px] mt-1 ${isDark ? "text-red-400/80" : "text-red-700/80"}`}>
+                          Any exams scheduled in this room will be unassigned.
+                        </p>
+                        <div className="flex items-center gap-2 mt-3">
+                          <button
+                            onClick={handleDeleteRoom}
+                            disabled={deleting}
+                            className={`flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white py-2 text-xs font-bold transition shadow-sm ${
+                              deleting ? "opacity-50 cursor-not-allowed" : ""
+                            }`}
+                          >
+                            {deleting ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <Trash2 className="w-3.5 h-3.5" />
+                            )}
+                            Yes, Delete
+                          </button>
+                          <button
+                            onClick={() => setShowDeleteConfirm(false)}
+                            disabled={deleting}
+                            className={`flex-1 inline-flex items-center justify-center rounded-lg py-2 text-xs font-bold transition ${
+                              isDark
+                                ? "bg-gray-800 text-gray-300 hover:bg-gray-700"
+                                : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
+                            }`}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <div className="mt-5 space-y-3">
                   {selectedRoom.bookings.length === 0 ? (
@@ -335,6 +469,91 @@ export default function RoomManagement() {
           </aside>
         </div>
       </div>
+
+      {/* Add Room Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setShowAddModal(false)} />
+          
+          {/* Modal Content */}
+          <div className={`relative w-full max-w-md rounded-2xl border p-6 shadow-2xl transition-all transform scale-100 duration-300 animate-scale-in ${isDark ? "bg-gray-800 border-gray-700 text-white" : "bg-white border-gray-100 text-gray-900"}`}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2.5 rounded-xl bg-blue-500/10 text-blue-500">
+                <DoorOpen className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold">Add Exam Room</h3>
+                <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>Register a new room for examinations</p>
+              </div>
+            </div>
+            
+            <form onSubmit={handleAddRoom} className="space-y-4">
+              <div>
+                <label className={`block text-xs font-bold uppercase mb-1.5 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                  Room Name
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. B208"
+                  value={newRoomName}
+                  onChange={(e) => setNewRoomName(e.target.value)}
+                  className={`w-full rounded-xl border p-3 text-sm font-semibold outline-none transition ${isDark ? "bg-gray-900 border-gray-700 text-white focus:border-blue-500" : "bg-gray-50 border-gray-200 text-gray-800 focus:border-blue-500"}`}
+                />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className={`block text-xs font-bold uppercase mb-1.5 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                    Building
+                  </label>
+                  <select
+                    value={newRoomBuilding}
+                    onChange={(e) => setNewRoomBuilding(e.target.value)}
+                    className={`w-full rounded-xl border p-3 text-sm font-semibold outline-none transition ${isDark ? "bg-gray-900 border-gray-700 text-white" : "bg-gray-50 border-gray-200 text-gray-800"}`}
+                  >
+                    <option value="B">Building B (College)</option>
+                    <option value="C">Building C (SHS)</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className={`block text-xs font-bold uppercase mb-1.5 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                    Capacity
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    min="1"
+                    value={newRoomCapacity}
+                    onChange={(e) => setNewRoomCapacity(Number(e.target.value))}
+                    className={`w-full rounded-xl border p-3 text-sm font-semibold outline-none transition ${isDark ? "bg-gray-900 border-gray-700 text-white focus:border-blue-500" : "bg-gray-50 border-gray-200 text-gray-800 focus:border-blue-500"}`}
+                  />
+                </div>
+              </div>
+              
+              <div className="flex items-center justify-end gap-3 pt-4 mt-2 border-t border-gray-200/10">
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  className={`px-4 py-2.5 rounded-xl text-sm font-bold transition ${isDark ? "bg-gray-700 hover:bg-gray-600 text-gray-200" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold bg-blue-600 hover:bg-blue-700 disabled:bg-blue-600/50 text-white transition shadow-md shadow-blue-500/20"
+                >
+                  {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                  Save Room
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

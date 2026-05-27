@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Body
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, joinedload
 from database import get_db
 from models import Exam, Subject, Section, Room, Timeslot, Course, YearLevel, Teacher, User, Notification
@@ -9,6 +10,10 @@ from threading import Lock
 from typing import Optional
 from .auth import get_current_user, require_role
 from utils.logging import log_activity
+import io
+import openpyxl
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.utils import get_column_letter
 
 router = APIRouter(prefix="/exams", tags=["Exams"])
 
@@ -79,7 +84,7 @@ def _format_exam_for_room_status(exam: Exam):
 @router.get("/")
 def get_exams(
     status: str = Query(None, description="Filter by status (draft or posted)"),
-    section_name: str = Query(None, description="Filter by section name (e.g., BSIT-1A)"),
+    section_name: str = Query(None, description="Filter by section name (e.g., BSIT 3-201)"),
     course_id: int = Query(None, description="Filter by course ID"),
     year_level_id: int = Query(None, description="Filter by year level ID"),
     semester: int = Query(None, description="Filter by semester"),
@@ -191,6 +196,117 @@ def get_department_subjects(
     return [s[0] for s in subjects if s[0]]
 
 
+@router.get("/rooms")
+def list_rooms(
+    department: str = Query(None, description="Filter by department (College or SHS)"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Return all rooms, optionally filtered by department."""
+    query = db.query(Room)
+    if department:
+        query = query.filter(Room.department == department)
+    rooms = query.order_by(Room.name).all()
+    return [
+        {"id": r.id, "name": r.name, "building": r.building, "capacity": r.capacity, "department": r.department}
+        for r in rooms
+    ]
+
+
+@router.post("/rooms")
+def create_room(
+    payload: dict = Body(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(["admin"]))
+):
+    name = payload.get("name")
+    building = payload.get("building")
+    capacity = payload.get("capacity")
+    
+    if not name or not building or capacity is None:
+        raise HTTPException(status_code=400, detail="Name, building, and capacity are required")
+        
+    building_upper = str(building).strip().upper()
+    if building_upper not in ["B", "C"]:
+        raise HTTPException(status_code=400, detail="Building must be B or C")
+        
+    try:
+        capacity_int = int(capacity)
+        if capacity_int <= 0:
+            raise ValueError()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Capacity must be a positive integer")
+        
+    # Infer department from building
+    dept = "College" if building_upper == "B" else "SHS"
+    
+    # Check if name is taken
+    existing = db.query(Room).filter(Room.name == name).first()
+    if existing:
+        raise HTTPException(status_code=400, detail=f"Room {name} already exists")
+        
+    new_room = Room(
+        name=name,
+        building=building_upper,
+        capacity=capacity_int,
+        department=dept
+    )
+    db.add(new_room)
+    db.commit()
+    db.refresh(new_room)
+    
+    try:
+        log_activity(
+            db,
+            user_id=current_user.id,
+            action="CREATE_ROOM",
+            details=f"Created room {new_room.name} (Building: {new_room.building}, Capacity: {new_room.capacity})"
+        )
+    except Exception as e:
+        print(f"Error logging room creation: {e}")
+
+    return {
+        "message": "Room created successfully",
+        "room": {
+            "id": new_room.id,
+            "name": new_room.name,
+            "building": new_room.building,
+            "capacity": new_room.capacity,
+            "department": new_room.department
+        }
+    }
+
+
+@router.delete("/rooms/{room_id}")
+def delete_room(
+    room_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(["admin"]))
+):
+    room = db.query(Room).filter(Room.id == room_id).first()
+    if not room:
+        raise HTTPException(status_code=404, detail="Room not found")
+        
+    # Unassign this room from any existing exams
+    db.query(Exam).filter(Exam.room_id == room_id).update({Exam.room_id: None}, synchronize_session=False)
+    
+    db.delete(room)
+    db.commit()
+    
+    try:
+        log_activity(
+            db,
+            user_id=current_user.id,
+            action="DELETE_ROOM",
+            details=f"Deleted room {room.name} (ID: {room_id})"
+        )
+    except Exception as e:
+        print(f"Error logging room deletion: {e}")
+        
+    return {"message": "Room deleted successfully"}
+
+
+
 @router.get("/rooms/status")
 def get_room_status(
     department: str = Query("College", description="College, SHS, or All"),
@@ -200,15 +316,14 @@ def get_room_status(
     current_user: User = Depends(require_role(["admin"]))
 ):
     selected_department = department if department in ["College", "SHS"] else "All"
-    room_meta = {room["name"]: room for room in AVAILABLE_EXAM_ROOMS}
-    room_names = (
-        get_room_names_for_department(selected_department)
-        if selected_department != "All"
-        else [room["name"] for room in AVAILABLE_EXAM_ROOMS]
-    )
-    allowed_room_names = set(room_names)
-
-    rooms = db.query(Room).filter(Room.name.in_(room_names)).order_by(Room.name).all()
+    
+    # Query rooms from the database directly
+    rooms_query = db.query(Room)
+    if selected_department != "All":
+        rooms_query = rooms_query.filter(Room.department == selected_department)
+    rooms = rooms_query.order_by(Room.name).all()
+    
+    allowed_room_names = {room.name for room in rooms}
 
     exam_query = db.query(Exam).options(
         joinedload(Exam.subject),
@@ -268,12 +383,12 @@ def get_room_status(
     for room in rooms:
         bookings = room_bookings.get(room.id, [])
         has_conflict = any(exam.id in conflict_exam_ids for exam in bookings)
-        meta = room_meta.get(room.name, {})
         room_rows.append({
             "id": room.id,
             "name": room.name,
-            "building": meta.get("building", room.name[:1]),
-            "department": meta.get("department", "Unknown"),
+            "building": room.building or room.name[:1],
+            "department": room.department or "Unknown",
+            "capacity": room.capacity or 40,
             "status": "conflict" if has_conflict else "in_use" if bookings else "available",
             "booking_count": len(bookings),
             "draft_count": sum(1 for exam in bookings if exam.status == "draft"),
@@ -460,12 +575,198 @@ def post_exams(
     log_activity(db, current_user.id, "EXAM_POST", f"Course: {course_id}, Year: {year_level_id}, Sem: {semester}, Dept: {department}")
     return {"message": f"✅ Successfully posted {len(latest_drafts)} exams."}
 
+@router.get("/download")
+def download_exam_schedule(
+    status: str = Query(None, description="Filter by status (draft or posted)"),
+    course_id: int = Query(None, description="Filter by course ID"),
+    year_level_id: int = Query(None, description="Filter by year level ID"),
+    semester: int = Query(None, description="Filter by semester"),
+    department: str = Query(None, description="Filter by department (College or SHS)"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(["admin"]))
+):
+    """
+    Download master exam schedules as a unified Excel (.xlsx) file.
+    All exams are arranged in a single sheet, sorted chronologically.
+    """
+    query = db.query(Exam).options(
+        joinedload(Exam.subject),
+        joinedload(Exam.section),
+        joinedload(Exam.room),
+        joinedload(Exam.timeslot),
+        joinedload(Exam.course),
+        joinedload(Exam.year_level),
+        joinedload(Exam.proctor),
+    )
+
+    if status:
+        query = query.filter(Exam.status == status)
+    if course_id:
+        query = query.filter(Exam.course_id == course_id)
+    if year_level_id:
+        query = query.filter(Exam.year_level_id == year_level_id)
+    if semester:
+        query = query.filter(Exam.semester == semester)
+    if department:
+        query = query.join(Course, Exam.course_id == Course.id).filter(Course.category == department)
+
+    query = query.join(Timeslot, Exam.timeslot_id == Timeslot.id)
+    exams = query.all()
+
+    # Sort exams chronologically: Date -> Start Time -> Course Name -> Section Name
+    def sort_key(e):
+        t_date = e.timeslot.date if e.timeslot else datetime.max.date()
+        t_start = e.timeslot.start_time if e.timeslot else datetime.max.time()
+        c_name = e.course.name if e.course else ""
+        y_name = e.year_level.name if e.year_level else ""
+        s_name = e.section.name if e.section else ""
+        return (t_date, t_start, c_name, y_name, s_name)
+
+    exams.sort(key=sort_key)
+
+    # --- Build Excel workbook ---
+    wb = openpyxl.Workbook()
+    wb.remove(wb.active)  # remove default sheet
+
+    # Colour palette
+    HEADER_FILL  = PatternFill("solid", fgColor="1E3A5F")   # dark navy
+    ACCENT_FILL  = PatternFill("solid", fgColor="EBF3FB")   # light blue row
+    TITLE_FILL   = PatternFill("solid", fgColor="2563EB")   # bright blue
+    HEADER_FONT  = Font(name="Calibri", bold=True, color="FFFFFF", size=11)
+    TITLE_FONT   = Font(name="Calibri", bold=True, color="FFFFFF", size=13)
+    CELL_FONT    = Font(name="Calibri", size=10)
+    CENTER       = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    LEFT         = Alignment(horizontal="left",   vertical="center", wrap_text=True)
+
+    thin = Side(border_style="thin", color="B0C4DE")
+    border = Border(left=thin, right=thin, top=thin, bottom=thin)
+
+    COL_HEADERS = ["#", "Date", "Time", "Course", "Year Level", "Section", "Subject Code", "Subject Name", "Room", "Proctor", "Status"]
+    COL_WIDTHS  = [5,   22,     20,     12,       14,           14,        14,             32,             12,     28,        10]
+
+    # Create sheet
+    dept_name = department if department else "All"
+    ws = wb.create_sheet(title="Master Exam Schedule")
+
+    # ---- Title row ----
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=len(COL_HEADERS))
+    title_cell = ws.cell(row=1, column=1)
+    title_cell.value = f"Master Exam Schedule — {dept_name} Department"
+    if semester:
+        title_cell.value += f"  |  Semester {semester}"
+    title_cell.font = TITLE_FONT
+    title_cell.fill = TITLE_FILL
+    title_cell.alignment = CENTER
+    title_cell.border = border
+    ws.row_dimensions[1].height = 28
+
+    # ---- Column headers ----
+    for col_idx, header in enumerate(COL_HEADERS, start=1):
+        cell = ws.cell(row=2, column=col_idx, value=header)
+        cell.font = HEADER_FONT
+        cell.fill = HEADER_FILL
+        cell.alignment = CENTER
+        cell.border = border
+    ws.row_dimensions[2].height = 22
+
+    if not exams:
+        ws.merge_cells(start_row=3, start_column=1, end_row=3, end_column=len(COL_HEADERS))
+        cell = ws.cell(row=3, column=1, value="No exam schedules found for the selected filters.")
+        cell.font = Font(name="Calibri", bold=True, color="FF0000", size=11)
+        cell.alignment = CENTER
+        cell.border = border
+        ws.row_dimensions[3].height = 20
+    else:
+        # ---- Data rows ----
+        for row_num, exam in enumerate(exams, start=1):
+            ws_row = row_num + 2  # offset for title + header rows
+            fill = ACCENT_FILL if row_num % 2 == 0 else PatternFill("solid", fgColor="FFFFFF")
+
+            timeslot = exam.timeslot
+            date_str = timeslot.date.strftime("%A, %B %d, %Y") if timeslot else "-"
+            time_str = (
+                f"{timeslot.start_time.strftime('%I:%M %p')} – {timeslot.end_time.strftime('%I:%M %p')}"
+                if timeslot else "-"
+            )
+            course_name = exam.course.name if exam.course else "-"
+            year_level_name = exam.year_level.name if exam.year_level else "-"
+            section_name = exam.section.name if exam.section else "-"
+            subject_code = exam.subject.code if exam.subject else "-"
+            subject_name = exam.subject.name if exam.subject else "-"
+            room_name = exam.room.name if exam.room else "No Room"
+            proctor_name = exam.proctor.name if exam.proctor else "Unassigned"
+
+            row_values = [
+                row_num,
+                date_str,
+                time_str,
+                course_name,
+                year_level_name,
+                section_name,
+                subject_code,
+                subject_name,
+                room_name,
+                proctor_name,
+                (exam.status or "-").capitalize(),
+            ]
+
+            for col_idx, value in enumerate(row_values, start=1):
+                cell = ws.cell(row=ws_row, column=col_idx, value=value)
+                cell.font = CELL_FONT
+                cell.fill = fill
+                cell.alignment = CENTER if col_idx in [1, 2, 3, 4, 5, 6, 7, 9, 11] else LEFT
+                cell.border = border
+
+            ws.row_dimensions[ws_row].height = 18
+
+    # ---- Column widths ----
+    for col_idx, width in enumerate(COL_WIDTHS, start=1):
+        ws.column_dimensions[get_column_letter(col_idx)].width = width
+
+    # Freeze panes below headers
+    ws.freeze_panes = ws.cell(row=3, column=1)
+
+    # Stream the file
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+
+    dept_label = f"_{department}" if department else ""
+    sem_label = f"_Sem{semester}" if semester else ""
+    filename = f"MasterExamSchedule{dept_label}{sem_label}.xlsx"
+
+    log_activity(db, current_user.id, "EXAM_DOWNLOAD", f"Downloaded schedule: dept={department}, sem={semester}")
+
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 @router.delete("/clear")
-def clear_exams(db: Session = Depends(get_db), current_user: User = Depends(require_role(["admin"]))):
+def clear_exams(
+    department: Optional[str] = Query(None, description="Department to clear (College/SHS)"),
+    semester: Optional[int] = Query(None, description="Semester to clear (1/2)"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(["admin"]))
+):
     """
-    Delete all exams (for testing reset).
+    Delete exams. Optionally filters by department and semester.
     """
-    count = db.query(Exam).delete()
+    query = db.query(Exam)
+    
+    if department:
+        query = query.join(Course).filter(Course.category == department)
+        
+    if semester:
+        query = query.filter(Exam.semester == semester)
+        
+    exams_to_delete = query.all()
+    count = len(exams_to_delete)
+    for exam in exams_to_delete:
+        db.delete(exam)
     db.commit()
-    log_activity(db, current_user.id, "EXAM_CLEAR", f"Deleted {count} exams")
+    
+    log_activity(db, current_user.id, "EXAM_CLEAR", f"Deleted {count} exams (dept={department}, sem={semester})")
     return {"message": f"🧹 Deleted {count} exams."}

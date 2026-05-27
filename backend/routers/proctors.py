@@ -457,3 +457,33 @@ def send_reminder(id: int, db: Session = Depends(get_db), current_user: models.U
         raise HTTPException(status_code=404, detail="Proctor not found")
     log_activity(db, current_user.id, "PROCTOR_REMINDER_SENT", f"Proctor: {proctor.name}")
     return {"message": f"Reminder sent to {proctor.name}"}
+
+@router.delete("/{proctor_id}/schedule")
+def delete_proctor_schedule(proctor_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    # Only admin or the proctor themselves can delete this schedule
+    if current_user.role == "proctor" and current_user.proctor_id != proctor_id:
+        raise HTTPException(status_code=403, detail="Not authorized to delete other proctor's schedule")
+        
+    proctor = db.query(models.Proctor).get(proctor_id)
+    if not proctor:
+        raise HTTPException(status_code=404, detail="Proctor not found")
+        
+    if not proctor.teacher_id:
+        raise HTTPException(status_code=400, detail="Proctor not linked to teacher account")
+        
+    count = db.query(models.TeacherSchedule).filter(models.TeacherSchedule.teacher_id == proctor.teacher_id).delete()
+    db.commit()
+    
+    # Notify Admin that proctor deleted their schedule
+    notif = models.Notification(
+        recipient_type="program_head",
+        recipient_id="admin",
+        message=f"Proctor {proctor.name} has deleted their teaching schedule.",
+        type="info",
+        related_id=proctor.id
+    )
+    db.add(notif)
+    db.commit()
+    
+    log_activity(db, current_user.id, "PROCTOR_SCHEDULE_DELETE", f"Proctor: {proctor.name}, entries deleted: {count}")
+    return {"message": f"Successfully deleted teaching schedule ({count} entries)."}
