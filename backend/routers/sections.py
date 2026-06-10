@@ -6,6 +6,7 @@ import crud
 from models import Section 
 from pydantic import BaseModel
 from typing import Optional
+from .exams import is_generation_ongoing
 
 router = APIRouter(prefix="/sections", tags=["Sections"])
 
@@ -14,6 +15,8 @@ class PreferredRoomRequest(BaseModel):
 
 @router.put("/{section_id}/preferred-room")
 def update_preferred_room(section_id: int, body: PreferredRoomRequest, db: Session = Depends(get_db)):
+    if is_generation_ongoing():
+        raise HTTPException(status_code=400, detail="Cannot update preferred room while schedule generation is ongoing")
     section = db.query(Section).filter(Section.id == section_id).first()
     if not section:
         raise HTTPException(status_code=404, detail="Section not found")

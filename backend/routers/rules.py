@@ -7,6 +7,7 @@ from typing import List, Optional
 from .auth import get_current_user, require_role
 from utils.logging import log_activity
 from models import User
+from .exams import is_generation_ongoing
 
 router = APIRouter(prefix="/rules", tags=["Distribution Rules"])
 
@@ -46,6 +47,8 @@ def get_rules(db: Session = Depends(get_db), current_user: User = Depends(get_cu
 
 @router.post("/")
 def create_rule(rule: RuleCreate, db: Session = Depends(get_db), current_user: User = Depends(require_role(["admin"]))):
+    if is_generation_ongoing():
+        raise HTTPException(status_code=400, detail="Cannot add rules while schedule generation is ongoing")
     new_rule = DistributionRule(
         category_type=rule.category_type,
         year_level_id=rule.year_level_id,
@@ -60,6 +63,9 @@ def create_rule(rule: RuleCreate, db: Session = Depends(get_db), current_user: U
 
 @router.delete("/{rule_id}")
 def delete_rule(rule_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_role(["admin"]))):
+    if is_generation_ongoing():
+        raise HTTPException(status_code=400, detail="Cannot delete rules while schedule generation is ongoing")
+        
     rule = db.query(DistributionRule).filter(DistributionRule.id == rule_id).first()
     if not rule:
         raise HTTPException(status_code=404, detail="Rule not found")

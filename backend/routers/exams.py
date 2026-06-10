@@ -47,6 +47,11 @@ def _get_generation_progress(key):
         })
 
 
+def is_generation_ongoing() -> bool:
+    with _generation_progress_lock:
+        return any(job.get("status") == "running" for job in _generation_progress.values())
+
+
 def _format_exam_for_room_status(exam: Exam):
     subject = exam.subject
     section = exam.section
@@ -89,6 +94,7 @@ def get_exams(
     year_level_id: int = Query(None, description="Filter by year level ID"),
     semester: int = Query(None, description="Filter by semester"),
     proctor_id: int = Query(None, description="Filter by proctor (teacher) ID"),
+    term: str = Query(None, description="Filter by term (e.g. Midterm, Final)"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -96,7 +102,7 @@ def get_exams(
     Fetch exams with optional filters. Students can filter by their section.
     Returns joined data so students can see full details.
     """
-    print(f"[DEBUG] get_exams called filters: status={status}, section={section_name}, course={course_id}, year={year_level_id}, sem={semester}")
+    print(f"[DEBUG] get_exams called filters: status={status}, section={section_name}, course={course_id}, year={year_level_id}, sem={semester}, term={term}")
     
     query = db.query(Exam).options(
         joinedload(Exam.subject),
@@ -126,6 +132,9 @@ def get_exams(
 
     if proctor_id:
         query = query.filter(Exam.proctor_id == proctor_id)
+
+    if term:
+        query = query.filter(Exam.term == term)
 
     # Join with Timeslot to order by date/time
     query = query.join(Exam.timeslot).order_by(Timeslot.date, Timeslot.start_time)
@@ -166,6 +175,8 @@ def get_exams(
             "course_name": course.name if course else "-",
             "year_level": year.name if year else "-",
             "semester": e.semester,
+            "term": e.term or "Midterm",
+            "status": e.status or "draft",
             "exam_date": full_date,
             "start_time": timeslot.start_time.strftime("%I:%M %p") if timeslot else "-",
             "end_time": timeslot.end_time.strftime("%I:%M %p") if timeslot else "-",
@@ -219,6 +230,9 @@ def create_room(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(["admin"]))
 ):
+    if is_generation_ongoing():
+        raise HTTPException(status_code=400, detail="Cannot add rooms while schedule generation is ongoing")
+
     name = payload.get("name")
     building = payload.get("building")
     capacity = payload.get("capacity")
@@ -283,6 +297,9 @@ def delete_room(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(["admin"]))
 ):
+    if is_generation_ongoing():
+        raise HTTPException(status_code=400, detail="Cannot delete rooms while schedule generation is ongoing")
+        
     room = db.query(Room).filter(Room.id == room_id).first()
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
@@ -454,6 +471,7 @@ def generate_schedule(
         
         department = payload_data.get("department", "College")
         semester = payload_data.get("semester", 1)
+        term = payload_data.get("term", "Midterm")
         excluded_subjects = payload_data.get("excluded_subjects", [])
         
         start_date_str = payload_data.get("start_date")
@@ -470,6 +488,7 @@ def generate_schedule(
             department=department, 
             semester=semester,
             excluded_subjects=excluded_subjects,
+            term=term,
             progress_callback=lambda progress: _set_generation_progress(
                 job_id,
                 "running",
@@ -515,19 +534,22 @@ def post_exams(
     year_level_id: Optional[int] = Query(None, description="Year level ID to post exams for"),
     semester: int = Query(..., description="Semester to post exams for"),
     department: Optional[str] = Query(None, description="Department (College or SHS)"),
+    term: Optional[str] = Query(None, description="Term to post exams for"),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(["admin"]))
 ):
     """
-    Post draft exams with optional filters (course, year, department).
-    If no course or year is specified, posts all drafts for the given semester and department.
+    Post draft or saved exams with optional filters (course, year, department, term).
+    If no course or year is specified, posts all drafts/saved for the given semester and department.
     """
+    if is_generation_ongoing():
+        raise HTTPException(status_code=400, detail="Cannot post exams while schedule generation is ongoing")
     query = db.query(Exam).options(
         joinedload(Exam.subject),
         joinedload(Exam.section),
         joinedload(Exam.timeslot)
     ).filter(
-        Exam.status == "draft",
+        Exam.status.in_(["draft", "saved"]),
         Exam.semester == semester
     )
     
@@ -537,11 +559,13 @@ def post_exams(
         query = query.filter(Exam.year_level_id == year_level_id)
     if department:
         query = query.join(Course).filter(Course.category == department)
+    if term:
+        query = query.filter(Exam.term == term)
         
     latest_drafts = query.all()
     
     if not latest_drafts:
-        raise HTTPException(status_code=404, detail="No draft exams found to post")
+        raise HTTPException(status_code=404, detail="No draft or saved exams found to post")
 
     for exam in latest_drafts:
         exam.status = "posted"
@@ -575,6 +599,49 @@ def post_exams(
     log_activity(db, current_user.id, "EXAM_POST", f"Course: {course_id}, Year: {year_level_id}, Sem: {semester}, Dept: {department}")
     return {"message": f"✅ Successfully posted {len(latest_drafts)} exams."}
 
+@router.post("/save")
+def save_exams(
+    course_id: Optional[int] = Query(None, description="Course ID to save exams for"),
+    year_level_id: Optional[int] = Query(None, description="Year level ID to save exams for"),
+    semester: int = Query(..., description="Semester to save exams for"),
+    department: Optional[str] = Query(None, description="Department (College or SHS)"),
+    term: Optional[str] = Query(None, description="Term to save exams for"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(["admin"]))
+):
+    """
+    Save draft exams by updating status to 'saved'.
+    If no course or year is specified, saves all drafts for the given semester, department, and term.
+    """
+    if is_generation_ongoing():
+        raise HTTPException(status_code=400, detail="Cannot save exams while schedule generation is ongoing")
+    query = db.query(Exam).filter(
+        Exam.status == "draft",
+        Exam.semester == semester
+    )
+    
+    if course_id:
+        query = query.filter(Exam.course_id == course_id)
+    if year_level_id:
+        query = query.filter(Exam.year_level_id == year_level_id)
+    if department:
+        query = query.join(Course).filter(Course.category == department)
+    if term:
+        query = query.filter(Exam.term == term)
+        
+    latest_drafts = query.all()
+    
+    if not latest_drafts:
+        raise HTTPException(status_code=404, detail="No draft exams found to save")
+
+    for exam in latest_drafts:
+        exam.status = "saved"
+                
+    db.commit()
+
+    log_activity(db, current_user.id, "EXAM_SAVE", f"Course: {course_id}, Year: {year_level_id}, Sem: {semester}, Dept: {department}, Term: {term}")
+    return {"message": f"✅ Successfully saved {len(latest_drafts)} exams."}
+
 @router.get("/download")
 def download_exam_schedule(
     status: str = Query(None, description="Filter by status (draft or posted)"),
@@ -582,6 +649,7 @@ def download_exam_schedule(
     year_level_id: int = Query(None, description="Filter by year level ID"),
     semester: int = Query(None, description="Filter by semester"),
     department: str = Query(None, description="Filter by department (College or SHS)"),
+    term: Optional[str] = Query(None, description="Filter by term (e.g. Midterm, Final)"),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(["admin"]))
 ):
@@ -609,6 +677,8 @@ def download_exam_schedule(
         query = query.filter(Exam.semester == semester)
     if department:
         query = query.join(Course, Exam.course_id == Course.id).filter(Course.category == department)
+    if term:
+        query = query.filter(Exam.term == term)
 
     query = query.join(Timeslot, Exam.timeslot_id == Timeslot.id)
     exams = query.all()
@@ -641,8 +711,8 @@ def download_exam_schedule(
     thin = Side(border_style="thin", color="B0C4DE")
     border = Border(left=thin, right=thin, top=thin, bottom=thin)
 
-    COL_HEADERS = ["#", "Date", "Time", "Course", "Year Level", "Section", "Subject Code", "Subject Name", "Room", "Proctor", "Status"]
-    COL_WIDTHS  = [5,   22,     20,     12,       14,           14,        14,             32,             12,     28,        10]
+    COL_HEADERS = ["#", "Date", "Time", "Course", "Year Level", "Section", "Term", "Subject Code", "Subject Name", "Room", "Proctor", "Status"]
+    COL_WIDTHS  = [5,   22,     20,     12,       14,           14,        12,     14,             32,             12,     28,        10]
 
     # Create sheet
     dept_name = department if department else "All"
@@ -654,6 +724,8 @@ def download_exam_schedule(
     title_cell.value = f"Master Exam Schedule — {dept_name} Department"
     if semester:
         title_cell.value += f"  |  Semester {semester}"
+    if term:
+        title_cell.value += f"  |  {term}"
     title_cell.font = TITLE_FONT
     title_cell.fill = TITLE_FILL
     title_cell.alignment = CENTER
@@ -703,6 +775,7 @@ def download_exam_schedule(
                 course_name,
                 year_level_name,
                 section_name,
+                (exam.term or "Midterm").capitalize(),
                 subject_code,
                 subject_name,
                 room_name,
@@ -714,7 +787,7 @@ def download_exam_schedule(
                 cell = ws.cell(row=ws_row, column=col_idx, value=value)
                 cell.font = CELL_FONT
                 cell.fill = fill
-                cell.alignment = CENTER if col_idx in [1, 2, 3, 4, 5, 6, 7, 9, 11] else LEFT
+                cell.alignment = CENTER if col_idx in [1, 2, 3, 4, 5, 6, 7, 8, 10, 12] else LEFT
                 cell.border = border
 
             ws.row_dimensions[ws_row].height = 18
@@ -754,6 +827,9 @@ def clear_exams(
     """
     Delete exams. Optionally filters by department and semester.
     """
+    if is_generation_ongoing():
+        raise HTTPException(status_code=400, detail="Cannot delete exams while schedule generation is ongoing")
+        
     query = db.query(Exam)
     
     if department:

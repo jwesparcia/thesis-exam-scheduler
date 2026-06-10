@@ -8,6 +8,8 @@ from datetime import datetime, date
 from sqlalchemy import text
 from .auth import get_current_user, require_role
 from utils.logging import log_activity
+from .exams import is_generation_ongoing
+from utils.schedule_translator import translate_grid_schedule_from_bytes, translate_row_schedule
 
 router = APIRouter(prefix="/proctors", tags=["Proctors"])
 
@@ -64,6 +66,8 @@ def get_proctors(db: Session = Depends(get_db), current_user: models.User = Depe
 
 @router.post("/")
 def create_proctor(proctor: dict, db: Session = Depends(get_db), current_user: models.User = Depends(require_role(["admin"]))):
+    if is_generation_ongoing():
+        raise HTTPException(status_code=400, detail="Cannot add proctors while schedule generation is ongoing")
     new_p = models.Proctor(
         name=proctor["name"],
         department=proctor.get("department"),
@@ -76,6 +80,8 @@ def create_proctor(proctor: dict, db: Session = Depends(get_db), current_user: m
 
 @router.post("/{proctor_id}/availability")
 def add_availability(proctor_id: int, body: dict, db: Session = Depends(get_db), current_user: models.User = Depends(require_role(["admin", "proctor"]))):
+    if is_generation_ongoing():
+        raise HTTPException(status_code=400, detail="Cannot update availability while schedule generation is ongoing")
     # Only admin or the proctor themselves can add availability
     if current_user.role == "proctor" and current_user.proctor_id != proctor_id:
         raise HTTPException(status_code=403, detail="Not authorized to edit other proctor's availability")
@@ -94,6 +100,8 @@ def add_availability(proctor_id: int, body: dict, db: Session = Depends(get_db),
 
 @router.post("/upload-schedules")
 async def upload_schedules(file: UploadFile = File(...), db: Session = Depends(get_db), current_user: models.User = Depends(require_role(["admin"]))):
+    if is_generation_ongoing():
+        raise HTTPException(status_code=400, detail="Cannot upload schedules while schedule generation is ongoing")
     # File Upload Security: Limit size and format
     MAX_FILE_SIZE = 5 * 1024 * 1024 # 5MB
     if not file.filename.endswith(('.xlsx', '.xls')):
@@ -187,8 +195,10 @@ async def upload_my_schedule(proctor_id: int, file: UploadFile = File(...), db: 
             xl = pd.ExcelFile(io.BytesIO(content), engine=alt_engine)
         engine = get_excel_engine(content, file.filename)
         target_df = None
+        target_sheet_name = None
         if len(xl.sheet_names) == 1:
             target_df = pd.read_excel(xl, sheet_name=0, engine=engine)
+            target_sheet_name = xl.sheet_names[0]
         else:
             proctor_last_name = proctor.name.split()[-1].lower()
             for sheet in xl.sheet_names:
@@ -196,14 +206,17 @@ async def upload_my_schedule(proctor_id: int, file: UploadFile = File(...), db: 
                     continue
                 if proctor_last_name in sheet.lower() or proctor.name.lower() in sheet.lower():
                     target_df = pd.read_excel(xl, sheet_name=sheet, engine=engine)
+                    target_sheet_name = sheet
                     break
             if target_df is None:
                 for sheet in xl.sheet_names:
                     if sheet not in ['BLANK', 'CHANGES', 'SIMS SYNC']:
                         target_df = pd.read_excel(xl, sheet_name=sheet, engine=engine)
+                        target_sheet_name = sheet
                         break
             if target_df is None:
                 target_df = pd.read_excel(xl, sheet_name=0, engine=engine)
+                target_sheet_name = xl.sheet_names[0]
         df = target_df
         if 'Day/Time' in df.columns:
             # grid format – already handled by process_grid_upload
@@ -243,6 +256,14 @@ async def upload_my_schedule(proctor_id: int, file: UploadFile = File(...), db: 
                     )
                     db.add(new_sched)
                     records += 1
+            
+            # Generate translated schedule text
+            try:
+                translated = translate_grid_schedule_from_bytes(content, sheet_name=target_sheet_name, proctor_name=proctor.name)
+                proctor.translated_schedule = translated
+            except Exception as e:
+                print(f"Failed to translate schedule: {e}")
+                
             db.commit()
             
             # Notify Admin
@@ -256,7 +277,10 @@ async def upload_my_schedule(proctor_id: int, file: UploadFile = File(...), db: 
             db.add(notif)
             db.commit()
             
-            return {"message": f"Successfully processed grid schedule with {records} entries."}
+            return {
+                "message": f"Successfully processed grid schedule with {records} entries.",
+                "translated_schedule": proctor.translated_schedule
+            }
         # Standard row-based format
         required_columns = ['Day', 'Start Time', 'End Time']
         for col in required_columns:
@@ -299,6 +323,14 @@ async def upload_my_schedule(proctor_id: int, file: UploadFile = File(...), db: 
             )
             db.add(new_sched)
             records_processed += 1
+            
+        # Generate translated schedule text
+        try:
+            translated = translate_row_schedule(df)
+            proctor.translated_schedule = translated
+        except Exception as e:
+            print(f"Failed to translate schedule: {e}")
+            
         db.commit()
         
         # Notify Admin
@@ -312,13 +344,23 @@ async def upload_my_schedule(proctor_id: int, file: UploadFile = File(...), db: 
         db.add(notif)
         db.commit()
         
-        return {"message": f"Successfully processed {records_processed} schedule entries."}
+        return {
+            "message": f"Successfully processed {records_processed} schedule entries.",
+            "translated_schedule": proctor.translated_schedule
+        }
     except Exception as e:
         db.rollback()
         error_msg = str(e)
         if "File is not a zip" in error_msg:
             raise HTTPException(status_code=400, detail="Invalid Excel file format.")
         raise HTTPException(status_code=500, detail=f"Error processing file: {error_msg}")
+
+@router.get("/{proctor_id}/translated-schedule")
+def get_translated_schedule(proctor_id: int, db: Session = Depends(get_db)):
+    proctor = db.query(models.Proctor).get(proctor_id)
+    if not proctor:
+        raise HTTPException(status_code=404, detail="Proctor not found")
+    return {"translated_schedule": proctor.translated_schedule}
 
 @router.get("/schedules")
 def get_schedules(published_only: bool = False, db: Session = Depends(get_db)):
@@ -342,6 +384,8 @@ def get_schedules(published_only: bool = False, db: Session = Depends(get_db)):
 
 @router.post("/publish-schedules")
 def publish_schedules(db: Session = Depends(get_db)):
+    if is_generation_ongoing():
+        raise HTTPException(status_code=400, detail="Cannot publish schedules while schedule generation is ongoing")
     db.execute(text("UPDATE teacher_schedules SET is_published = TRUE"))
     db.commit()
     return {"message": "All schedules have been published."}
@@ -442,6 +486,8 @@ def get_missing_schedules(db: Session = Depends(get_db)):
 
 @router.post("/{id}/exclude")
 def toggle_exclude(id: int, db: Session = Depends(get_db), current_user: models.User = Depends(require_role(["admin"]))):
+    if is_generation_ongoing():
+        raise HTTPException(status_code=400, detail="Cannot update proctor exclusion while schedule generation is ongoing")
     proctor = db.query(models.Proctor).get(id)
     if not proctor:
         raise HTTPException(status_code=404, detail="Proctor not found")
@@ -460,6 +506,9 @@ def send_reminder(id: int, db: Session = Depends(get_db), current_user: models.U
 
 @router.delete("/{proctor_id}/schedule")
 def delete_proctor_schedule(proctor_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    if is_generation_ongoing():
+        raise HTTPException(status_code=400, detail="Cannot delete schedules while schedule generation is ongoing")
+        
     # Only admin or the proctor themselves can delete this schedule
     if current_user.role == "proctor" and current_user.proctor_id != proctor_id:
         raise HTTPException(status_code=403, detail="Not authorized to delete other proctor's schedule")
@@ -472,6 +521,7 @@ def delete_proctor_schedule(proctor_id: int, db: Session = Depends(get_db), curr
         raise HTTPException(status_code=400, detail="Proctor not linked to teacher account")
         
     count = db.query(models.TeacherSchedule).filter(models.TeacherSchedule.teacher_id == proctor.teacher_id).delete()
+    proctor.translated_schedule = None
     db.commit()
     
     # Notify Admin that proctor deleted their schedule

@@ -5,7 +5,7 @@ import ThemeToggle from "../components/ThemeToggle";
 import api from "../api";
 import { useToast } from "../context/ToastContext";
 
-export default function AddProctor() {
+export default function AddProctor({ isGenerating }) {
   const { theme } = useTheme();
   const { showSuccess, showError } = useToast();
   const [proctors, setProctors] = useState([]);
@@ -29,6 +29,10 @@ export default function AddProctor() {
   }, []);
 
   const toggleExclude = async (id, currentExcluded) => {
+    if (isGenerating) {
+      showError("Cannot modify proctors while schedule generation is ongoing");
+      return;
+    }
     try {
       await api.post(`/proctors/${id}/exclude`);
       showSuccess(`Proctor ${currentExcluded ? "included" : "excluded"} successfully`);
@@ -39,6 +43,10 @@ export default function AddProctor() {
   };
 
   const sendReminder = async (id, proctorName) => {
+    if (isGenerating) {
+      showError("Cannot send reminders while schedule generation is ongoing");
+      return;
+    }
     try {
       await api.post(`/proctors/${id}/send-reminder`);
       showSuccess(`Reminder sent to ${proctorName}`);
@@ -118,20 +126,28 @@ export default function AddProctor() {
                         {!p.has_schedule && (
                           <button
                             onClick={() => sendReminder(p.id, p.name)}
-                            className={`p-2 rounded-lg transition ${isDark ? "hover:bg-blue-900/30 text-blue-400" : "hover:bg-blue-50 text-blue-600"}`}
-                            title="Send Reminder"
+                            disabled={isGenerating}
+                            className={`p-2 rounded-lg transition ${
+                              isGenerating 
+                                ? "opacity-50 cursor-not-allowed" 
+                                : (isDark ? "hover:bg-blue-900/30 text-blue-400" : "hover:bg-blue-50 text-blue-600")
+                            }`}
+                            title={isGenerating ? "Cannot send reminders while schedule generation is ongoing" : "Send Reminder"}
                           >
                             <Bell className="w-4 h-4" />
                           </button>
                         )}
                         <button
                           onClick={() => toggleExclude(p.id, p.exclude_from_scheduling)}
+                          disabled={isGenerating}
                           className={`p-2 rounded-lg transition ${
-                            p.exclude_from_scheduling
-                              ? (isDark ? "hover:bg-emerald-900/30 text-emerald-400" : "hover:bg-emerald-50 text-emerald-600")
-                              : (isDark ? "hover:bg-red-900/30 text-red-400" : "hover:bg-red-50 text-red-600")
+                            isGenerating
+                              ? "opacity-50 cursor-not-allowed"
+                              : p.exclude_from_scheduling
+                                ? (isDark ? "hover:bg-emerald-900/30 text-emerald-400" : "hover:bg-emerald-50 text-emerald-600")
+                                : (isDark ? "hover:bg-red-900/30 text-red-400" : "hover:bg-red-50 text-red-600")
                           }`}
-                          title={p.exclude_from_scheduling ? "Include in Scheduling" : "Exclude from Scheduling"}
+                          title={isGenerating ? "Cannot modify proctors while schedule generation is ongoing" : (p.exclude_from_scheduling ? "Include in Scheduling" : "Exclude from Scheduling")}
                         >
                           {p.exclude_from_scheduling ? <Shield className="w-4 h-4" /> : <ShieldOff className="w-4 h-4" />}
                         </button>

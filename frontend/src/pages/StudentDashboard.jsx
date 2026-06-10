@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { Search, LogOut, Calendar, Clock, MapPin, BookOpen, ChevronRight, Bell, UserCheck, Edit, X, Send, Settings } from "lucide-react";
+import React, { useEffect, useState, useRef } from "react";
+import { Search, LogOut, Calendar, Clock, MapPin, BookOpen, ChevronRight, Bell, UserCheck, Edit, X, Send, Settings, MessageSquare } from "lucide-react";
 import { useTheme } from "../context/themeStore";
 import ThemeToggle from "../components/ThemeToggle";
 import { useUser } from "../context/userStore";
@@ -199,11 +199,18 @@ export default function StudentDashboard() {
   const [detailedExplanation, setDetailedExplanation] = useState("");
   const [supportingFile, setSupportingFile] = useState(null);
   const [requestedMode, setRequestedMode] = useState("online");
-  const [preferredDate, setPreferredDate] = useState("");
   const [preferredStartTime, setPreferredStartTime] = useState("");
   const [preferredEndTime, setPreferredEndTime] = useState("");
   const [acknowledged, setAcknowledged] = useState(false);
   const [loadingRequest, setLoadingRequest] = useState(false);
+
+  // Chat states
+  const [chatAdmins, setChatAdmins] = useState([]);
+  const [chatAdminId, setChatAdminId] = useState(null);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatSending, setChatSending] = useState(false);
+  const chatEndRef = useRef(null);
 
   // Fetch courses list
   const fetchCourses = async () => {
@@ -392,6 +399,125 @@ export default function StudentDashboard() {
     return () => clearInterval(interval);
   }, [user]);
 
+  // Chat: fetch admin list on mount
+  useEffect(() => {
+    if (!user || activeTab !== "chat") return;
+    api.get("/chat/admins").then(res => {
+      setChatAdmins(res.data);
+      if (res.data.length > 0 && !chatAdminId) setChatAdminId(res.data[0].id);
+    }).catch(() => {});
+  }, [user, activeTab]);
+
+  // Chat: poll messages
+  useEffect(() => {
+    if (!chatAdminId) return;
+    const fetchMsgs = async () => {
+      try {
+        const res = await api.get(`/chat/messages/${chatAdminId}`);
+        setChatMessages(res.data);
+        api.put(`/chat/read/${chatAdminId}`).catch(() => {});
+      } catch {}
+    };
+    fetchMsgs();
+    const interval = setInterval(fetchMsgs, 4000);
+    return () => clearInterval(interval);
+  }, [chatAdminId]);
+
+  useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [chatMessages]);
+
+  const sendChatMessage = async () => {
+    if (!chatInput.trim() || !chatAdminId || chatSending) return;
+    setChatSending(true);
+    try {
+      await api.post("/chat/send", { recipient_id: chatAdminId, message: chatInput.trim() });
+      setChatInput("");
+      const res = await api.get(`/chat/messages/${chatAdminId}`);
+      setChatMessages(res.data);
+    } catch {}
+    setChatSending(false);
+  };
+
+  // Smart suggestion: find the last exam on the same day as a conflicting exam
+  // Format minutes from midnight to 12-hour format string (e.g., 420 -> "07:00 AM")
+  const formatMinsTo12 = (mins) => {
+    let h = Math.floor(mins / 60) % 24;
+    const m = mins % 60;
+    const meridiem = h >= 12 ? "PM" : "AM";
+    if (h > 12) h -= 12;
+    if (h === 0) h = 12;
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")} ${meridiem}`;
+  };
+
+  // Parse 12-hour format string to minutes from midnight
+  const parseTime12 = (t) => {
+    if (!t || t === "-") return 0;
+    const [timePart, meridiem] = t.trim().split(" ");
+    let [h, m] = timePart.split(":").map(Number);
+    if (meridiem === "PM" && h !== 12) h += 12;
+    if (meridiem === "AM" && h === 12) h = 0;
+    return h * 60 + m;
+  };
+
+  // Find all vacant blocks of at least 90 minutes on the same day as the conflicting exam
+  const getVacantHoursSuggestions = (conflictingExam) => {
+    if (!conflictingExam) return [];
+    
+    // Get all other exams on the same day (excluding the conflicting exam itself)
+    const otherExams = exams.filter(e => e.exam_date === conflictingExam.exam_date && e.id !== conflictingExam.id);
+    
+    const WINDOW_START = 420; // 7:00 AM
+    const WINDOW_END = 1050;  // 5:30 PM
+    
+    let busy = otherExams.map(e => [parseTime12(e.start_time), parseTime12(e.end_time)]);
+    
+    // Sort and merge busy intervals
+    busy.sort((a, b) => a[0] - b[0]);
+    let mergedBusy = [];
+    for (let interval of busy) {
+      if (mergedBusy.length === 0) {
+        mergedBusy.push(interval);
+      } else {
+        let last = mergedBusy[mergedBusy.length - 1];
+        if (interval[0] <= last[1]) {
+          last[1] = Math.max(last[1], interval[1]);
+        } else {
+          mergedBusy.push(interval);
+        }
+      }
+    }
+    
+    // Find free intervals within the 7:00 AM - 5:30 PM window
+    let freeIntervals = [];
+    let current = WINDOW_START;
+    
+    for (let interval of mergedBusy) {
+      if (interval[0] > current) {
+        if (interval[0] - current >= 90) {
+          freeIntervals.push([current, interval[0]]);
+        }
+      }
+      current = Math.max(current, interval[1]);
+    }
+    
+    if (WINDOW_END > current) {
+      if (WINDOW_END - current >= 90) {
+        freeIntervals.push([current, WINDOW_END]);
+      }
+    }
+    
+    return freeIntervals;
+  };
+
+  const applyVacantHoursSuggestion = (startMins) => {
+    const toHHMM = (mins) => {
+      const h = Math.floor(mins / 60) % 24;
+      const m = mins % 60;
+      return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+    };
+    setPreferredStartTime(toHHMM(startMins));
+    setPreferredEndTime(toHHMM(startMins + 90));
+  };
+
   const markRead = async (id) => {
     try {
       await api.put(`/notifications/${id}/read`);
@@ -574,6 +700,20 @@ export default function StudentDashboard() {
             My Schedule
           </button>
           <button
+            onClick={() => setActiveTab("chat")}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${activeTab === "chat"
+              ? isDark
+                ? "bg-blue-600 text-white shadow-lg shadow-blue-900/50"
+                : "bg-blue-600 text-white shadow-md shadow-blue-500/25"
+              : isDark
+                ? "text-slate-400 hover:text-white"
+                : "text-slate-600 hover:text-blue-600"
+              }`}
+          >
+            <MessageSquare className="w-4 h-4" />
+            Chat with Admin
+          </button>
+          <button
             onClick={() => setActiveTab("manual")}
             className={`px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${activeTab === "manual"
               ? isDark
@@ -589,7 +729,80 @@ export default function StudentDashboard() {
         </div>
       </div>
 
-      {activeTab === "schedule" ? (
+      {activeTab === "chat" ? (
+        <div className="max-w-4xl mx-auto px-6 lg:px-8 py-6">
+          <div className={`rounded-2xl border overflow-hidden ${isDark ? "border-gray-700" : "border-gray-200"}`} style={{height: "600px", display: "flex", flexDirection: "column"}}>
+            {/* Chat Header */}
+            <div className={`p-4 border-b flex items-center gap-3 ${isDark ? "bg-gray-800 border-gray-700" : "bg-gray-50 border-gray-200"}`}>
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isDark ? "bg-blue-600/30 text-blue-300" : "bg-blue-100 text-blue-700"}`}>
+                <MessageSquare className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className={`font-bold ${isDark ? "text-white" : "text-gray-900"}`}>Program Head</h3>
+                <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>Send a message about your exam conflict or concerns</p>
+              </div>
+            </div>
+            {/* Messages */}
+            <div className={`flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar ${isDark ? "bg-gray-900" : "bg-white"}`}>
+              {chatMessages.length === 0 ? (
+                <div className={`flex flex-col items-center justify-center h-full gap-3 ${isDark ? "text-gray-500" : "text-gray-400"}`}>
+                  <div className={`w-16 h-16 rounded-2xl flex items-center justify-center ${isDark ? "bg-gray-800" : "bg-gray-100"}`}>
+                    <MessageSquare className="w-8 h-8 opacity-30" />
+                  </div>
+                  <div className="text-center">
+                    <p className="font-semibold">No messages yet</p>
+                    <p className="text-sm mt-1">Send a message to the Program Head about your schedule or conflicts.</p>
+                  </div>
+                </div>
+              ) : chatMessages.map((msg) => {
+                const isMe = msg.sender_id === user?.id;
+                return (
+                  <div key={msg.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
+                    <div className={`max-w-[70%] px-4 py-2.5 rounded-2xl text-sm ${
+                      isMe
+                        ? "bg-blue-600 text-white rounded-br-sm"
+                        : isDark ? "bg-gray-700 text-gray-100 rounded-bl-sm" : "bg-gray-100 text-gray-800 rounded-bl-sm"
+                    }`}>
+                      {!isMe && <p className={`text-[10px] font-semibold mb-1 ${isDark ? "text-blue-400" : "text-blue-600"}`}>{msg.sender_name}</p>}
+                      <p className="leading-relaxed">{msg.message}</p>
+                      <p className={`text-[10px] mt-1 ${isMe ? "text-blue-200" : isDark ? "text-gray-500" : "text-gray-400"}`}>
+                        {new Date(msg.created_at + "Z").toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+              <div ref={chatEndRef} />
+            </div>
+            {/* Input */}
+            <div className={`p-4 border-t flex gap-3 items-end ${isDark ? "border-gray-700 bg-gray-800/50" : "border-gray-200 bg-gray-50"}`}>
+              <textarea
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChatMessage(); } }}
+                placeholder="Type your message... (Enter to send)"
+                rows={1}
+                className={`flex-1 p-3 rounded-xl border resize-none outline-none text-sm transition ${
+                  isDark
+                    ? "bg-gray-700 border-gray-600 text-white placeholder-gray-500 focus:border-blue-500"
+                    : "bg-white border-gray-300 text-gray-900 placeholder-gray-400 focus:border-blue-500"
+                }`}
+              />
+              <button
+                onClick={sendChatMessage}
+                disabled={chatSending || !chatInput.trim()}
+                className={`p-3 rounded-xl transition ${
+                  chatSending || !chatInput.trim()
+                    ? isDark ? "bg-gray-700 text-gray-500" : "bg-gray-200 text-gray-400"
+                    : "bg-blue-600 hover:bg-blue-700 text-white"
+                }`}
+              >
+                <Send className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : activeTab === "schedule" ? (
         <>
           {/* Irregular subject picker */}
           {user?.student_type === "irregular" && (
@@ -759,7 +972,7 @@ export default function StudentDashboard() {
                   detailed_explanation: detailedExplanation,
                   supporting_file: null,
                   requested_mode: "offline",
-                  preferred_date: preferredDate || null,
+                  preferred_date: originalExamDate,
                   preferred_start_time: preferredStartTime || null,
                   preferred_end_time: preferredEndTime || null,
                   acknowledged: acknowledged,
@@ -813,9 +1026,75 @@ export default function StudentDashboard() {
               {/* Preferred Reschedule */}
               <div className={`p-4 rounded-lg ${isDark ? "bg-gray-700" : "bg-gray-50"}`}>
                 <h4 className={`font-medium mb-3 ${isDark ? "text-white" : "text-gray-900"}`}>4. Preferred Reschedule Details</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div><label className={`block text-sm mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}>Preferred New Exam Date</label><input type="date" value={preferredDate} onChange={(e) => setPreferredDate(e.target.value)} className={`w-full p-2 rounded-lg border ${isDark ? "bg-gray-600 text-white border-gray-500" : "bg-white text-gray-900 border-gray-300"}`} /></div>
-                  <div><label className={`block text-sm mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}>Preferred New Exam Time</label><div className="flex gap-2"><input type="time" value={preferredStartTime} onChange={(e) => setPreferredStartTime(e.target.value)} className={`flex-1 p-2 rounded-lg border ${isDark ? "bg-gray-600 text-white border-gray-500" : "bg-white text-gray-900 border-gray-300"}`} /><input type="time" value={preferredEndTime} onChange={(e) => setPreferredEndTime(e.target.value)} className={`flex-1 p-2 rounded-lg border ${isDark ? "bg-gray-600 text-white border-gray-500" : "bg-white text-gray-900 border-gray-300"}`} /></div></div>
+                {/* Smart vacant hours suggestions */}
+                {selectedExam && (() => {
+                  const suggestions = getVacantHoursSuggestions(selectedExam);
+                  if (suggestions.length === 0) {
+                    return (
+                      <div className={`mb-4 p-3 rounded-lg border-l-4 border-yellow-500 ${isDark ? "bg-yellow-950/30" : "bg-yellow-50"}`}>
+                        <p className={`text-xs font-bold uppercase tracking-wide mb-1 ${isDark ? "text-yellow-400" : "text-yellow-700"}`}>
+                          ⚠️ No Vacant Hours Found
+                        </p>
+                        <p className={`text-sm ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+                          No vacant blocks of 90 minutes or more found on this day (07:00 AM - 05:30 PM). 
+                          Please coordinate with the Program Head via the <strong>Chat with Admin</strong> tab.
+                        </p>
+                      </div>
+                    );
+                  }
+                  return (
+                    <div className={`mb-4 p-3 rounded-lg border-l-4 border-blue-500 ${isDark ? "bg-blue-950/20" : "bg-blue-50"}`}>
+                      <p className={`text-xs font-bold uppercase tracking-wide mb-1.5 ${isDark ? "text-blue-400" : "text-blue-700"}`}>
+                        ⚡ Suggested Vacant Hours (Take within the day):
+                      </p>
+                      <div className="flex flex-wrap gap-2 mt-1">
+                        {suggestions.map((s, idx) => {
+                          const label = `${formatMinsTo12(s[0])} - ${formatMinsTo12(s[1])}`;
+                          return (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => applyVacantHoursSuggestion(s[0])}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-semibold shadow-sm transition hover:-translate-y-0.5 ${
+                                isDark 
+                                  ? "bg-blue-600 hover:bg-blue-500 text-white" 
+                                  : "bg-blue-500 hover:bg-blue-600 text-white"
+                              }`}
+                            >
+                              ⚡ {label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
+                <div className="grid grid-cols-1 gap-4">
+                  <div>
+                    <label className={`block text-sm mb-1.5 font-medium ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+                      Preferred New Exam Time (Within the Day)
+                    </label>
+                    <div className="flex gap-4">
+                      <div className="flex-1">
+                        <label className={`block text-xs mb-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}>Start Time</label>
+                        <input 
+                          type="time" 
+                          value={preferredStartTime} 
+                          onChange={(e) => setPreferredStartTime(e.target.value)} 
+                          className={`w-full p-2 rounded-lg border ${isDark ? "bg-gray-600 text-white border-gray-500" : "bg-white text-gray-900 border-gray-300"}`} 
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <label className={`block text-xs mb-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}>End Time</label>
+                        <input 
+                          type="time" 
+                          value={preferredEndTime} 
+                          onChange={(e) => setPreferredEndTime(e.target.value)} 
+                          className={`w-full p-2 rounded-lg border ${isDark ? "bg-gray-600 text-white border-gray-500" : "bg-white text-gray-900 border-gray-300"}`} 
+                        />
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 

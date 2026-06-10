@@ -46,6 +46,8 @@ app.include_router(notifications.router)
 app.include_router(rules.router)
 app.include_router(auth.router)
 app.include_router(student.router)
+from routers import chat
+app.include_router(chat.router)
 
 @app.get("/")
 def root():

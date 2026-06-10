@@ -240,7 +240,10 @@ def submit_reschedule_request(
     def parse_date(s):
         return datetime.strptime(s, "%Y-%m-%d").date() if s else None
     def parse_time(s):
-        for fmt in ("%H:%M:%S", "%H:%M"):
+        if not s:
+            return None
+        s = s.strip()
+        for fmt in ("%H:%M:%S", "%H:%M", "%I:%M %p", "%I:%M%p", "%I:%M %P", "%I:%M%P"):
             try:
                 return datetime.strptime(s, fmt).time()
             except:

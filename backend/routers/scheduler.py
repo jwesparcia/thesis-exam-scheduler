@@ -6,6 +6,7 @@ from room_data import get_room_names_for_department
 from datetime import datetime, timedelta, time, date
 import random
 from .auth import get_current_user, require_role
+from .exams import is_generation_ongoing
 from utils.logging import log_activity
 
 router = APIRouter(prefix="/scheduler", tags=["Scheduler"])
@@ -22,6 +23,8 @@ SCHOOL_END = time(18, 0)
 @router.post("/generate")
 def generate_exam_schedule(payload: dict = Body(...), db: Session = Depends(get_db), current_user: User = Depends(require_role(["admin"]))):
     """Generate synchronized and chronologically ordered exam schedules."""
+    if is_generation_ongoing():
+        raise HTTPException(status_code=400, detail="Schedule generation is already running. Please wait for it to complete.")
     course_id = payload.get("course_id")
     year_level_id = payload.get("year_level_id")
     semester = payload.get("semester")

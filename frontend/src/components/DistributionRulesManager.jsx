@@ -4,7 +4,7 @@ import { useToast } from "../context/ToastContext";
 import { useTheme } from "../context/themeStore";
 import api from "../api";
 
-export default function DistributionRulesManager() {
+export default function DistributionRulesManager({ isGenerating }) {
     const [rules, setRules] = useState([]);
     const [yearLevels, setYearLevels] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -59,6 +59,10 @@ export default function DistributionRulesManager() {
     };
 
     const confirmDelete = async () => {
+        if (isGenerating) {
+            showError("Cannot delete rules while schedule generation is ongoing");
+            return;
+        }
         const id = confirmModal.id;
         setConfirmModal({ isOpen: false, id: null });
         try {
@@ -71,6 +75,10 @@ export default function DistributionRulesManager() {
     };
 
     const handleAddRule = async () => {
+        if (isGenerating) {
+            showError("Cannot add rules while schedule generation is ongoing");
+            return;
+        }
         try {
             const payload = {
                 ...newRule,
@@ -104,7 +112,13 @@ export default function DistributionRulesManager() {
                 <h3 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>Distribution Rules</h3>
                 <button
                     onClick={() => setShowAddForm(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                    disabled={isGenerating}
+                    className={`flex items-center gap-2 px-4 py-2 text-white rounded-lg transition ${
+                        isGenerating
+                            ? "bg-blue-600/50 opacity-50 cursor-not-allowed"
+                            : "bg-blue-600 hover:bg-blue-700"
+                    }`}
+                    title={isGenerating ? "Cannot add rules while schedule generation is ongoing" : "Add Rule"}
                 >
                     <Plus className="w-4 h-4" />
                     Add Rule
@@ -183,7 +197,12 @@ export default function DistributionRulesManager() {
                         </button>
                         <button
                             onClick={handleAddRule}
-                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+                            disabled={isGenerating}
+                            className={`px-4 py-2 text-white rounded-lg transition ${
+                                isGenerating
+                                    ? "bg-green-600/50 opacity-50 cursor-not-allowed"
+                                    : "bg-green-600 hover:bg-green-700"
+                            }`}
                         >
                             Save Rule
                         </button>
@@ -224,8 +243,11 @@ export default function DistributionRulesManager() {
                                         <td className="px-4 py-3 text-right">
                                             <button
                                                 onClick={() => handleDelete(rule.id)}
-                                                className="p-1 text-red-500 hover:bg-red-50 rounded dark:hover:bg-red-900/20"
-                                                title="Delete Rule"
+                                                disabled={isGenerating}
+                                                className={`p-1 text-red-500 hover:bg-red-50 rounded dark:hover:bg-red-900/20 ${
+                                                    isGenerating ? "opacity-50 cursor-not-allowed" : ""
+                                                }`}
+                                                title={isGenerating ? "Cannot delete rules while schedule generation is ongoing" : "Delete Rule"}
                                             >
                                                 <Trash2 className="w-4 h-4" />
                                             </button>
@@ -264,7 +286,10 @@ export default function DistributionRulesManager() {
                                         </button>
                                         <button
                                             onClick={confirmDelete}
-                                            className="flex-1 px-6 py-3 rounded-xl font-semibold bg-red-600 text-white hover:bg-red-700 transition shadow-lg shadow-red-500/30"
+                                            disabled={isGenerating}
+                                            className={`flex-1 px-6 py-3 rounded-xl font-semibold bg-red-600 text-white hover:bg-red-700 transition shadow-lg shadow-red-500/30 ${
+                                                isGenerating ? "opacity-50 cursor-not-allowed" : ""
+                                            }`}
                                         >
                                             Delete
                                         </button>

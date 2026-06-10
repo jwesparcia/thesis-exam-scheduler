@@ -171,6 +171,73 @@ function ProctorManual() {
     </div>
   );
 }
+const parseTranslatedScheduleText = (text) => {
+  if (!text) return null;
+  const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
+  const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+  
+  const schedule = [];
+  const translations = [];
+  let currentDay = null;
+  let inTranslations = false;
+  
+  for (const line of lines) {
+    if (line === "Subject Translation") {
+      inTranslations = true;
+      continue;
+    }
+    
+    if (inTranslations) {
+      if (line.startsWith("-")) {
+        const parts = line.substring(1).split(":");
+        if (parts.length >= 2) {
+          translations.push({
+            abbreviation: parts[0].trim(),
+            meaning: parts.slice(1).join(":").trim()
+          });
+        }
+      }
+      continue;
+    }
+    
+    if (days.includes(line)) {
+      currentDay = { day: line, entries: [] };
+      schedule.push(currentDay);
+      continue;
+    }
+    
+    if (currentDay && line.includes("—")) {
+      const parts = line.split("—").map(p => p.trim());
+      const timeRange = parts[0];
+      const subjectAndType = parts[1];
+      const roomPart = parts.length > 2 ? parts[2] : "";
+      
+      let subject = subjectAndType;
+      let type = null;
+      if (subjectAndType.includes("(Lab)")) {
+        subject = subjectAndType.replace("(Lab)", "").trim();
+        type = "Lab";
+      } else if (subjectAndType.includes("(Lecture)")) {
+        subject = subjectAndType.replace("(Lecture)", "").trim();
+        type = "Lecture";
+      }
+      
+      let room = "";
+      if (roomPart.startsWith("Room:")) {
+        room = roomPart.replace("Room:", "").trim();
+      }
+      
+      currentDay.entries.push({
+        time: timeRange,
+        subject,
+        type,
+        room
+      });
+    }
+  }
+  
+  return { schedule, translations };
+};
 
 export default function ProctorDashboard() {
   const { theme } = useTheme();
@@ -184,6 +251,8 @@ export default function ProctorDashboard() {
   const [uploading, setUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [mySchedule, setMySchedule] = useState([]);
+  const [translatedSchedule, setTranslatedSchedule] = useState(null);
+  const [scheduleView, setScheduleView] = useState("translated");
   const [filePreview, setFilePreview] = useState(null);
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -199,6 +268,7 @@ export default function ProctorDashboard() {
       if (res.status === 200) {
         showSuccess(res.data.message || "Schedule deleted successfully!");
         setMySchedule([]);
+        setTranslatedSchedule(null);
       } else {
         showError("Failed to delete schedule.");
       }
@@ -218,10 +288,20 @@ export default function ProctorDashboard() {
       const allSchedules = res.data;
       const mine = allSchedules.filter(s => s.teacher_name === user.name);
       setMySchedule(mine);
+      
+      // Also fetch the translated schedule if proctor_id is available
+      if (user?.proctor_id) {
+        try {
+          const transRes = await api.get(`/proctors/${user.proctor_id}/translated-schedule`);
+          setTranslatedSchedule(transRes.data.translated_schedule || null);
+        } catch (transErr) {
+          console.error("Failed to fetch translated schedule", transErr);
+        }
+      }
     } catch (err) {
       console.error(err);
     }
-  }, [user?.teacher_id, user?.name]);
+  }, [user?.teacher_id, user?.proctor_id, user?.name]);
 
   const fetchNotifications = useCallback(async () => {
     if (!user?.id) return;
@@ -310,7 +390,7 @@ export default function ProctorDashboard() {
     const formData = new FormData();
     formData.append("file", selectedFile);
     try {
-      await api.post(`/proctors/${user.proctor_id}/upload-my-schedule`, formData, {
+      const res = await api.post(`/proctors/${user.proctor_id}/upload-my-schedule`, formData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },
@@ -318,6 +398,9 @@ export default function ProctorDashboard() {
       showSuccess("Schedule uploaded successfully!");
       setSelectedFile(null);
       setFilePreview(null);
+      if (res.data.translated_schedule) {
+        setTranslatedSchedule(res.data.translated_schedule);
+      }
       const resSched = await api.get("/proctors/schedules");
       const allSchedules = resSched.data;
       const mine = allSchedules.filter(s => s.teacher_name === user.name);
@@ -681,39 +764,174 @@ export default function ProctorDashboard() {
                   });
                   const lookup = {};
                   mySchedule.forEach(s => { const key = `${s.start_time}|||${s.end_time}|||${s.day_of_week}`; if (!lookup[key]) lookup[key] = []; lookup[key].push(s.subject); });
+                  const parsed = parseTranslatedScheduleText(translatedSchedule);
+
                   return (
                     <div className="space-y-4">
-                      <div className="flex items-center justify-between px-2">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-2">
                         <div className="flex items-center gap-3">
                           <div className={`p-2 rounded-xl ${isDark ? "bg-blue-500/20" : "bg-blue-100"}`}>
                             <Calendar className={`w-5 h-5 ${isDark ? "text-blue-400" : "text-blue-600"}`} />
                           </div>
                           <h3 className={`text-xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Weekly Teaching Schedule</h3>
                         </div>
-                        <button
-                          onClick={() => setShowDeleteScheduleModal(true)}
-                          className="bg-red-500 hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-700 text-white px-4 py-2.5 rounded-xl shadow-md flex items-center gap-2 transition-all hover:scale-105 active:scale-95 font-bold text-xs"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                          Delete My Schedule
-                        </button>
+                        <div className="flex flex-wrap items-center gap-2">
+                          {translatedSchedule && (
+                            <div className={`flex items-center p-1 rounded-xl border ${isDark ? "bg-slate-900/60 border-slate-800" : "bg-slate-100/80 border-slate-200"}`}>
+                              <button
+                                onClick={() => setScheduleView("translated")}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                  scheduleView === "translated"
+                                    ? (isDark ? "bg-blue-600 text-white shadow-md shadow-blue-500/10" : "bg-white text-blue-600 shadow-sm")
+                                    : (isDark ? "text-slate-400 hover:text-slate-200" : "text-slate-500 hover:text-slate-800")
+                                }`}
+                              >
+                                Translated View
+                              </button>
+                              <button
+                                onClick={() => setScheduleView("grid")}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                  scheduleView === "grid"
+                                    ? (isDark ? "bg-blue-600 text-white shadow-md shadow-blue-500/10" : "bg-white text-blue-600 shadow-sm")
+                                    : (isDark ? "text-slate-400 hover:text-slate-200" : "text-slate-500 hover:text-slate-800")
+                                }`}
+                              >
+                                Calendar Grid
+                              </button>
+                            </div>
+                          )}
+                          <button
+                            onClick={() => setShowDeleteScheduleModal(true)}
+                            className="bg-red-500 hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-700 text-white px-4 py-2.5 rounded-xl shadow-md flex items-center gap-2 transition-all hover:scale-105 active:scale-95 font-bold text-xs"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            Delete My Schedule
+                          </button>
+                        </div>
                       </div>
-                      <div className={`overflow-x-auto rounded-2xl sm:rounded-3xl border ${isDark ? "bg-slate-800/80 border-slate-700/50 backdrop-blur-xl" : "bg-white/80 border-slate-200 backdrop-blur-xl"} shadow-sm custom-scrollbar`}>
-                        <table className="w-full text-xs text-center border-collapse min-w-[720px]">
-                          <thead>
-                            <tr className={isDark ? "bg-blue-900/60 text-blue-200" : "bg-blue-600 text-white"}>
-                              <th className={`px-4 py-4 font-bold uppercase tracking-wider text-left border-r ${isDark ? "border-blue-800/50" : "border-blue-500/30"} min-w-[120px]`}>Time</th>
-                              {DAYS.map(day => <th key={day} className={`px-3 py-4 font-bold uppercase tracking-wider min-w-[110px] border-r last:border-r-0 ${isDark ? "border-blue-800/50" : "border-blue-500/30"}`}>{day.slice(0, 3)}</th>)}
-                            </tr>
-                          </thead>
-                          <tbody>{timeSlotKeys.map((slotKey, rowIdx) => {
-                            const [st, et] = slotKey.split("|||"); const isEven = rowIdx % 2 === 0; return (<tr key={slotKey} className={`border-t transition-colors ${isDark ? `border-slate-700/50 ${isEven ? "bg-slate-800/30" : "bg-slate-800/10"} hover:bg-slate-700/50` : `border-slate-100 ${isEven ? "bg-white" : "bg-slate-50/50"} hover:bg-blue-50/30`}`}>
-                              <td className={`px-4 py-3 text-left font-mono font-semibold border-r whitespace-nowrap ${isDark ? "text-slate-300 border-slate-700/50" : "text-slate-700 border-slate-200"}`}>{st}<br /><span className={`text-[10px] font-normal ${isDark ? "text-slate-500" : "text-slate-400"}`}>{et}</span></td>
-                              {DAYS.map((_, dayIdx) => { const key = `${st}|||${et}|||${dayIdx}`; const subs = lookup[key]; return (<td key={dayIdx} className={`px-3 py-3 border-r last:border-r-0 align-middle ${isDark ? "border-slate-700/50" : "border-slate-100"}`}>{subs ? <div className="flex flex-col gap-1.5">{subs.map((s, i) => <span key={i} className={`inline-flex justify-center px-2 py-1 rounded-lg text-[10px] font-bold leading-tight shadow-sm ${isDark ? "bg-blue-500/20 text-blue-300 border border-blue-500/30" : "bg-blue-50 text-blue-700 border border-blue-200"}`}>{s}</span>)}</div> : <span className={isDark ? "text-slate-700" : "text-slate-300"}>—</span>}</td>); })}
-                            </tr>);
-                          })}</tbody>
-                        </table>
-                      </div>
+
+                      {scheduleView === "translated" && parsed && parsed.schedule.length > 0 ? (
+                        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {parsed.schedule.map((dayObj) => (
+                              <div
+                                key={dayObj.day}
+                                className={`p-5 rounded-2xl border transition-all ${
+                                  isDark
+                                    ? "bg-slate-800/80 border-slate-700/50 backdrop-blur-xl hover:border-slate-600"
+                                    : "bg-white border-slate-200 shadow-sm hover:shadow-md"
+                                }`}
+                              >
+                                <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-100 dark:border-slate-700/50">
+                                  <h4 className={`font-bold text-base ${isDark ? "text-white" : "text-slate-800"}`}>{dayObj.day}</h4>
+                                  <span className={`px-2.5 py-0.5 rounded-md text-[10px] font-bold ${
+                                    isDark ? "bg-slate-700 text-slate-350" : "bg-slate-100 text-slate-600"
+                                  }`}>{dayObj.entries.length} items</span>
+                                </div>
+                                <div className="space-y-3">
+                                  {dayObj.entries.length === 0 ? (
+                                    <p className={`text-xs italic py-2 ${isDark ? "text-slate-500" : "text-slate-400"}`}>No classes scheduled</p>
+                                  ) : (
+                                    dayObj.entries.map((entry, idx) => {
+                                      const isBreak = entry.subject.toLowerCase().includes("break") || entry.subject.toLowerCase() === "break";
+                                      const isAdmin = entry.subject.toLowerCase().includes("admin");
+                                      
+                                      let badgeColor = isDark
+                                        ? "bg-blue-500/10 text-blue-400 border-blue-500/20"
+                                        : "bg-blue-50 text-blue-750 border-blue-200";
+                                      
+                                      if (isBreak) {
+                                        badgeColor = isDark
+                                          ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                                          : "bg-emerald-50 text-emerald-750 border-emerald-200";
+                                      } else if (isAdmin) {
+                                        badgeColor = isDark
+                                          ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                                          : "bg-amber-50 text-amber-750 border-amber-200";
+                                      } else if (entry.type === "Lab") {
+                                        badgeColor = isDark
+                                          ? "bg-purple-500/10 text-purple-400 border-purple-500/20"
+                                          : "bg-purple-50 text-purple-750 border-purple-200";
+                                      }
+                                      
+                                      return (
+                                        <div
+                                          key={idx}
+                                          className={`p-3 rounded-xl border flex flex-col gap-1.5 transition-all ${
+                                            isDark
+                                              ? "bg-slate-900/40 border-slate-800 hover:bg-slate-900/60"
+                                              : "bg-slate-50/50 border-slate-100 hover:bg-slate-50"
+                                          }`}
+                                        >
+                                          <div className="flex items-center justify-between gap-2">
+                                            <span className={`text-[10px] font-bold ${isDark ? "text-slate-400" : "text-slate-500"}`}>{entry.time}</span>
+                                            {(entry.type || isBreak || isAdmin) && (
+                                              <span className={`px-2 py-0.5 rounded-full text-[9px] font-black border uppercase tracking-wider ${badgeColor}`}>
+                                                {isBreak ? "Break" : isAdmin ? "Admin" : entry.type}
+                                              </span>
+                                            )}
+                                          </div>
+                                          <div className={`text-xs font-bold leading-snug ${isDark ? "text-slate-200" : "text-slate-800"}`}>
+                                            {entry.subject}
+                                          </div>
+                                          {entry.room && (
+                                            <div className={`flex items-center gap-1 text-[10px] ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                                              <span className="opacity-60">Room:</span>
+                                              <span className="font-semibold">{entry.room}</span>
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    })
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+
+                          {parsed.translations.length > 0 && (
+                            <div className={`p-6 rounded-2xl border ${
+                              isDark ? "bg-slate-800/80 border-slate-700/50 backdrop-blur-xl" : "bg-white border-slate-200 shadow-sm"
+                            }`}>
+                              <h4 className={`font-bold text-sm mb-3 uppercase tracking-wider ${isDark ? "text-slate-300" : "text-slate-700"}`}>
+                                Subject Translation Reference
+                              </h4>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                                {parsed.translations.map((trans) => (
+                                  <div
+                                    key={trans.abbreviation}
+                                    className={`px-3 py-2 rounded-xl border flex items-center justify-between text-xs gap-3 ${
+                                      isDark ? "bg-slate-900/40 border-slate-800" : "bg-slate-50 border-slate-100"
+                                    }`}
+                                  >
+                                    <span className="font-mono font-bold text-blue-500 dark:text-blue-400">{trans.abbreviation}</span>
+                                    <span className={`text-right font-medium truncate ${isDark ? "text-slate-300" : "text-slate-650"}`} title={trans.meaning}>
+                                      {trans.meaning}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className={`overflow-x-auto rounded-2xl sm:rounded-3xl border ${isDark ? "bg-slate-800/80 border-slate-700/50 backdrop-blur-xl" : "bg-white/80 border-slate-200 backdrop-blur-xl"} shadow-sm custom-scrollbar`}>
+                          <table className="w-full text-xs text-center border-collapse min-w-[720px]">
+                            <thead>
+                              <tr className={isDark ? "bg-blue-900/60 text-blue-200" : "bg-blue-600 text-white"}>
+                                <th className={`px-4 py-4 font-bold uppercase tracking-wider text-left border-r ${isDark ? "border-blue-800/50" : "border-blue-500/30"} min-w-[120px]`}>Time</th>
+                                {DAYS.map(day => <th key={day} className={`px-3 py-4 font-bold uppercase tracking-wider min-w-[110px] border-r last:border-r-0 ${isDark ? "border-blue-800/50" : "border-blue-500/30"}`}>{day.slice(0, 3)}</th>)}
+                              </tr>
+                            </thead>
+                            <tbody>{timeSlotKeys.map((slotKey, rowIdx) => {
+                              const [st, et] = slotKey.split("|||"); const isEven = rowIdx % 2 === 0; return (<tr key={slotKey} className={`border-t transition-colors ${isDark ? `border-slate-700/50 ${isEven ? "bg-slate-800/30" : "bg-slate-800/10"} hover:bg-slate-700/50` : `border-slate-100 ${isEven ? "bg-white" : "bg-slate-50/50"} hover:bg-blue-50/30`}`}>
+                                <td className={`px-4 py-3 text-left font-mono font-semibold border-r whitespace-nowrap ${isDark ? "text-slate-300 border-slate-700/50" : "text-slate-700 border-slate-200"}`}>{st}<br /><span className={`text-[10px] font-normal ${isDark ? "text-slate-500" : "text-slate-400"}`}>{et}</span></td>
+                                {DAYS.map((_, dayIdx) => { const key = `${st}|||${et}|||${dayIdx}`; const subs = lookup[key]; return (<td key={dayIdx} className={`px-3 py-3 border-r last:border-r-0 align-middle ${isDark ? "border-slate-700/50" : "border-slate-100"}`}>{subs ? <div className="flex flex-col gap-1.5">{subs.map((s, i) => <span key={i} className={`inline-flex justify-center px-2 py-1 rounded-lg text-[10px] font-bold leading-tight shadow-sm ${isDark ? "bg-blue-500/20 text-blue-300 border border-blue-500/30" : "bg-blue-50 text-blue-700 border border-blue-200"}`}>{s}</span>)}</div> : <span className={isDark ? "text-slate-700" : "text-slate-300"}>—</span>}</td>); })}
+                              </tr>);
+                            })}</tbody>
+                          </table>
+                        </div>
+                      )}
                     </div>
                   );
                 })() : (

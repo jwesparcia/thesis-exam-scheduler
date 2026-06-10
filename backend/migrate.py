@@ -31,3 +31,39 @@ with engine.connect() as conn:
         print("Migration successful! Column 'preferred_room_id' added to table 'sections'.")
     else:
         print("Column 'preferred_room_id' already exists in table 'sections'. No migration needed.")
+
+    # Check if exams table has term column
+    result_term = conn.execute(text("""
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name='exams' AND column_name='term';
+    """)).fetchone()
+    
+    if not result_term:
+        print("Column 'term' not found in table 'exams'. Adding column...")
+        conn.execute(text("""
+            ALTER TABLE exams 
+            ADD COLUMN term VARCHAR DEFAULT 'Midterm';
+        """))
+        conn.commit()
+        print("Migration successful! Column 'term' added to table 'exams'.")
+    else:
+        print("Column 'term' already exists in table 'exams'. No migration needed.")
+
+    # Check if proctors table has translated_schedule column
+    result_trans = conn.execute(text("""
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name='proctors' AND column_name='translated_schedule';
+    """)).fetchone()
+    
+    if not result_trans:
+        print("Column 'translated_schedule' not found in table 'proctors'. Adding column...")
+        conn.execute(text("""
+            ALTER TABLE proctors 
+            ADD COLUMN translated_schedule TEXT NULL;
+        """))
+        conn.commit()
+        print("Migration successful! Column 'translated_schedule' added to table 'proctors'.")
+    else:
+        print("Column 'translated_schedule' already exists in table 'proctors'. No migration needed.")

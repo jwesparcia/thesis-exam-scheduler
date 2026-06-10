@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   Calendar,
   Users,
@@ -15,6 +15,9 @@ import {
   DoorOpen,
   BookOpen,
   User,
+  MessageSquare,
+  Send,
+  ChevronRight,
 } from "lucide-react";
 import ExamScheduler from "../components/ExamScheduler";
 import AddProctor from "../components/AddProctor";
@@ -40,20 +43,22 @@ const INITIAL_GENERATION_STATE = {
   },
 };
 
-function ReschedulingRequests() {
+function ReschedulingRequests({ isGenerating }) {
   const { theme } = useTheme();
   const isDark = theme === "dark";
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [activeSubTab, setActiveSubTab] = useState("pending");
+  const [history, setHistory] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
   const { showSuccess, showError } = useToast();
 
   useEffect(() => {
     const fetchRequests = async () => {
       setLoading(true);
       try {
-        const res = await api.get("/program-head/reschedule-requests");
-        const pending = res.data.filter(r => r.status === "pending");
-        setRequests(pending);
+        const res = await api.get("/rescheduling/pending");
+        setRequests(res.data);
       } catch (err) {
         console.error("Error fetching requests:", err);
       }
@@ -62,100 +67,466 @@ function ReschedulingRequests() {
     fetchRequests();
   }, []);
 
-  const handleReview = async (id, status, comments = "") => {
+  const fetchHistory = async () => {
+    setLoadingHistory(true);
     try {
-      const isApproved = status === "approved";
-      const res = await api.post(`/program-head/approve-reschedule/${id}?approved=${isApproved}&comments=${encodeURIComponent(comments)}`);
+      const res = await api.get("/rescheduling/history");
+      setHistory(res.data);
+    } catch (err) {
+      console.error("Error fetching history:", err);
+    }
+    setLoadingHistory(false);
+  };
+
+  useEffect(() => {
+    if (activeSubTab === "history") {
+      fetchHistory();
+    }
+  }, [activeSubTab]);
+
+  const handleReview = async (id, status, comments = "") => {
+    if (isGenerating) {
+      showError("Cannot review rescheduling requests while schedule generation is ongoing");
+      return;
+    }
+    try {
+      const res = await api.put(`/rescheduling/${id}/review`, {
+        status,
+        reviewer_comments: comments,
+      });
       if (res.status === 200) {
-        setRequests(requests.filter(req => req.id !== id));
+        setRequests(prev => prev.filter(req => req.id !== id));
         showSuccess(`Request ${status} successfully`);
       } else {
         showError("Failed to update request");
       }
     } catch (err) {
       console.error(err);
-      showError("Error updating request");
+      showError(err.response?.data?.detail || "Error updating request");
     }
   };
 
-  if (loading) {
-    return <div className="text-center py-8">Loading requests...</div>;
-  }
-
-  if (requests.length === 0) {
-    return <div className="text-center py-8 text-gray-500">No pending rescheduling requests.</div>;
-  }
+  const formatPreferredDate = (dateStr) => {
+    if (!dateStr) return "Flexible";
+    try {
+      const d = new Date(dateStr);
+      return d.toLocaleDateString("en-US", { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    } catch {
+      return dateStr;
+    }
+  };
 
   return (
     <div className="space-y-6">
-      {requests.map((req) => (
-        <div
-          key={req.id}
-          className={`p-6 rounded-xl border shadow-lg `}
+      {/* Sub-tab navigation */}
+      <div className={`flex border-b ${isDark ? "border-gray-700" : "border-gray-200"} mb-2`}>
+        <button
+          onClick={() => setActiveSubTab("pending")}
+          className={`px-5 py-3 text-sm font-semibold border-b-2 transition-all ${activeSubTab === "pending"
+            ? "border-blue-500 text-blue-500"
+            : `border-transparent ${isDark ? "text-gray-400 hover:text-gray-200" : "text-gray-500 hover:text-gray-700"}`
+            }`}
         >
-          <div className="flex justify-between items-start mb-4">
-            <div>
-              <h4 className={`	ext-lg font-semibold `}>
-                {req.course_name} - {req.section_name}
-              </h4>
-              <p className={`	ext-sm `}>
-                Student: {req.student_name} ({req.student_id})
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => handleReview(req.id, "approved")}
-                className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition"
-              >
-                Approve
-              </button>
-              <button
-                onClick={() => {
-                  const comments = prompt("Rejection reason:");
-                  if (comments !== null) handleReview(req.id, "rejected", comments);
-                }}
-                className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition"
-              >
-                Reject
-              </button>
-            </div>
-          </div>
+          Pending Requests ({requests.length})
+        </button>
+        <button
+          onClick={() => setActiveSubTab("history")}
+          className={`px-5 py-3 text-sm font-semibold border-b-2 transition-all ${activeSubTab === "history"
+            ? "border-blue-500 text-blue-500"
+            : `border-transparent ${isDark ? "text-gray-400 hover:text-gray-200" : "text-gray-500 hover:text-gray-700"}`
+            }`}
+        >
+          Rescheduling History
+        </button>
+      </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className={`p-4 rounded-lg `}>
-              <h5 className={`ont-medium mb-2 `}>Current Exam Details</h5>
-              <p className={`	ext-sm `}>
-                Date: {req.original_exam_date}<br />
-                Time: {req.original_time}<br />
-                Type: {req.exam_type}
-              </p>
-            </div>
-            <div className={`p-4 rounded-lg `}>
-              <h5 className={`ont-medium mb-2 `}>Requested Reschedule</h5>
-              <p className={`	ext-sm `}>
-                Mode: {req.requested_mode}<br />
-                Date: {req.preferred_date || "N/A"}<br />
-                Time: {req.preferred_time || "N/A"}
-              </p>
-            </div>
+      {activeSubTab === "pending" ? (
+        loading ? (
+          <div className="flex items-center justify-center py-16">
+            <div className="w-8 h-8 rounded-full border-4 border-t-blue-500 animate-spin" />
+            <span className={`ml-3 ${isDark ? "text-gray-400" : "text-gray-500"}`}>Loading requests...</span>
           </div>
+        ) : requests.length === 0 ? (
+          <div className={`text-center py-16 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+            <ClipboardList className="w-12 h-12 mx-auto mb-3 opacity-30" />
+            <p className="font-medium">No pending rescheduling requests.</p>
+            <p className="text-sm mt-1">Students with exam conflicts can submit requests from their dashboard.</p>
+          </div>
+        ) : (
+          <div className="space-y-5">
+            {requests.map((req) => (
+              <div
+                key={req.id}
+                className={`p-6 rounded-xl border shadow-sm transition-all ${isDark ? "bg-gray-800/50 border-gray-700" : "bg-white border-gray-200 hover:shadow-md"}`}
+              >
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-5 gap-4">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-bold uppercase ${isDark ? "bg-yellow-900/40 text-yellow-300" : "bg-yellow-100 text-yellow-700"
+                        }`}>Pending</span>
+                    </div>
+                    <h4 className={`text-lg font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
+                      {req.course_name}
+                    </h4>
+                    <p className={`text-sm mt-0.5 ${isDark ? "text-gray-400" : "text-gray-600"}`}>
+                      {req.student_name} &bull; Section: {req.section_name}
+                    </p>
+                  </div>
+                  <div className="flex gap-2 shrink-0">
+                    <button
+                      onClick={() => handleReview(req.id, "approved")}
+                      disabled={isGenerating}
+                      className={`px-4 py-2 rounded-lg font-semibold text-sm transition bg-green-500 ${isGenerating ? "bg-green-600 text-green-300 cursor-not-allowed" : "bg-green-50 hover:bg-green-500/30 text-white"
+                        }`}
+                      title={isGenerating ? "Cannot approve while schedule generation is running" : ""}
+                    >
+                      ✓ Approve
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (isGenerating) return;
+                        const comments = prompt("Rejection reason (optional):");
+                        if (comments !== null) handleReview(req.id, "rejected", comments || "");
+                      }}
+                      disabled={isGenerating}
+                      className={`px-4 py-2 rounded-lg font-semibold text-sm transition ${isGenerating ? "bg-red-500/30 text-red-300 cursor-not-allowed" : "bg-red-500 hover:bg-red-600 text-white"
+                        }`}
+                      title={isGenerating ? "Cannot reject while schedule generation is running" : ""}
+                    >
+                      ✗ Reject
+                    </button>
+                  </div>
+                </div>
 
-          <div className="mt-4">
-            <h5 className={`ont-medium mb-2 `}>Reason for Request</h5>
-            <p className={`	ext-sm `}>
-              <strong>{req.reason_type}:</strong> {req.detailed_explanation}
-            </p>
-            {req.supporting_file && (
-              <p className={`	ext-sm mt-2 `}>
-                Supporting document uploaded
-              </p>
-            )}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  <div className={`p-4 rounded-lg border ${isDark ? "bg-gray-700/50 border-gray-600" : "bg-gray-50 border-gray-100"}`}>
+                    <h5 className={`text-xs font-bold uppercase tracking-wide mb-2 ${isDark ? "text-gray-400" : "text-gray-500"}`}>Original Exam</h5>
+                    <p className={`text-sm leading-relaxed ${isDark ? "text-gray-200" : "text-gray-700"}`}>
+                      <span className="font-medium">Date:</span> {req.original_exam_date}<br />
+                      <span className="font-medium">Time:</span> {req.original_time}<br />
+                      <span className="font-medium">Type:</span> {req.exam_type}
+                    </p>
+                  </div>
+                  <div className={`p-4 rounded-lg border ${isDark ? "bg-blue-900/20 border-blue-800/40" : "bg-blue-50 border-blue-100"}`}>
+                    <h5 className={`text-xs font-bold uppercase tracking-wide mb-2 ${isDark ? "text-blue-400" : "text-blue-600"}`}>Requested Schedule</h5>
+                    <p className={`text-sm leading-relaxed ${isDark ? "text-gray-200" : "text-gray-700"}`}>
+                      <span className="font-medium">Mode:</span> {req.requested_mode}<br />
+                      <span className="font-medium">Date:</span> {req.preferred_date || "Flexible"}<br />
+                      <span className="font-medium">Time:</span> {req.preferred_time || "To be determined"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className={`p-4 rounded-lg border ${isDark ? "bg-gray-700/30 border-gray-700" : "bg-gray-50 border-gray-100"}`}>
+                  <h5 className={`text-xs font-bold uppercase tracking-wide mb-2 ${isDark ? "text-gray-400" : "text-gray-500"}`}>Reason for Request</h5>
+                  <p className={`text-sm ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+                    <span className={`inline-block px-2 py-0.5 rounded text-xs font-semibold mr-2 mb-1 ${isDark ? "bg-gray-600 text-gray-200" : "bg-gray-200 text-gray-700"}`}>
+                      {req.reason_type}
+                    </span>
+                    {req.detailed_explanation}
+                  </p>
+                </div>
+              </div>
+            ))}
           </div>
-        </div>
-      ))}
+        )
+      ) : (
+        loadingHistory ? (
+          <div className="flex items-center justify-center py-16">
+            <div className="w-8 h-8 rounded-full border-4 border-t-blue-500 animate-spin" />
+            <span className={`ml-3 ${isDark ? "text-gray-400" : "text-gray-500"}`}>Loading history...</span>
+          </div>
+        ) : history.length === 0 ? (
+          <div className={`text-center py-16 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+            <ClipboardList className="w-12 h-12 mx-auto mb-3 opacity-30" />
+            <p className="font-medium">No rescheduling history.</p>
+            <p className="text-sm mt-1">Processed rescheduling requests will appear here.</p>
+          </div>
+        ) : (
+          <div className="space-y-5">
+            {history.map((req) => (
+              <div
+                key={req.id}
+                className={`p-6 rounded-xl border shadow-sm transition-all ${isDark ? "bg-gray-800/50 border-gray-700" : "bg-white border-gray-200 hover:shadow-md"}`}
+              >
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-5 gap-4">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase ${req.status === "approved"
+                        ? (isDark ? "bg-green-900/40 text-green-300" : "bg-green-100 text-green-700")
+                        : (isDark ? "bg-red-900/40 text-red-300" : "bg-red-100 text-red-700")
+                        }`}>
+                        {req.status}
+                      </span>
+                      <span className={`text-xs ${isDark ? "text-gray-500" : "text-gray-400"}`}>
+                        ID: {req.id}
+                      </span>
+                    </div>
+                    <h4 className={`text-lg font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
+                      {req.course_name}
+                    </h4>
+                    <p className={`text-sm mt-0.5 ${isDark ? "text-gray-400" : "text-gray-600"}`}>
+                      {req.student_name} &bull; Section: {req.section_name}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  <div className={`p-4 rounded-lg border ${isDark ? "bg-gray-700/50 border-gray-600" : "bg-gray-50 border-gray-100"}`}>
+                    <h5 className={`text-xs font-bold uppercase tracking-wide mb-2 ${isDark ? "text-gray-400" : "text-gray-500"}`}>Original Exam</h5>
+                    <p className={`text-sm leading-relaxed ${isDark ? "text-gray-200" : "text-gray-700"}`}>
+                      <span className="font-medium">Date:</span> {req.original_exam_date}<br />
+                      <span className="font-medium">Time:</span> {req.original_time}<br />
+                      <span className="font-medium">Type:</span> {req.exam_type}
+                    </p>
+                  </div>
+                  <div className={`p-4 rounded-lg border ${req.status === "approved"
+                    ? (isDark ? "bg-blue-900/20 border-blue-800/40" : "bg-blue-50 border-blue-100")
+                    : (isDark ? "bg-red-900/10 border-red-900/20" : "bg-red-50/50 border-red-100")
+                    }`}>
+                    <h5 className={`text-xs font-bold uppercase tracking-wide mb-2 ${req.status === "approved"
+                      ? (isDark ? "text-blue-400" : "text-blue-600")
+                      : (isDark ? "text-red-400" : "text-red-600")
+                      }`}>
+                      {req.status === "approved" ? "Rescheduled To" : "Requested Schedule (Rejected)"}
+                    </h5>
+                    <p className={`text-sm leading-relaxed ${isDark ? "text-gray-200" : "text-gray-700"}`}>
+                      <span className="font-medium">Mode:</span> {req.requested_mode}<br />
+                      <span className="font-medium">Date:</span> {formatPreferredDate(req.preferred_date)}<br />
+                      <span className="font-medium">Time:</span> {req.preferred_time || "To be determined"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className={`p-4 rounded-lg border mb-4 ${isDark ? "bg-gray-700/30 border-gray-700" : "bg-gray-50 border-gray-100"}`}>
+                  <h5 className={`text-xs font-bold uppercase tracking-wide mb-2 ${isDark ? "text-gray-400" : "text-gray-500"}`}>Reason for Request</h5>
+                  <p className={`text-sm ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+                    <span className={`inline-block px-2 py-0.5 rounded text-xs font-semibold mr-2 mb-1 ${isDark ? "bg-gray-600 text-gray-200" : "bg-gray-200 text-gray-700"}`}>
+                      {req.reason_type}
+                    </span>
+                    {req.detailed_explanation}
+                  </p>
+                </div>
+
+                {req.reviewer_comments && (
+                  <div className={`p-4 rounded-lg border border-dashed ${isDark ? "bg-slate-800/40 border-gray-700" : "bg-slate-50/50 border-gray-200"}`}>
+                    <h5 className={`text-xs font-bold uppercase tracking-wide mb-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}>Reviewer Comments</h5>
+                    <p className={`text-sm italic ${isDark ? "text-gray-300" : "text-gray-600"}`}>
+                      "{req.reviewer_comments}"
+                    </p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )
+      )}
     </div>
   );
 }
+
+function ChatSupportPanel() {
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
+  const { user } = useUser();
+  const [conversations, setConversations] = useState([]);
+  const [activeStudentId, setActiveStudentId] = useState(null);
+  const [activeStudentName, setActiveStudentName] = useState("");
+  const [messages, setMessages] = useState([]);
+  const [newMessage, setNewMessage] = useState("");
+  const [sending, setSending] = useState(false);
+  const messagesEndRef = useRef(null);
+
+  const fetchConversations = async () => {
+    try {
+      const res = await api.get("/chat/conversations");
+      setConversations(res.data);
+    } catch (err) { console.error("conv err", err); }
+  };
+
+  const fetchMessages = async (studentId) => {
+    if (!studentId) return;
+    try {
+      const res = await api.get(`/chat/messages/${studentId}`);
+      setMessages(res.data);
+      api.put(`/chat/read/${studentId}`).catch(() => { });
+    } catch (err) { console.error("msg err", err); }
+  };
+
+  useEffect(() => {
+    fetchConversations();
+    const interval = setInterval(fetchConversations, 8000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    if (!activeStudentId) return;
+    fetchMessages(activeStudentId);
+    const interval = setInterval(() => fetchMessages(activeStudentId), 4000);
+    return () => clearInterval(interval);
+  }, [activeStudentId]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  const sendMessage = async () => {
+    if (!newMessage.trim() || !activeStudentId || sending) return;
+    setSending(true);
+    try {
+      await api.post("/chat/send", { recipient_id: activeStudentId, message: newMessage.trim() });
+      setNewMessage("");
+      await fetchMessages(activeStudentId);
+      fetchConversations();
+    } catch (err) { console.error(err); }
+    setSending(false);
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  };
+
+  const selectStudent = (id, name) => {
+    setActiveStudentId(id);
+    setActiveStudentName(name);
+    setMessages([]);
+  };
+
+  return (
+    <div className={`flex h-[620px] rounded-xl border overflow-hidden ${isDark ? "border-gray-700" : "border-gray-200"}`}>
+      {/* Left: conversation list */}
+      <div className={`w-72 flex flex-col border-r ${isDark ? "bg-gray-800/60 border-gray-700" : "bg-gray-50 border-gray-200"}`}>
+        <div className={`p-4 border-b ${isDark ? "border-gray-700" : "border-gray-200"}`}>
+          <h3 className={`font-bold text-sm uppercase tracking-wide ${isDark ? "text-gray-300" : "text-gray-600"}`}>
+            Irregular Students
+          </h3>
+          <p className={`text-xs mt-0.5 ${isDark ? "text-gray-500" : "text-gray-400"}`}>{conversations.length} conversation{conversations.length !== 1 ? "s" : ""}</p>
+        </div>
+        <div className="flex-1 overflow-y-auto custom-scrollbar">
+          {conversations.length === 0 ? (
+            <div className={`p-6 text-center text-sm ${isDark ? "text-gray-500" : "text-gray-400"}`}>
+              <MessageSquare className="w-8 h-8 mx-auto mb-2 opacity-30" />
+              No irregular students yet
+            </div>
+          ) : conversations.map((conv) => (
+            <button
+              key={conv.student_id}
+              onClick={() => selectStudent(conv.student_id, conv.student_name)}
+              className={`w-full p-4 text-left border-b transition-all ${activeStudentId === conv.student_id
+                ? isDark ? "bg-blue-600/20 border-blue-700/50" : "bg-blue-50 border-blue-100"
+                : isDark ? "border-gray-700/50 hover:bg-gray-700/40" : "border-gray-100 hover:bg-gray-100"
+                }`}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className={`font-semibold text-sm truncate ${isDark ? "text-white" : "text-gray-900"}`}>
+                  {conv.student_name}
+                </span>
+                {conv.unread_count > 0 && (
+                  <span className="ml-2 shrink-0 text-[10px] font-bold bg-red-500 text-white rounded-full px-1.5 py-0.5">
+                    {conv.unread_count}
+                  </span>
+                )}
+              </div>
+              <p className={`text-xs truncate ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                {conv.last_message || "No messages yet"}
+              </p>
+              {conv.last_message_time && (
+                <p className={`text-[10px] mt-0.5 ${isDark ? "text-gray-600" : "text-gray-400"}`}>
+                  {new Date(conv.last_message_time + "Z").toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                </p>
+              )}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Right: chat window */}
+      <div className={`flex-1 flex flex-col ${isDark ? "bg-gray-900" : "bg-white"}`}>
+        {activeStudentId ? (
+          <>
+            {/* Chat header */}
+            <div className={`p-4 border-b flex items-center gap-3 ${isDark ? "border-gray-700 bg-gray-800/50" : "border-gray-200 bg-gray-50"}`}>
+              <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm ${isDark ? "bg-blue-600/30 text-blue-300" : "bg-blue-100 text-blue-700"
+                }`}>
+                {activeStudentName.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
+              </div>
+              <div>
+                <h4 className={`font-bold text-sm ${isDark ? "text-white" : "text-gray-900"}`}>{activeStudentName}</h4>
+                <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>Irregular Student</p>
+              </div>
+            </div>
+
+            {/* Messages */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+              {messages.length === 0 ? (
+                <div className={`text-center py-12 text-sm ${isDark ? "text-gray-500" : "text-gray-400"}`}>
+                  <MessageSquare className="w-10 h-10 mx-auto mb-2 opacity-20" />
+                  No messages yet. Start the conversation!
+                </div>
+              ) : messages.map((msg) => {
+                const isMe = msg.sender_id === user?.id;
+                return (
+                  <div key={msg.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
+                    <div className={`max-w-[70%] px-4 py-2.5 rounded-2xl text-sm shadow-sm ${isMe
+                      ? "bg-blue-600 text-white rounded-br-sm"
+                      : isDark ? "bg-gray-700 text-gray-100 rounded-bl-sm" : "bg-gray-100 text-gray-800 rounded-bl-sm"
+                      }`}>
+                      <p className="leading-relaxed">{msg.message}</p>
+                      <p className={`text-[10px] mt-1 ${isMe ? "text-blue-200" : isDark ? "text-gray-500" : "text-gray-400"}`}>
+                        {new Date(msg.created_at + "Z").toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+              <div ref={messagesEndRef} />
+            </div>
+
+            {/* Input */}
+            <div className={`p-4 border-t flex gap-3 items-end ${isDark ? "border-gray-700 bg-gray-800/30" : "border-gray-200 bg-gray-50"}`}>
+              <textarea
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Type a message... (Enter to send)"
+                rows={1}
+                className={`flex-1 p-3 rounded-xl border resize-none outline-none text-sm transition ${isDark
+                  ? "bg-gray-700 border-gray-600 text-white placeholder-gray-500 focus:border-blue-500"
+                  : "bg-white border-gray-300 text-gray-900 placeholder-gray-400 focus:border-blue-500"
+                  }`}
+              />
+              <button
+                onClick={sendMessage}
+                disabled={sending || !newMessage.trim()}
+                className={`p-3 rounded-xl transition flex items-center justify-center ${sending || !newMessage.trim()
+                  ? isDark ? "bg-gray-700 text-gray-500" : "bg-gray-200 text-gray-400"
+                  : "bg-blue-600 hover:bg-blue-700 text-white"
+                  }`}
+              >
+                <Send className="w-5 h-5" />
+              </button>
+            </div>
+          </>
+        ) : (
+          <div className={`flex-1 flex flex-col items-center justify-center gap-4 ${isDark ? "text-gray-500" : "text-gray-400"}`}>
+            <div className={`w-16 h-16 rounded-2xl flex items-center justify-center ${isDark ? "bg-gray-800" : "bg-gray-100"
+              }`}>
+              <MessageSquare className="w-8 h-8 opacity-40" />
+            </div>
+            <div className="text-center">
+              <p className="font-semibold">Select a conversation</p>
+              <p className="text-sm mt-1">Choose an irregular student from the list to start chatting.</p>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function ProgramHeadManual() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
@@ -195,15 +566,14 @@ function ProgramHeadManual() {
             <button
               key={t.id}
               onClick={() => setActiveSubTab(t.id)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-                isSelected
-                  ? isDark 
-                    ? "bg-blue-600 text-white" 
-                    : "bg-blue-600 text-white shadow-md shadow-blue-500/25"
-                  : isDark
-                    ? "text-slate-400 hover:bg-slate-800 hover:text-white"
-                    : "text-slate-600 hover:bg-blue-50 hover:text-blue-700"
-              }`}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${isSelected
+                ? isDark
+                  ? "bg-blue-600 text-white"
+                  : "bg-blue-600 text-white shadow-md shadow-blue-500/25"
+                : isDark
+                  ? "text-slate-400 hover:bg-slate-800 hover:text-white"
+                  : "text-slate-600 hover:bg-blue-50 hover:text-blue-700"
+                }`}
             >
               <SubIcon className="w-4 h-4" />
               {t.label}
@@ -219,7 +589,7 @@ function ProgramHeadManual() {
               <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-sm">1</div>
               <h3 className={`text-lg font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Generating the Exam Schedule</h3>
             </div>
-            
+
             <p className={`text-sm leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
               The scheduling engine uses a multi-generation Genetic Algorithm (GA) to satisfy hard constraints (no student clashes, no proctor clashes) and optimize soft constraints (high-floor targets, balanced rooms).
             </p>
@@ -266,7 +636,7 @@ function ProgramHeadManual() {
               <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-sm">2</div>
               <h3 className={`text-lg font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Room Allocation & Capacity Constraints</h3>
             </div>
-            
+
             <p className={`text-sm leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
               Each room in the system has a maximum seating capacity. If a section's enrollment exceeds a room's seat limit, the schedule might fail or violate student distancing rules.
             </p>
@@ -301,7 +671,7 @@ function ProgramHeadManual() {
               <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-sm">3</div>
               <h3 className={`text-lg font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Proctor Management & Uploads</h3>
             </div>
-            
+
             <p className={`text-sm leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
               Proctors oversee examinations. To prevent assigning proctors during their teaching hours, you must upload their schedule from an Excel spreadsheet or define their availability.
             </p>
@@ -335,7 +705,7 @@ function ProgramHeadManual() {
               <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-sm">4</div>
               <h3 className={`text-lg font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Rescheduling Requests</h3>
             </div>
-            
+
             <p className={`text-sm leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
               Students who experience an exam clash (e.g. irregular schedules where two exams fall in the same timeslot) will submit a Rescheduling Request with supporting files.
             </p>
@@ -362,7 +732,7 @@ function ProgramHeadManual() {
               <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-sm">5</div>
               <h3 className={`text-lg font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Distribution Rules</h3>
             </div>
-            
+
             <p className={`text-sm leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
               Distribute exams logically to balance student workload. For example, ensure SHS Grade 11 exams only occur in the morning session, or major subjects are distributed over specific weekdays.
             </p>
@@ -471,6 +841,7 @@ export default function ProgramHeadDashboard() {
             { id: "proctors", icon: Users, label: "Proctor Management" },
             { id: "rooms", icon: DoorOpen, label: "Room Management" },
             { id: "rescheduling", icon: ClipboardList, label: "Rescheduling Requests" },
+            { id: "chat", icon: MessageSquare, label: "Chat Support" },
             { id: "monitoring", icon: ShieldCheck, label: "Proctor Monitoring" },
             { id: "rules", icon: Target, label: "Distribution Rules" },
             { id: "manual", icon: BookOpen, label: "User Manual" },
@@ -481,15 +852,14 @@ export default function ProgramHeadDashboard() {
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-                className={`w-full flex items-center gap-3.5 px-4 py-3.5 rounded-xl transition-all duration-300 group ${
-                  isActive
-                    ? isDark 
-                      ? "bg-blue-600 text-white shadow-lg shadow-blue-900/50" 
-                      : "bg-blue-600 text-white shadow-lg shadow-blue-500/30"
-                    : isDark
-                      ? "text-slate-300 hover:bg-slate-800/60 hover:text-white"
-                      : "text-slate-600 hover:bg-blue-50 hover:text-blue-700"
-                }`}
+                className={`w-full flex items-center gap-3.5 px-4 py-3.5 rounded-xl transition-all duration-300 group ${isActive
+                  ? isDark
+                    ? "bg-blue-600 text-white shadow-lg shadow-blue-900/50"
+                    : "bg-blue-600 text-white shadow-lg shadow-blue-500/30"
+                  : isDark
+                    ? "text-slate-300 hover:bg-slate-800/60 hover:text-white"
+                    : "text-slate-600 hover:bg-blue-50 hover:text-blue-700"
+                  }`}
               >
                 <Icon className={`w-5 h-5 transition-transform duration-300 ${isActive ? "scale-110" : "group-hover:scale-110"}`} />
                 <span className="text-sm font-semibold">{item.label}</span>
@@ -511,64 +881,49 @@ export default function ProgramHeadDashboard() {
               <div>
                 <h1 className={`text-2xl font-bold tracking-tight transition-colors ${isDark ? "text-white" : "text-slate-900"}`}>
                   {activeTab === "generate" ? "Exam Schedule Generator" :
-                   activeTab === "schedules" ? "Generated Exam Schedules" :
-                   activeTab === "proctors" ? "Proctor Management" :
-                   activeTab === "rooms" ? "Room Management" :
-                   activeTab === "monitoring" ? "Proctor Attendance Monitoring" :
-                   activeTab === "rescheduling" ? "Rescheduling Requests" :
-                   activeTab === "rules" ? "Distribution Rules" :
-                   activeTab === "manual" ? "User Manual" : "Program Head Dashboard"}
+                    activeTab === "schedules" ? "Generated Exam Schedules" :
+                      activeTab === "proctors" ? "Proctor Management" :
+                        activeTab === "rooms" ? "Room Management" :
+                          activeTab === "monitoring" ? "Proctor Attendance Monitoring" :
+                            activeTab === "rescheduling" ? "Rescheduling Requests" :
+                              activeTab === "chat" ? "Chat Support" :
+                                activeTab === "rules" ? "Distribution Rules" :
+                                  activeTab === "manual" ? "User Manual" : "Program Head Dashboard"}
                 </h1>
               </div>
               <div className="flex items-center gap-4">
                 <div className={`hidden md:flex px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all shadow-sm ${isDark ? "bg-blue-500/20 text-blue-400 border border-blue-500/30" : "bg-blue-50 text-blue-700 border border-blue-100"}`}>
                   Administrator
                 </div>
-                
                 <div className="relative">
-                  <button 
-                    onClick={() => setShowNotifications(!showNotifications)} 
-                    className={`relative p-2.5 rounded-xl transition-all duration-300 ${isDark ? "text-slate-300 hover:text-white hover:bg-slate-800" : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"}`}
-                  >
+                  <button onClick={() => setShowNotifications(!showNotifications)} className={`relative p-2.5 rounded-xl transition-all duration-300 ${isDark ? "text-slate-300 hover:text-white hover:bg-slate-800" : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"}`}>
                     <Bell className="w-5 h-5" />
-                    {unreadCount > 0 && (
-                      <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-red-500 ring-2 ring-white dark:ring-slate-900 animate-pulse"></span>
-                    )}
+                    {unreadCount > 0 && <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-red-500 ring-2 ring-white dark:ring-slate-900 animate-pulse"></span>}
                   </button>
-
-                  {/* Notifications Dropdown */}
                   {showNotifications && (
-                    <div className={`absolute right-0 mt-3 w-80 max-h-96 flex flex-col rounded-2xl shadow-2xl border z-50 transform origin-top-right transition-all animate-in fade-in scale-95 duration-200 ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200"}`}>
+                    <div className={`absolute right-0 mt-3 w-80 max-h-96 flex flex-col rounded-2xl shadow-2xl border z-50 ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200"}`}>
                       <div className={`px-5 py-4 border-b flex justify-between items-center ${isDark ? "border-slate-700" : "border-slate-100"}`}>
                         <h3 className={`font-semibold ${isDark ? "text-white" : "text-slate-900"}`}>Notifications</h3>
                         {unreadCount > 0 && <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-bold">{unreadCount} New</span>}
                       </div>
                       <div className="overflow-y-auto p-2 custom-scrollbar flex-1">
                         {notifications.length === 0 ? (
-                          <div className={`p-6 text-center text-sm ${isDark ? "text-slate-500" : "text-slate-400"}`}>
-                            <Bell className="w-8 h-8 mx-auto mb-2 opacity-20" />
-                            You're all caught up!
-                          </div>
-                        ) : (
-                          notifications.map((notif) => (
-                            <div key={notif.id} onClick={() => { if (!notif.is_read) markRead(notif.id); }} className={`p-3.5 rounded-xl cursor-pointer transition-all duration-200 mb-1 ${notif.is_read ? (isDark ? "hover:bg-slate-700/50 opacity-60" : "hover:bg-slate-50 opacity-60") : (isDark ? "bg-blue-900/20 hover:bg-blue-900/40 border border-blue-800/30" : "bg-blue-50 hover:bg-blue-100 border border-blue-100")}`}>
-                              <div className="flex gap-3">
-                                <div className={`mt-1.5 w-2 h-2 rounded-full flex-shrink-0 ${notif.is_read ? "bg-slate-400" : "bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.8)]"}`}></div>
-                                <div>
-                                  <p className={`text-sm leading-snug ${isDark ? "text-slate-200" : "text-slate-800"}`}>{notif.message}</p>
-                                  <p className={`text-[11px] mt-1.5 font-medium ${isDark ? "text-slate-500" : "text-slate-400"}`}>
-                                    {notif.created_at ? new Date(notif.created_at).toLocaleString() : "Just now"}
-                                  </p>
-                                </div>
+                          <div className={`p-6 text-center text-sm ${isDark ? "text-slate-500" : "text-slate-400"}`}><Bell className="w-8 h-8 mx-auto mb-2 opacity-20" />You're all caught up!</div>
+                        ) : notifications.map((notif) => (
+                          <div key={notif.id} onClick={() => { if (!notif.is_read) markRead(notif.id); }} className={`p-3.5 rounded-xl cursor-pointer transition-all duration-200 mb-1 ${notif.is_read ? (isDark ? "hover:bg-slate-700/50 opacity-60" : "hover:bg-slate-50 opacity-60") : (isDark ? "bg-blue-900/20 hover:bg-blue-900/40 border border-blue-800/30" : "bg-blue-50 hover:bg-blue-100 border border-blue-100")}`}>
+                            <div className="flex gap-3">
+                              <div className={`mt-1.5 w-2 h-2 rounded-full flex-shrink-0 ${notif.is_read ? "bg-slate-400" : "bg-blue-500"}`}></div>
+                              <div>
+                                <p className={`text-sm leading-snug ${isDark ? "text-slate-200" : "text-slate-800"}`}>{notif.message}</p>
+                                <p className={`text-[11px] mt-1.5 font-medium ${isDark ? "text-slate-500" : "text-slate-400"}`}>{notif.created_at ? new Date(notif.created_at).toLocaleString() : "Just now"}</p>
                               </div>
                             </div>
-                          ))
-                        )}
+                          </div>
+                        ))}
                       </div>
                     </div>
                   )}
                 </div>
-                
                 <div className="h-8 w-px bg-slate-200 dark:bg-slate-700 mx-2 hidden sm:block"></div>
                 <SettingsDropdown onLogout={handleLogout} isDark={isDark} />
               </div>
@@ -620,14 +975,15 @@ export default function ProgramHeadDashboard() {
                     onGenerationStateChange={handleGenerationStateChange}
                   />
                 </div>
-                {activeTab === "schedules" ? <GeneratedExamSchedules /> :
-                  activeTab === "proctors" ? <AddProctor /> :
-                    activeTab === "rooms" ? <RoomManagement /> :
-                      activeTab === "rules" ? <DistributionRulesManager /> :
+                {activeTab === "schedules" ? <GeneratedExamSchedules isGenerating={isGenerationRunning} /> :
+                  activeTab === "proctors" ? <AddProctor isGenerating={isGenerationRunning} /> :
+                    activeTab === "rooms" ? <RoomManagement isGenerating={isGenerationRunning} /> :
+                      activeTab === "rules" ? <DistributionRulesManager isGenerating={isGenerationRunning} /> :
                         activeTab === "monitoring" ? <ProctorMonitoring /> :
-                          activeTab === "rescheduling" ? <ReschedulingRequests /> :
-                            activeTab === "manual" ? <ProgramHeadManual /> :
-                              null}
+                          activeTab === "rescheduling" ? <ReschedulingRequests isGenerating={isGenerationRunning} /> :
+                            activeTab === "chat" ? <ChatSupportPanel /> :
+                              activeTab === "manual" ? <ProgramHeadManual /> :
+                                null}
               </div>
             </div>
 

@@ -20,7 +20,7 @@ const statusLabels = {
   conflict: "Conflict",
 };
 
-export default function RoomManagement() {
+export default function RoomManagement({ isGenerating }) {
   const { theme } = useTheme();
   const isDark = theme === "dark";
   const { showError, showSuccess } = useToast();
@@ -49,6 +49,10 @@ export default function RoomManagement() {
 
   const handleAddRoom = async (e) => {
     e.preventDefault();
+    if (isGenerating) {
+      showError("Cannot add rooms while schedule generation is ongoing");
+      return;
+    }
     if (!newRoomName.trim()) {
       showError("Room name is required");
       return;
@@ -76,6 +80,10 @@ export default function RoomManagement() {
 
   const handleDeleteRoom = async () => {
     if (!selectedRoomId) return;
+    if (isGenerating) {
+      showError("Cannot delete rooms while schedule generation is ongoing");
+      return;
+    }
     setDeleting(true);
     try {
       await api.delete(`/exams/rooms/${selectedRoomId}`);
@@ -211,7 +219,13 @@ export default function RoomManagement() {
             {isAdmin && (
               <button
                 onClick={() => setShowAddModal(true)}
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 text-sm font-bold transition shadow-md shadow-blue-500/20"
+                disabled={isGenerating}
+                className={`inline-flex items-center justify-center gap-2 rounded-xl text-white px-4 py-2.5 text-sm font-bold transition shadow-md ${
+                  isGenerating
+                    ? "bg-blue-600/50 opacity-50 cursor-not-allowed"
+                    : "bg-blue-600 hover:bg-blue-700 shadow-blue-500/20"
+                }`}
+                title={isGenerating ? "Cannot add rooms while schedule generation is ongoing" : ""}
               >
                 + Add Room
               </button>
@@ -390,11 +404,15 @@ export default function RoomManagement() {
                     {!showDeleteConfirm ? (
                       <button
                         onClick={() => setShowDeleteConfirm(true)}
+                        disabled={isGenerating}
                         className={`w-full inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition ${
-                          isDark
+                          isGenerating
+                            ? "bg-gray-300 text-gray-500 cursor-not-allowed dark:bg-gray-700 dark:text-gray-400"
+                            : isDark
                             ? "bg-red-500/10 text-red-400 hover:bg-red-500/20"
                             : "bg-red-50 text-red-600 hover:bg-red-100"
                         }`}
+                        title={isGenerating ? "Cannot delete rooms while schedule generation is ongoing" : ""}
                       >
                         <Trash2 className="w-4 h-4" />
                         Delete Room
@@ -410,9 +428,9 @@ export default function RoomManagement() {
                         <div className="flex items-center gap-2 mt-3">
                           <button
                             onClick={handleDeleteRoom}
-                            disabled={deleting}
+                            disabled={deleting || isGenerating}
                             className={`flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white py-2 text-xs font-bold transition shadow-sm ${
-                              deleting ? "opacity-50 cursor-not-allowed" : ""
+                              (deleting || isGenerating) ? "opacity-50 cursor-not-allowed" : ""
                             }`}
                           >
                             {deleting ? (
@@ -541,12 +559,16 @@ export default function RoomManagement() {
                 >
                   Cancel
                 </button>
-                <button
+                 <button
                   type="submit"
-                  disabled={submitting}
-                  className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold bg-blue-600 hover:bg-blue-700 disabled:bg-blue-600/50 text-white transition shadow-md shadow-blue-500/20"
+                  disabled={submitting || isGenerating}
+                  className={`inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition shadow-md ${
+                    (submitting || isGenerating)
+                      ? "bg-blue-600/50 opacity-50 cursor-not-allowed"
+                      : "bg-blue-600 hover:bg-blue-700 shadow-blue-500/20"
+                  }`}
                 >
-                  {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                  {(submitting || isGenerating) && <Loader2 className="w-4 h-4 animate-spin" />}
                   Save Room
                 </button>
               </div>

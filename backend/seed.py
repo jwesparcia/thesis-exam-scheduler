@@ -957,7 +957,7 @@ print("Database seeded successfully!")
 # -------------------------
 # Rooms
 # -------------------------
-rooms = [Room(name=room["name"]) for room in AVAILABLE_EXAM_ROOMS]
+rooms = [Room(name=room["name"], building=room["building"], department=room["department"], capacity=room.get("capacity", 40)) for room in AVAILABLE_EXAM_ROOMS]
 db.add_all(rooms)
 
 # -------------------------

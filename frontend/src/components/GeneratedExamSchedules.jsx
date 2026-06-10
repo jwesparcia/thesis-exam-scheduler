@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from "react";
-import { CalendarDays, FileText, Loader2, Send, Download, Trash2 } from "lucide-react";
+import { CalendarDays, FileText, Loader2, Send, Download, Trash2, Save } from "lucide-react";
 import { useTheme } from "../context/themeStore";
 import api from "../api";
 import { useToast } from "../context/ToastContext";
 
-export default function GeneratedExamSchedules() {
+export default function GeneratedExamSchedules({ isGenerating }) {
     const { theme } = useTheme();
     const isDark = theme === "dark";
     const { showSuccess, showError, showWarning } = useToast();
@@ -14,9 +14,12 @@ export default function GeneratedExamSchedules() {
     const [courseId, setCourseId] = useState("");
     const [yearId, setYearId] = useState("");
     const [semester, setSemester] = useState(1);
+    const [selectedTerm, setSelectedTerm] = useState("Midterm");
     const [exams, setExams] = useState([]);
     const [loading, setLoading] = useState(false);
     const [showPostAllModal, setShowPostAllModal] = useState(false);
+    const [showSaveAllModal, setShowSaveAllModal] = useState(false);
+    const [saving, setSaving] = useState(false);
     const [downloading, setDownloading] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [deleting, setDeleting] = useState(false);
@@ -27,6 +30,7 @@ export default function GeneratedExamSchedules() {
         try {
             const params = new URLSearchParams({ semester });
             if (selectedDept)  params.append("department",    selectedDept);
+            if (selectedTerm)  params.append("term",          selectedTerm);
 
             const res = await api.get(`/exams/download?${params}`, {
                 responseType: "blob",
@@ -34,7 +38,7 @@ export default function GeneratedExamSchedules() {
 
             const disposition = res.headers["content-disposition"] || "";
             const match = disposition.match(/filename="?([^"]+)"?/);
-            const filename = match ? match[1] : `ExamSchedule_${selectedDept}_Sem${semester}.xlsx`;
+            const filename = match ? match[1] : `ExamSchedule_${selectedDept}_Sem${semester}_${selectedTerm}.xlsx`;
 
             const url = window.URL.createObjectURL(new Blob([res.data]));
             const link = document.createElement("a");
@@ -54,24 +58,57 @@ export default function GeneratedExamSchedules() {
     };
 
     const handlePostAll = async () => {
+        if (isGenerating) {
+            showError("Cannot post schedules while schedule generation is ongoing");
+            return;
+        }
         setShowPostAllModal(false);
         try {
             const res = await api.post(
-                `/exams/post?semester=${semester}&department=${selectedDept}`
+                `/exams/post?semester=${semester}&department=${selectedDept}&term=${selectedTerm}`
             );
             if (res.status === 200) {
-                showSuccess(`Successfully posted all ${selectedDept} schedules to students' dashboards!`);
+                showSuccess(`Successfully posted all ${selectedDept} ${selectedTerm} schedules to students' dashboards!`);
                 fetchExams();
             } else {
                 showError("Failed to post schedules.");
             }
         } catch (err) {
             console.error(err);
-            showError(err.response?.data?.detail || "No draft schedules found to post.");
+            showError(err.response?.data?.detail || `No draft or saved ${selectedTerm} schedules found to post.`);
+        }
+    };
+
+    const handleSaveAll = async () => {
+        if (isGenerating) {
+            showError("Cannot save schedules while schedule generation is ongoing");
+            return;
+        }
+        setShowSaveAllModal(false);
+        setSaving(true);
+        try {
+            const res = await api.post(
+                `/exams/save?semester=${semester}&department=${selectedDept}&term=${selectedTerm}`
+            );
+            if (res.status === 200) {
+                showSuccess(`Successfully saved all ${selectedDept} ${selectedTerm} schedules!`);
+                fetchExams();
+            } else {
+                showError("Failed to save schedules.");
+            }
+        } catch (err) {
+            console.error(err);
+            showError(err.response?.data?.detail || `No draft ${selectedTerm} schedules found to save.`);
+        } finally {
+            setSaving(false);
         }
     };
 
     const handleDeleteSchedule = async () => {
+        if (isGenerating) {
+            showError("Cannot delete schedules while schedule generation is ongoing");
+            return;
+        }
         setDeleting(true);
         try {
             let url = "/exams/clear";
@@ -121,6 +158,7 @@ export default function GeneratedExamSchedules() {
                 course_id: courseId,
                 year_level_id: yearId,
                 semester: semester,
+                term: selectedTerm,
             });
             const res = await api.get(`/exams/?${queryParams}`);
             setExams(res.data);
@@ -132,7 +170,7 @@ export default function GeneratedExamSchedules() {
 
     useEffect(() => {
         fetchExams();
-    }, [courseId, yearId, semester]);
+    }, [courseId, yearId, semester, selectedTerm]);
 
     const filteredCourses = courses.filter(c => c.category === selectedDept);
     const filteredYears = years.filter(y => 
@@ -169,7 +207,11 @@ export default function GeneratedExamSchedules() {
                                 setDeleteScope("all");
                                 setShowDeleteModal(true);
                             }}
-                            className="bg-red-600 hover:bg-red-700 text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 transition-all hover:scale-105 active:scale-95 font-bold text-sm"
+                            disabled={isGenerating}
+                            className={`bg-red-600 hover:bg-red-700 text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 transition-all hover:scale-105 active:scale-95 font-bold text-sm ${
+                                isGenerating ? "opacity-50 cursor-not-allowed" : ""
+                            }`}
+                            title={isGenerating ? "Cannot delete schedules while schedule generation is ongoing" : ""}
                         >
                             <Trash2 className="w-4 h-4" />
                             Delete All Schedules
@@ -179,17 +221,40 @@ export default function GeneratedExamSchedules() {
                                 setDeleteScope("dept");
                                 setShowDeleteModal(true);
                             }}
-                            className="bg-red-500 hover:bg-red-600 text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 transition-all hover:scale-105 active:scale-95 font-bold text-sm"
+                            disabled={isGenerating}
+                            className={`bg-red-500 hover:bg-red-600 text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 transition-all hover:scale-105 active:scale-95 font-bold text-sm ${
+                                isGenerating ? "opacity-50 cursor-not-allowed" : ""
+                            }`}
+                            title={isGenerating ? "Cannot delete schedules while schedule generation is ongoing" : ""}
                         >
                             <Trash2 className="w-4 h-4" />
                             Delete {selectedDept} Schedule
                         </button>
                         <button
                             onClick={() => setShowPostAllModal(true)}
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 transition-all hover:scale-105 active:scale-95 font-bold text-sm"
+                            disabled={isGenerating}
+                            className={`text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 transition-all hover:scale-105 active:scale-95 font-bold text-sm ${
+                                isGenerating
+                                    ? "bg-emerald-600/50 opacity-50 cursor-not-allowed"
+                                    : "bg-emerald-600 hover:bg-emerald-700"
+                            }`}
+                            title={isGenerating ? "Cannot post schedules while schedule generation is ongoing" : ""}
                         >
                             <Send className="w-4 h-4" />
                             Post All {selectedDept} Schedules
+                        </button>
+                        <button
+                            onClick={() => setShowSaveAllModal(true)}
+                            disabled={isGenerating}
+                            className={`text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 transition-all hover:scale-105 active:scale-95 font-bold text-sm ${
+                                isGenerating
+                                    ? "bg-indigo-600/50 opacity-50 cursor-not-allowed"
+                                    : "bg-indigo-600 hover:bg-indigo-700"
+                            }`}
+                            title={isGenerating ? "Cannot save schedules while schedule generation is ongoing" : ""}
+                        >
+                            <Save className="w-4 h-4" />
+                            Save All {selectedDept} Schedules
                         </button>
                         <button
                             onClick={handleDownload}
@@ -254,7 +319,7 @@ export default function GeneratedExamSchedules() {
                                 <FileText className="w-5 h-5 text-blue-500" /> 2. Refine Results ({selectedDept})
                             </h2>
 
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                                 {/* Select Course / Strand */}
                                 <div className="space-y-2">
                                     <label
@@ -320,6 +385,28 @@ export default function GeneratedExamSchedules() {
                                     >
                                         <option value={1}>1st Semester</option>
                                         <option value={2}>2nd Semester</option>
+                                    </select>
+                                </div>
+
+                                {/* Select Term */}
+                                <div className="space-y-2">
+                                    <label
+                                        className={`block text-xs font-medium uppercase tracking-wider ${isDark ? "text-gray-500" : "text-gray-400"}`}
+                                    >
+                                        Exam Term
+                                    </label>
+                                    <select
+                                        value={selectedTerm}
+                                        onChange={(e) => setSelectedTerm(e.target.value)}
+                                        className={`border rounded-xl p-3 w-full cursor-pointer focus:ring-2 focus:ring-blue-400 transition-all ${isDark
+                                            ? "bg-gray-900 text-white border-gray-700"
+                                            : "bg-gray-50 text-gray-700 border-gray-200"
+                                            }`}
+                                    >
+                                        <option value="Prelim">Prelim</option>
+                                        <option value="Midterm">Midterm</option>
+                                        <option value="Pre-Final">Pre-Final</option>
+                                        <option value="Final">Final</option>
                                     </select>
                                 </div>
                             </div>
@@ -408,7 +495,18 @@ export default function GeneratedExamSchedules() {
                                                             <td
                                                                 className="px-4 py-4 font-medium"
                                                             >
-                                                                <div className={`text-xs font-bold mb-1 ${isDark ? "text-gray-400" : "text-gray-400"}`}>{e.subject_code}</div>
+                                                                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                                                    <span className={`text-xs font-bold ${isDark ? "text-gray-400" : "text-gray-500"}`}>{e.subject_code}</span>
+                                                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wide ${
+                                                                        e.status === "posted"
+                                                                            ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900"
+                                                                            : e.status === "saved"
+                                                                            ? "bg-indigo-100 text-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-900"
+                                                                            : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400 border border-gray-200 dark:border-gray-700"
+                                                                    }`}>
+                                                                        {e.status || "draft"}
+                                                                    </span>
+                                                                </div>
                                                                 <div className={isDark ? "text-white" : "text-gray-900"}>{e.subject_name}</div>
                                                             </td>
                                                             <td className="px-4 py-4">
@@ -444,26 +542,90 @@ export default function GeneratedExamSchedules() {
                             )}
                         </div>
 
-                        {/* Post Exams Button */}
+                        {/* Floating Action Buttons */}
                         {courseId && yearId && exams.length > 0 && (
-                            <button
-                                onClick={async () => {
-                                    const res = await api.post(
-                                        `/exams/post?course_id=${courseId}&year_level_id=${yearId}&semester=${semester}`
-                                    );
+                            <div className="fixed bottom-10 right-10 flex flex-col sm:flex-row gap-4 z-50">
+                                {/* Save Schedule Button */}
+                                {exams.some(e => e.status === "draft") && (
+                                    <button
+                                        onClick={async () => {
+                                            if (isGenerating) {
+                                                showError("Cannot save schedules while schedule generation is ongoing");
+                                                return;
+                                            }
+                                            setSaving(true);
+                                            try {
+                                                const res = await api.post(
+                                                    `/exams/save?course_id=${courseId}&year_level_id=${yearId}&semester=${semester}&term=${selectedTerm}`
+                                                );
 
-                                    if (res.status === 200) {
-                                        showSuccess("Exams successfully posted for students to view!");
-                                        await fetchExams();
-                                    } else {
-                                        showError("Failed to post exams.");
-                                    }
-                                }}
-                                className="fixed bottom-10 right-10 bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-4 rounded-2xl shadow-2xl flex items-center gap-3 transition-all hover:scale-110 active:scale-95 z-50 font-bold"
-                            >
-                                <Send className="w-6 h-6" />
-                                Post Schedule
-                            </button>
+                                                if (res.status === 200) {
+                                                    showSuccess("Exams successfully saved!");
+                                                    await fetchExams();
+                                                } else {
+                                                    showError("Failed to save exams.");
+                                                }
+                                            } catch (err) {
+                                                console.error(err);
+                                                showError(err.response?.data?.detail || "Failed to save exams.");
+                                            } finally {
+                                                setSaving(false);
+                                            }
+                                        }}
+                                        disabled={isGenerating || saving}
+                                        className={`text-white px-8 py-4 rounded-2xl shadow-2xl flex items-center gap-3 transition-all hover:scale-110 active:scale-95 font-bold ${
+                                            isGenerating || saving
+                                                ? "bg-indigo-600/50 opacity-50 cursor-not-allowed"
+                                                : "bg-indigo-600 hover:bg-indigo-700"
+                                        }`}
+                                        title={isGenerating ? "Cannot save schedules while schedule generation is ongoing" : ""}
+                                    >
+                                        {saving ? (
+                                            <Loader2 className="w-6 h-6 animate-spin" />
+                                        ) : (
+                                            <Save className="w-6 h-6" />
+                                        )}
+                                        {saving ? "Saving..." : "Save Schedule"}
+                                    </button>
+                                )}
+
+                                {/* Post Schedule Button */}
+                                {exams.some(e => e.status === "draft" || e.status === "saved") && (
+                                    <button
+                                        onClick={async () => {
+                                            if (isGenerating) {
+                                                showError("Cannot post schedules while schedule generation is ongoing");
+                                                return;
+                                            }
+                                            try {
+                                                const res = await api.post(
+                                                    `/exams/post?course_id=${courseId}&year_level_id=${yearId}&semester=${semester}&term=${selectedTerm}`
+                                                );
+
+                                                if (res.status === 200) {
+                                                    showSuccess("Exams successfully posted for students to view!");
+                                                    await fetchExams();
+                                                } else {
+                                                    showError("Failed to post exams.");
+                                                }
+                                            } catch (err) {
+                                                console.error(err);
+                                                showError(err.response?.data?.detail || "Failed to post exams.");
+                                            }
+                                        }}
+                                        disabled={isGenerating}
+                                        className={`text-white px-8 py-4 rounded-2xl shadow-2xl flex items-center gap-3 transition-all hover:scale-110 active:scale-95 font-bold ${
+                                            isGenerating
+                                                ? "bg-emerald-600/50 opacity-50 cursor-not-allowed"
+                                                : "bg-emerald-600 hover:bg-emerald-700"
+                                        }`}
+                                        title={isGenerating ? "Cannot post schedules while schedule generation is ongoing" : ""}
+                                    >
+                                        <Send className="w-6 h-6" />
+                                        Post Schedule
+                                    </button>
+                                )}
+                            </div>
                         )}
                     </div>
                 ) : (
@@ -498,9 +660,53 @@ export default function GeneratedExamSchedules() {
                                 </button>
                                 <button
                                     onClick={handlePostAll}
-                                    className="flex-1 py-3.5 rounded-xl font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition-all shadow-lg shadow-emerald-600/30 active:scale-95"
+                                    disabled={isGenerating}
+                                    className={`flex-1 py-3.5 rounded-xl font-bold text-white transition-all shadow-lg active:scale-95 ${
+                                        isGenerating
+                                            ? "bg-emerald-600/50 opacity-50 cursor-not-allowed"
+                                            : "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/30"
+                                    }`}
                                 >
                                     Yes, Post All
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Save All Confirmation Modal */}
+            {showSaveAllModal && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+                    <div className={`p-8 rounded-3xl shadow-2xl max-w-md w-full transform transition-all scale-100 ${isDark ? "bg-gray-800 border border-gray-700" : "bg-white"}`}>
+                        <div className="flex flex-col items-center text-center">
+                            <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-6 shadow-lg ${isDark ? "bg-indigo-900/50 shadow-indigo-900/20" : "bg-indigo-100 shadow-indigo-200/50"}`}>
+                                <Save className={`w-8 h-8 ${isDark ? "text-indigo-400" : "text-indigo-600"}`} />
+                            </div>
+                            <h3 className={`text-2xl font-bold mb-3 ${isDark ? "text-white" : "text-gray-900"}`}>
+                                Save All Schedules?
+                            </h3>
+                            <p className={`mb-8 text-sm leading-relaxed ${isDark ? "text-gray-300" : "text-gray-600"}`}>
+                                Are you sure you want to save all draft schedules for <span className="font-bold">{selectedDept}</span> <span className="font-bold">{selectedTerm}</span> (Semester {semester})? They will not be visible to students until posted.
+                            </p>
+                            <div className="flex gap-4 w-full">
+                                <button
+                                    onClick={() => setShowSaveAllModal(false)}
+                                    disabled={saving}
+                                    className={`flex-1 py-3.5 rounded-xl font-bold transition-all active:scale-95 ${isDark ? "bg-gray-700 hover:bg-gray-600 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-800"}`}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleSaveAll}
+                                    disabled={saving || isGenerating}
+                                    className={`flex-1 py-3.5 rounded-xl font-bold text-white transition-all shadow-lg active:scale-95 ${
+                                        isGenerating || saving
+                                            ? "bg-indigo-600/50 opacity-50 cursor-not-allowed"
+                                            : "bg-indigo-600 hover:bg-indigo-700 shadow-indigo-600/30"
+                                    }`}
+                                >
+                                    {saving ? "Saving..." : "Yes, Save All"}
                                 </button>
                             </div>
                         </div>
@@ -535,7 +741,7 @@ export default function GeneratedExamSchedules() {
                                 </button>
                                 <button
                                     onClick={handleDeleteSchedule}
-                                    disabled={deleting}
+                                    disabled={deleting || isGenerating}
                                     className="flex-1 py-3.5 rounded-xl font-bold bg-red-600 hover:bg-red-700 text-white transition-all shadow-lg shadow-red-600/30 active:scale-95 disabled:opacity-55 flex items-center justify-center gap-2"
                                 >
                                     {deleting ? (

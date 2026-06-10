@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Date, Time, Enum, Boolean, DateTime, JSON
+from sqlalchemy import Column, Integer, String, Text, ForeignKey, Date, Time, Enum, Boolean, DateTime, JSON
 from passlib.context import CryptContext
 from datetime import datetime, timezone
 from sqlalchemy.orm import relationship
@@ -77,6 +77,7 @@ class Proctor(Base):
     contact = Column(String, nullable=True)
     teacher_id = Column(Integer, ForeignKey("teachers.id"), nullable=True)
     exclude_from_scheduling = Column(Boolean, default=False)
+    translated_schedule = Column(Text, nullable=True)
     
     teacher = relationship("Teacher")
     availabilities = relationship("ProctorAvailability", back_populates="proctor")
@@ -134,6 +135,7 @@ class Exam(Base):
     course_id = Column(Integer, ForeignKey("courses.id"))
     year_level_id = Column(Integer, ForeignKey("year_levels.id"))
     semester = Column(Integer)
+    term = Column(String, default="Midterm")
     status = Column(String, default="draft")
     proctor_attendance = Column(String, default="pending")
     proctor_id = Column(Integer, ForeignKey("proctors.id"), nullable=True)
@@ -233,3 +235,16 @@ class PasswordResetToken(Base):
     expires_at = Column(DateTime)
     
     user = relationship("User")
+
+class ChatMessage(Base):
+    __tablename__ = "chat_messages"
+    id = Column(Integer, primary_key=True, index=True)
+    sender_id = Column(Integer, ForeignKey("users.id"))
+    recipient_id = Column(Integer, ForeignKey("users.id"))
+    message = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+    is_read = Column(Boolean, default=False)
+
+    sender = relationship("User", foreign_keys=[sender_id])
+    recipient = relationship("User", foreign_keys=[recipient_id])
+

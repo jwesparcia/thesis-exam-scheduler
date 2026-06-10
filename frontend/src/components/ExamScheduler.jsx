@@ -20,6 +20,7 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
   const [courseId, setCourseId] = useState("");
   const [yearId, setYearId] = useState("");
   const [semester, setSemester] = useState(1);
+  const [term, setTerm] = useState("Midterm");
   const [details, setDetails] = useState({ sections: [] });
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -132,6 +133,10 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
   }, [selectedDept]);
 
   const handlePreferredRoomChange = async (sectionId, roomIdVal) => {
+    if (loading) {
+      showError("Cannot change preferred room while schedule generation is ongoing");
+      return;
+    }
     const roomId = roomIdVal ? parseInt(roomIdVal, 10) : null;
     try {
       await api.put(`/sections/${sectionId}/preferred-room`, {
@@ -251,6 +256,7 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
         end_date: endDate,
         department: selectedDept,
         semester: semester,
+        term: term,
         excluded_subjects: Array.from(excludedSubjects),
         job_id: jobId
       });
@@ -353,7 +359,7 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
           {/* Step 1: Select Department & Semester */}
           <div className="mb-8 p-4 rounded-xl bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/20">
             <label className={`block text-sm font-semibold mb-4 ${isDark ? "text-blue-300" : "text-blue-700"}`}>
-              1. Choose Academic Level & Semester
+              1. Choose Academic Level, Semester & Term
             </label>
             <div className="flex flex-col md:flex-row gap-6">
               <div className="flex flex-1 gap-4">
@@ -389,13 +395,33 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
                 <select
                   value={semester}
                   onChange={(e) => setSemester(Number(e.target.value))}
+                  disabled={loading}
                   className={`border rounded-xl cursor-pointer p-4 w-full focus:ring-2 focus:ring-blue-400 transition-all font-semibold ${isDark
                     ? "bg-gray-800 text-gray-200 border-gray-700"
                     : "bg-white text-gray-700 border-gray-200"
-                    }`}
+                    } ${loading ? "opacity-60 cursor-not-allowed" : ""}`}
                 >
                   <option value={1}>1st Semester</option>
                   <option value={2}>2nd Semester</option>
+                </select>
+              </div>
+              <div className="w-full md:w-64">
+                <label className={`block text-xs font-medium uppercase tracking-wider mb-2 ${isDark ? "text-blue-400" : "text-blue-600"}`}>
+                  Exam Term
+                </label>
+                <select
+                  value={term}
+                  onChange={(e) => setTerm(e.target.value)}
+                  disabled={loading}
+                  className={`border rounded-xl cursor-pointer p-4 w-full focus:ring-2 focus:ring-blue-400 transition-all font-semibold ${isDark
+                    ? "bg-gray-800 text-gray-200 border-gray-700"
+                    : "bg-white text-gray-700 border-gray-200"
+                    } ${loading ? "opacity-60 cursor-not-allowed" : ""}`}
+                >
+                  <option value="Prelim">Prelim</option>
+                  <option value="Midterm">Midterm</option>
+                  <option value="Pre-Final">Pre-Final</option>
+                  <option value="Final">Final</option>
                 </select>
               </div>
             </div>
@@ -668,12 +694,16 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
                       </span>
                       <select
                         value={section.preferred_room_id || ""}
+                        disabled={loading}
                         onChange={(e) => handlePreferredRoomChange(section.id, e.target.value)}
                         className={`text-sm rounded-lg px-3 py-1.5 border font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all ${
+                          loading ? "opacity-50 cursor-not-allowed" : ""
+                        } ${
                           isDark 
                             ? "bg-gray-700 border-gray-600 text-white" 
                             : "bg-white border-gray-300 text-gray-700 hover:border-gray-400"
                         }`}
+                        title={loading ? "Cannot change preferred room while schedule generation is ongoing" : ""}
                       >
                         <option value="">No Preference (Auto)</option>
                         {rooms.map((r) => (
