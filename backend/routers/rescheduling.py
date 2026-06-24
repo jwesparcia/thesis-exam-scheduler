@@ -84,6 +84,11 @@ def submit_rescheduling_request(request: ReschedulingRequestCreate, db: Session 
     log_activity(db, current_user.id, "RESCHEDULING_SUBMIT", f"Exam ID: {request.exam_id}, Student: {request.student_name}")
     return {"message": "Rescheduling request submitted successfully", "id": db_request.id}
 
+@router.get("/pending/count")
+def get_pending_rescheduling_count(db: Session = Depends(get_db), current_user: User = Depends(require_role(["admin"]))):
+    count = db.query(ReschedulingRequest).filter(ReschedulingRequest.status == "pending").count()
+    return {"count": count}
+
 @router.get("/pending")
 def get_pending_requests(db: Session = Depends(get_db), current_user: User = Depends(require_role(["admin"]))):
     requests = db.query(ReschedulingRequest).options(

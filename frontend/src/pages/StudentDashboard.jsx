@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
-import { Search, LogOut, Calendar, Clock, MapPin, BookOpen, ChevronRight, Bell, UserCheck, Edit, X, Send, Settings, MessageSquare } from "lucide-react";
+import { Search, LogOut, Calendar, Clock, MapPin, BookOpen, ChevronRight, Bell, UserCheck, Edit, Trash2, X, Send, Settings, MessageSquare } from "lucide-react";
 import { useTheme } from "../context/themeStore";
 import ThemeToggle from "../components/ThemeToggle";
 import { useUser } from "../context/userStore";
@@ -211,6 +211,9 @@ export default function StudentDashboard() {
   const [chatInput, setChatInput] = useState("");
   const [chatSending, setChatSending] = useState(false);
   const chatEndRef = useRef(null);
+  const [editingMessageId, setEditingMessageId] = useState(null);
+  const [editingText, setEditingText] = useState("");
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
 
   // Fetch courses list
   const fetchCourses = async () => {
@@ -408,6 +411,19 @@ export default function StudentDashboard() {
     }).catch(() => {});
   }, [user, activeTab]);
 
+  // Chat: unread count polling
+  useEffect(() => {
+    if (!user) return;
+    const checkUnread = () => {
+      api.get("/chat/unread-count")
+        .then(res => setUnreadChatCount(res.data.unread_count))
+        .catch(() => {});
+    };
+    checkUnread();
+    const interval = setInterval(checkUnread, 8000);
+    return () => clearInterval(interval);
+  }, [user, activeTab]);
+
   // Chat: poll messages
   useEffect(() => {
     if (!chatAdminId) return;
@@ -416,6 +432,7 @@ export default function StudentDashboard() {
         const res = await api.get(`/chat/messages/${chatAdminId}`);
         setChatMessages(res.data);
         api.put(`/chat/read/${chatAdminId}`).catch(() => {});
+        setUnreadChatCount(0);
       } catch {}
     };
     fetchMsgs();
@@ -435,6 +452,50 @@ export default function StudentDashboard() {
       setChatMessages(res.data);
     } catch {}
     setChatSending(false);
+  };
+
+  const startEditingChat = (msg) => {
+    setEditingMessageId(msg.id);
+    setEditingText(msg.message);
+  };
+
+  const cancelEditingChat = () => {
+    setEditingMessageId(null);
+    setEditingText("");
+  };
+
+  const saveEditChatMessage = async (messageId) => {
+    if (!editingText.trim()) return;
+    try {
+      await api.put(`/chat/messages/${messageId}`, { message: editingText.trim() });
+      setEditingMessageId(null);
+      setEditingText("");
+      const res = await api.get(`/chat/messages/${chatAdminId}`);
+      setChatMessages(res.data);
+    } catch (err) {
+      console.error("edit err", err);
+    }
+  };
+
+  const deleteChatMessage = async (messageId) => {
+    if (!window.confirm("Are you sure you want to delete this message?")) return;
+    try {
+      await api.delete(`/chat/messages/${messageId}`);
+      const res = await api.get(`/chat/messages/${chatAdminId}`);
+      setChatMessages(res.data);
+    } catch (err) {
+      console.error("delete err", err);
+    }
+  };
+
+  const deleteChatConversation = async (adminId) => {
+    if (!window.confirm("Are you sure you want to clear this conversation? This will delete all messages.")) return;
+    try {
+      await api.delete(`/chat/conversations/${adminId}`);
+      setChatMessages([]);
+    } catch (err) {
+      console.error("clear conv err", err);
+    }
   };
 
   // Smart suggestion: find the last exam on the same day as a conflicting exam
@@ -710,8 +771,13 @@ export default function StudentDashboard() {
                 : "text-slate-600 hover:text-blue-600"
               }`}
           >
-            <MessageSquare className="w-4 h-4" />
-            Chat with Admin
+            <div className="relative flex items-center justify-center">
+              <MessageSquare className="w-4 h-4" />
+              {unreadChatCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse border-2 border-white dark:border-slate-900"></span>
+              )}
+            </div>
+            <span>Chat with Admin</span>
           </button>
           <button
             onClick={() => setActiveTab("manual")}
@@ -733,14 +799,27 @@ export default function StudentDashboard() {
         <div className="max-w-4xl mx-auto px-6 lg:px-8 py-6">
           <div className={`rounded-2xl border overflow-hidden ${isDark ? "border-gray-700" : "border-gray-200"}`} style={{height: "600px", display: "flex", flexDirection: "column"}}>
             {/* Chat Header */}
-            <div className={`p-4 border-b flex items-center gap-3 ${isDark ? "bg-gray-800 border-gray-700" : "bg-gray-50 border-gray-200"}`}>
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isDark ? "bg-blue-600/30 text-blue-300" : "bg-blue-100 text-blue-700"}`}>
-                <MessageSquare className="w-5 h-5" />
+            <div className={`p-4 border-b flex items-center justify-between gap-3 ${isDark ? "bg-gray-800 border-gray-700" : "bg-gray-50 border-gray-200"}`}>
+              <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isDark ? "bg-blue-600/30 text-blue-300" : "bg-blue-100 text-blue-700"}`}>
+                  <MessageSquare className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className={`font-bold ${isDark ? "text-white" : "text-gray-900"}`}>Program Head</h3>
+                  <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>Send a message about your exam conflict or concerns</p>
+                </div>
               </div>
-              <div>
-                <h3 className={`font-bold ${isDark ? "text-white" : "text-gray-900"}`}>Program Head</h3>
-                <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>Send a message about your exam conflict or concerns</p>
-              </div>
+
+              {chatAdminId && (
+                <button
+                  onClick={() => deleteChatConversation(chatAdminId)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-red-500 hover:bg-red-500/10 border border-transparent hover:border-red-500/25 transition-all duration-200"
+                  title="Delete Conversation"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Clear Chat
+                </button>
+              )}
             </div>
             {/* Messages */}
             <div className={`flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar ${isDark ? "bg-gray-900" : "bg-white"}`}>
@@ -756,18 +835,67 @@ export default function StudentDashboard() {
                 </div>
               ) : chatMessages.map((msg) => {
                 const isMe = msg.sender_id === user?.id;
+                const isEditing = editingMessageId === msg.id;
                 return (
-                  <div key={msg.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
+                  <div key={msg.id} className={`flex ${isMe ? "justify-end" : "justify-start"} group relative items-center gap-2`}>
+                    {isMe && !isEditing && (
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                        <button
+                          onClick={() => startEditingChat(msg)}
+                          className={`p-1 rounded transition-colors ${
+                            isDark ? "hover:bg-gray-800 text-gray-400 hover:text-white" : "hover:bg-gray-100 text-gray-500 hover:text-gray-900"
+                          }`}
+                          title="Edit message"
+                        >
+                          <Edit className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => deleteChatMessage(msg.id)}
+                          className="p-1 rounded transition-colors hover:bg-red-500/10 text-red-500"
+                          title="Delete message"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
+
                     <div className={`max-w-[70%] px-4 py-2.5 rounded-2xl text-sm ${
                       isMe
                         ? "bg-blue-600 text-white rounded-br-sm"
                         : isDark ? "bg-gray-700 text-gray-100 rounded-bl-sm" : "bg-gray-100 text-gray-800 rounded-bl-sm"
                     }`}>
                       {!isMe && <p className={`text-[10px] font-semibold mb-1 ${isDark ? "text-blue-400" : "text-blue-600"}`}>{msg.sender_name}</p>}
-                      <p className="leading-relaxed">{msg.message}</p>
-                      <p className={`text-[10px] mt-1 ${isMe ? "text-blue-200" : isDark ? "text-gray-500" : "text-gray-400"}`}>
-                        {new Date(msg.created_at + "Z").toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                      </p>
+                      {isEditing ? (
+                        <div className="flex flex-col gap-2 min-w-[200px]">
+                          <textarea
+                            value={editingText}
+                            onChange={(e) => setEditingText(e.target.value)}
+                            className="p-2 text-sm rounded border outline-none text-slate-800 bg-white dark:bg-slate-800 dark:text-white dark:border-slate-700 resize-none"
+                            rows={2}
+                          />
+                          <div className="flex gap-2 justify-end">
+                            <button
+                              onClick={cancelEditingChat}
+                              className="px-2.5 py-1 text-xs bg-gray-500 hover:bg-gray-600 text-white rounded font-medium transition"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              onClick={() => saveEditChatMessage(msg.id)}
+                              className="px-2.5 py-1 text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded font-medium transition"
+                            >
+                              Save
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <p className="leading-relaxed whitespace-pre-wrap">{msg.message}</p>
+                          <p className={`text-[10px] mt-1 ${isMe ? "text-blue-200" : isDark ? "text-gray-500" : "text-gray-400"}`}>
+                            {new Date(msg.created_at + "Z").toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                          </p>
+                        </>
+                      )}
                     </div>
                   </div>
                 );
@@ -791,7 +919,7 @@ export default function StudentDashboard() {
               <button
                 onClick={sendChatMessage}
                 disabled={chatSending || !chatInput.trim()}
-                className={`p-3 rounded-xl transition ${
+                className={`p-3 rounded-xl transition flex items-center justify-center ${
                   chatSending || !chatInput.trim()
                     ? isDark ? "bg-gray-700 text-gray-500" : "bg-gray-200 text-gray-400"
                     : "bg-blue-600 hover:bg-blue-700 text-white"

@@ -18,6 +18,8 @@ import {
   MessageSquare,
   Send,
   ChevronRight,
+  Edit,
+  Trash2,
 } from "lucide-react";
 import ExamScheduler from "../components/ExamScheduler";
 import AddProctor from "../components/AddProctor";
@@ -43,7 +45,7 @@ const INITIAL_GENERATION_STATE = {
   },
 };
 
-function ReschedulingRequests({ isGenerating }) {
+function ReschedulingRequests({ isGenerating, onRequestsChange }) {
   const { theme } = useTheme();
   const isDark = theme === "dark";
   const [requests, setRequests] = useState([]);
@@ -59,13 +61,16 @@ function ReschedulingRequests({ isGenerating }) {
       try {
         const res = await api.get("/rescheduling/pending");
         setRequests(res.data);
+        if (onRequestsChange) {
+          onRequestsChange(res.data.length);
+        }
       } catch (err) {
         console.error("Error fetching requests:", err);
       }
       setLoading(false);
     };
     fetchRequests();
-  }, []);
+  }, [onRequestsChange]);
 
   const fetchHistory = async () => {
     setLoadingHistory(true);
@@ -95,7 +100,13 @@ function ReschedulingRequests({ isGenerating }) {
         reviewer_comments: comments,
       });
       if (res.status === 200) {
-        setRequests(prev => prev.filter(req => req.id !== id));
+        setRequests(prev => {
+          const updated = prev.filter(req => req.id !== id);
+          if (onRequestsChange) {
+            onRequestsChange(updated.length);
+          }
+          return updated;
+        });
         showSuccess(`Request ${status} successfully`);
       } else {
         showError("Failed to update request");
@@ -332,10 +343,14 @@ function ChatSupportPanel() {
   const [conversations, setConversations] = useState([]);
   const [activeStudentId, setActiveStudentId] = useState(null);
   const [activeStudentName, setActiveStudentName] = useState("");
+  const [activeStudentType, setActiveStudentType] = useState("");
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const [sending, setSending] = useState(false);
   const messagesEndRef = useRef(null);
+
+  const [editingMessageId, setEditingMessageId] = useState(null);
+  const [editingText, setEditingText] = useState("");
 
   const fetchConversations = async () => {
     try {
@@ -382,6 +397,51 @@ function ChatSupportPanel() {
     setSending(false);
   };
 
+  const startEditing = (msg) => {
+    setEditingMessageId(msg.id);
+    setEditingText(msg.message);
+  };
+
+  const cancelEditing = () => {
+    setEditingMessageId(null);
+    setEditingText("");
+  };
+
+  const saveEditMessage = async (messageId) => {
+    if (!editingText.trim()) return;
+    try {
+      await api.put(`/chat/messages/${messageId}`, { message: editingText.trim() });
+      setEditingMessageId(null);
+      setEditingText("");
+      await fetchMessages(activeStudentId);
+      fetchConversations();
+    } catch (err) {
+      console.error("edit err", err);
+    }
+  };
+
+  const deleteMessage = async (messageId) => {
+    if (!window.confirm("Are you sure you want to delete this message?")) return;
+    try {
+      await api.delete(`/chat/messages/${messageId}`);
+      await fetchMessages(activeStudentId);
+      fetchConversations();
+    } catch (err) {
+      console.error("delete err", err);
+    }
+  };
+
+  const deleteConversation = async (studentId) => {
+    if (!window.confirm("Are you sure you want to clear this conversation? This will delete all messages.")) return;
+    try {
+      await api.delete(`/chat/conversations/${studentId}`);
+      setMessages([]);
+      fetchConversations();
+    } catch (err) {
+      console.error("clear conv err", err);
+    }
+  };
+
   const handleKeyDown = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -389,10 +449,13 @@ function ChatSupportPanel() {
     }
   };
 
-  const selectStudent = (id, name) => {
+  const selectStudent = (id, name, type) => {
     setActiveStudentId(id);
     setActiveStudentName(name);
+    setActiveStudentType(type);
     setMessages([]);
+    setEditingMessageId(null);
+    setEditingText("");
   };
 
   return (
@@ -401,7 +464,7 @@ function ChatSupportPanel() {
       <div className={`w-72 flex flex-col border-r ${isDark ? "bg-gray-800/60 border-gray-700" : "bg-gray-50 border-gray-200"}`}>
         <div className={`p-4 border-b ${isDark ? "border-gray-700" : "border-gray-200"}`}>
           <h3 className={`font-bold text-sm uppercase tracking-wide ${isDark ? "text-gray-300" : "text-gray-600"}`}>
-            Irregular Students
+            Students
           </h3>
           <p className={`text-xs mt-0.5 ${isDark ? "text-gray-500" : "text-gray-400"}`}>{conversations.length} conversation{conversations.length !== 1 ? "s" : ""}</p>
         </div>
@@ -409,12 +472,12 @@ function ChatSupportPanel() {
           {conversations.length === 0 ? (
             <div className={`p-6 text-center text-sm ${isDark ? "text-gray-500" : "text-gray-400"}`}>
               <MessageSquare className="w-8 h-8 mx-auto mb-2 opacity-30" />
-              No irregular students yet
+              No students yet
             </div>
           ) : conversations.map((conv) => (
             <button
               key={conv.student_id}
-              onClick={() => selectStudent(conv.student_id, conv.student_name)}
+              onClick={() => selectStudent(conv.student_id, conv.student_name, conv.student_type)}
               className={`w-full p-4 text-left border-b transition-all ${activeStudentId === conv.student_id
                 ? isDark ? "bg-blue-600/20 border-blue-700/50" : "bg-blue-50 border-blue-100"
                 : isDark ? "border-gray-700/50 hover:bg-gray-700/40" : "border-gray-100 hover:bg-gray-100"
@@ -448,15 +511,28 @@ function ChatSupportPanel() {
         {activeStudentId ? (
           <>
             {/* Chat header */}
-            <div className={`p-4 border-b flex items-center gap-3 ${isDark ? "border-gray-700 bg-gray-800/50" : "border-gray-200 bg-gray-50"}`}>
-              <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm ${isDark ? "bg-blue-600/30 text-blue-300" : "bg-blue-100 text-blue-700"
-                }`}>
-                {activeStudentName.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
+            <div className={`p-4 border-b flex items-center justify-between gap-3 ${isDark ? "border-gray-700 bg-gray-800/50" : "border-gray-200 bg-gray-50"}`}>
+              <div className="flex items-center gap-3">
+                <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm ${isDark ? "bg-blue-600/30 text-blue-300" : "bg-blue-100 text-blue-700"
+                  }`}>
+                  {activeStudentName.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
+                </div>
+                <div>
+                  <h4 className={`font-bold text-sm ${isDark ? "text-white" : "text-gray-900"}`}>{activeStudentName}</h4>
+                  <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                    {activeStudentType === "irregular" ? "Irregular Student" : "Regular Student"}
+                  </p>
+                </div>
               </div>
-              <div>
-                <h4 className={`font-bold text-sm ${isDark ? "text-white" : "text-gray-900"}`}>{activeStudentName}</h4>
-                <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>Irregular Student</p>
-              </div>
+
+              <button
+                onClick={() => deleteConversation(activeStudentId)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-red-500 hover:bg-red-500/10 border border-transparent hover:border-red-500/25 transition-all duration-200"
+                title="Delete Conversation"
+              >
+                <Trash2 className="w-4 h-4" />
+                Clear Chat
+              </button>
             </div>
 
             {/* Messages */}
@@ -468,16 +544,65 @@ function ChatSupportPanel() {
                 </div>
               ) : messages.map((msg) => {
                 const isMe = msg.sender_id === user?.id;
+                const isEditing = editingMessageId === msg.id;
                 return (
-                  <div key={msg.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
+                  <div key={msg.id} className={`flex ${isMe ? "justify-end" : "justify-start"} group relative items-center gap-2`}>
+                    {isMe && !isEditing && (
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                        <button
+                          onClick={() => startEditing(msg)}
+                          className={`p-1 rounded transition-colors ${
+                            isDark ? "hover:bg-gray-800 text-gray-400 hover:text-white" : "hover:bg-gray-100 text-gray-500 hover:text-gray-900"
+                          }`}
+                          title="Edit message"
+                        >
+                          <Edit className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => deleteMessage(msg.id)}
+                          className="p-1 rounded transition-colors hover:bg-red-500/10 text-red-500"
+                          title="Delete message"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
+
                     <div className={`max-w-[70%] px-4 py-2.5 rounded-2xl text-sm shadow-sm ${isMe
                       ? "bg-blue-600 text-white rounded-br-sm"
                       : isDark ? "bg-gray-700 text-gray-100 rounded-bl-sm" : "bg-gray-100 text-gray-800 rounded-bl-sm"
                       }`}>
-                      <p className="leading-relaxed">{msg.message}</p>
-                      <p className={`text-[10px] mt-1 ${isMe ? "text-blue-200" : isDark ? "text-gray-500" : "text-gray-400"}`}>
-                        {new Date(msg.created_at + "Z").toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                      </p>
+                      {isEditing ? (
+                        <div className="flex flex-col gap-2 min-w-[200px]">
+                          <textarea
+                            value={editingText}
+                            onChange={(e) => setEditingText(e.target.value)}
+                            className="p-2 text-sm rounded border outline-none text-slate-800 bg-white dark:bg-slate-800 dark:text-white dark:border-slate-700 resize-none"
+                            rows={2}
+                          />
+                          <div className="flex gap-2 justify-end">
+                            <button
+                              onClick={cancelEditing}
+                              className="px-2.5 py-1 text-xs bg-gray-500 hover:bg-gray-600 text-white rounded font-medium transition"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              onClick={() => saveEditMessage(msg.id)}
+                              className="px-2.5 py-1 text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded font-medium transition"
+                            >
+                              Save
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <p className="leading-relaxed whitespace-pre-wrap">{msg.message}</p>
+                          <p className={`text-[10px] mt-1 ${isMe ? "text-blue-200" : isDark ? "text-gray-500" : "text-gray-400"}`}>
+                            {new Date(msg.created_at + "Z").toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                          </p>
+                        </>
+                      )}
                     </div>
                   </div>
                 );
@@ -518,7 +643,7 @@ function ChatSupportPanel() {
             </div>
             <div className="text-center">
               <p className="font-semibold">Select a conversation</p>
-              <p className="text-sm mt-1">Choose an irregular student from the list to start chatting.</p>
+              <p className="text-sm mt-1">Choose a student from the list to start chatting.</p>
             </div>
           </div>
         )}
@@ -766,6 +891,13 @@ export default function ProgramHeadDashboard() {
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const unreadCount = notifications.filter(n => !n.is_read).length;
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
+  const [pendingRescheduleCount, setPendingRescheduleCount] = useState(0);
+
+  const handlePendingRescheduleCountChange = useCallback((count) => {
+    setPendingRescheduleCount(count);
+  }, []);
+
   const handleGenerationStateChange = useCallback((nextState) => {
     setGenerationState(nextState);
   }, []);
@@ -788,6 +920,33 @@ export default function ProgramHeadDashboard() {
     const interval = setInterval(fetchNotifications, 10000);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    const checkUnread = () => {
+      api.get("/chat/unread-count")
+        .then(res => setUnreadChatCount(res.data.unread_count))
+        .catch(() => {});
+    };
+    checkUnread();
+    const interval = setInterval(checkUnread, 8000);
+    return () => clearInterval(interval);
+  }, [user, activeTab]);
+
+  useEffect(() => {
+    if (!user) return;
+    const fetchPendingRescheduleCount = async () => {
+      try {
+        const res = await api.get("/rescheduling/pending/count");
+        setPendingRescheduleCount(res.data.count);
+      } catch (err) {
+        console.error("Error fetching pending reschedule count:", err);
+      }
+    };
+    fetchPendingRescheduleCount();
+    const interval = setInterval(fetchPendingRescheduleCount, 10000);
+    return () => clearInterval(interval);
+  }, [user]);
 
   const markRead = async (id) => {
     try {
@@ -841,7 +1000,7 @@ export default function ProgramHeadDashboard() {
             { id: "proctors", icon: Users, label: "Proctor Management" },
             { id: "rooms", icon: DoorOpen, label: "Room Management" },
             { id: "rescheduling", icon: ClipboardList, label: "Rescheduling Requests" },
-            { id: "chat", icon: MessageSquare, label: "Chat Support" },
+            { id: "chat", icon: MessageSquare, label: "Chat" },
             { id: "monitoring", icon: ShieldCheck, label: "Proctor Monitoring" },
             { id: "rules", icon: Target, label: "Distribution Rules" },
             { id: "manual", icon: BookOpen, label: "User Manual" },
@@ -852,7 +1011,7 @@ export default function ProgramHeadDashboard() {
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-                className={`w-full flex items-center gap-3.5 px-4 py-3.5 rounded-xl transition-all duration-300 group ${isActive
+                className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl transition-all duration-300 group ${isActive
                   ? isDark
                     ? "bg-blue-600 text-white shadow-lg shadow-blue-900/50"
                     : "bg-blue-600 text-white shadow-lg shadow-blue-500/30"
@@ -861,8 +1020,20 @@ export default function ProgramHeadDashboard() {
                     : "text-slate-600 hover:bg-blue-50 hover:text-blue-700"
                   }`}
               >
-                <Icon className={`w-5 h-5 transition-transform duration-300 ${isActive ? "scale-110" : "group-hover:scale-110"}`} />
-                <span className="text-sm font-semibold">{item.label}</span>
+                <div className="flex items-center gap-3.5">
+                  <Icon className={`w-5 h-5 transition-transform duration-300 ${isActive ? "scale-110" : "group-hover:scale-110"}`} />
+                  <span className="text-sm font-semibold">{item.label}</span>
+                </div>
+                {item.id === "chat" && unreadChatCount > 0 && (
+                  <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">
+                    {unreadChatCount}
+                  </span>
+                )}
+                {item.id === "rescheduling" && pendingRescheduleCount > 0 && (
+                  <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">
+                    {pendingRescheduleCount}
+                  </span>
+                )}
               </button>
             );
           })}
@@ -886,7 +1057,7 @@ export default function ProgramHeadDashboard() {
                         activeTab === "rooms" ? "Room Management" :
                           activeTab === "monitoring" ? "Proctor Attendance Monitoring" :
                             activeTab === "rescheduling" ? "Rescheduling Requests" :
-                              activeTab === "chat" ? "Chat Support" :
+                              activeTab === "chat" ? "Chat" :
                                 activeTab === "rules" ? "Distribution Rules" :
                                   activeTab === "manual" ? "User Manual" : "Program Head Dashboard"}
                 </h1>
@@ -980,7 +1151,7 @@ export default function ProgramHeadDashboard() {
                     activeTab === "rooms" ? <RoomManagement isGenerating={isGenerationRunning} /> :
                       activeTab === "rules" ? <DistributionRulesManager isGenerating={isGenerationRunning} /> :
                         activeTab === "monitoring" ? <ProctorMonitoring /> :
-                          activeTab === "rescheduling" ? <ReschedulingRequests isGenerating={isGenerationRunning} /> :
+                          activeTab === "rescheduling" ? <ReschedulingRequests isGenerating={isGenerationRunning} onRequestsChange={handlePendingRescheduleCountChange} /> :
                             activeTab === "chat" ? <ChatSupportPanel /> :
                               activeTab === "manual" ? <ProgramHeadManual /> :
                                 null}

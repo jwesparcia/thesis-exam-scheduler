@@ -57,6 +57,22 @@ def send_message(
         "recipient_name": recipient.name
     }
 
+@router.get("/unread-count")
+def get_unread_count(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    count = (
+        db.query(ChatMessage)
+        .filter(
+            ChatMessage.recipient_id == current_user.id,
+            ChatMessage.is_read == False,
+            ChatMessage.deleted_by_recipient == False
+        )
+        .count()
+    )
+    return {"unread_count": count}
+
 @router.get("/messages/{other_user_id}", response_model=List[MessageResponse])
 def get_messages(
     other_user_id: int,
@@ -66,8 +82,8 @@ def get_messages(
     messages = (
         db.query(ChatMessage)
         .filter(
-            ((ChatMessage.sender_id == current_user.id) & (ChatMessage.recipient_id == other_user_id)) |
-            ((ChatMessage.sender_id == other_user_id) & (ChatMessage.recipient_id == current_user.id))
+            ((ChatMessage.sender_id == current_user.id) & (ChatMessage.recipient_id == other_user_id) & (ChatMessage.deleted_by_sender == False)) |
+            ((ChatMessage.sender_id == other_user_id) & (ChatMessage.recipient_id == current_user.id) & (ChatMessage.deleted_by_recipient == False))
         )
         .order_by(ChatMessage.created_at.asc())
         .all()
@@ -96,7 +112,8 @@ def mark_read(
     db.query(ChatMessage).filter(
         ChatMessage.sender_id == other_user_id,
         ChatMessage.recipient_id == current_user.id,
-        ChatMessage.is_read == False
+        ChatMessage.is_read == False,
+        ChatMessage.deleted_by_recipient == False
     ).update({"is_read": True})
     db.commit()
     return {"message": "Messages marked as read"}
@@ -106,15 +123,28 @@ def get_conversations(
     current_user: User = Depends(require_role(["admin"])),
     db: Session = Depends(get_db)
 ):
-    students = db.query(User).filter(User.student_type == "irregular").all()
+    # Fetch user IDs of students who have exchanged messages with the current admin
+    chatted_senders = db.query(ChatMessage.sender_id).filter(
+        ChatMessage.recipient_id == current_user.id
+    ).distinct().all()
+    chatted_recipients = db.query(ChatMessage.recipient_id).filter(
+        ChatMessage.sender_id == current_user.id
+    ).distinct().all()
+    
+    chatted_user_ids = {uid[0] for uid in chatted_senders + chatted_recipients if uid[0] != current_user.id}
+    
+    students = db.query(User).filter(
+        (User.role == "student") &
+        ((User.student_type == "irregular") | (User.id.in_(list(chatted_user_ids))))
+    ).all()
     
     conversations = []
     for s in students:
         last_msg = (
             db.query(ChatMessage)
             .filter(
-                ((ChatMessage.sender_id == current_user.id) & (ChatMessage.recipient_id == s.id)) |
-                ((ChatMessage.sender_id == s.id) & (ChatMessage.recipient_id == current_user.id))
+                ((ChatMessage.sender_id == current_user.id) & (ChatMessage.recipient_id == s.id) & (ChatMessage.deleted_by_sender == False)) |
+                ((ChatMessage.sender_id == s.id) & (ChatMessage.recipient_id == current_user.id) & (ChatMessage.deleted_by_recipient == False))
             )
             .order_by(ChatMessage.created_at.desc())
             .first()
@@ -125,7 +155,8 @@ def get_conversations(
             .filter(
                 ChatMessage.sender_id == s.id,
                 ChatMessage.recipient_id == current_user.id,
-                ChatMessage.is_read == False
+                ChatMessage.is_read == False,
+                ChatMessage.deleted_by_recipient == False
             )
             .count()
         )
@@ -134,6 +165,7 @@ def get_conversations(
             "student_id": s.id,
             "student_name": s.name,
             "student_email": s.email,
+            "student_type": s.student_type,
             "last_message": last_msg.message if last_msg else None,
             "last_message_time": last_msg.created_at if last_msg else None,
             "unread_count": unread_count
@@ -149,3 +181,70 @@ def get_admins(
 ):
     admins = db.query(User).filter(User.role.in_(["admin", "program_head"])).all()
     return [{"id": a.id, "name": a.name, "email": a.email} for a in admins]
+
+class EditMessageBody(BaseModel):
+    message: str
+
+@router.put("/messages/{message_id}", response_model=MessageResponse)
+def edit_message(
+    message_id: int,
+    body: EditMessageBody,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    msg = db.query(ChatMessage).filter(ChatMessage.id == message_id).first()
+    if not msg:
+        raise HTTPException(status_code=404, detail="Message not found")
+    if msg.sender_id != current_user.id:
+        raise HTTPException(status_code=403, detail="You can only edit your own messages")
+        
+    msg.message = body.message.strip()
+    db.commit()
+    db.refresh(msg)
+    
+    return {
+        "id": msg.id,
+        "sender_id": msg.sender_id,
+        "recipient_id": msg.recipient_id,
+        "message": msg.message,
+        "created_at": msg.created_at,
+        "is_read": msg.is_read,
+        "sender_name": msg.sender.name,
+        "recipient_name": msg.recipient.name
+    }
+
+@router.delete("/messages/{message_id}")
+def delete_message(
+    message_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    msg = db.query(ChatMessage).filter(ChatMessage.id == message_id).first()
+    if not msg:
+        raise HTTPException(status_code=404, detail="Message not found")
+    if msg.sender_id != current_user.id:
+        raise HTTPException(status_code=403, detail="You can only delete your own messages")
+        
+    db.delete(msg)
+    db.commit()
+    return {"message": "Message deleted successfully"}
+
+@router.delete("/conversations/{other_user_id}")
+def delete_conversation(
+    other_user_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    db.query(ChatMessage).filter(
+        ChatMessage.sender_id == current_user.id,
+        ChatMessage.recipient_id == other_user_id
+    ).update({"deleted_by_sender": True}, synchronize_session=False)
+
+    db.query(ChatMessage).filter(
+        ChatMessage.sender_id == other_user_id,
+        ChatMessage.recipient_id == current_user.id
+    ).update({"deleted_by_recipient": True}, synchronize_session=False)
+
+    db.commit()
+    return {"message": "Conversation cleared successfully"}
+

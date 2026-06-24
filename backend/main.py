@@ -30,9 +30,17 @@ def on_startup():
         print("Creating database tables...")
         Base.metadata.create_all(bind=engine)
         print("Database tables created successfully!")
+        
+        # Add soft delete columns idempotently
+        from sqlalchemy import text as _text
+        with engine.connect() as _conn:
+            _conn.execute(_text("ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS deleted_by_sender BOOLEAN DEFAULT FALSE"))
+            _conn.execute(_text("ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS deleted_by_recipient BOOLEAN DEFAULT FALSE"))
+            _conn.commit()
+        print("Chat database soft-delete columns migration successful!")
     except Exception as e:
-        print(f"Failed to create database tables: {e}")
-        print("Make sure the database is accessible and tables can be created")
+        print(f"Failed to create database tables or run migrations: {e}")
+        print("Make sure the database is accessible")
 
 # Routers
 app.include_router(catalog.router)

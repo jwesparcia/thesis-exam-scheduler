@@ -103,8 +103,8 @@ year_levels = db.query(YearLevel).all()
 #   Day 4 (Any)   : Major for ALL year levels
 
 rules = [
-    # GE / General subjects → Day 1-3, Any session
-    DistributionRule(category_type="general", year_level_id=None, allowed_days=[1, 2, 3], allowed_session="any"),
+    # GE / General subjects → Day 1-3, Morning session only (except literature which can go anywhere)
+    DistributionRule(category_type="general", year_level_id=None, allowed_days=[1, 2, 3], allowed_session="morning"),
 ]
 
 # Major Rules per year level
