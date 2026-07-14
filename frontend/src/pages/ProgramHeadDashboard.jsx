@@ -20,6 +20,10 @@ import {
   ChevronRight,
   Edit,
   Trash2,
+  Database,
+  Plus,
+  Search,
+  X,
 } from "lucide-react";
 import ExamScheduler from "../components/ExamScheduler";
 import AddProctor from "../components/AddProctor";
@@ -31,6 +35,9 @@ import GeneratedExamSchedules from "../components/GeneratedExamSchedules";
 import ProctorMonitoring from "../components/ProctorMonitoring";
 import RoomManagement from "../components/RoomManagement";
 import SettingsDropdown from "../components/SettingsDropdown";
+import DataImport from "../components/DataImport";
+import StudentImport from "../components/StudentImport";
+import ConfirmationModal from "../components/ConfirmationModal";
 
 import api from "../api";
 import { useToast } from "../context/ToastContext";
@@ -346,17 +353,63 @@ function ChatSupportPanel() {
   const [activeStudentType, setActiveStudentType] = useState("");
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
+  const [isDeleteMsgModalOpen, setIsDeleteMsgModalOpen] = useState(false);
+  const [msgToDeleteId, setMsgToDeleteId] = useState(null);
+  const [isClearConvModalOpen, setIsClearConvModalOpen] = useState(false);
+  const [convToClearStudentId, setConvToClearStudentId] = useState(null);
   const [sending, setSending] = useState(false);
   const messagesEndRef = useRef(null);
 
   const [editingMessageId, setEditingMessageId] = useState(null);
   const [editingText, setEditingText] = useState("");
 
+  const [isNewChatModalOpen, setIsNewChatModalOpen] = useState(false);
+  const [proctorsList, setProctorsList] = useState([]);
+  const [studentsList, setStudentsList] = useState([]);
+  const [contactSearch, setContactSearch] = useState("");
+  const [contactTab, setContactTab] = useState("students");
+
   const fetchConversations = async () => {
     try {
       const res = await api.get("/chat/conversations");
       setConversations(res.data);
     } catch (err) { console.error("conv err", err); }
+  };
+
+  const openNewChatModal = async () => {
+    setIsNewChatModalOpen(true);
+    try {
+      const [procRes, studRes] = await Promise.all([
+        api.get("/chat/proctors"),
+        api.get("/chat/students")
+      ]);
+      setProctorsList(procRes.data);
+      setStudentsList(studRes.data);
+    } catch (err) {
+      console.error("Error fetching contacts", err);
+    }
+  };
+
+  const startChatWithContact = (contact) => {
+    const existing = conversations.find(c => c.student_id === contact.id);
+    if (!existing) {
+      setConversations(prev => [
+        {
+          student_id: contact.id,
+          student_name: contact.name,
+          student_email: contact.email,
+          student_type: contact.student_type || "proctor",
+          role: contact.student_type ? "student" : "proctor",
+          last_message: "",
+          last_message_time: null,
+          unread_count: 0
+        },
+        ...prev
+      ]);
+    }
+    selectStudent(contact.id, contact.name, contact.student_type || "proctor");
+    setIsNewChatModalOpen(false);
+    setContactSearch("");
   };
 
   const fetchMessages = async (studentId) => {
@@ -420,26 +473,42 @@ function ChatSupportPanel() {
     }
   };
 
-  const deleteMessage = async (messageId) => {
-    if (!window.confirm("Are you sure you want to delete this message?")) return;
+  const executeDeleteMessage = async () => {
+    if (!msgToDeleteId) return;
     try {
-      await api.delete(`/chat/messages/${messageId}`);
+      await api.delete(`/chat/messages/${msgToDeleteId}`);
       await fetchMessages(activeStudentId);
       fetchConversations();
     } catch (err) {
       console.error("delete err", err);
+    } finally {
+      setIsDeleteMsgModalOpen(false);
+      setMsgToDeleteId(null);
     }
   };
 
-  const deleteConversation = async (studentId) => {
-    if (!window.confirm("Are you sure you want to clear this conversation? This will delete all messages.")) return;
+  const deleteMessage = (messageId) => {
+    setMsgToDeleteId(messageId);
+    setIsDeleteMsgModalOpen(true);
+  };
+
+  const executeClearConversation = async () => {
+    if (!convToClearStudentId) return;
     try {
-      await api.delete(`/chat/conversations/${studentId}`);
+      await api.delete(`/chat/conversations/${convToClearStudentId}`);
       setMessages([]);
       fetchConversations();
     } catch (err) {
       console.error("clear conv err", err);
+    } finally {
+      setIsClearConvModalOpen(false);
+      setConvToClearStudentId(null);
     }
+  };
+
+  const deleteConversation = (studentId) => {
+    setConvToClearStudentId(studentId);
+    setIsClearConvModalOpen(true);
   };
 
   const handleKeyDown = (e) => {
@@ -459,20 +528,33 @@ function ChatSupportPanel() {
   };
 
   return (
-    <div className={`flex h-[620px] rounded-xl border overflow-hidden ${isDark ? "border-gray-700" : "border-gray-200"}`}>
+    <div className={`flex h-[620px] rounded-xl border overflow-hidden relative ${isDark ? "border-gray-700" : "border-gray-200"}`}>
       {/* Left: conversation list */}
       <div className={`w-72 flex flex-col border-r ${isDark ? "bg-gray-800/60 border-gray-700" : "bg-gray-50 border-gray-200"}`}>
-        <div className={`p-4 border-b ${isDark ? "border-gray-700" : "border-gray-200"}`}>
-          <h3 className={`font-bold text-sm uppercase tracking-wide ${isDark ? "text-gray-300" : "text-gray-600"}`}>
-            Students
-          </h3>
-          <p className={`text-xs mt-0.5 ${isDark ? "text-gray-500" : "text-gray-400"}`}>{conversations.length} conversation{conversations.length !== 1 ? "s" : ""}</p>
+        <div className={`p-4 border-b flex justify-between items-center ${isDark ? "border-gray-700" : "border-gray-200"}`}>
+          <div>
+            <h3 className={`font-bold text-sm uppercase tracking-wide ${isDark ? "text-gray-300" : "text-gray-600"}`}>
+              Conversations
+            </h3>
+            <p className={`text-xs mt-0.5 ${isDark ? "text-gray-500" : "text-gray-400"}`}>{conversations.length} active</p>
+          </div>
+          <button
+            onClick={openNewChatModal}
+            className={`p-1.5 rounded-lg border transition-all ${
+              isDark 
+                ? "bg-slate-700 border-slate-600 text-slate-200 hover:bg-slate-600" 
+                : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50 shadow-sm"
+            }`}
+            title="Start New Chat"
+          >
+            <Plus className="w-4 h-4" />
+          </button>
         </div>
         <div className="flex-1 overflow-y-auto custom-scrollbar">
           {conversations.length === 0 ? (
             <div className={`p-6 text-center text-sm ${isDark ? "text-gray-500" : "text-gray-400"}`}>
               <MessageSquare className="w-8 h-8 mx-auto mb-2 opacity-30" />
-              No students yet
+              No conversations yet
             </div>
           ) : conversations.map((conv) => (
             <button
@@ -493,11 +575,22 @@ function ChatSupportPanel() {
                   </span>
                 )}
               </div>
-              <p className={`text-xs truncate ${isDark ? "text-gray-400" : "text-gray-500"}`}>
-                {conv.last_message || "No messages yet"}
-              </p>
+              <div className="flex items-center justify-between gap-2">
+                <p className={`text-xs truncate flex-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                  {conv.last_message || "No messages yet"}
+                </p>
+                <span className={`text-[9px] uppercase px-1.5 py-0.5 rounded-full font-bold select-none whitespace-nowrap ${
+                  conv.role === "proctor" || conv.student_type === "proctor"
+                    ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/10"
+                    : conv.student_type === "irregular"
+                    ? "bg-purple-500/20 text-purple-400 border border-purple-500/10"
+                    : "bg-blue-500/20 text-blue-400 border border-blue-500/10"
+                }`}>
+                  {conv.role === "proctor" || conv.student_type === "proctor" ? "Proctor" : conv.student_type}
+                </span>
+              </div>
               {conv.last_message_time && (
-                <p className={`text-[10px] mt-0.5 ${isDark ? "text-gray-600" : "text-gray-400"}`}>
+                <p className={`text-[10px] mt-1 ${isDark ? "text-gray-600" : "text-gray-400"}`}>
                   {new Date(conv.last_message_time + "Z").toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                 </p>
               )}
@@ -520,7 +613,7 @@ function ChatSupportPanel() {
                 <div>
                   <h4 className={`font-bold text-sm ${isDark ? "text-white" : "text-gray-900"}`}>{activeStudentName}</h4>
                   <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>
-                    {activeStudentType === "irregular" ? "Irregular Student" : "Regular Student"}
+                    {activeStudentType === "irregular" ? "Irregular Student" : activeStudentType === "proctor" ? "Proctor" : "Regular Student"}
                   </p>
                 </div>
               </div>
@@ -643,11 +736,155 @@ function ChatSupportPanel() {
             </div>
             <div className="text-center">
               <p className="font-semibold">Select a conversation</p>
-              <p className="text-sm mt-1">Choose a student from the list to start chatting.</p>
+              <p className="text-sm mt-1">Choose a student or proctor from the list or start a new chat.</p>
             </div>
           </div>
         )}
       </div>
+
+      {/* Custom Confirmation Modals */}
+      <ConfirmationModal
+        isOpen={isDeleteMsgModalOpen}
+        title="Delete Chat Message"
+        message="Are you sure you want to delete this message? This action cannot be undone."
+        confirmLabel="Delete Message"
+        isDanger={true}
+        onConfirm={executeDeleteMessage}
+        onCancel={() => {
+          setIsDeleteMsgModalOpen(false);
+          setMsgToDeleteId(null);
+        }}
+      />
+
+      <ConfirmationModal
+        isOpen={isClearConvModalOpen}
+        title="Clear Conversation History"
+        message="Are you sure you want to clear this conversation? This will permanently delete all messages."
+        confirmLabel="Clear Conversation"
+        isDanger={true}
+        onConfirm={executeClearConversation}
+        onCancel={() => {
+          setIsClearConvModalOpen(false);
+          setConvToClearStudentId(null);
+        }}
+      />
+
+      {/* New Chat Modal */}
+      {isNewChatModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className={`w-full max-w-md rounded-2xl border p-6 flex flex-col gap-4 shadow-2xl ${
+            isDark ? "bg-slate-800 border-slate-700 text-white" : "bg-white border-slate-200 text-slate-800"
+          }`}>
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-lg">Start a New Chat</h3>
+              <button 
+                onClick={() => {
+                  setIsNewChatModalOpen(false);
+                  setContactSearch("");
+                }}
+                className={`p-1.5 rounded-lg transition ${
+                  isDark ? "hover:bg-slate-700 text-slate-400 hover:text-white" : "hover:bg-slate-100 text-gray-500 hover:text-gray-900"
+                }`}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Tab Selection */}
+            <div className="flex gap-2 border-b border-slate-200 dark:border-slate-700 pb-2">
+              <button
+                onClick={() => setContactTab("students")}
+                className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+                  contactTab === "students"
+                    ? "bg-blue-600 text-white"
+                    : isDark ? "text-slate-400 hover:text-white" : "text-slate-600 hover:text-blue-600"
+                }`}
+              >
+                Students
+              </button>
+              <button
+                onClick={() => setContactTab("proctors")}
+                className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+                  contactTab === "proctors"
+                    ? "bg-blue-600 text-white"
+                    : isDark ? "text-slate-400 hover:text-white" : "text-slate-600 hover:text-blue-600"
+                }`}
+              >
+                Proctors
+              </button>
+            </div>
+
+            {/* Search Input */}
+            <div className="relative">
+              <Search className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 ${
+                isDark ? "text-slate-500" : "text-slate-400"
+              }`} />
+              <input
+                type="text"
+                placeholder={`Search ${contactTab}...`}
+                value={contactSearch}
+                onChange={(e) => setContactSearch(e.target.value)}
+                className={`w-full pl-10 pr-4 py-2.5 rounded-xl border text-sm outline-none transition ${
+                  isDark 
+                    ? "bg-slate-700 border-slate-600 text-white focus:border-blue-500" 
+                    : "bg-white border-slate-200 text-slate-800 focus:border-blue-500 shadow-sm"
+                }`}
+              />
+            </div>
+
+            {/* Contact List */}
+            <div className="flex-1 max-h-60 overflow-y-auto custom-scrollbar space-y-1 pr-1">
+              {contactTab === "students" ? (
+                studentsList
+                  .filter(s => s.name.toLowerCase().includes(contactSearch.toLowerCase()))
+                  .map(s => (
+                    <button
+                      key={s.id}
+                      onClick={() => startChatWithContact(s)}
+                      className={`w-full flex items-center justify-between p-3 rounded-xl text-left transition ${
+                        isDark ? "hover:bg-slate-700/50" : "hover:bg-slate-50 border border-transparent hover:border-slate-100"
+                      }`}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold text-sm truncate">{s.name}</p>
+                        <p className={`text-xs truncate ${isDark ? "text-slate-400" : "text-slate-500"}`}>{s.email}</p>
+                      </div>
+                      <span className={`text-[10px] px-2 py-0.5 rounded capitalize ${
+                        s.student_type === "irregular" ? "bg-purple-500/20 text-purple-400" : "bg-blue-500/20 text-blue-400"
+                      }`}>
+                        {s.student_type}
+                      </span>
+                    </button>
+                  ))
+              ) : (
+                proctorsList
+                  .filter(p => p.name.toLowerCase().includes(contactSearch.toLowerCase()))
+                  .map(p => (
+                    <button
+                      key={p.id}
+                      onClick={() => startChatWithContact(p)}
+                      className={`w-full flex items-center justify-between p-3 rounded-xl text-left transition ${
+                        isDark ? "hover:bg-slate-700/50" : "hover:bg-slate-50 border border-transparent hover:border-slate-100"
+                      }`}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold text-sm truncate">{p.name}</p>
+                        <p className={`text-xs truncate ${isDark ? "text-slate-400" : "text-slate-500"}`}>{p.email}</p>
+                      </div>
+                      <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400">
+                        Proctor
+                      </span>
+                    </button>
+                  ))
+              )}
+              {((contactTab === "students" && studentsList.filter(s => s.name.toLowerCase().includes(contactSearch.toLowerCase())).length === 0) ||
+                (contactTab === "proctors" && proctorsList.filter(p => p.name.toLowerCase().includes(contactSearch.toLowerCase())).length === 0)) && (
+                <p className={`text-center py-6 text-sm ${isDark ? "text-slate-500" : "text-slate-400"}`}>No contacts found</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1003,6 +1240,8 @@ export default function ProgramHeadDashboard() {
             { id: "chat", icon: MessageSquare, label: "Chat" },
             { id: "monitoring", icon: ShieldCheck, label: "Proctor Monitoring" },
             { id: "rules", icon: Target, label: "Distribution Rules" },
+            { id: "import", icon: Database, label: "Data Import" },
+            { id: "students", icon: User, label: "Student Accounts" },
             { id: "manual", icon: BookOpen, label: "User Manual" },
           ].map((item) => {
             const Icon = item.icon;
@@ -1059,7 +1298,9 @@ export default function ProgramHeadDashboard() {
                             activeTab === "rescheduling" ? "Rescheduling Requests" :
                               activeTab === "chat" ? "Chat" :
                                 activeTab === "rules" ? "Distribution Rules" :
-                                  activeTab === "manual" ? "User Manual" : "Program Head Dashboard"}
+                                  activeTab === "import" ? "Curriculum & Catalog Import" :
+                                    activeTab === "students" ? "Student Accounts & Import" :
+                                      activeTab === "manual" ? "User Manual" : "Program Head Dashboard"}
                 </h1>
               </div>
               <div className="flex items-center gap-4">
@@ -1145,6 +1386,12 @@ export default function ProgramHeadDashboard() {
                     onBeforeGenerate={checkMissingSchedulesBeforeGenerate}
                     onGenerationStateChange={handleGenerationStateChange}
                   />
+                </div>
+                <div className={activeTab === "import" ? "block" : "hidden"}>
+                  <DataImport isGenerating={isGenerationRunning} />
+                </div>
+                <div className={activeTab === "students" ? "block" : "hidden"}>
+                  <StudentImport isGenerating={isGenerationRunning} />
                 </div>
                 {activeTab === "schedules" ? <GeneratedExamSchedules isGenerating={isGenerationRunning} /> :
                   activeTab === "proctors" ? <AddProctor isGenerating={isGenerationRunning} /> :

@@ -248,6 +248,7 @@ export default function RoomManagement({ isGenerating }) {
               <select value={semester} onChange={(e) => setSemester(Number(e.target.value))} className={`w-full rounded-xl border p-3 text-sm font-semibold ${isDark ? "bg-gray-900 text-gray-100 border-gray-700" : "bg-gray-50 text-gray-700 border-gray-200"}`}>
                 <option value={1}>1st Semester</option>
                 <option value={2}>2nd Semester</option>
+                <option value={3}>3rd Semester</option>
               </select>
             </div>
             <div>

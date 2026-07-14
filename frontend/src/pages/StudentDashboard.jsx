@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
-import { Search, LogOut, Calendar, Clock, MapPin, BookOpen, ChevronRight, Bell, UserCheck, Edit, Trash2, X, Send, Settings, MessageSquare } from "lucide-react";
+import { Search, LogOut, Calendar, Clock, MapPin, BookOpen, ChevronRight, Bell, UserCheck, Edit, Trash2, X, Send, Settings, MessageSquare, Plus, Loader2 } from "lucide-react";
 import { useTheme } from "../context/themeStore";
 import ThemeToggle from "../components/ThemeToggle";
 import { useUser } from "../context/userStore";
@@ -7,6 +7,7 @@ import { useNavigate } from "react-router-dom";
 import api from "../api";
 import { useToast } from "../context/ToastContext";
 import SettingsDropdown from "../components/SettingsDropdown";
+import ConfirmationModal from "../components/ConfirmationModal";
 
 function formatDate(dateStr) {
   if (!dateStr) return "";
@@ -153,6 +154,591 @@ function StudentManual() {
   );
 }
 
+function StudentChatPanel() {
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
+  const { user } = useUser();
+  const { showSuccess, showError } = useToast();
+
+  const [conversations, setConversations] = useState([]);
+  const [activeContactId, setActiveContactId] = useState(null);
+  const [activeContactName, setActiveContactName] = useState("");
+  const [activeContactRole, setActiveContactRole] = useState("");
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatSending, setChatSending] = useState(false);
+  const [loadingConv, setLoadingConv] = useState(true);
+
+  // New chat directory states
+  const [isNewChatModalOpen, setIsNewChatModalOpen] = useState(false);
+  const [adminsList, setAdminsList] = useState([]);
+  const [proctorsList, setProctorsList] = useState([]);
+  const [contactSearch, setContactSearch] = useState("");
+  const [contactTab, setContactTab] = useState("admins"); // 'admins' or 'proctors'
+
+  // Edit / Delete states
+  const [editingMessageId, setEditingMessageId] = useState(null);
+  const [editingText, setEditingText] = useState("");
+  const [isDeleteMsgModalOpen, setIsDeleteMsgModalOpen] = useState(false);
+  const [msgToDeleteId, setMsgToDeleteId] = useState(null);
+  const [isClearConvModalOpen, setIsClearConvModalOpen] = useState(false);
+  const [convToClearId, setConvToClearId] = useState(null);
+
+  const [showMobileSidebar, setShowMobileSidebar] = useState(true);
+  const chatEndRef = useRef(null);
+
+  // Fetch active conversations
+  const fetchConversations = async (selectFirst = false) => {
+    try {
+      const res = await api.get("/chat/conversations");
+      setConversations(res.data);
+      if (selectFirst && res.data.length > 0 && !activeContactId) {
+        const first = res.data[0];
+        setActiveContactId(first.student_id);
+        setActiveContactName(first.student_name);
+        setActiveContactRole(first.role);
+      }
+    } catch (err) {
+      console.error("Error fetching conversations:", err);
+    } finally {
+      setLoadingConv(false);
+    }
+  };
+
+  // Fetch directory list for new chat
+  const fetchContacts = async () => {
+    try {
+      const [adminsRes, proctorsRes] = await Promise.all([
+        api.get("/chat/admins"),
+        api.get("/chat/proctors")
+      ]);
+      setAdminsList(adminsRes.data);
+      setProctorsList(proctorsRes.data);
+    } catch (err) {
+      console.error("Error fetching contacts:", err);
+    }
+  };
+
+  // Poll conversations
+  useEffect(() => {
+    fetchConversations(true);
+    const interval = setInterval(() => fetchConversations(false), 8000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Poll messages for active contact
+  useEffect(() => {
+    if (!activeContactId) return;
+    const fetchMsgs = async () => {
+      try {
+        const res = await api.get(`/chat/messages/${activeContactId}`);
+        setChatMessages(res.data);
+        api.put(`/chat/read/${activeContactId}`).catch(() => {});
+      } catch (err) {
+        console.error("Error fetching messages:", err);
+      }
+    };
+    fetchMsgs();
+    const interval = setInterval(fetchMsgs, 4000);
+    return () => clearInterval(interval);
+  }, [activeContactId]);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chatMessages]);
+
+  const handleSend = async () => {
+    if (!chatInput.trim() || !activeContactId || chatSending) return;
+    setChatSending(true);
+    try {
+      await api.post("/chat/send", { recipient_id: activeContactId, message: chatInput.trim() });
+      setChatInput("");
+      const res = await api.get(`/chat/messages/${activeContactId}`);
+      setChatMessages(res.data);
+      fetchConversations(false);
+    } catch (err) {
+      showError("Failed to send message");
+    } finally {
+      setChatSending(false);
+    }
+  };
+
+  const startNewChat = (contact, role) => {
+    setActiveContactId(contact.id);
+    setActiveContactName(contact.name);
+    setActiveContactRole(role);
+    setChatMessages([]);
+    setIsNewChatModalOpen(false);
+    setShowMobileSidebar(false);
+    
+    if (!conversations.some(c => c.student_id === contact.id)) {
+      setConversations(prev => [
+        {
+          student_id: contact.id,
+          student_name: contact.name,
+          student_email: contact.email,
+          role: role,
+          last_message: null,
+          last_message_time: null,
+          unread_count: 0
+        },
+        ...prev
+      ]);
+    }
+  };
+
+  const executeClearConversation = async () => {
+    if (!convToClearId) return;
+    try {
+      await api.delete(`/chat/conversations/${convToClearId}`);
+      setChatMessages([]);
+      setConversations(prev => prev.filter(c => c.student_id !== convToClearId));
+      if (activeContactId === convToClearId) {
+        setActiveContactId(null);
+        setActiveContactName("");
+        setActiveContactRole("");
+      }
+      showSuccess("Conversation cleared");
+    } catch (err) {
+      showError("Failed to clear conversation");
+    } finally {
+      setIsClearConvModalOpen(false);
+      setConvToClearId(null);
+    }
+  };
+
+  const executeDeleteChatMessage = async () => {
+    if (!msgToDeleteId) return;
+    try {
+      await api.delete(`/chat/messages/${msgToDeleteId}`);
+      setChatMessages(prev => prev.filter(m => m.id !== msgToDeleteId));
+    } catch (err) {
+      showError("Failed to delete message");
+    } finally {
+      setIsDeleteMsgModalOpen(false);
+      setMsgToDeleteId(null);
+    }
+  };
+
+  const saveEditChatMessage = async (msgId, newText) => {
+    if (!newText.trim()) return;
+    try {
+      await api.put(`/chat/messages/${msgId}`, { message: newText.trim() });
+      setChatMessages(prev => prev.map(m => m.id === msgId ? { ...m, message: newText.trim() } : m));
+      setEditingMessageId(null);
+      setEditingText("");
+    } catch (err) {
+      showError("Failed to edit message");
+    }
+  };
+
+  const selectContact = (conv) => {
+    setActiveContactId(conv.student_id);
+    setActiveContactName(conv.student_name);
+    setActiveContactRole(conv.role);
+    setShowMobileSidebar(false);
+  };
+
+  const filteredConversations = conversations.filter(c => 
+    c.student_name.toLowerCase().includes(contactSearch.toLowerCase())
+  );
+
+  return (
+    <div className="max-w-6xl mx-auto px-2 sm:px-6 lg:px-8 py-4 sm:py-6 h-[600px] flex gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      {/* Sidebar container */}
+      <div className={`w-full md:w-80 flex-shrink-0 flex flex-col rounded-2xl border ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200"} ${!showMobileSidebar && "hidden md:flex"}`}>
+        {/* Sidebar Header */}
+        <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <h3 className={`font-bold text-base ${isDark ? "text-white" : "text-slate-900"}`}>Chats</h3>
+            <button
+              onClick={() => {
+                fetchContacts();
+                setIsNewChatModalOpen(true);
+              }}
+              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition flex items-center justify-center gap-1.5 text-xs font-semibold"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              New Chat
+            </button>
+          </div>
+          {/* Active Chats Search */}
+          <div className="relative">
+            <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search conversations..."
+              value={contactSearch}
+              onChange={(e) => setContactSearch(e.target.value)}
+              className={`w-full pl-9 pr-4 py-2 rounded-xl text-xs outline-none border transition ${
+                isDark 
+                  ? "bg-slate-900 border-slate-700 text-white focus:border-blue-500" 
+                  : "bg-slate-50 border-slate-200 text-slate-900 focus:border-blue-500"
+              }`}
+            />
+          </div>
+        </div>
+
+        {/* Conversations List */}
+        <div className="flex-1 overflow-y-auto p-2 space-y-1 custom-scrollbar">
+          {loadingConv ? (
+            <div className="flex flex-col items-center justify-center h-48 gap-2">
+              <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
+              <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>Loading conversations...</p>
+            </div>
+          ) : filteredConversations.length === 0 ? (
+            <div className="text-center py-12 text-slate-400 dark:text-slate-500">
+              <MessageSquare className="w-8 h-8 mx-auto mb-2 opacity-35" />
+              <p className="text-xs">No active chats</p>
+              <p className="text-[10px] mt-1">Click "New Chat" to start a discussion</p>
+            </div>
+          ) : (
+            filteredConversations.map((conv) => {
+              const isActive = activeContactId === conv.student_id;
+              return (
+                <button
+                  key={conv.student_id}
+                  onClick={() => selectContact(conv)}
+                  className={`w-full text-left p-3 rounded-xl transition duration-155 flex items-center gap-3 relative ${
+                    isActive
+                      ? "bg-blue-600 text-white"
+                      : isDark
+                        ? "hover:bg-slate-700/50 text-slate-200"
+                        : "hover:bg-slate-50 text-slate-800"
+                  }`}
+                >
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-sm font-bold shadow-inner ${
+                    isActive 
+                      ? "bg-white/20 text-white" 
+                      : isDark 
+                        ? "bg-slate-700 text-blue-300" 
+                        : "bg-blue-50 text-blue-700 border border-blue-100"
+                  }`}>
+                    {(conv.student_name || "").split(" ").filter(Boolean).map(n => n[0]).join("").slice(0, 2).toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <p className={`font-semibold text-xs truncate ${isActive ? "text-white" : isDark ? "text-slate-100" : "text-slate-900"}`}>
+                        {conv.student_name}
+                      </p>
+                      {conv.last_message_time && (
+                        <span className={`text-[9px] ${isActive ? "text-blue-200" : "text-slate-400"}`}>
+                          {new Date(conv.last_message_time + "Z").toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        </span>
+                      )}
+                    </div>
+                    <p className={`text-[10px] mt-0.5 truncate capitalize ${isActive ? "text-blue-100" : "text-slate-400"}`}>
+                      {conv.role === "admin" || conv.role === "program_head" ? "Admin" : "Proctor"}
+                    </p>
+                    {conv.last_message && (
+                      <p className={`text-[10px] mt-1 truncate ${isActive ? "text-blue-200" : isDark ? "text-slate-400" : "text-slate-500"}`}>
+                        {conv.last_message}
+                      </p>
+                    )}
+                  </div>
+                  {conv.unread_count > 0 && (
+                    <span className="absolute top-3 right-3 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white shadow">
+                      {conv.unread_count}
+                    </span>
+                  )}
+                </button>
+              );
+            })
+          )}
+        </div>
+      </div>
+
+      {/* Chat Window Area */}
+      <div className={`flex-1 flex flex-col rounded-2xl border ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200"} ${showMobileSidebar && "hidden md:flex"}`}>
+        {activeContactId ? (
+          <>
+            {/* Chat Window Header */}
+            <div className={`p-4 border-b flex items-center justify-between gap-3 ${isDark ? "bg-slate-800/80 border-slate-700" : "bg-slate-50/80 border-slate-200"}`}>
+              <div className="flex items-center gap-3">
+                {/* Mobile Back Button */}
+                <button
+                  onClick={() => setShowMobileSidebar(true)}
+                  className="p-1.5 rounded-lg md:hidden hover:bg-slate-200 dark:hover:bg-slate-700 transition"
+                >
+                  <ChevronRight className="w-5 h-5 rotate-180 text-slate-500 dark:text-slate-400" />
+                </button>
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${isDark ? "bg-blue-600/30 text-blue-300" : "bg-blue-100 text-blue-700"}`}>
+                  {(activeContactName || "").split(" ").filter(Boolean).map(n => n[0]).join("").slice(0, 2).toUpperCase()}
+                </div>
+                <div>
+                  <h3 className={`font-bold text-sm ${isDark ? "text-white" : "text-slate-900"}`}>{activeContactName}</h3>
+                  <p className={`text-[10px] uppercase font-bold tracking-wider ${isDark ? "text-blue-400" : "text-blue-600"}`}>
+                    {activeContactRole === "admin" || activeContactRole === "program_head" ? "Admin / Program Head" : "Proctor / Invigilator"}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => {
+                  setConvToClearId(activeContactId);
+                  setIsClearConvModalOpen(true);
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-red-500 hover:bg-red-500/10 border border-transparent hover:border-red-500/25 transition"
+                title="Clear conversation history"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Clear Chat</span>
+              </button>
+            </div>
+
+            {/* Chat Messages Body */}
+            <div className={`flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar ${isDark ? "bg-slate-900/40" : "bg-slate-50/40"}`}>
+              {chatMessages.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full gap-3 text-slate-400 dark:text-slate-500">
+                  <div className={`w-16 h-16 rounded-2xl flex items-center justify-center ${isDark ? "bg-slate-800" : "bg-slate-100"}`}>
+                    <MessageSquare className="w-8 h-8 opacity-30" />
+                  </div>
+                  <div className="text-center max-w-xs">
+                    <p className="font-semibold text-sm">Start a conversation</p>
+                    <p className="text-xs mt-1">Send a message to clarify any schedule details, room locations, or rescheduling requirements.</p>
+                  </div>
+                </div>
+              ) : (
+                chatMessages.map((msg) => {
+                  const isMe = msg.sender_id === user?.id;
+                  const isEditing = editingMessageId === msg.id;
+                  return (
+                    <div key={msg.id} className={`flex ${isMe ? "justify-end" : "justify-start"} group relative items-center gap-2`}>
+                      {isMe && !isEditing && (
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition duration-150">
+                          <button
+                            onClick={() => {
+                              setEditingMessageId(msg.id);
+                              setEditingText(msg.message);
+                            }}
+                            className={`p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 transition`}
+                            title="Edit message"
+                          >
+                            <Edit className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              setMsgToDeleteId(msg.id);
+                              setIsDeleteMsgModalOpen(true);
+                            }}
+                            className="p-1 rounded hover:bg-red-500/10 text-red-500 transition"
+                            title="Delete message"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )}
+
+                      <div className={`max-w-[75%] px-4 py-2.5 rounded-2xl text-xs relative ${
+                        isMe
+                          ? "bg-blue-600 text-white rounded-br-sm shadow-md shadow-blue-500/10"
+                          : isDark ? "bg-slate-700 text-slate-100 rounded-bl-sm" : "bg-white text-slate-800 rounded-bl-sm border border-slate-200 shadow-sm"
+                      }`}>
+                        {!isMe && (
+                          <p className={`text-[9px] font-bold mb-1 ${isDark ? "text-blue-400" : "text-blue-600"}`}>
+                            {msg.sender_name}
+                          </p>
+                        )}
+                        {isEditing ? (
+                          <div className="flex flex-col gap-2 min-w-[200px] py-1">
+                            <textarea
+                              value={editingText}
+                              onChange={(e) => setEditingText(e.target.value)}
+                              className="w-full p-2 text-xs rounded-xl border outline-none text-slate-800 bg-white dark:bg-slate-800 dark:text-white dark:border-slate-700 resize-none focus:border-blue-500"
+                              rows={2}
+                            />
+                            <div className="flex gap-2 justify-end">
+                              <button
+                                onClick={() => {
+                                  setEditingMessageId(null);
+                                  setEditingText("");
+                                }}
+                                className="px-2.5 py-1 text-[10px] bg-slate-500 hover:bg-slate-600 text-white rounded-lg font-medium transition"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                onClick={() => saveEditChatMessage(msg.id, editingText)}
+                                className="px-2.5 py-1 text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium transition"
+                              >
+                                Save
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <p className="leading-relaxed whitespace-pre-wrap">{msg.message}</p>
+                            <p className={`text-[9px] mt-1 text-right ${isMe ? "text-blue-200" : "text-slate-400 dark:text-slate-500"}`}>
+                              {new Date(msg.created_at + "Z").toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                            </p>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+              <div ref={chatEndRef} />
+            </div>
+
+            {/* Chat Message Input Footer */}
+            <div className={`p-4 border-t flex gap-3 items-end ${isDark ? "border-slate-700 bg-slate-800/50" : "border-slate-200 bg-slate-50"}`}>
+              <textarea
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSend();
+                  }
+                }}
+                placeholder="Type your message... (Enter to send)"
+                rows={1}
+                className={`flex-1 p-3 rounded-xl border resize-none outline-none text-xs transition ${
+                  isDark
+                    ? "bg-slate-900 border-slate-700 text-white placeholder-slate-500 focus:border-blue-500"
+                    : "bg-white border-slate-300 text-slate-900 placeholder-slate-400 focus:border-blue-500"
+                }`}
+              />
+              <button
+                onClick={handleSend}
+                disabled={chatSending || !chatInput.trim()}
+                className={`p-3 rounded-xl transition flex items-center justify-center ${
+                  chatSending || !chatInput.trim()
+                    ? isDark ? "bg-slate-700 text-slate-500" : "bg-slate-200 text-slate-400"
+                    : "bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/25"
+                }`}
+              >
+                <Send className="w-4 h-4" />
+              </button>
+            </div>
+          </>
+        ) : (
+          <div className="flex-1 flex flex-col items-center justify-center p-8 text-slate-400 dark:text-slate-500">
+            <MessageSquare className="w-12 h-12 mb-3 opacity-30 text-blue-500" />
+            <h3 className="font-bold text-sm mb-1 text-slate-700 dark:text-slate-300">No Chat Selected</h3>
+            <p className="text-xs text-center max-w-xs leading-relaxed">
+              Select an active conversation from the list or click the "New Chat" button to contact an administrator or proctor.
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* New Chat Modal */}
+      {isNewChatModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className={`w-full max-w-md rounded-2xl border shadow-xl flex flex-col overflow-hidden ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200"}`} style={{ maxHeight: "80vh" }}>
+            {/* Modal Header */}
+            <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+              <h3 className={`font-bold text-sm ${isDark ? "text-white" : "text-slate-900"}`}>Start New Chat</h3>
+              <button
+                onClick={() => setIsNewChatModalOpen(false)}
+                className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition"
+              >
+                <X className="w-4 h-4 text-slate-500" />
+              </button>
+            </div>
+
+            {/* Tabs for Admins/Proctors */}
+            <div className="flex border-b border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/20 p-2 gap-1">
+              <button
+                onClick={() => setContactTab("admins")}
+                className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all ${
+                  contactTab === "admins"
+                    ? "bg-blue-600 text-white shadow-sm"
+                    : isDark ? "text-slate-400 hover:text-slate-200" : "text-slate-600 hover:text-slate-800"
+                }`}
+              >
+                Admins
+              </button>
+              <button
+                onClick={() => setContactTab("proctors")}
+                className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all ${
+                  contactTab === "proctors"
+                    ? "bg-blue-600 text-white shadow-sm"
+                    : isDark ? "text-slate-400 hover:text-slate-200" : "text-slate-600 hover:text-slate-800"
+                }`}
+              >
+                Proctors (Teachers)
+              </button>
+            </div>
+
+            {/* Contact Directory Search */}
+            <div className="p-3 border-b border-slate-200 dark:border-slate-700">
+              <div className="relative">
+                <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder={`Search ${contactTab === "admins" ? "admins" : "proctors"}...`}
+                  value={contactSearch}
+                  onChange={(e) => setContactSearch(e.target.value)}
+                  className={`w-full pl-9 pr-4 py-2 rounded-xl text-xs outline-none border transition ${
+                    isDark 
+                      ? "bg-slate-900 border-slate-700 text-white focus:border-blue-500" 
+                      : "bg-slate-50 border-slate-200 text-slate-900 focus:border-blue-500"
+                  }`}
+                />
+              </div>
+            </div>
+
+            {/* List */}
+            <div className="flex-1 overflow-y-auto p-2 space-y-1 custom-scrollbar">
+              {(contactTab === "admins" ? adminsList : proctorsList)
+                .filter(u => u.name.toLowerCase().includes(contactSearch.toLowerCase()) || u.email.toLowerCase().includes(contactSearch.toLowerCase()))
+                .map((u) => (
+                  <button
+                    key={u.id}
+                    onClick={() => startNewChat(u, contactTab === "admins" ? "admin" : "proctor")}
+                    className={`w-full text-left p-3 rounded-xl transition duration-150 flex items-center gap-3 ${
+                      isDark ? "hover:bg-slate-700/60 text-slate-200" : "hover:bg-slate-50 text-slate-800"
+                    }`}
+                  >
+                    <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 text-xs font-bold ${
+                      isDark ? "bg-slate-700 text-blue-300" : "bg-blue-50 text-blue-600 border border-blue-100"
+                    }`}>
+                      {(u.name || "").split(" ").filter(Boolean).map(n => n[0]).join("").slice(0, 2).toUpperCase()}
+                    </div>
+                    <div>
+                      <p className={`font-semibold text-xs ${isDark ? "text-slate-100" : "text-slate-900"}`}>{u.name}</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">{u.email}</p>
+                    </div>
+                  </button>
+                ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modals */}
+      {isClearConvModalOpen && (
+        <ConfirmationModal
+          isOpen={isClearConvModalOpen}
+          onClose={() => setIsClearConvModalOpen(false)}
+          onConfirm={executeClearConversation}
+          title="Clear Conversation"
+          message="Are you sure you want to clear your conversation history with this contact? This action will permanently remove all messages for you."
+          confirmText="Yes, Clear"
+          cancelText="Cancel"
+          type="danger"
+        />
+      )}
+
+      {isDeleteMsgModalOpen && (
+        <ConfirmationModal
+          isOpen={isDeleteMsgModalOpen}
+          onClose={() => setIsDeleteMsgModalOpen(false)}
+          onConfirm={executeDeleteChatMessage}
+          title="Delete Message"
+          message="Are you sure you want to delete this message? This action cannot be undone."
+          confirmText="Delete"
+          cancelText="Cancel"
+          type="danger"
+        />
+      )}
+    </div>
+  );
+}
+
 export default function StudentDashboard() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
@@ -205,14 +791,6 @@ export default function StudentDashboard() {
   const [loadingRequest, setLoadingRequest] = useState(false);
 
   // Chat states
-  const [chatAdmins, setChatAdmins] = useState([]);
-  const [chatAdminId, setChatAdminId] = useState(null);
-  const [chatMessages, setChatMessages] = useState([]);
-  const [chatInput, setChatInput] = useState("");
-  const [chatSending, setChatSending] = useState(false);
-  const chatEndRef = useRef(null);
-  const [editingMessageId, setEditingMessageId] = useState(null);
-  const [editingText, setEditingText] = useState("");
   const [unreadChatCount, setUnreadChatCount] = useState(0);
 
   // Fetch courses list
@@ -402,101 +980,7 @@ export default function StudentDashboard() {
     return () => clearInterval(interval);
   }, [user]);
 
-  // Chat: fetch admin list on mount
-  useEffect(() => {
-    if (!user || activeTab !== "chat") return;
-    api.get("/chat/admins").then(res => {
-      setChatAdmins(res.data);
-      if (res.data.length > 0 && !chatAdminId) setChatAdminId(res.data[0].id);
-    }).catch(() => {});
-  }, [user, activeTab]);
 
-  // Chat: unread count polling
-  useEffect(() => {
-    if (!user) return;
-    const checkUnread = () => {
-      api.get("/chat/unread-count")
-        .then(res => setUnreadChatCount(res.data.unread_count))
-        .catch(() => {});
-    };
-    checkUnread();
-    const interval = setInterval(checkUnread, 8000);
-    return () => clearInterval(interval);
-  }, [user, activeTab]);
-
-  // Chat: poll messages
-  useEffect(() => {
-    if (!chatAdminId) return;
-    const fetchMsgs = async () => {
-      try {
-        const res = await api.get(`/chat/messages/${chatAdminId}`);
-        setChatMessages(res.data);
-        api.put(`/chat/read/${chatAdminId}`).catch(() => {});
-        setUnreadChatCount(0);
-      } catch {}
-    };
-    fetchMsgs();
-    const interval = setInterval(fetchMsgs, 4000);
-    return () => clearInterval(interval);
-  }, [chatAdminId]);
-
-  useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [chatMessages]);
-
-  const sendChatMessage = async () => {
-    if (!chatInput.trim() || !chatAdminId || chatSending) return;
-    setChatSending(true);
-    try {
-      await api.post("/chat/send", { recipient_id: chatAdminId, message: chatInput.trim() });
-      setChatInput("");
-      const res = await api.get(`/chat/messages/${chatAdminId}`);
-      setChatMessages(res.data);
-    } catch {}
-    setChatSending(false);
-  };
-
-  const startEditingChat = (msg) => {
-    setEditingMessageId(msg.id);
-    setEditingText(msg.message);
-  };
-
-  const cancelEditingChat = () => {
-    setEditingMessageId(null);
-    setEditingText("");
-  };
-
-  const saveEditChatMessage = async (messageId) => {
-    if (!editingText.trim()) return;
-    try {
-      await api.put(`/chat/messages/${messageId}`, { message: editingText.trim() });
-      setEditingMessageId(null);
-      setEditingText("");
-      const res = await api.get(`/chat/messages/${chatAdminId}`);
-      setChatMessages(res.data);
-    } catch (err) {
-      console.error("edit err", err);
-    }
-  };
-
-  const deleteChatMessage = async (messageId) => {
-    if (!window.confirm("Are you sure you want to delete this message?")) return;
-    try {
-      await api.delete(`/chat/messages/${messageId}`);
-      const res = await api.get(`/chat/messages/${chatAdminId}`);
-      setChatMessages(res.data);
-    } catch (err) {
-      console.error("delete err", err);
-    }
-  };
-
-  const deleteChatConversation = async (adminId) => {
-    if (!window.confirm("Are you sure you want to clear this conversation? This will delete all messages.")) return;
-    try {
-      await api.delete(`/chat/conversations/${adminId}`);
-      setChatMessages([]);
-    } catch (err) {
-      console.error("clear conv err", err);
-    }
-  };
 
   // Smart suggestion: find the last exam on the same day as a conflicting exam
   // Format minutes from midnight to 12-hour format string (e.g., 420 -> "07:00 AM")
@@ -777,7 +1261,7 @@ export default function StudentDashboard() {
                 <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse border-2 border-white dark:border-slate-900"></span>
               )}
             </div>
-            <span>Chat with Admin</span>
+            <span>Chat Support</span>
           </button>
           <button
             onClick={() => setActiveTab("manual")}
@@ -796,140 +1280,7 @@ export default function StudentDashboard() {
       </div>
 
       {activeTab === "chat" ? (
-        <div className="max-w-4xl mx-auto px-6 lg:px-8 py-6">
-          <div className={`rounded-2xl border overflow-hidden ${isDark ? "border-gray-700" : "border-gray-200"}`} style={{height: "600px", display: "flex", flexDirection: "column"}}>
-            {/* Chat Header */}
-            <div className={`p-4 border-b flex items-center justify-between gap-3 ${isDark ? "bg-gray-800 border-gray-700" : "bg-gray-50 border-gray-200"}`}>
-              <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isDark ? "bg-blue-600/30 text-blue-300" : "bg-blue-100 text-blue-700"}`}>
-                  <MessageSquare className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className={`font-bold ${isDark ? "text-white" : "text-gray-900"}`}>Program Head</h3>
-                  <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>Send a message about your exam conflict or concerns</p>
-                </div>
-              </div>
-
-              {chatAdminId && (
-                <button
-                  onClick={() => deleteChatConversation(chatAdminId)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-red-500 hover:bg-red-500/10 border border-transparent hover:border-red-500/25 transition-all duration-200"
-                  title="Delete Conversation"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  Clear Chat
-                </button>
-              )}
-            </div>
-            {/* Messages */}
-            <div className={`flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar ${isDark ? "bg-gray-900" : "bg-white"}`}>
-              {chatMessages.length === 0 ? (
-                <div className={`flex flex-col items-center justify-center h-full gap-3 ${isDark ? "text-gray-500" : "text-gray-400"}`}>
-                  <div className={`w-16 h-16 rounded-2xl flex items-center justify-center ${isDark ? "bg-gray-800" : "bg-gray-100"}`}>
-                    <MessageSquare className="w-8 h-8 opacity-30" />
-                  </div>
-                  <div className="text-center">
-                    <p className="font-semibold">No messages yet</p>
-                    <p className="text-sm mt-1">Send a message to the Program Head about your schedule or conflicts.</p>
-                  </div>
-                </div>
-              ) : chatMessages.map((msg) => {
-                const isMe = msg.sender_id === user?.id;
-                const isEditing = editingMessageId === msg.id;
-                return (
-                  <div key={msg.id} className={`flex ${isMe ? "justify-end" : "justify-start"} group relative items-center gap-2`}>
-                    {isMe && !isEditing && (
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
-                        <button
-                          onClick={() => startEditingChat(msg)}
-                          className={`p-1 rounded transition-colors ${
-                            isDark ? "hover:bg-gray-800 text-gray-400 hover:text-white" : "hover:bg-gray-100 text-gray-500 hover:text-gray-900"
-                          }`}
-                          title="Edit message"
-                        >
-                          <Edit className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => deleteChatMessage(msg.id)}
-                          className="p-1 rounded transition-colors hover:bg-red-500/10 text-red-500"
-                          title="Delete message"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    )}
-
-                    <div className={`max-w-[70%] px-4 py-2.5 rounded-2xl text-sm ${
-                      isMe
-                        ? "bg-blue-600 text-white rounded-br-sm"
-                        : isDark ? "bg-gray-700 text-gray-100 rounded-bl-sm" : "bg-gray-100 text-gray-800 rounded-bl-sm"
-                    }`}>
-                      {!isMe && <p className={`text-[10px] font-semibold mb-1 ${isDark ? "text-blue-400" : "text-blue-600"}`}>{msg.sender_name}</p>}
-                      {isEditing ? (
-                        <div className="flex flex-col gap-2 min-w-[200px]">
-                          <textarea
-                            value={editingText}
-                            onChange={(e) => setEditingText(e.target.value)}
-                            className="p-2 text-sm rounded border outline-none text-slate-800 bg-white dark:bg-slate-800 dark:text-white dark:border-slate-700 resize-none"
-                            rows={2}
-                          />
-                          <div className="flex gap-2 justify-end">
-                            <button
-                              onClick={cancelEditingChat}
-                              className="px-2.5 py-1 text-xs bg-gray-500 hover:bg-gray-600 text-white rounded font-medium transition"
-                            >
-                              Cancel
-                            </button>
-                            <button
-                              onClick={() => saveEditChatMessage(msg.id)}
-                              className="px-2.5 py-1 text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded font-medium transition"
-                            >
-                              Save
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <>
-                          <p className="leading-relaxed whitespace-pre-wrap">{msg.message}</p>
-                          <p className={`text-[10px] mt-1 ${isMe ? "text-blue-200" : isDark ? "text-gray-500" : "text-gray-400"}`}>
-                            {new Date(msg.created_at + "Z").toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                          </p>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-              <div ref={chatEndRef} />
-            </div>
-            {/* Input */}
-            <div className={`p-4 border-t flex gap-3 items-end ${isDark ? "border-gray-700 bg-gray-800/50" : "border-gray-200 bg-gray-50"}`}>
-              <textarea
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChatMessage(); } }}
-                placeholder="Type your message... (Enter to send)"
-                rows={1}
-                className={`flex-1 p-3 rounded-xl border resize-none outline-none text-sm transition ${
-                  isDark
-                    ? "bg-gray-700 border-gray-600 text-white placeholder-gray-500 focus:border-blue-500"
-                    : "bg-white border-gray-300 text-gray-900 placeholder-gray-400 focus:border-blue-500"
-                }`}
-              />
-              <button
-                onClick={sendChatMessage}
-                disabled={chatSending || !chatInput.trim()}
-                className={`p-3 rounded-xl transition flex items-center justify-center ${
-                  chatSending || !chatInput.trim()
-                    ? isDark ? "bg-gray-700 text-gray-500" : "bg-gray-200 text-gray-400"
-                    : "bg-blue-600 hover:bg-blue-700 text-white"
-                }`}
-              >
-                <Send className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
-        </div>
+        <StudentChatPanel />
       ) : activeTab === "schedule" ? (
         <>
           {/* Irregular subject picker */}

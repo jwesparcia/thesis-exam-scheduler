@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState, useRef } from "react";
 import * as XLSX from "xlsx";
 import {
   UserCheck,
@@ -15,13 +15,19 @@ import {
   CheckCircle2,
   X,
   Trash2,
-  Loader2
+  Loader2,
+  MessageSquare,
+  Send,
+  Edit,
+  Plus,
+  Search
 } from "lucide-react";
 import { useTheme } from "../context/themeStore";
 import { useUser } from "../context/userStore";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "../context/ToastContext";
 import SettingsDropdown from "../components/SettingsDropdown";
+import ConfirmationModal from "../components/ConfirmationModal";
 import api from "../api";
 
 function ProctorManual() {
@@ -238,6 +244,552 @@ const parseTranslatedScheduleText = (text) => {
   
   return { schedule, translations };
 };
+
+function ProctorChatPanel() {
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
+  const { user } = useUser();
+  const [conversations, setConversations] = useState([]);
+  const [activeStudentId, setActiveStudentId] = useState(null);
+  const [activeStudentName, setActiveStudentName] = useState("");
+  const [activeStudentType, setActiveStudentType] = useState("");
+  const [messages, setMessages] = useState([]);
+  const [newMessage, setNewMessage] = useState("");
+  const [isDeleteMsgModalOpen, setIsDeleteMsgModalOpen] = useState(false);
+  const [msgToDeleteId, setMsgToDeleteId] = useState(null);
+  const [isClearConvModalOpen, setIsClearConvModalOpen] = useState(false);
+  const [convToClearStudentId, setConvToClearStudentId] = useState(null);
+  const [sending, setSending] = useState(false);
+  const messagesEndRef = useRef(null);
+
+  const [editingMessageId, setEditingMessageId] = useState(null);
+  const [editingText, setEditingText] = useState("");
+
+  const [isNewChatModalOpen, setIsNewChatModalOpen] = useState(false);
+  const [adminsList, setAdminsList] = useState([]);
+  const [studentsList, setStudentsList] = useState([]);
+  const [contactSearch, setContactSearch] = useState("");
+  const [contactTab, setContactTab] = useState("admins");
+
+  const fetchConversations = async () => {
+    try {
+      const res = await api.get("/chat/conversations");
+      setConversations(res.data);
+    } catch (err) { console.error("conv err", err); }
+  };
+
+  const openNewChatModal = async () => {
+    setIsNewChatModalOpen(true);
+    try {
+      const [adminRes, studRes] = await Promise.all([
+        api.get("/chat/admins"),
+        api.get("/chat/students")
+      ]);
+      setAdminsList(adminRes.data);
+      setStudentsList(studRes.data);
+    } catch (err) {
+      console.error("Error fetching contacts", err);
+    }
+  };
+
+  const startChatWithContact = (contact) => {
+    const existing = conversations.find(c => c.student_id === contact.id);
+    if (!existing) {
+      setConversations(prev => [
+        {
+          student_id: contact.id,
+          student_name: contact.name,
+          student_email: contact.email,
+          student_type: contact.student_type || "admin",
+          role: contact.student_type ? "student" : "admin",
+          last_message: "",
+          last_message_time: null,
+          unread_count: 0
+        },
+        ...prev
+      ]);
+    }
+    selectStudent(contact.id, contact.name, contact.student_type || "admin");
+    setIsNewChatModalOpen(false);
+    setContactSearch("");
+  };
+
+  const fetchMessages = async (studentId) => {
+    if (!studentId) return;
+    try {
+      const res = await api.get(`/chat/messages/${studentId}`);
+      setMessages(res.data);
+      api.put(`/chat/read/${studentId}`).catch(() => { });
+    } catch (err) { console.error("msg err", err); }
+  };
+
+  useEffect(() => {
+    fetchConversations();
+    const interval = setInterval(fetchConversations, 8000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    if (!activeStudentId) return;
+    fetchMessages(activeStudentId);
+    const interval = setInterval(() => fetchMessages(activeStudentId), 4000);
+    return () => clearInterval(interval);
+  }, [activeStudentId]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  const sendMessage = async () => {
+    if (!newMessage.trim() || !activeStudentId || sending) return;
+    setSending(true);
+    try {
+      await api.post("/chat/send", { recipient_id: activeStudentId, message: newMessage.trim() });
+      setNewMessage("");
+      await fetchMessages(activeStudentId);
+      fetchConversations();
+    } catch (err) { console.error(err); }
+    setSending(false);
+  };
+
+  const startEditing = (msg) => {
+    setEditingMessageId(msg.id);
+    setEditingText(msg.message);
+  };
+
+  const cancelEditing = () => {
+    setEditingMessageId(null);
+    setEditingText("");
+  };
+
+  const saveEditMessage = async (messageId) => {
+    if (!editingText.trim()) return;
+    try {
+      await api.put(`/chat/messages/${messageId}`, { message: editingText.trim() });
+      setEditingMessageId(null);
+      setEditingText("");
+      await fetchMessages(activeStudentId);
+      fetchConversations();
+    } catch (err) {
+      console.error("edit err", err);
+    }
+  };
+
+  const executeDeleteMessage = async () => {
+    if (!msgToDeleteId) return;
+    try {
+      await api.delete(`/chat/messages/${msgToDeleteId}`);
+      await fetchMessages(activeStudentId);
+      fetchConversations();
+    } catch (err) {
+      console.error("delete err", err);
+    } finally {
+      setIsDeleteMsgModalOpen(false);
+      setMsgToDeleteId(null);
+    }
+  };
+
+  const deleteMessage = (messageId) => {
+    setMsgToDeleteId(messageId);
+    setIsDeleteMsgModalOpen(true);
+  };
+
+  const executeClearConversation = async () => {
+    if (!convToClearStudentId) return;
+    try {
+      await api.delete(`/chat/conversations/${convToClearStudentId}`);
+      setMessages([]);
+      fetchConversations();
+    } catch (err) {
+      console.error("clear conv err", err);
+    } finally {
+      setIsClearConvModalOpen(false);
+      setConvToClearStudentId(null);
+    }
+  };
+
+  const deleteConversation = (studentId) => {
+    setConvToClearStudentId(studentId);
+    setIsClearConvModalOpen(true);
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  };
+
+  const selectStudent = (id, name, type) => {
+    setActiveStudentId(id);
+    setActiveStudentName(name);
+    setActiveStudentType(type);
+    setMessages([]);
+    setEditingMessageId(null);
+    setEditingText("");
+  };
+
+  return (
+    <div className={`flex h-[600px] rounded-2xl border overflow-hidden relative ${isDark ? "bg-slate-800/20 border-slate-700/50 backdrop-blur-xl" : "bg-white border-slate-200"}`}>
+      {/* Left: conversation list */}
+      <div className={`w-72 flex flex-col border-r ${isDark ? "bg-slate-800/60 border-slate-800" : "bg-slate-50 border-slate-200"}`}>
+        <div className={`p-4 border-b flex justify-between items-center ${isDark ? "border-slate-800" : "border-slate-200"}`}>
+          <div>
+            <h3 className={`font-bold text-sm uppercase tracking-wide ${isDark ? "text-slate-350" : "text-slate-600"}`}>
+              Conversations
+            </h3>
+            <p className={`text-xs mt-0.5 ${isDark ? "text-slate-500" : "text-slate-400"}`}>{conversations.length} active</p>
+          </div>
+          <button
+            onClick={openNewChatModal}
+            className={`p-1.5 rounded-lg border transition-all ${
+              isDark 
+                ? "bg-slate-700 border-slate-600 text-slate-200 hover:bg-slate-600" 
+                : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50 shadow-sm"
+            }`}
+            title="Start New Chat"
+          >
+            <Plus className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto custom-scrollbar">
+          {conversations.length === 0 ? (
+            <div className={`p-6 text-center text-sm ${isDark ? "text-slate-500" : "text-slate-400"}`}>
+              <MessageSquare className="w-8 h-8 mx-auto mb-2 opacity-30" />
+              No conversations yet
+            </div>
+          ) : conversations.map((conv) => (
+            <button
+              key={conv.student_id}
+              onClick={() => selectStudent(conv.student_id, conv.student_name, conv.student_type)}
+              className={`w-full p-4 text-left border-b transition-all ${activeStudentId === conv.student_id
+                ? isDark ? "bg-blue-600/20 border-blue-700/50" : "bg-blue-50 border-blue-100"
+                : isDark ? "border-slate-800 hover:bg-slate-800/40" : "border-slate-100 hover:bg-slate-100"
+                }`}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className={`font-semibold text-sm truncate ${isDark ? "text-white" : "text-slate-900"}`}>
+                  {conv.student_name}
+                </span>
+                {conv.unread_count > 0 && (
+                  <span className="ml-2 shrink-0 text-[10px] font-bold bg-red-500 text-white rounded-full px-1.5 py-0.5">
+                    {conv.unread_count}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <p className={`text-xs truncate flex-1 ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                  {conv.last_message || "No messages yet"}
+                </p>
+                <span className={`text-[9px] uppercase px-1.5 py-0.5 rounded-full font-bold select-none whitespace-nowrap ${
+                  conv.role === "admin" || conv.student_type === "admin" || conv.role === "program_head" || conv.student_type === "program_head"
+                    ? "bg-blue-500/20 text-blue-400 border border-blue-500/10"
+                    : conv.student_type === "irregular"
+                    ? "bg-purple-500/20 text-purple-400 border border-purple-500/10"
+                    : "bg-emerald-500/20 text-emerald-400 border border-emerald-500/10"
+                }`}>
+                  {conv.role === "admin" || conv.student_type === "admin" || conv.role === "program_head" || conv.student_type === "program_head" ? "Admin" : conv.student_type === "irregular" ? "Irregular" : "Student"}
+                </span>
+              </div>
+              {conv.last_message_time && (
+                <p className={`text-[10px] mt-1 ${isDark ? "text-slate-600" : "text-slate-400"}`}>
+                  {new Date(conv.last_message_time + "Z").toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                </p>
+              )}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Right: chat window */}
+      <div className={`flex-1 flex flex-col ${isDark ? "bg-slate-900" : "bg-white"}`}>
+        {activeStudentId ? (
+          <>
+            {/* Chat header */}
+            <div className={`p-4 border-b flex items-center justify-between gap-3 ${isDark ? "border-slate-800 bg-slate-800/50" : "border-slate-200 bg-slate-50"}`}>
+              <div className="flex items-center gap-3">
+                <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm ${isDark ? "bg-blue-600/30 text-blue-300" : "bg-blue-100 text-blue-700"
+                  }`}>
+                  {(activeStudentName || "").split(" ").filter(Boolean).map(n => n[0]).join("").slice(0, 2).toUpperCase()}
+                </div>
+                <div>
+                  <h4 className={`font-bold text-sm ${isDark ? "text-white" : "text-slate-900"}`}>{activeStudentName}</h4>
+                  <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                    {activeStudentType === "irregular" ? "Irregular Student" : activeStudentType === "admin" || activeStudentType === "program_head" ? "Program Head / Admin" : activeStudentType === "regular" ? "Regular Student" : "Student"}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => deleteConversation(activeStudentId)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-red-500 hover:bg-red-500/10 border border-transparent hover:border-red-500/25 transition-all duration-200"
+                title="Delete Conversation"
+              >
+                <Trash2 className="w-4 h-4" />
+                Clear Chat
+              </button>
+            </div>
+
+            {/* Messages */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+              {messages.length === 0 ? (
+                <div className={`text-center py-12 text-sm ${isDark ? "text-slate-500" : "text-slate-400"}`}>
+                  <MessageSquare className="w-10 h-10 mx-auto mb-2 opacity-20" />
+                  No messages yet. Start the conversation!
+                </div>
+              ) : messages.map((msg) => {
+                const isMe = msg.sender_id === user?.id;
+                const isEditing = editingMessageId === msg.id;
+                return (
+                  <div key={msg.id} className={`flex ${isMe ? "justify-end" : "justify-start"} group relative items-center gap-2`}>
+                    {isMe && !isEditing && (
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                        <button
+                          onClick={() => startEditing(msg)}
+                          className={`p-1 rounded transition-colors ${
+                            isDark ? "hover:bg-slate-800 text-slate-400 hover:text-white" : "hover:bg-slate-100 text-slate-500 hover:text-slate-900"
+                          }`}
+                          title="Edit message"
+                        >
+                          <Edit className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => deleteMessage(msg.id)}
+                          className="p-1 rounded transition-colors hover:bg-red-500/10 text-red-500"
+                          title="Delete message"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
+
+                    <div className={`max-w-[70%] px-4 py-2.5 rounded-2xl text-sm shadow-sm ${isMe
+                      ? "bg-blue-600 text-white rounded-br-sm"
+                      : isDark ? "bg-slate-800 text-slate-100 rounded-bl-sm border border-slate-700/50" : "bg-slate-100 text-slate-800 rounded-bl-sm"
+                      }`}>
+                      {isEditing ? (
+                        <div className="flex flex-col gap-2 min-w-[200px]">
+                          <textarea
+                            value={editingText}
+                            onChange={(e) => setEditingText(e.target.value)}
+                            className="p-2 text-sm rounded border outline-none text-slate-800 bg-white dark:bg-slate-800 dark:text-white dark:border-slate-700 resize-none"
+                            rows={2}
+                          />
+                          <div className="flex gap-2 justify-end">
+                            <button
+                              onClick={cancelEditing}
+                              className="px-2.5 py-1 text-xs bg-gray-500 hover:bg-gray-600 text-white rounded font-medium transition"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              onClick={() => saveEditMessage(msg.id)}
+                              className="px-2.5 py-1 text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded font-medium transition"
+                            >
+                              Save
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <p className="leading-relaxed whitespace-pre-wrap">{msg.message}</p>
+                          <p className={`text-[10px] mt-1 ${isMe ? "text-blue-200" : isDark ? "text-slate-505" : "text-slate-400"}`}>
+                            {new Date(msg.created_at + "Z").toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                          </p>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+              <div ref={messagesEndRef} />
+            </div>
+
+            {/* Input */}
+            <div className={`p-4 border-t flex gap-3 items-end ${isDark ? "border-slate-800 bg-slate-800/30" : "border-slate-200 bg-slate-50"}`}>
+              <textarea
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Type a message... (Enter to send)"
+                rows={1}
+                className={`flex-1 p-3 rounded-xl border resize-none outline-none text-sm transition ${isDark
+                  ? "bg-slate-700 border-slate-600 text-white placeholder-slate-500 focus:border-blue-500"
+                  : "bg-white border-slate-300 text-slate-900 placeholder-slate-400 focus:border-blue-500"
+                  }`}
+              />
+              <button
+                onClick={sendMessage}
+                disabled={sending || !newMessage.trim()}
+                className={`p-3 rounded-xl transition flex items-center justify-center ${sending || !newMessage.trim()
+                  ? isDark ? "bg-slate-800 text-slate-500" : "bg-slate-200 text-slate-400"
+                  : "bg-blue-600 hover:bg-blue-700 text-white"
+                  }`}
+              >
+                <Send className="w-5 h-5" />
+              </button>
+            </div>
+          </>
+        ) : (
+          <div className={`flex-1 flex flex-col items-center justify-center gap-4 ${isDark ? "text-slate-500" : "text-slate-400"}`}>
+            <div className={`w-16 h-16 rounded-2xl flex items-center justify-center ${isDark ? "bg-slate-850" : "bg-slate-100"
+              }`}>
+              <MessageSquare className="w-8 h-8 opacity-40" />
+            </div>
+            <div className="text-center">
+              <p className="font-semibold">Select a conversation</p>
+              <p className="text-sm mt-1">Choose an administrator or a student from the list to start chatting.</p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Custom Confirmation Modals */}
+      <ConfirmationModal
+        isOpen={isDeleteMsgModalOpen}
+        title="Delete Chat Message"
+        message="Are you sure you want to delete this message? This action cannot be undone."
+        confirmLabel="Delete Message"
+        isDanger={true}
+        onConfirm={executeDeleteMessage}
+        onCancel={() => {
+          setIsDeleteMsgModalOpen(false);
+          setMsgToDeleteId(null);
+        }}
+      />
+
+      <ConfirmationModal
+        isOpen={isClearConvModalOpen}
+        title="Clear Conversation History"
+        message="Are you sure you want to clear this conversation? This will permanently delete all messages."
+        confirmLabel="Clear Conversation"
+        isDanger={true}
+        onConfirm={executeClearConversation}
+        onCancel={() => {
+          setIsClearConvModalOpen(false);
+          setConvToClearStudentId(null);
+        }}
+      />
+
+      {/* New Chat Modal */}
+      {isNewChatModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className={`w-full max-w-md rounded-2xl border p-6 flex flex-col gap-4 shadow-2xl ${
+            isDark ? "bg-slate-800 border-slate-700 text-white" : "bg-white border-slate-200 text-slate-800"
+          }`}>
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-lg">Start a New Chat</h3>
+              <button 
+                onClick={() => {
+                  setIsNewChatModalOpen(false);
+                  setContactSearch("");
+                }}
+                className={`p-1.5 rounded-lg transition ${
+                  isDark ? "hover:bg-slate-700 text-slate-400 hover:text-white" : "hover:bg-slate-100 text-gray-500 hover:text-gray-900"
+                }`}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Tab Selection */}
+            <div className="flex gap-2 border-b border-slate-200 dark:border-slate-700 pb-2">
+              <button
+                onClick={() => setContactTab("admins")}
+                className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+                  contactTab === "admins"
+                    ? "bg-blue-600 text-white"
+                    : isDark ? "text-slate-400 hover:text-white" : "text-slate-600 hover:text-blue-600"
+                }`}
+              >
+                Administrators
+              </button>
+              <button
+                onClick={() => setContactTab("students")}
+                className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+                  contactTab === "students"
+                    ? "bg-blue-600 text-white"
+                    : isDark ? "text-slate-400 hover:text-white" : "text-slate-600 hover:text-blue-600"
+                }`}
+              >
+                Students
+              </button>
+            </div>
+
+            {/* Search Input */}
+            <div className="relative">
+              <Search className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 ${
+                isDark ? "text-slate-500" : "text-slate-400"
+              }`} />
+              <input
+                type="text"
+                placeholder={`Search ${contactTab}...`}
+                value={contactSearch}
+                onChange={(e) => setContactSearch(e.target.value)}
+                className={`w-full pl-10 pr-4 py-2.5 rounded-xl border text-sm outline-none transition ${
+                  isDark 
+                    ? "bg-slate-700 border-slate-600 text-white focus:border-blue-500" 
+                    : "bg-white border-slate-200 text-slate-800 focus:border-blue-500 shadow-sm"
+                }`}
+              />
+            </div>
+
+            {/* Contact List */}
+            <div className="flex-1 max-h-60 overflow-y-auto custom-scrollbar space-y-1 pr-1">
+              {contactTab === "students" ? (
+                studentsList
+                  .filter(s => s.name.toLowerCase().includes(contactSearch.toLowerCase()))
+                  .map(s => (
+                    <button
+                      key={s.id}
+                      onClick={() => startChatWithContact(s)}
+                      className={`w-full flex items-center justify-between p-3 rounded-xl text-left transition ${
+                        isDark ? "hover:bg-slate-700/50" : "hover:bg-slate-50 border border-transparent hover:border-slate-100"
+                      }`}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold text-sm truncate">{s.name}</p>
+                        <p className={`text-xs truncate ${isDark ? "text-slate-400" : "text-slate-500"}`}>{s.email}</p>
+                      </div>
+                      <span className={`text-[10px] px-2 py-0.5 rounded capitalize ${
+                        s.student_type === "irregular" ? "bg-purple-500/20 text-purple-400" : "bg-blue-500/20 text-blue-400"
+                      }`}>
+                        {s.student_type}
+                      </span>
+                    </button>
+                  ))
+              ) : (
+                adminsList
+                  .filter(a => a.name.toLowerCase().includes(contactSearch.toLowerCase()))
+                  .map(a => (
+                    <button
+                      key={a.id}
+                      onClick={() => startChatWithContact(a)}
+                      className={`w-full flex items-center justify-between p-3 rounded-xl text-left transition ${
+                        isDark ? "hover:bg-slate-700/50" : "hover:bg-slate-50 border border-transparent hover:border-slate-100"
+                      }`}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold text-sm truncate">{a.name}</p>
+                        <p className={`text-xs truncate ${isDark ? "text-slate-400" : "text-slate-500"}`}>{a.email}</p>
+                      </div>
+                      <span className="text-[10px] px-2 py-0.5 rounded bg-blue-500/20 text-blue-400">
+                        Admin
+                      </span>
+                    </button>
+                  ))
+              )}
+              {((contactTab === "students" && studentsList.filter(s => s.name.toLowerCase().includes(contactSearch.toLowerCase())).length === 0) ||
+                (contactTab === "admins" && adminsList.filter(a => a.name.toLowerCase().includes(contactSearch.toLowerCase())).length === 0)) && (
+                <p className={`text-center py-6 text-sm ${isDark ? "text-slate-500" : "text-slate-400"}`}>No contacts found</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function ProctorDashboard() {
   const { theme } = useTheme();
@@ -553,6 +1105,7 @@ export default function ProctorDashboard() {
           {[
             { id: "assignments", icon: CalendarDays, label: "My Assignments" },
             { id: "schedule", icon: FileSpreadsheet, label: "My Schedule" },
+            { id: "chat", icon: MessageSquare, label: "Chat" },
             { id: "manual", icon: BookOpen, label: "User Manual" },
           ].map((item) => {
             const Icon = item.icon;
@@ -603,7 +1156,7 @@ export default function ProctorDashboard() {
                 </button>
                 <div className="min-w-0">
                   <h1 className={`text-base sm:text-2xl font-bold tracking-tight transition-colors truncate ${isDark ? "text-white" : "text-slate-900"}`}>
-                    {activeTab === "assignments" ? "My Proctoring Assignments" : activeTab === "schedule" ? "My Teaching Schedule" : activeTab === "manual" ? "User Manual" : activeTab === "notifications" ? "Notifications" : "Settings"}
+                    {activeTab === "assignments" ? "My Proctoring Assignments" : activeTab === "schedule" ? "My Teaching Schedule" : activeTab === "chat" ? "Chat Support" : activeTab === "manual" ? "User Manual" : activeTab === "notifications" ? "Notifications" : "Settings"}
                   </h1>
                   <p className={`text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium transition-colors truncate ${isDark ? "text-slate-400" : "text-slate-500"}`}>
                     Welcome back, {user?.name || "Proctor"}
@@ -946,6 +1499,8 @@ export default function ProctorDashboard() {
                   </div>
                 )}
               </div>
+            ) : activeTab === "chat" ? (
+              <ProctorChatPanel />
             ) : activeTab === "manual" ? (
               <ProctorManual />
             ) : exams.length === 0 ? (

@@ -403,6 +403,7 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
                 >
                   <option value={1}>1st Semester</option>
                   <option value={2}>2nd Semester</option>
+                  <option value={3}>3rd Semester</option>
                 </select>
               </div>
               <div className="w-full md:w-64">
