@@ -120,10 +120,10 @@ def mark_read(
 
 @router.get("/conversations")
 def get_conversations(
-    current_user: User = Depends(require_role(["admin"])),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    # Fetch user IDs of students who have exchanged messages with the current admin
+    # Fetch user IDs of users who have exchanged messages with the current user
     chatted_senders = db.query(ChatMessage.sender_id).filter(
         ChatMessage.recipient_id == current_user.id
     ).distinct().all()
@@ -133,18 +133,23 @@ def get_conversations(
     
     chatted_user_ids = {uid[0] for uid in chatted_senders + chatted_recipients if uid[0] != current_user.id}
     
-    students = db.query(User).filter(
-        (User.role == "student") &
-        ((User.student_type == "irregular") | (User.id.in_(list(chatted_user_ids))))
-    ).all()
-    
+    # If admin: show irregular students, and any user we chatted with
+    if current_user.role in ["admin", "program_head"]:
+        users = db.query(User).filter(
+            (User.id.in_(list(chatted_user_ids))) |
+            ((User.role == "student") & (User.student_type == "irregular"))
+        ).all()
+    else:
+        # Otherwise, just show users we chatted with
+        users = db.query(User).filter(User.id.in_(list(chatted_user_ids))).all()
+        
     conversations = []
-    for s in students:
+    for u in users:
         last_msg = (
             db.query(ChatMessage)
             .filter(
-                ((ChatMessage.sender_id == current_user.id) & (ChatMessage.recipient_id == s.id) & (ChatMessage.deleted_by_sender == False)) |
-                ((ChatMessage.sender_id == s.id) & (ChatMessage.recipient_id == current_user.id) & (ChatMessage.deleted_by_recipient == False))
+                ((ChatMessage.sender_id == current_user.id) & (ChatMessage.recipient_id == u.id) & (ChatMessage.deleted_by_sender == False)) |
+                ((ChatMessage.sender_id == u.id) & (ChatMessage.recipient_id == current_user.id) & (ChatMessage.deleted_by_recipient == False))
             )
             .order_by(ChatMessage.created_at.desc())
             .first()
@@ -153,7 +158,7 @@ def get_conversations(
         unread_count = (
             db.query(ChatMessage)
             .filter(
-                ChatMessage.sender_id == s.id,
+                ChatMessage.sender_id == u.id,
                 ChatMessage.recipient_id == current_user.id,
                 ChatMessage.is_read == False,
                 ChatMessage.deleted_by_recipient == False
@@ -162,10 +167,11 @@ def get_conversations(
         )
         
         conversations.append({
-            "student_id": s.id,
-            "student_name": s.name,
-            "student_email": s.email,
-            "student_type": s.student_type,
+            "student_id": u.id,
+            "student_name": u.name,
+            "student_email": u.email,
+            "student_type": u.student_type if u.role == "student" else "proctor" if u.role in ["proctor", "teacher"] else u.role,
+            "role": u.role,
             "last_message": last_msg.message if last_msg else None,
             "last_message_time": last_msg.created_at if last_msg else None,
             "unread_count": unread_count
@@ -181,6 +187,22 @@ def get_admins(
 ):
     admins = db.query(User).filter(User.role.in_(["admin", "program_head"])).all()
     return [{"id": a.id, "name": a.name, "email": a.email} for a in admins]
+
+@router.get("/proctors")
+def get_proctors(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    proctors = db.query(User).filter(User.role.in_(["proctor", "teacher"])).all()
+    return [{"id": p.id, "name": p.name, "email": p.email} for p in proctors]
+
+@router.get("/students")
+def get_students(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    students = db.query(User).filter(User.role == "student").all()
+    return [{"id": s.id, "name": s.name, "email": s.email, "student_type": s.student_type} for s in students]
 
 class EditMessageBody(BaseModel):
     message: str

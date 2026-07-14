@@ -4,10 +4,15 @@ from sqlalchemy.orm import Session
 from models import Exam, Timeslot, Room, Subject, Section, DistributionRule, TeacherSchedule, Proctor, TeacherTeaching
 from room_data import get_room_names_for_department
 
+# Time slots per day matching the official Tertiary Periodical Departmental Exam Schedule:
+# Morning:   7:00-8:30, 8:30-10:00, 10:00-11:30
+# Afternoon: 11:30-1:00, 1:00-2:30, 2:30-4:00, 4:00-5:30
+# (No lunch gap — continuous back-to-back 1.5-hour blocks)
 DAILY_SLOTS = [
-    (time(7, 0), time(8, 30)),
+    (time(7, 0),  time(8, 30)),
     (time(8, 30), time(10, 0)),
     (time(10, 0), time(11, 30)),
+    (time(11, 30), time(13, 0)),
     (time(13, 0), time(14, 30)),
     (time(14, 30), time(16, 0)),
     (time(16, 0), time(17, 30)),
@@ -206,20 +211,42 @@ def generate_exam_schedule(db: Session, start_date: date, end_date: date = None,
         }
 
     def classify_subject(sub_name, category):
+        """
+        Classify a subject according to the Tertiary Periodical Departmental Exam Schedule template:
+          GE_GROUP_1  -> Day 1 Morning  (Comm & Lit, Math, Sciences)
+          GE_GROUP_2  -> Day 2 Morning  (Filipino, SOCSCI — except Literature)
+          COMP_FUND   -> Day 1 Afternoon (Computer Fundamentals)
+          MAJOR       -> Day 1 Afternoon (Y3/Y4 only) + Days 2-4 any
+        """
         sub_name = sub_name.lower()
         if category == 'general':
-            # Day 1 Morning GE
-            if any(k in sub_name for k in ['math', 'science', 'chemistry', 'biology', 'physics', 'communication', 'comm', 'writing', 'reading', 'literature', 'great books', 'foreign']):
+            # Day 1 Morning GE: Communication, Literature, Math, Sciences
+            if any(k in sub_name for k in [
+                'math', 'calculus', 'statistics', 'quantitative',
+                'science', 'chemistry', 'biology', 'physics', 'earth',
+                'communication', 'comm', 'writing', 'reading',
+                'literature', 'great books', 'foreign language',
+            ]):
                 return "GE_GROUP_1"
-            # Day 2 Morning GE
-            elif any(k in sub_name for k in ['wika', 'teksto', 'filipino', 'self', 'history', 'contemporary', 'culture', 'rizal', 'ethics', 'appreciation', 'entrepreneurial', 'governance']):
-                return "GE_GROUP_2"
+            # Day 2 Morning GE: Filipino, SOCSCI (except Lit)
             else:
-                return "GE_GROUP_2" # Default to Day 2 for unclassified GE
+                return "GE_GROUP_2"
         else:
-            if any(k in sub_name for k in ['computing', 'computer productivity', 'computer fundamentals']):
+            # Computer Fundamentals → Day 1 Afternoon
+            if any(k in sub_name for k in [
+                'computer fundamentals', 'computing', 'computer productivity',
+                'intro to computing', 'introduction to computing',
+            ]):
                 return "COMP_FUND"
             return "MAJOR"
+
+    # Fetch year level IDs for Y3 and Y4 (for major subject slot restriction)
+    import re as _re
+    year_level_id_to_name = {yl.id: yl.name for yl in db.query(__import__('models').YearLevel).all()}
+    senior_year_level_ids = {
+        yl_id for yl_id, name in year_level_id_to_name.items()
+        if _re.search(r'(3rd|4th|grade\s*1[12])', name.lower())
+    }
 
     # Group subjects by name
     report_progress(32, "Grouping subjects", "Synchronizing shared subjects across sections")
@@ -229,7 +256,47 @@ def generate_exam_schedule(db: Session, start_date: date, end_date: date = None,
         shared_subject_groups.setdefault(key, []).append(sub)
 
     import copy
-    
+
+    def _allowed_slots_for_classification(classification, year_level_id):
+        """
+        Return the set of timeslots allowed for a subject based on its classification
+        and year level, directly implementing the official exam schedule template:
+
+          Day 1 Morning   (7:00-11:30):  GE_GROUP_1
+          Day 1 Afternoon (11:30-17:30): COMP_FUND, MAJOR (Y3/Y4 only)
+          Day 2 Morning   (7:00-11:30):  GE_GROUP_2
+          Day 2 Afternoon (11:30-17:30): MAJOR (all year levels)
+          Day 3 All slots:               MAJOR (all year levels)
+          Day 4 All slots:               MAJOR (all year levels)
+        """
+        allowed = set()
+        is_senior = year_level_id in senior_year_level_ids
+        for slot in timeslots:
+            day_num = date_map.get(slot.date)
+            is_morning = slot.start_time < datetime.strptime("11:30:00", "%H:%M:%S").time()
+            if classification == "GE_GROUP_1":
+                # Day 1, Morning only
+                if day_num == 1 and is_morning:
+                    allowed.add(slot)
+            elif classification == "GE_GROUP_2":
+                # Day 2, Morning only
+                if day_num == 2 and is_morning:
+                    allowed.add(slot)
+            elif classification == "COMP_FUND":
+                # Day 1, Afternoon only
+                if day_num == 1 and not is_morning:
+                    allowed.add(slot)
+            elif classification == "MAJOR":
+                if day_num == 1 and not is_morning and is_senior:
+                    # Day 1 Afternoon: only Y3 & Y4
+                    allowed.add(slot)
+                elif day_num in (2, 3, 4):
+                    # Days 2-4: all year levels
+                    allowed.add(slot)
+            else:
+                allowed.add(slot)
+        return allowed
+
     # Pre-calculate involved sections and valid timeslots per group
     groups = []
     for name_key, sub_list in shared_subject_groups.items():
@@ -240,69 +307,39 @@ def generate_exam_schedule(db: Session, start_date: date, end_date: date = None,
                 involved_sections.append((sec, sub))
         if not involved_sections:
             continue
-            
-        # Determine allowed slots for this specific subject group
-        # Since all subjects in sub_list have the same name, use the first one's classification
+
         sample_sub = sub_list[0]
         classification = classify_subject(sample_sub.name, sample_sub.category)
-        
-        # We also need to know the year levels involved (to handle Y3/Y4 vs Y1/Y2 for majors)
-        year_levels = {sub.year_level_id for sub in sub_list}
-        
-        common_allowed_slots = set()
+
+        # Literature is a special GE subject — exclude from GE morning rules, treat as major
+        import re
+        is_lit = sample_sub.category == "general" and (
+            "literature" in sample_sub.name.lower() or re.search(r"\blit\b", sample_sub.name.lower())
+        )
+        if is_lit:
+            classification = "MAJOR"
+
+        # Compute allowed slots per individual subject (may differ by year level for MAJOR)
         subject_allowed_slots_lists = []
-        
         for sub in sub_list:
-            sub_allowed = set()
-            
-            # Find rules matching the subject's category (general vs major)
-            matching_rules = [r for r in rules if r.category_type == sub.category]
-            
-            # Literature subjects are general but exempted from general distribution rules
-            import re
-            is_lit = sub.category == "general" and (
-                "literature" in sub.name.lower() or re.search(r"\blit\b", sub.name.lower())
-            )
-            
+            sub_classification = classify_subject(sub.name, sub.category)
             if is_lit:
-                active_rules = []
-            else:
-                # Look for rule specific to this year level, or fallback to the generic one
-                specific_rules = [r for r in matching_rules if r.year_level_id == sub.year_level_id]
-                active_rules = specific_rules if specific_rules else [r for r in matching_rules if r.year_level_id is None]
-            
-            if not active_rules:
-                # If no rules exist, allow all timeslots
+                sub_classification = "MAJOR"
+            sub_allowed = _allowed_slots_for_classification(sub_classification, sub.year_level_id)
+            if not sub_allowed:
+                print(f"[SCHEDULER] No allowed slots for '{sub.name}' ({sub_classification}, YL={sub.year_level_id}). Falling back.")
                 sub_allowed = set(timeslots)
-            else:
-                for slot in timeslots:
-                    day_num = date_map.get(slot.date)
-                    is_morning = slot.start_time < datetime.strptime("11:30:00", "%H:%M:%S").time()
-                    
-                    allowed_by_any_rule = False
-                    for rule in active_rules:
-                        if day_num in rule.allowed_days:
-                            if rule.allowed_session == "any":
-                                allowed_by_any_rule = True
-                            elif rule.allowed_session == "morning" and is_morning:
-                                allowed_by_any_rule = True
-                            elif rule.allowed_session == "afternoon" and not is_morning:
-                                allowed_by_any_rule = True
-                    
-                    if allowed_by_any_rule:
-                        sub_allowed.add(slot)
-            
             subject_allowed_slots_lists.append(sub_allowed)
-            
+
         if subject_allowed_slots_lists:
-            # Intersection of allowed timeslots for all subjects in the group
             common_allowed_slots = set.intersection(*subject_allowed_slots_lists)
-            
-        # Fallback if no timeslot is common
+        else:
+            common_allowed_slots = set()
+
         if not common_allowed_slots:
-            print(f"[SCHEDULER] No common allowed slots for {name_key} based on distribution rules. Falling back to all timeslots.")
+            print(f"[SCHEDULER] No common allowed slots for '{name_key}' ({classification}). Falling back to all timeslots.")
             common_allowed_slots = set(timeslots)
-            
+
         groups.append({
             "name": name_key,
             "sections": involved_sections,
@@ -607,12 +644,14 @@ def generate_exam_schedule(db: Session, start_date: date, end_date: date = None,
             day_num = ts_inf["day_num"]
             is_morning = ts_inf["is_morning"]
 
-            # Penalize any group placed outside its allowed slots (e.g. general subjects outside Day 1/2 morning)
+            # HARD CONSTRAINT: Penalize any group placed outside its template-assigned slots.
+            # The Tertiary Periodical Departmental Exam Schedule template MUST always be followed.
+            # Penalty is set extremely high (50M per section) to make violations effectively impossible.
             for g_idx in group_indices:
                 group = preprocessed_groups[g_idx]
                 allowed_slots_set = group.get("allowed_slots_set", set())
                 if allowed_slots_set and slot_idx not in allowed_slots_set:
-                    score -= 100000 * len(group["sections"])
+                    score -= 50000000 * len(group["sections"])
 
             # Group room assignments to enforce the same-floor building constraint.
             # Each course's sections within a subject group must be on the same floor.
