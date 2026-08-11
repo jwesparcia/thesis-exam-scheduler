@@ -902,6 +902,21 @@ export default function ProctorDashboard() {
     }
   };
 
+  const handleNotificationClick = (notif) => {
+    setShowNotifications(false);
+    
+    if (!notif.is_read) {
+      markRead(notif.id);
+    }
+    
+    const msg = (notif.message || "").toLowerCase();
+    if (msg.includes("teaching schedule") || msg.includes("upload")) {
+      setActiveTab("schedule");
+    } else {
+      setActiveTab("assignments");
+    }
+  };
+
   const parseExcelPreview = (file) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -1054,7 +1069,7 @@ export default function ProctorDashboard() {
               notifications.map((notif) => (
                 <div
                   key={notif.id}
-                  onClick={() => { if (!notif.is_read) markRead(notif.id); }}
+                  onClick={() => handleNotificationClick(notif)}
                   className={`p-3.5 rounded-xl cursor-pointer transition-all duration-200 mb-1 ${notif.is_read ? (isDark ? "hover:bg-slate-700/50 opacity-60" : "hover:bg-slate-50 opacity-60") : (isDark ? "bg-blue-900/20 hover:bg-blue-900/40 border border-blue-800/30" : "bg-blue-50 hover:bg-blue-100 border border-blue-100")}`}
                 >
                   <div className="flex gap-3">
@@ -1178,7 +1193,9 @@ export default function ProctorDashboard() {
                   >
                     <Bell className="w-5 h-5" />
                     {unreadCount > 0 && (
-                      <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-red-500 ring-2 ring-white dark:ring-slate-900 animate-pulse"></span>
+                      <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white ring-2 ring-white dark:ring-slate-900 animate-pulse">
+                        {unreadCount}
+                      </span>
                     )}
                   </button>
                 </div>

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from database import get_db
-from models import ChatMessage, User
+from core import get_db
+from model import ChatMessage, User
 from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
@@ -266,6 +266,16 @@ def delete_conversation(
         ChatMessage.sender_id == other_user_id,
         ChatMessage.recipient_id == current_user.id
     ).update({"deleted_by_recipient": True}, synchronize_session=False)
+
+    # Physically purge messages that both parties have now soft-deleted
+    db.query(ChatMessage).filter(
+        ChatMessage.deleted_by_sender == True,
+        ChatMessage.deleted_by_recipient == True,
+        (
+            ((ChatMessage.sender_id == current_user.id) & (ChatMessage.recipient_id == other_user_id)) |
+            ((ChatMessage.sender_id == other_user_id) & (ChatMessage.recipient_id == current_user.id))
+        )
+    ).delete(synchronize_session=False)
 
     db.commit()
     return {"message": "Conversation cleared successfully"}

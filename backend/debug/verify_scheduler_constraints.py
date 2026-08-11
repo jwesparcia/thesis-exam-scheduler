@@ -5,8 +5,8 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 import sys
 from datetime import datetime, date, time
 from sqlalchemy.orm import Session
-from database import SessionLocal
-from models import Exam, Proctor, TeacherSchedule, Subject, Section, Room, Timeslot
+from core import SessionLocal
+from model import Exam, Proctor, TeacherSchedule, Subject, Section, Room, Timeslot
 from utils.scheduler import intervals_cover, subjects_match
 
 def verify_constraints():

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { CalendarDays, FileText, Loader2, BookOpen, Sparkles } from "lucide-react";
+import { CalendarDays, FileText, Loader2, BookOpen, Sparkles, X } from "lucide-react";
 import { useTheme } from "../context/themeStore";
 import api from "../api";
 import { useToast } from "../context/ToastContext";
@@ -24,6 +24,8 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
   const [details, setDetails] = useState({ sections: [] });
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [activeJobId, setActiveJobId] = useState(null);
+  const [cancelling, setCancelling] = useState(false);
   const progressPollRef = useRef(null);
   const activeProgressJobRef = useRef(null);
   const [startDate, setStartDate] = useState("");
@@ -238,9 +240,26 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
     progressPollRef.current = setInterval(() => fetchGenerationProgress(jobId), 700);
   };
 
+  // Cancel generation handler
+  const cancelGeneration = async () => {
+    setCancelling(true);
+    try {
+      await api.post("/exams/generate/cancel", null, {
+        params: { job_id: activeJobId }
+      });
+      showWarning("Cancellation requested. Stopping schedule generation...");
+    } catch (err) {
+      console.error("Error requesting cancellation:", err);
+      showError(err.response?.data?.detail || "Failed to request cancellation");
+    } finally {
+      setCancelling(false);
+    }
+  };
+
   // Actual execution of generation
   const executeGeneration = async () => {
     const jobId = `schedule-${Date.now()}`;
+    setActiveJobId(jobId);
     setLoading(true);
     setGenerationProgress({
       status: "running",
@@ -271,16 +290,22 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
     } catch (err) {
       console.error(err);
       const message = err.response?.data?.detail || "Error generating schedule";
-      setGenerationProgress((current) => ({
-        ...current,
-        status: "failed",
-        phase: "Generation failed",
+      const isCancelled = message.toLowerCase().includes("cancelled") || message.toLowerCase().includes("cancel");
+      setGenerationProgress({
+        status: isCancelled ? "cancelled" : "failed",
+        percent: 0,
+        phase: isCancelled ? "Generation cancelled" : "Generation failed",
         detail: message,
-      }));
-      showError(message);
+      });
+      if (isCancelled) {
+        showWarning("Schedule generation was cancelled.");
+      } else {
+        showError(message);
+      }
     } finally {
       stopProgressPolling(jobId);
       setLoading(false);
+      setActiveJobId(null);
     }
   };
 
@@ -297,6 +322,18 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
 
     if (diffTime < 0) {
       showError("End date must be after start date.");
+      return;
+    }
+
+    // Guard: ensure students have been uploaded before generating
+    try {
+      const studentRes = await api.get("/catalog/student-stats");
+      if (studentRes.data.total === 0) {
+        showError("Cannot generate schedule: no student accounts have been uploaded. Please import students first.");
+        return;
+      }
+    } catch (err) {
+      showError("Could not verify student accounts. Please try again.");
       return;
     }
 
@@ -646,25 +683,46 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
                   </div>
                 )}
 
-                <button
-                  onClick={generate}
-                  disabled={loading}
-                  className={`flex items-center justify-center gap-3 px-8 py-4 rounded-2xl w-full md:w-auto text-white font-bold text-lg transition-all shadow-xl ${loading
-                    ? "bg-gray-400 cursor-not-allowed"
-                    : "bg-blue-600 hover:bg-blue-700 hover:shadow-blue-500/20 active:scale-95"
-                    }`}
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="w-6 h-6 animate-spin" /> Generating...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-6 h-6" />
-                      Generate Schedule for All {selectedDept} Courses
-                    </>
+                <div className="flex flex-col sm:flex-row items-center gap-4">
+                  <button
+                    onClick={generate}
+                    disabled={loading}
+                    className={`flex items-center justify-center gap-3 px-8 py-4 rounded-2xl w-full sm:w-auto text-white font-bold text-lg transition-all shadow-xl ${loading
+                      ? "bg-gray-400 cursor-not-allowed"
+                      : "bg-blue-600 hover:bg-blue-700 hover:shadow-blue-500/20 active:scale-95"
+                      }`}
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="w-6 h-6 animate-spin" /> Generating...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-6 h-6" />
+                        Generate Schedule for All {selectedDept} Courses
+                      </>
+                    )}
+                  </button>
+
+                  {loading && (
+                    <button
+                      type="button"
+                      onClick={cancelGeneration}
+                      disabled={cancelling}
+                      className="flex items-center justify-center gap-2 px-6 py-4 rounded-2xl w-full sm:w-auto text-red-600 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30 dark:text-red-400 font-bold text-lg transition-all border border-red-200 dark:border-red-800/40"
+                    >
+                      {cancelling ? (
+                        <>
+                          <Loader2 className="w-5 h-5 animate-spin" /> Cancelling...
+                        </>
+                      ) : (
+                        <>
+                          <X className="w-5 h-5" /> Cancel Generation
+                        </>
+                      )}
+                    </button>
                   )}
-                </button>
+                </div>
               </div>
             </div>
           ) : (

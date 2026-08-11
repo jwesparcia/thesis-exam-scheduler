@@ -2,8 +2,8 @@ import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from database import SessionLocal
-from models import Exam, Course, YearLevel, Section, Timeslot
+from core import SessionLocal
+from model import Exam, Course, YearLevel, Section, Timeslot
 from utils.scheduler import generate_exam_schedule
 from datetime import date, time
 

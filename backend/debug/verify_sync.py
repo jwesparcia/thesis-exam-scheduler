@@ -2,8 +2,8 @@ import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from database import SessionLocal
-from models import Exam, Timeslot, Section, Subject
+from core import SessionLocal
+from model import Exam, Timeslot, Section, Subject
 
 db = SessionLocal()
 exams = db.query(Exam).filter(Exam.status == "draft").all()

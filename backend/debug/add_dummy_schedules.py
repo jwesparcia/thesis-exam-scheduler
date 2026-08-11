@@ -4,8 +4,8 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 import pandas as pd
 from sqlalchemy.orm import Session
-from database import SessionLocal
-from models import Proctor, TeacherSchedule
+from core import SessionLocal
+from model import Proctor, TeacherSchedule
 from datetime import time
 
 def add_dummy_schedules():

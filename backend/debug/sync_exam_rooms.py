@@ -3,8 +3,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from database import SessionLocal
-from models import Exam, Room
+from core import SessionLocal
+from model import Exam, Room
 from room_data import AVAILABLE_EXAM_ROOM_NAMES
 
 

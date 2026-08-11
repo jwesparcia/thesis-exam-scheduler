@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
-from database import get_db
-from models import ReschedulingRequest, Exam, Notification, User, Timeslot
-from schemas import ReschedulingRequestCreate, ReschedulingRequest as ReschedulingRequestSchema, ReschedulingRequestUpdate
+from core import get_db
+from model import ReschedulingRequest, Exam, Notification, User, Timeslot
+from schema import ReschedulingRequestCreate, ReschedulingRequest as ReschedulingRequestSchema, ReschedulingRequestUpdate
 from datetime import datetime
 from .auth import get_current_user, require_role
 from utils.logging import log_activity
@@ -45,6 +45,14 @@ def submit_rescheduling_request(request: ReschedulingRequestCreate, db: Session 
     pref_start = parse_time(request.preferred_start_time) if request.preferred_start_time else None
     pref_end = parse_time(request.preferred_end_time) if request.preferred_end_time else None
 
+    # --- Validations ---
+    if not request.detailed_explanation or not request.detailed_explanation.strip():
+        raise HTTPException(status_code=400, detail="Detailed explanation cannot be empty")
+    if orig_start and orig_end and orig_start >= orig_end:
+        raise HTTPException(status_code=400, detail="Original start time must be before original end time")
+    if pref_start and pref_end and pref_start >= pref_end:
+        raise HTTPException(status_code=400, detail="Preferred start time must be before preferred end time")
+
     db_request = ReschedulingRequest(
         exam_id=request.exam_id,
         section_name=request.section_name,
@@ -72,9 +80,12 @@ def submit_rescheduling_request(request: ReschedulingRequestCreate, db: Session 
     db.commit()
     db.refresh(db_request)
 
+    # Notify Admin (role "program_head")
+    admin_user = db.query(User).filter(User.role == "program_head").first()
+    admin_user_id = admin_user.id if admin_user else None
+
     notification = Notification(
-        recipient_type="program_head",
-        recipient_id="admin",
+        user_id=admin_user_id,
         message=f"New rescheduling request from {request.student_name} ({request.section_name}) for {request.course_name}",
         type="info",
         related_id=db_request.id
@@ -174,9 +185,12 @@ def review_request(request_id: int, update: ReschedulingRequestUpdate, db: Sessi
                 db.flush()
             exam.timeslot_id = ts.id
 
+    # Notify the student requesting the reschedule
+    student_user = db.query(User).filter(User.email == request.school_email).first()
+    student_user_id = student_user.id if student_user else None
+
     notification = Notification(
-        recipient_type="student",
-        recipient_id=request.section_name,
+        user_id=student_user_id,
         message=f"Your rescheduling request for {request.course_name} has been {update.status}.",
         type="success" if update.status == "approved" else "error",
         related_id=request.id

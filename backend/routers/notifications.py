@@ -1,17 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from database import get_db
+from core import get_db
 from pydantic import BaseModel, validator
 from typing import List
 from datetime import datetime, timezone
-from models import Notification
+from model import Notification, User
 
 router = APIRouter(prefix="/notifications", tags=["Notifications"])
 
 class NotificationSchema(BaseModel):
     id: int
-    recipient_type: str
-    recipient_id: str
+    user_id: int | None
     message: str
     type: str
     is_read: bool
@@ -29,9 +28,21 @@ class NotificationSchema(BaseModel):
 
 @router.get("/{recipient_type}/{recipient_id}", response_model=List[NotificationSchema])
 def get_notifications(recipient_type: str, recipient_id: str, db: Session = Depends(get_db)):
+    # Map recipient_type and recipient_id to a user_id
+    if recipient_type == "program_head" and recipient_id == "admin":
+        admin_user = db.query(User).filter(User.role == "program_head").first()
+        resolved_user_id = admin_user.id if admin_user else None
+    else:
+        try:
+            resolved_user_id = int(recipient_id)
+        except ValueError:
+            resolved_user_id = None
+
+    if resolved_user_id is None:
+        return []
+
     return db.query(Notification).filter(
-        Notification.recipient_type == recipient_type,
-        Notification.recipient_id == recipient_id
+        Notification.user_id == resolved_user_id
     ).order_by(Notification.id.desc()).all()
 
 @router.put("/{notification_id}/read")

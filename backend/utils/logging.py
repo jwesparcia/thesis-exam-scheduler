@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from models import ActivityLog
+from model import ActivityLog
 from datetime import datetime, timezone
 
 def log_activity(db: Session, user_id: int, action: str, details: str = None, ip_address: str = None):

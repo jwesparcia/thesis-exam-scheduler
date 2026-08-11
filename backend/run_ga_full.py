@@ -1,6 +1,6 @@
 import importlib
 from datetime import date
-from database import SessionLocal
+from core import SessionLocal
 
 def run_full_schedule():
     # Import the scheduler module; it uses the production GA parameters defined in utils.scheduler

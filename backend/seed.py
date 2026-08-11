@@ -1,7 +1,7 @@
 from sqlalchemy import text
 from sqlalchemy.orm import Session
-from database import SessionLocal, engine
-from models import Base, Course, YearLevel, Section, Subject, Room, Timeslot, Teacher, Exam, DistributionRule, User, Proctor, ProctorAvailability, IrregularSelection
+from core import SessionLocal, engine
+from model import Base, Course, YearLevel, Section, Subject, Room, Timeslot, Teacher, Exam, DistributionRule, User, Proctor, ProctorAvailability, IrregularSelection
 from room_data import AVAILABLE_EXAM_ROOMS
 import bcrypt
 from datetime import date, time, timedelta, datetime

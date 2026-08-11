@@ -2,8 +2,8 @@ import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from database import SessionLocal
-from models import Subject, Course, YearLevel
+from core import SessionLocal
+from model import Subject, Course, YearLevel
 
 db = SessionLocal()
 course = db.query(Course).filter(Course.name == 'BACOMM').first()

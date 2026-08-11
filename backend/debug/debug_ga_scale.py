@@ -2,8 +2,8 @@ import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from database import SessionLocal
-from models import Subject, Section, Course
+from core import SessionLocal
+from model import Subject, Section, Course
 
 def check_scale():
     db = SessionLocal()

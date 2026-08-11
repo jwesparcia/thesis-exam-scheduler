@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
-from database import get_db
-from models import User
+from core import get_db
+from model import User
 import bcrypt
 from pydantic import BaseModel
 from jose import JWTError, jwt
@@ -113,10 +113,17 @@ def login(request: Request, login_data: LoginRequest, db: Session = Depends(get_
     # Record attempt
     login_attempts[ip_address].append(current_time)
 
-    user = db.query(User).filter(User.email == login_data.email).first()
+    clean_email = login_data.email.strip().lower() if login_data.email else ""
+    if not clean_email or not login_data.password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email and password cannot be empty"
+        )
+
+    user = db.query(User).filter(User.email == clean_email).first()
     
     if not user or not verify_password(login_data.password, user.hashed_password):
-        log_activity(db, user.id if user else None, "LOGIN_FAILED", f"Email: {login_data.email}", ip_address)
+        log_activity(db, user.id if user else None, "LOGIN_FAILED", f"Email: {clean_email}", ip_address)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",

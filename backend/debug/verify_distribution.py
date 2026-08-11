@@ -2,8 +2,8 @@ import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from database import SessionLocal
-from models import Exam, Subject, Section, Timeslot
+from core import SessionLocal
+from model import Exam, Subject, Section, Timeslot
 from collections import defaultdict
 from sqlalchemy.orm import joinedload
 

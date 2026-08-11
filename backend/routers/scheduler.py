@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session
-from database import get_db
-from models import Section, Subject, Exam, Room, Timeslot, Teacher, Exam, DistributionRule, User, Proctor, ProctorAvailability, TeacherTeaching, Course
+from core import get_db
+from model import Section, Subject, Exam, Room, Timeslot, Teacher, Exam, DistributionRule, User, Proctor, ProctorAvailability, TeacherTeaching, Course
 from room_data import get_room_names_for_department
 from datetime import datetime, timedelta, time, date
 import random
@@ -106,7 +106,7 @@ def generate_exam_schedule(payload: dict = Body(...), db: Session = Depends(get_
             day_index += 1
 
     # --- Fetch all teachers who are "real proctors" (linked to User with role="proctor") ---
-    from models import User
+    from model import User
     proctor_teachers = db.query(Teacher).join(User, User.teacher_id == Teacher.id).filter(User.role == "proctor").all()
 
     # --- Create exams for each section ---
@@ -147,7 +147,7 @@ def generate_exam_schedule(payload: dict = Body(...), db: Session = Depends(get_
     db.commit()
 
     # --- Format response ---
-    from models import User
+    from model import User
     exams_data = []
     for e in created_exams:
         subject = db.query(Subject).filter(Subject.id == e.subject_id).first()

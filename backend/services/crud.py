@@ -1,6 +1,6 @@
 # crud.py
 from sqlalchemy.orm import Session
-from models import Course, YearLevel, Section, Subject
+from model import Course, YearLevel, Section, Subject
 
 # --- List Courses ---
 def list_courses(db: Session):

@@ -1,12 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
-from database import get_db
-from models import DistributionRule, YearLevel
+from core import get_db
+from model import DistributionRule, YearLevel
 from pydantic import BaseModel
 from typing import List, Optional
 from .auth import get_current_user, require_role
 from utils.logging import log_activity
-from models import User
+from model import User
 from .exams import is_generation_ongoing
 
 router = APIRouter(prefix="/rules", tags=["Distribution Rules"])

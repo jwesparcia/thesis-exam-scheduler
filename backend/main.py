@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from database import Base, engine
+from core import Base, engine
 from routers import catalog, scheduler, sections, exams, proctors, rescheduling, auth, student
 
 app = FastAPI()

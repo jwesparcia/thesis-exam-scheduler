@@ -2,8 +2,8 @@ import sys
 import os
 sys.path.append(os.getcwd())
 
-from database import SessionLocal
-from models import Exam, Subject, Timeslot
+from core import SessionLocal
+from model import Exam, Subject, Timeslot
 from utils.scheduler import schedule_exams
 from sqlalchemy import func
 

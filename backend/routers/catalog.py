@@ -2,16 +2,71 @@
 from fastapi import APIRouter, Depends, Query, HTTPException, File, UploadFile, Form
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
-from database import get_db
-import crud
+from core import get_db
+from services import crud
 import io
 import pandas as pd
 import bcrypt
 from typing import List, Optional
-from models import Course, YearLevel, Section, Subject, Teacher, Proctor, User, TeacherTeaching, Exam, ReschedulingRequest, IrregularSelection
+from sqlalchemy import or_
+from model import (
+    Course, YearLevel, Section, Subject, Teacher, Proctor, User, TeacherTeaching, 
+    Exam, ReschedulingRequest, IrregularSelection, ActivityLog, PasswordResetToken, 
+    ChatMessage, TeacherSchedule, ProctorAvailability
+)
 from routers.auth import require_role, get_current_user
 from utils.logging import log_activity
 from pydantic import BaseModel
+
+def safe_clear_catalog_data(db: Session, exclude_program_head: bool = True):
+    """
+    Safely delete all catalog, scheduling, and user data in dependency order to prevent FK violations.
+    """
+    if exclude_program_head:
+        users_to_delete = db.query(User).filter(User.role != "program_head").all()
+    else:
+        users_to_delete = db.query(User).all()
+    
+    user_ids = [u.id for u in users_to_delete]
+
+    if user_ids:
+        db.query(PasswordResetToken).filter(PasswordResetToken.user_id.in_(user_ids)).delete(synchronize_session=False)
+        db.query(ChatMessage).filter(or_(ChatMessage.sender_id.in_(user_ids), ChatMessage.recipient_id.in_(user_ids))).delete(synchronize_session=False)
+        db.query(ActivityLog).filter(ActivityLog.user_id.in_(user_ids)).update({ActivityLog.user_id: None}, synchronize_session=False)
+
+    db.query(ReschedulingRequest).delete(synchronize_session=False)
+    db.query(IrregularSelection).delete(synchronize_session=False)
+    db.query(Exam).delete(synchronize_session=False)
+    db.query(TeacherTeaching).delete(synchronize_session=False)
+    db.query(TeacherSchedule).delete(synchronize_session=False)
+    db.query(ProctorAvailability).delete(synchronize_session=False)
+    db.query(Subject).delete(synchronize_session=False)
+    db.query(Section).delete(synchronize_session=False)
+    
+    if user_ids:
+        db.query(User).filter(User.id.in_(user_ids)).delete(synchronize_session=False)
+
+    db.query(Proctor).delete(synchronize_session=False)
+    db.query(Teacher).delete(synchronize_session=False)
+    db.query(Course).delete(synchronize_session=False)
+
+def safe_clear_student_accounts(db: Session) -> int:
+    """
+    Safely delete all student user accounts and dependent records to prevent FK violations.
+    Returns the count of deleted student accounts.
+    """
+    student_users = db.query(User).filter(User.role == "student").all()
+    student_ids = [u.id for u in student_users]
+    count = len(student_ids)
+    
+    if student_ids:
+        db.query(PasswordResetToken).filter(PasswordResetToken.user_id.in_(student_ids)).delete(synchronize_session=False)
+        db.query(ChatMessage).filter(or_(ChatMessage.sender_id.in_(student_ids), ChatMessage.recipient_id.in_(student_ids))).delete(synchronize_session=False)
+        db.query(ActivityLog).filter(ActivityLog.user_id.in_(student_ids)).update({ActivityLog.user_id: None}, synchronize_session=False)
+        db.query(IrregularSelection).filter(IrregularSelection.user_id.in_(student_ids)).delete(synchronize_session=False)
+        db.query(User).filter(User.role == "student").delete(synchronize_session=False)
+        
+    return count
 
 router = APIRouter(prefix="/catalog", tags=["Catalog"])
 
@@ -213,21 +268,7 @@ def upload_catalog_excel(
 
     if clear_existing:
         try:
-            # Delete tables in dependency order
-            db.query(ReschedulingRequest).delete()
-            db.query(IrregularSelection).delete()
-            db.query(Exam).delete()
-            db.query(TeacherTeaching).delete()
-            db.query(Subject).delete()
-            db.query(Section).delete()
-            
-            # Delete non-admin users to avoid foreign key violations
-            db.query(User).filter(User.role != "program_head").delete()
-            
-            db.query(Proctor).delete()
-            db.query(Teacher).delete()
-            db.query(Course).delete()
-            
+            safe_clear_catalog_data(db, exclude_program_head=True)
             db.commit()
             log_activity(db, current_user.id, "CURRICULUM_CLEAR_DATA", "Cleared curriculum catalog tables for re-upload.")
         except Exception as e:
@@ -546,10 +587,7 @@ def upload_students_excel(
 
     if clear_existing:
         try:
-            # Delete existing irregular selections and rescheduling requests for students
-            student_ids = [u.id for u in db.query(User).filter(User.role == "student").all()]
-            db.query(IrregularSelection).filter(IrregularSelection.user_id.in_(student_ids)).delete(synchronize_session=False)
-            db.query(User).filter(User.role == "student").delete(synchronize_session=False)
+            safe_clear_student_accounts(db)
             db.commit()
             log_activity(db, current_user.id, "STUDENTS_CLEAR_DATA", "Cleared existing student accounts.")
         except Exception as e:
@@ -689,26 +727,31 @@ def clear_catalog_data(
         raise HTTPException(status_code=400, detail="Invalid confirmation text. You must type 'confirm'.")
         
     try:
-        # Delete tables in dependency order
-        db.query(ReschedulingRequest).delete()
-        db.query(IrregularSelection).delete()
-        db.query(Exam).delete()
-        db.query(TeacherTeaching).delete()
-        db.query(Subject).delete()
-        db.query(Section).delete()
-        
-        # Delete non-admin users to avoid foreign key violations
-        db.query(User).filter(User.role != "program_head").delete()
-        
-        db.query(Proctor).delete()
-        db.query(Teacher).delete()
-        db.query(Course).delete()
-        
+        safe_clear_catalog_data(db, exclude_program_head=True)
         db.commit()
-        log_activity(db, current_user.id, "CURRICULUM_CLEAR_DATA", "Admin cleared all database records via direct reset.")
+        log_activity(db, current_user.id, "CURRICULUM_CLEAR_DATA", "Admin / Program Head cleared all database records via direct reset.")
         return {"message": "All data cleared successfully!"}
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Failed to clear database: {str(e)}")
+
+@router.post("/clear-students")
+def clear_student_accounts_endpoint(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(["admin"]))
+):
+    """
+    Clear all student user accounts and dependent student records.
+    Allowed for admin and program_head users.
+    """
+    try:
+        count = safe_clear_student_accounts(db)
+        db.commit()
+        log_activity(db, current_user.id, "STUDENTS_CLEAR_DATA", f"Program Head / Admin cleared {count} student accounts.")
+        return {"message": f"Successfully deleted {count} student account(s)!"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to clear student accounts: {str(e)}")
+
 
 

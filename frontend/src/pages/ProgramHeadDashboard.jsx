@@ -1116,8 +1116,111 @@ function ProgramHeadManual() {
   );
 }
 
+function NavGroup({ label, icon: GroupIcon, children, defaultOpen = false, isDark }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="space-y-1">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-all duration-200 group ${
+          isDark
+            ? "text-slate-500 hover:text-slate-300"
+            : "text-slate-400 hover:text-slate-600"
+        }`}
+      >
+        <div className="flex items-center gap-2">
+          <GroupIcon className="w-3.5 h-3.5" />
+          <span className="text-[11px] font-bold uppercase tracking-widest">{label}</span>
+        </div>
+        <ChevronRight
+          className={`w-3.5 h-3.5 transition-transform duration-200 ${open ? "rotate-90" : ""}`}
+        />
+      </button>
+      {open && (
+        <div className="space-y-1 ml-0">
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function NavItem({ item, activeTab, setActiveTab, isDark, badge, onSelect }) {
+  const Icon = item.icon;
+  const isActive = activeTab === item.id;
+  return (
+    <button
+      onClick={() => {
+        setActiveTab(item.id);
+        if (onSelect) onSelect();
+      }}
+      className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-200 group ${
+        isActive
+          ? isDark
+            ? "bg-blue-600 text-white shadow-lg shadow-blue-900/50"
+            : "bg-blue-600 text-white shadow-lg shadow-blue-500/30"
+          : isDark
+            ? "text-slate-300 hover:bg-slate-800/60 hover:text-white"
+            : "text-slate-600 hover:bg-blue-50 hover:text-blue-700"
+      }`}
+    >
+      <div className="flex items-center gap-3">
+        <Icon className={`w-4.5 h-4.5 transition-transform duration-200 ${isActive ? "scale-110" : "group-hover:scale-110"}`} />
+        <span className="text-sm font-semibold">{item.label}</span>
+      </div>
+      {badge > 0 && (
+        <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">
+          {badge}
+        </span>
+      )}
+    </button>
+  );
+}
+
+function NavSidebar({ activeTab, setActiveTab, isDark, unreadChatCount, pendingRescheduleCount, onSelectNavItem }) {
+  const schedulingIds = ["generate", "schedules"];
+  const managementIds = ["proctors", "rooms", "monitoring", "rescheduling", "chat"];
+  const dataIds = ["import", "students", "rules"];
+
+  const isSchedulingActive = schedulingIds.includes(activeTab);
+  const isManagementActive = managementIds.includes(activeTab);
+  const isDataActive = dataIds.includes(activeTab);
+
+  return (
+    <nav className="flex-1 px-4 py-5 space-y-3 overflow-y-auto custom-scrollbar">
+      {/* Scheduling Group */}
+      <NavGroup label="Scheduling" icon={Calendar} defaultOpen={isSchedulingActive} isDark={isDark}>
+        <NavItem item={{ id: "generate", icon: Calendar, label: "Generate Schedule" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
+        <NavItem item={{ id: "schedules", icon: CalendarDays, label: "Generated Schedules" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
+      </NavGroup>
+
+      {/* Management Group */}
+      <NavGroup label="Management" icon={Users} defaultOpen={isManagementActive} isDark={isDark}>
+        <NavItem item={{ id: "proctors", icon: Users, label: "Proctor Management" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
+        <NavItem item={{ id: "rooms", icon: DoorOpen, label: "Room Management" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
+        <NavItem item={{ id: "monitoring", icon: ShieldCheck, label: "Proctor Monitoring" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
+        <NavItem item={{ id: "rescheduling", icon: ClipboardList, label: "Rescheduling" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={pendingRescheduleCount} onSelect={onSelectNavItem} />
+        <NavItem item={{ id: "chat", icon: MessageSquare, label: "Chat" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={unreadChatCount} onSelect={onSelectNavItem} />
+      </NavGroup>
+
+      {/* Data & Imports Group */}
+      <NavGroup label="Data & Imports" icon={Database} defaultOpen={isDataActive} isDark={isDark}>
+        <NavItem item={{ id: "import", icon: Database, label: "Data Import" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
+        <NavItem item={{ id: "students", icon: User, label: "Student Accounts" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
+        <NavItem item={{ id: "rules", icon: Target, label: "Distribution Rules" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
+      </NavGroup>
+
+      {/* Help standalone */}
+      <div className={`pt-2 border-t ${isDark ? "border-slate-800" : "border-slate-100"}`}>
+        <NavItem item={{ id: "manual", icon: BookOpen, label: "User Manual" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
+      </div>
+    </nav>
+  );
+}
+
 export default function ProgramHeadDashboard() {
   const [activeTab, setActiveTab] = useState("generate");
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [generationState, setGenerationState] = useState(INITIAL_GENERATION_STATE);
   const { theme } = useTheme();
   const { user, logout } = useUser();
@@ -1143,11 +1246,12 @@ export default function ProgramHeadDashboard() {
   const isGenerationRunning = generationState.loading || generationProgress.status === "running";
 
   useEffect(() => {
+    if (!user) return;
     const fetchNotifications = async () => {
       try {
-        const res = await fetch("http://localhost:8000/notifications/program_head/admin");
-        if (res.ok) {
-          setNotifications(await res.json());
+        const res = await api.get(`/notifications/program_head/${user.id}`);
+        if (res.data) {
+          setNotifications(res.data);
         }
       } catch (err) {
         console.error("Error fetching notifications:", err);
@@ -1156,7 +1260,7 @@ export default function ProgramHeadDashboard() {
     fetchNotifications();
     const interval = setInterval(fetchNotifications, 10000);
     return () => clearInterval(interval);
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     if (!user) return;
@@ -1187,10 +1291,37 @@ export default function ProgramHeadDashboard() {
 
   const markRead = async (id) => {
     try {
-      await fetch(`http://localhost:8000/notifications/${id}/read`, { method: "PUT" });
+      await api.put(`/notifications/${id}/read`);
       setNotifications(notifications.map(n => n.id === id ? { ...n, is_read: true } : n));
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const handleNotificationClick = (notif) => {
+    setShowNotifications(false);
+    
+    if (!notif.is_read) {
+      markRead(notif.id);
+    }
+    
+    const msg = (notif.message || "").toLowerCase();
+    const type = (notif.type || "").toLowerCase();
+    
+    if (msg.includes("rescheduling") || msg.includes("reschedule") || type.includes("reschedule")) {
+      setActiveTab("rescheduling");
+    } else if (msg.includes("attendance") || msg.includes("confirm")) {
+      setActiveTab("monitoring");
+    } else if (msg.includes("proctor") || msg.includes("teaching schedule") || msg.includes("schedule")) {
+      if (msg.includes("attendance") || msg.includes("confirmed")) {
+        setActiveTab("monitoring");
+      } else if (msg.includes("rescheduling") || msg.includes("reschedule")) {
+        setActiveTab("rescheduling");
+      } else {
+        setActiveTab("proctors");
+      }
+    } else {
+      setActiveTab("rescheduling");
     }
   };
 
@@ -1217,10 +1348,52 @@ export default function ProgramHeadDashboard() {
       {showNotifications && (
         <div className="fixed inset-0 z-40" onClick={() => setShowNotifications(false)}></div>
       )}
+      {showNotifications && (
+        <div 
+          onClick={(e) => e.stopPropagation()} 
+          className={`fixed left-3 right-3 top-20 sm:left-auto sm:right-6 sm:top-24 sm:w-80 max-h-96 flex flex-col rounded-2xl shadow-2xl border z-50 transform origin-top-right transition-all animate-in fade-in scale-95 duration-200 ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200"}`}
+        >
+          <div className={`px-5 py-4 border-b flex justify-between items-center ${isDark ? "border-slate-700" : "border-slate-100"}`}>
+            <h3 className={`font-semibold ${isDark ? "text-white" : "text-slate-900"}`}>Notifications</h3>
+            {unreadCount > 0 && <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-bold">{unreadCount} New</span>}
+          </div>
+          <div className="overflow-y-auto p-2 custom-scrollbar flex-1">
+            {notifications.length === 0 ? (
+              <div className={`p-6 text-center text-sm ${isDark ? "text-slate-500" : "text-slate-400"}`}><Bell className="w-8 h-8 mx-auto mb-2 opacity-20" />You're all caught up!</div>
+            ) : notifications.map((notif) => (
+              <div key={notif.id} onClick={() => handleNotificationClick(notif)} className={`p-3.5 rounded-xl cursor-pointer transition-all duration-200 mb-1 ${notif.is_read ? (isDark ? "hover:bg-slate-700/50 opacity-60" : "hover:bg-slate-50 opacity-60") : (isDark ? "bg-blue-900/20 hover:bg-blue-900/40 border border-blue-800/30" : "bg-blue-50 hover:bg-blue-100 border border-blue-100")}`}>
+                <div className="flex gap-3">
+                  <div className={`mt-1.5 w-2 h-2 rounded-full flex-shrink-0 ${notif.is_read ? "bg-slate-400" : "bg-blue-500"}`}></div>
+                  <div>
+                    <p className={`text-sm leading-snug ${isDark ? "text-slate-200" : "text-slate-800"}`}>{notif.message}</p>
+                    <p className={`text-[11px] mt-1.5 font-medium ${isDark ? "text-slate-500" : "text-slate-400"}`}>{notif.created_at ? new Date(notif.created_at).toLocaleString() : "Just now"}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Mobile Sidebar Overlay */}
+      {isMobileMenuOpen && (
+        <div 
+          className="fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-md lg:hidden transition-opacity"
+          onClick={() => setIsMobileMenuOpen(false)}
+        ></div>
+      )}
 
       {/* Sidebar */}
-      <aside className={`w-72 flex flex-col border-r transition-all duration-300 z-30 ${isDark ? "bg-slate-900/80 border-slate-800" : "bg-white border-slate-200"}`}>
-        <div className="p-6 flex flex-col items-center gap-4 border-b border-transparent">
+      <aside className={`fixed lg:static inset-y-0 left-0 w-[min(18rem,85vw)] flex flex-col border-r transition-transform duration-300 z-50 transform ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"} ${isDark ? "bg-slate-900/95 lg:bg-slate-900/80 border-slate-800 backdrop-blur-xl" : "bg-white/95 lg:bg-white border-slate-200 backdrop-blur-xl"}`}>
+        <div className="p-6 flex flex-col items-center gap-4 border-b border-transparent relative">
+          <button 
+            onClick={() => setIsMobileMenuOpen(false)}
+            type="button"
+            aria-label="Close menu"
+            className="absolute top-4 right-4 p-2 rounded-lg lg:hidden text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
           <div className={`w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg transition-transform hover:scale-105 duration-300 ${isDark ? "bg-gradient-to-br from-blue-600 to-indigo-700" : "bg-gradient-to-br from-blue-500 to-blue-700"}`}>
             <User className="w-8 h-8 text-white" />
           </div>
@@ -1230,53 +1403,14 @@ export default function ProgramHeadDashboard() {
           </div>
         </div>
 
-        <nav className="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto custom-scrollbar">
-          {[
-            { id: "generate", icon: Calendar, label: "Generate Schedule" },
-            { id: "schedules", icon: CalendarDays, label: "Generated Schedules" },
-            { id: "proctors", icon: Users, label: "Proctor Management" },
-            { id: "rooms", icon: DoorOpen, label: "Room Management" },
-            { id: "rescheduling", icon: ClipboardList, label: "Rescheduling Requests" },
-            { id: "chat", icon: MessageSquare, label: "Chat" },
-            { id: "monitoring", icon: ShieldCheck, label: "Proctor Monitoring" },
-            { id: "rules", icon: Target, label: "Distribution Rules" },
-            { id: "import", icon: Database, label: "Data Import" },
-            { id: "students", icon: User, label: "Student Accounts" },
-            { id: "manual", icon: BookOpen, label: "User Manual" },
-          ].map((item) => {
-            const Icon = item.icon;
-            const isActive = activeTab === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => setActiveTab(item.id)}
-                className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl transition-all duration-300 group ${isActive
-                  ? isDark
-                    ? "bg-blue-600 text-white shadow-lg shadow-blue-900/50"
-                    : "bg-blue-600 text-white shadow-lg shadow-blue-500/30"
-                  : isDark
-                    ? "text-slate-300 hover:bg-slate-800/60 hover:text-white"
-                    : "text-slate-600 hover:bg-blue-50 hover:text-blue-700"
-                  }`}
-              >
-                <div className="flex items-center gap-3.5">
-                  <Icon className={`w-5 h-5 transition-transform duration-300 ${isActive ? "scale-110" : "group-hover:scale-110"}`} />
-                  <span className="text-sm font-semibold">{item.label}</span>
-                </div>
-                {item.id === "chat" && unreadChatCount > 0 && (
-                  <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">
-                    {unreadChatCount}
-                  </span>
-                )}
-                {item.id === "rescheduling" && pendingRescheduleCount > 0 && (
-                  <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">
-                    {pendingRescheduleCount}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </nav>
+        <NavSidebar
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          isDark={isDark}
+          unreadChatCount={unreadChatCount}
+          pendingRescheduleCount={pendingRescheduleCount}
+          onSelectNavItem={() => setIsMobileMenuOpen(false)}
+        />
 
         <footer className={`p-6 text-xs text-center font-medium border-t transition-colors ${isDark ? "border-slate-800 text-slate-500" : "border-slate-100 text-slate-400"}`}>
           v1.0 • Built with React
@@ -1284,57 +1418,48 @@ export default function ProgramHeadDashboard() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col h-screen overflow-hidden relative">
+      <main className="flex-1 flex flex-col h-screen overflow-hidden relative min-w-0">
         <header className={`sticky top-0 z-20 backdrop-blur-2xl border-b transition-all duration-300 ${isDark ? "bg-slate-900/70 border-slate-800" : "bg-white/70 border-slate-200"}`}>
-          <div className="max-w-7xl mx-auto px-8 py-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className={`text-2xl font-bold tracking-tight transition-colors ${isDark ? "text-white" : "text-slate-900"}`}>
-                  {activeTab === "generate" ? "Exam Schedule Generator" :
-                    activeTab === "schedules" ? "Generated Exam Schedules" :
-                      activeTab === "proctors" ? "Proctor Management" :
-                        activeTab === "rooms" ? "Room Management" :
-                          activeTab === "monitoring" ? "Proctor Attendance Monitoring" :
-                            activeTab === "rescheduling" ? "Rescheduling Requests" :
-                              activeTab === "chat" ? "Chat" :
-                                activeTab === "rules" ? "Distribution Rules" :
-                                  activeTab === "import" ? "Curriculum & Catalog Import" :
-                                    activeTab === "students" ? "Student Accounts & Import" :
-                                      activeTab === "manual" ? "User Manual" : "Program Head Dashboard"}
-                </h1>
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-5">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                <button 
+                  onClick={() => setIsMobileMenuOpen(true)}
+                  type="button"
+                  aria-label="Open menu"
+                  className={`lg:hidden p-2 -ml-2 rounded-xl transition-colors ${isDark ? "text-slate-300 hover:bg-slate-800" : "text-slate-600 hover:bg-slate-100"}`}
+                >
+                  <LayoutGrid className="w-5 h-5 sm:w-6 sm:h-6" />
+                </button>
+                <div className="min-w-0">
+                  <h1 className={`text-base sm:text-2xl font-bold tracking-tight transition-colors truncate ${isDark ? "text-white" : "text-slate-900"}`}>
+                    {activeTab === "generate" ? "Exam Schedule Generator" :
+                      activeTab === "schedules" ? "Generated Exam Schedules" :
+                        activeTab === "proctors" ? "Proctor Management" :
+                          activeTab === "rooms" ? "Room Management" :
+                            activeTab === "monitoring" ? "Proctor Attendance Monitoring" :
+                              activeTab === "rescheduling" ? "Rescheduling Requests" :
+                                activeTab === "chat" ? "Chat" :
+                                  activeTab === "rules" ? "Distribution Rules" :
+                                    activeTab === "import" ? "Curriculum & Catalog Import" :
+                                      activeTab === "students" ? "Student Accounts & Import" :
+                                        activeTab === "manual" ? "User Manual" : "Program Head Dashboard"}
+                  </h1>
+                </div>
               </div>
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 sm:gap-4 shrink-0">
                 <div className={`hidden md:flex px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all shadow-sm ${isDark ? "bg-blue-500/20 text-blue-400 border border-blue-500/30" : "bg-blue-50 text-blue-700 border border-blue-100"}`}>
                   Administrator
                 </div>
                 <div className="relative">
                   <button onClick={() => setShowNotifications(!showNotifications)} className={`relative p-2.5 rounded-xl transition-all duration-300 ${isDark ? "text-slate-300 hover:text-white hover:bg-slate-800" : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"}`}>
                     <Bell className="w-5 h-5" />
-                    {unreadCount > 0 && <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-red-500 ring-2 ring-white dark:ring-slate-900 animate-pulse"></span>}
+                    {unreadCount > 0 && (
+                      <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white ring-2 ring-white dark:ring-slate-900 animate-pulse">
+                        {unreadCount}
+                      </span>
+                    )}
                   </button>
-                  {showNotifications && (
-                    <div className={`absolute right-0 mt-3 w-80 max-h-96 flex flex-col rounded-2xl shadow-2xl border z-50 ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200"}`}>
-                      <div className={`px-5 py-4 border-b flex justify-between items-center ${isDark ? "border-slate-700" : "border-slate-100"}`}>
-                        <h3 className={`font-semibold ${isDark ? "text-white" : "text-slate-900"}`}>Notifications</h3>
-                        {unreadCount > 0 && <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-bold">{unreadCount} New</span>}
-                      </div>
-                      <div className="overflow-y-auto p-2 custom-scrollbar flex-1">
-                        {notifications.length === 0 ? (
-                          <div className={`p-6 text-center text-sm ${isDark ? "text-slate-500" : "text-slate-400"}`}><Bell className="w-8 h-8 mx-auto mb-2 opacity-20" />You're all caught up!</div>
-                        ) : notifications.map((notif) => (
-                          <div key={notif.id} onClick={() => { if (!notif.is_read) markRead(notif.id); }} className={`p-3.5 rounded-xl cursor-pointer transition-all duration-200 mb-1 ${notif.is_read ? (isDark ? "hover:bg-slate-700/50 opacity-60" : "hover:bg-slate-50 opacity-60") : (isDark ? "bg-blue-900/20 hover:bg-blue-900/40 border border-blue-800/30" : "bg-blue-50 hover:bg-blue-100 border border-blue-100")}`}>
-                            <div className="flex gap-3">
-                              <div className={`mt-1.5 w-2 h-2 rounded-full flex-shrink-0 ${notif.is_read ? "bg-slate-400" : "bg-blue-500"}`}></div>
-                              <div>
-                                <p className={`text-sm leading-snug ${isDark ? "text-slate-200" : "text-slate-800"}`}>{notif.message}</p>
-                                <p className={`text-[11px] mt-1.5 font-medium ${isDark ? "text-slate-500" : "text-slate-400"}`}>{notif.created_at ? new Date(notif.created_at).toLocaleString() : "Just now"}</p>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </div>
                 <div className="h-8 w-px bg-slate-200 dark:bg-slate-700 mx-2 hidden sm:block"></div>
                 <SettingsDropdown onLogout={handleLogout} isDark={isDark} />

@@ -7,7 +7,8 @@ import {
   CheckCircle, 
   RefreshCw, 
   Users,
-  Loader2
+  Loader2,
+  Trash2
 } from "lucide-react";
 import { useTheme } from "../context/themeStore";
 import { useToast } from "../context/ToastContext";
@@ -27,6 +28,8 @@ export default function StudentImport({ isGenerating }) {
   const [dragOver, setDragOver] = useState(false);
   const [importResult, setImportResult] = useState(null);
   const [isImportConfirmOpen, setIsImportConfirmOpen] = useState(false);
+  const [isClearAllStudentsModalOpen, setIsClearAllStudentsModalOpen] = useState(false);
+  const [clearingStudents, setClearingStudents] = useState(false);
 
   const fetchStats = async () => {
     setLoadingStats(true);
@@ -37,6 +40,21 @@ export default function StudentImport({ isGenerating }) {
       console.error("Error fetching student stats:", err);
     } finally {
       setLoadingStats(false);
+    }
+  };
+
+  const executeClearAllStudents = async () => {
+    setIsClearAllStudentsModalOpen(false);
+    setClearingStudents(true);
+    try {
+      const res = await api.post("/catalog/clear-students");
+      showSuccess(res.data.message);
+      fetchStats();
+    } catch (err) {
+      console.error(err);
+      showError(err.response?.data?.detail || "Failed to clear student accounts");
+    } finally {
+      setClearingStudents(false);
     }
   };
 
@@ -148,18 +166,34 @@ export default function StudentImport({ isGenerating }) {
               </p>
             </div>
           </div>
-          <button
-            onClick={fetchStats}
-            disabled={loadingStats}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border transition duration-300 shrink-0 ${
-              isDark 
-                ? "bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700" 
-                 : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
-            }`}
-          >
-            <RefreshCw className={`w-4 h-4 ${loadingStats ? "animate-spin" : ""}`} />
-            Refresh Stats
-          </button>
+          <div className="flex items-center gap-3 shrink-0">
+            <button
+              onClick={fetchStats}
+              disabled={loadingStats}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border transition duration-300 ${
+                isDark 
+                  ? "bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700" 
+                  : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              <RefreshCw className={`w-4 h-4 ${loadingStats ? "animate-spin" : ""}`} />
+              Refresh Stats
+            </button>
+
+            <button
+              onClick={() => setIsClearAllStudentsModalOpen(true)}
+              disabled={clearingStudents || isGenerating || stats.total === 0}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-rose-600 hover:bg-rose-700 text-white shadow-sm transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+              title={stats.total === 0 ? "No student accounts to delete" : "Delete all student accounts"}
+            >
+              {clearingStudents ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Trash2 className="w-4 h-4" />
+              )}
+              Clear All Students
+            </button>
+          </div>
         </div>
       </div>
 
@@ -338,16 +372,30 @@ export default function StudentImport({ isGenerating }) {
         </div>
       </div>
 
-      {/* Confirmation Modal */}
+      {/* Confirmation Modal for Import */}
       <ConfirmationModal
         isOpen={isImportConfirmOpen}
-        onClose={() => setIsImportConfirmOpen(false)}
+        onCancel={() => setIsImportConfirmOpen(false)}
         onConfirm={executeImport}
         title="Confirm Wiping Student Database"
         message="Are you absolutely sure you want to clear all existing student accounts and replace them with this list? All irregular student exam selections and student rescheduling requests will also be deleted."
         confirmText="Yes, Import List"
-        cancelText="Cancel"
-        type="danger"
+        confirmLabel="Yes, Import List"
+        cancelLabel="Cancel"
+        isDanger={true}
+      />
+
+      {/* Confirmation Modal for Clearing All Students */}
+      <ConfirmationModal
+        isOpen={isClearAllStudentsModalOpen}
+        onCancel={() => setIsClearAllStudentsModalOpen(false)}
+        onConfirm={executeClearAllStudents}
+        title="Delete All Student Accounts?"
+        message={`Are you sure you want to permanently delete all ${stats.total} student account(s)? This will also delete their irregular exam selections and rescheduling requests. This action cannot be undone.`}
+        confirmText="Yes, Delete All Students"
+        confirmLabel="Yes, Delete All Students"
+        cancelLabel="Cancel"
+        isDanger={true}
       />
 
       {/* Summary Results */}

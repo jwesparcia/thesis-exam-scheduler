@@ -499,9 +499,11 @@ function StudentChatPanel() {
                   </div>
                 </div>
               ) : (
-                chatMessages.map((msg) => {
+                chatMessages.map((msg, idx) => {
                   const isMe = msg.sender_id === user?.id;
                   const isEditing = editingMessageId === msg.id;
+                  const prevMsg = idx > 0 ? chatMessages[idx - 1] : null;
+                  const showSenderName = !isMe && (!prevMsg || prevMsg.sender_id !== msg.sender_id);
                   return (
                     <div key={msg.id} className={`flex ${isMe ? "justify-end" : "justify-start"} group relative items-center gap-2`}>
                       {isMe && !isEditing && (
@@ -534,7 +536,7 @@ function StudentChatPanel() {
                           ? "bg-blue-600 text-white rounded-br-sm shadow-md shadow-blue-500/10"
                           : isDark ? "bg-slate-700 text-slate-100 rounded-bl-sm" : "bg-white text-slate-800 rounded-bl-sm border border-slate-200 shadow-sm"
                       }`}>
-                        {!isMe && (
+                        {showSenderName && (
                           <p className={`text-[9px] font-bold mb-1 ${isDark ? "text-blue-400" : "text-blue-600"}`}>
                             {msg.sender_name}
                           </p>
@@ -1003,9 +1005,13 @@ export default function StudentDashboard() {
     return h * 60 + m;
   };
 
-  // Find all vacant blocks of at least 90 minutes on the same day as the conflicting exam
+  // Find all vacant blocks of at least 90 minutes on the same day as the conflicting exam,
+  // but ONLY after the conflicting exam ends (can't reschedule before your own exam finishes)
   const getVacantHoursSuggestions = (conflictingExam) => {
     if (!conflictingExam) return [];
+    
+    // The conflicting exam's own end time is the minimum start for a reschedule
+    const conflictEndMins = parseTime12(conflictingExam.end_time);
     
     // Get all other exams on the same day (excluding the conflicting exam itself)
     const otherExams = exams.filter(e => e.exam_date === conflictingExam.exam_date && e.id !== conflictingExam.id);
@@ -1013,7 +1019,11 @@ export default function StudentDashboard() {
     const WINDOW_START = 420; // 7:00 AM
     const WINDOW_END = 1050;  // 5:30 PM
     
-    let busy = otherExams.map(e => [parseTime12(e.start_time), parseTime12(e.end_time)]);
+    // Include the conflicting exam itself as a busy block so its slot is excluded
+    let busy = [
+      [parseTime12(conflictingExam.start_time), parseTime12(conflictingExam.end_time)],
+      ...otherExams.map(e => [parseTime12(e.start_time), parseTime12(e.end_time)])
+    ];
     
     // Sort and merge busy intervals
     busy.sort((a, b) => a[0] - b[0]);
@@ -1031,7 +1041,7 @@ export default function StudentDashboard() {
       }
     }
     
-    // Find free intervals within the 7:00 AM - 5:30 PM window
+    // Find free intervals within the window
     let freeIntervals = [];
     let current = WINDOW_START;
     
@@ -1050,7 +1060,8 @@ export default function StudentDashboard() {
       }
     }
     
-    return freeIntervals;
+    // Only show slots that start at or AFTER the conflicting exam ends
+    return freeIntervals.filter(interval => interval[0] >= conflictEndMins);
   };
 
   const applyVacantHoursSuggestion = (startMins) => {
@@ -1068,6 +1079,26 @@ export default function StudentDashboard() {
       await api.put(`/notifications/${id}/read`);
       setNotifications(notifications.map(n => n.id === id ? { ...n, is_read: true } : n));
     } catch (err) { }
+  };
+
+  const handleNotificationClick = (notif) => {
+    setShowNotifications(false);
+    
+    if (!notif.is_read) {
+      markRead(notif.id);
+    }
+    
+    const msg = (notif.message || "").toLowerCase();
+    setActiveTab("schedule");
+    
+    if (msg.includes("rescheduling") || msg.includes("reschedule") || msg.includes("request")) {
+      setTimeout(() => {
+        const element = document.getElementById("my-rescheduling-requests-section");
+        if (element) {
+          element.scrollIntoView({ behavior: "smooth" });
+        }
+      }, 150);
+    }
   };
 
   const handleLogout = () => {
@@ -1105,6 +1136,24 @@ export default function StudentDashboard() {
   return (
     <div className={`min-h-screen relative transition-colors duration-300 ${isDark ? "bg-slate-900" : "bg-slate-50"}`}>
       {showNotifications && <div className="fixed inset-0 z-40 bg-black/20 backdrop-blur-sm transition-opacity" onClick={() => setShowNotifications(false)}></div>}
+      {showNotifications && (
+        <div 
+          onClick={(e) => e.stopPropagation()} 
+          className={`fixed left-3 right-3 top-20 sm:left-auto sm:right-6 sm:top-24 sm:w-80 max-h-96 flex flex-col rounded-2xl shadow-2xl border z-50 transform origin-top-right transition-all animate-in fade-in scale-95 duration-200 ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200"}`}
+        >
+          <div className={`px-5 py-4 border-b flex justify-between items-center ${isDark ? "border-slate-700" : "border-slate-100"}`}>
+            <h3 className={`font-semibold ${isDark ? "text-white" : "text-slate-900"}`}>Notifications</h3>
+            {unreadCount > 0 && <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-bold">{unreadCount} New</span>}
+          </div>
+          <div className="overflow-y-auto p-2 custom-scrollbar flex-1">
+            {notifications.length === 0 ? <div className={`p-6 text-center text-sm ${isDark ? "text-slate-500" : "text-slate-400"}`}><Bell className="w-8 h-8 mx-auto mb-2 opacity-20" />You're all caught up!</div> : notifications.map((notif) => (
+              <div key={notif.id} onClick={() => handleNotificationClick(notif)} className={`p-3.5 rounded-xl cursor-pointer transition-all duration-200 mb-1 ${notif.is_read ? (isDark ? "hover:bg-slate-700/50 opacity-60" : "hover:bg-slate-50 opacity-60") : (isDark ? "bg-blue-900/20 hover:bg-blue-900/40 border border-blue-800/30" : "bg-blue-50 hover:bg-blue-100 border border-blue-100")}`}>
+                <div className="flex gap-3"><div className={`mt-1.5 w-2 h-2 rounded-full flex-shrink-0 ${notif.is_read ? "bg-slate-400" : "bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.8)]"}`}></div><div><p className={`text-sm leading-snug ${isDark ? "text-slate-200" : "text-slate-800"}`}>{notif.message}</p><p className={`text-[11px] mt-1.5 font-medium ${isDark ? "text-slate-500" : "text-slate-400"}`}>{notif.created_at ? new Date(notif.created_at).toLocaleString() : "Just now"}</p></div></div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       {showTypeModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 transition-opacity">
           <div className={`p-8 rounded-3xl max-w-md w-full shadow-2xl border relative ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200"}`}>
@@ -1153,15 +1202,15 @@ export default function StudentDashboard() {
 
       {/* Header */}
       <header className={`sticky top-0 z-30 backdrop-blur-2xl border-b transition-all duration-300 ${isDark ? "bg-slate-900/80 border-slate-800" : "bg-white/80 border-slate-200"}`}>
-        <div className="max-w-7xl mx-auto px-6 lg:px-8 py-5">
-          <div className="flex items-center justify-between gap-6">
-            <div className="flex items-center gap-4">
-              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg transition-transform hover:scale-105 ${isDark ? "bg-gradient-to-br from-blue-600 to-indigo-700" : "bg-gradient-to-br from-blue-500 to-blue-700"}`}>
-                <img src="/images.png" alt="STI Logo" className="rounded-xl h-8 w-8 object-contain drop-shadow-md" />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-5">
+          <div className="flex items-center justify-between gap-3 sm:gap-6">
+            <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+              <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-lg transition-transform hover:scale-105 ${isDark ? "bg-gradient-to-br from-blue-600 to-indigo-700" : "bg-gradient-to-br from-blue-500 to-blue-700"}`}>
+                <img src="/images.png" alt="STI Logo" className="rounded-xl h-7 w-7 sm:h-8 sm:w-8 object-contain drop-shadow-md" />
               </div>
-              <div>
-                <h1 className={`text-xl font-bold tracking-tight ${isDark ? "text-white" : "text-slate-900"}`}>STI Education System</h1>
-                <p className={`text-xs font-medium tracking-wide uppercase mt-0.5 ${isDark ? "text-blue-400" : "text-blue-600"}`}>Student Portal</p>
+              <div className="min-w-0">
+                <h1 className={`text-base sm:text-xl font-bold tracking-tight truncate ${isDark ? "text-white" : "text-slate-900"}`}>STI Education System</h1>
+                <p className={`text-[10px] sm:text-xs font-medium tracking-wide uppercase mt-0.5 ${isDark ? "text-blue-400" : "text-blue-600"}`}>Student Portal</p>
               </div>
             </div>
 
@@ -1174,32 +1223,21 @@ export default function StudentDashboard() {
               )}
             </div>
 
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4 shrink-0">
               <div className={`hidden sm:block px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider shadow-sm ${isDark ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" : "bg-emerald-50 text-emerald-700 border border-emerald-200"}`}>STUDENT</div>
-              <button onClick={() => setShowTypeModal(true)} className={`px-4 py-1.5 rounded-full text-xs font-bold transition-colors ${isDark ? "bg-slate-800 text-slate-300 hover:bg-slate-700" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>Change Type</button>
+              <button onClick={() => setShowTypeModal(true)} className={`px-3 sm:px-4 py-1.5 rounded-full text-xs font-bold transition-colors ${isDark ? "bg-slate-800 text-slate-300 hover:bg-slate-700" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>Change Type</button>
 
               <div className="relative">
-                <button onClick={() => setShowNotifications(!showNotifications)} className={`relative p-2.5 rounded-xl transition-all duration-300 ${isDark ? "text-slate-300 hover:text-white hover:bg-slate-800" : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"}`}>
+                <button onClick={() => setShowNotifications(!showNotifications)} className={`relative p-2 sm:p-2.5 rounded-xl transition-all duration-300 ${isDark ? "text-slate-300 hover:text-white hover:bg-slate-800" : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"}`}>
                   <Bell className="w-5 h-5" />
-                  {unreadCount > 0 && <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-red-500 ring-2 ring-white dark:ring-slate-900 animate-pulse"></span>}
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white ring-2 ring-white dark:ring-slate-900 animate-pulse">
+                      {unreadCount}
+                    </span>
+                  )}
                 </button>
-                {showNotifications && (
-                  <div className={`absolute right-0 mt-3 w-80 max-h-96 flex flex-col rounded-2xl shadow-2xl border z-50 transform origin-top-right transition-all animate-in fade-in scale-95 duration-200 ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200"}`}>
-                    <div className={`px-5 py-4 border-b flex justify-between items-center ${isDark ? "border-slate-700" : "border-slate-100"}`}>
-                      <h3 className={`font-semibold ${isDark ? "text-white" : "text-slate-900"}`}>Notifications</h3>
-                      {unreadCount > 0 && <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-bold">{unreadCount} New</span>}
-                    </div>
-                    <div className="overflow-y-auto p-2 custom-scrollbar flex-1">
-                      {notifications.length === 0 ? <div className={`p-6 text-center text-sm ${isDark ? "text-slate-500" : "text-slate-400"}`}><Bell className="w-8 h-8 mx-auto mb-2 opacity-20" />You're all caught up!</div> : notifications.map((notif) => (
-                        <div key={notif.id} onClick={() => { if (!notif.is_read) markRead(notif.id); }} className={`p-3.5 rounded-xl cursor-pointer transition-all duration-200 mb-1 ${notif.is_read ? (isDark ? "hover:bg-slate-700/50 opacity-60" : "hover:bg-slate-50 opacity-60") : (isDark ? "bg-blue-900/20 hover:bg-blue-900/40 border border-blue-800/30" : "bg-blue-50 hover:bg-blue-100 border border-blue-100")}`}>
-                          <div className="flex gap-3"><div className={`mt-1.5 w-2 h-2 rounded-full flex-shrink-0 ${notif.is_read ? "bg-slate-400" : "bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.8)]"}`}></div><div><p className={`text-sm leading-snug ${isDark ? "text-slate-200" : "text-slate-800"}`}>{notif.message}</p><p className={`text-[11px] mt-1.5 font-medium ${isDark ? "text-slate-500" : "text-slate-400"}`}>{notif.created_at ? new Date(notif.created_at).toLocaleString() : "Just now"}</p></div></div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
-              <div className="h-8 w-px bg-slate-200 dark:bg-slate-700 mx-2 hidden sm:block"></div>
+              <div className="h-8 w-px bg-slate-200 dark:bg-slate-700 mx-1 sm:mx-2 hidden sm:block"></div>
               <SettingsDropdown onLogout={handleLogout} isDark={isDark} />
             </div>
           </div>
@@ -1207,19 +1245,19 @@ export default function StudentDashboard() {
       </header>
 
       {/* Student Info Hero Section */}
-      <div className="max-w-7xl mx-auto px-6 lg:px-8 py-8">
-        <div className={`p-8 rounded-3xl shadow-sm border flex items-center gap-6 overflow-hidden relative ${isDark ? "bg-slate-800/50 border-slate-700/50" : "bg-white border-slate-200"}`}>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+        <div className={`p-5 sm:p-8 rounded-3xl shadow-sm border flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6 overflow-hidden relative ${isDark ? "bg-slate-800/50 border-slate-700/50" : "bg-white border-slate-200"}`}>
           <div className="absolute right-0 top-0 w-64 h-64 bg-blue-500/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3"></div>
-          <div className={`w-20 h-20 rounded-2xl flex shrink-0 items-center justify-center text-3xl font-bold shadow-inner ${isDark ? "bg-gradient-to-br from-blue-600 to-indigo-700 text-white" : "bg-gradient-to-br from-blue-50 to-indigo-100 text-blue-700 border border-blue-200"}`}>
+          <div className={`w-14 h-14 sm:w-20 sm:h-20 rounded-2xl flex shrink-0 items-center justify-center text-xl sm:text-3xl font-bold shadow-inner ${isDark ? "bg-gradient-to-br from-blue-600 to-indigo-700 text-white" : "bg-gradient-to-br from-blue-50 to-indigo-100 text-blue-700 border border-blue-200"}`}>
             {(user?.name || "S").split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2)}
           </div>
-          <div className="relative z-10">
-            <h2 className={`text-3xl font-bold tracking-tight ${isDark ? "text-white" : "text-slate-900"}`}>Welcome back, {user?.name || "Student"}</h2>
-            <div className="flex flex-wrap items-center gap-4 mt-3">
-              <span className={`px-3 py-1 rounded-lg text-sm font-medium border ${isDark ? "bg-slate-700/50 border-slate-600 text-slate-300" : "bg-slate-50 border-slate-200 text-slate-600"}`}>Section: <strong className={isDark ? "text-white" : "text-slate-900"}>{user?.section_name || section || "N/A"}</strong></span>
-              <span className={`px-3 py-1 rounded-lg text-sm font-medium border ${isDark ? "bg-slate-700/50 border-slate-600 text-slate-300" : "bg-slate-50 border-slate-200 text-slate-600"}`}>Type: <strong className={`capitalize ${isDark ? "text-white" : "text-slate-900"}`}>{user?.student_type === "regular" ? "Standard (Fixed Section)" : user?.student_type === "irregular" ? "Customized (Mixed Sections)" : "not set"}</strong></span>
+          <div className="relative z-10 min-w-0">
+            <h2 className={`text-xl sm:text-3xl font-bold tracking-tight truncate ${isDark ? "text-white" : "text-slate-900"}`}>Welcome back, {user?.name || "Student"}</h2>
+            <div className="flex flex-wrap items-center gap-2 sm:gap-4 mt-2 sm:mt-3">
+              <span className={`px-2.5 py-1 rounded-lg text-xs sm:text-sm font-medium border ${isDark ? "bg-slate-700/50 border-slate-600 text-slate-300" : "bg-slate-50 border-slate-200 text-slate-600"}`}>Section: <strong className={isDark ? "text-white" : "text-slate-900"}>{user?.section_name || section || "N/A"}</strong></span>
+              <span className={`px-2.5 py-1 rounded-lg text-xs sm:text-sm font-medium border ${isDark ? "bg-slate-700/50 border-slate-600 text-slate-300" : "bg-slate-50 border-slate-200 text-slate-600"}`}>Type: <strong className={`capitalize ${isDark ? "text-white" : "text-slate-900"}`}>{user?.student_type === "regular" ? "Standard (Fixed Section)" : user?.student_type === "irregular" ? "Customized (Mixed Sections)" : "not set"}</strong></span>
               {user?.student_type === "irregular" && user?.course_id && (
-                <span className={`px-3 py-1 rounded-lg text-sm font-medium border ${isDark ? "bg-slate-700/50 border-slate-600 text-slate-300" : "bg-slate-50 border-slate-200 text-slate-600"}`}>
+                <span className={`px-2.5 py-1 rounded-lg text-xs sm:text-sm font-medium border ${isDark ? "bg-slate-700/50 border-slate-600 text-slate-300" : "bg-slate-50 border-slate-200 text-slate-600"}`}>
                   Course: <strong className={isDark ? "text-white" : "text-slate-900"}>{coursesList.find(c => c.id === user.course_id)?.name || "Loaded"}</strong>
                 </span>
               )}
@@ -1229,8 +1267,8 @@ export default function StudentDashboard() {
       </div>
 
       {/* Tab Selection */}
-      <div className="max-w-7xl mx-auto px-6 lg:px-8 mb-6">
-        <div className="flex gap-4 border-b border-slate-200 dark:border-slate-700 pb-2">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-6">
+        <div className="flex gap-2 sm:gap-4 border-b border-slate-200 dark:border-slate-700 pb-2 overflow-x-auto no-scrollbar">
           <button
             onClick={() => setActiveTab("schedule")}
             className={`px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${activeTab === "schedule"
@@ -1328,12 +1366,16 @@ export default function StudentDashboard() {
                         );
                       })}
                     </ul>
-                    <div className="flex gap-3 mt-3">
-                      <button onClick={saveIrregularSelections} className="px-4 py-2 bg-green-600 text-white rounded-lg">
+                    <div className="flex gap-3 mt-3 flex-wrap">
+                      <button onClick={saveIrregularSelections} className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition font-medium text-sm">
                         Save My Selections
                       </button>
-                      <button onClick={fetchCustomExams} className="px-4 py-2 bg-blue-500 text-white rounded-lg">
+                      <button onClick={fetchCustomExams} className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition font-medium text-sm">
                         Refresh Schedule
+                      </button>
+                      <button onClick={() => setSelectedSubjects([])} className="flex items-center gap-1.5 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition font-medium text-sm shadow-sm shadow-red-500/20">
+                        <Trash2 className="w-4 h-4" />
+                        Remove All Selected Subjects
                       </button>
                     </div>
                   </div>
@@ -1403,7 +1445,7 @@ export default function StudentDashboard() {
             )}
 
             {/* My Requests */}
-            <div className={`mt-8 rounded-lg overflow-hidden border shadow-sm ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
+            <div id="my-rescheduling-requests-section" className={`mt-8 rounded-lg overflow-hidden border shadow-sm ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
               <div className={`px-6 py-4 border-b ${isDark ? "border-gray-700 bg-gray-700/50" : "border-gray-200 bg-gray-50"}`}><h3 className={`text-xl font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>My Rescheduling Requests</h3></div>
               <div className="p-6">{myRequests.length === 0 ? <p className={isDark ? "text-gray-400" : "text-gray-600"}>No rescheduling requests yet.</p> : <div className="space-y-4">{myRequests.map((req) => (<div key={req.id} className={`p-4 rounded-lg border ${isDark ? "bg-gray-700 border-gray-600" : "bg-gray-50 border-gray-300"}`}><div className="flex items-center justify-between"><div><p className={`font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>Exam ID: {req.exam_id}</p><p className={`text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}>Requested Mode: {req.requested_mode}</p><p className={`text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}>Reason: {req.reason}</p></div><span className={`px-3 py-1 rounded-full text-sm font-medium ${req.status === "approved" ? "bg-green-100 text-green-800" : req.status === "rejected" ? "bg-red-100 text-red-800" : "bg-yellow-100 text-yellow-800"}`}>{req.status}</span></div></div>))}</div>}</div>
             </div>
@@ -1524,25 +1566,34 @@ export default function StudentDashboard() {
                   return (
                     <div className={`mb-4 p-3 rounded-lg border-l-4 border-blue-500 ${isDark ? "bg-blue-950/20" : "bg-blue-50"}`}>
                       <p className={`text-xs font-bold uppercase tracking-wide mb-1.5 ${isDark ? "text-blue-400" : "text-blue-700"}`}>
-                        ⚡ Suggested Vacant Hours (Take within the day):
+                        Suggested Vacant Slots (1h 30min each):
                       </p>
                       <div className="flex flex-wrap gap-2 mt-1">
-                        {suggestions.map((s, idx) => {
-                          const label = `${formatMinsTo12(s[0])} - ${formatMinsTo12(s[1])}`;
-                          return (
-                            <button
-                              key={idx}
-                              type="button"
-                              onClick={() => applyVacantHoursSuggestion(s[0])}
-                              className={`px-3 py-1.5 rounded-lg text-xs font-semibold shadow-sm transition hover:-translate-y-0.5 ${
-                                isDark 
-                                  ? "bg-blue-600 hover:bg-blue-500 text-white" 
-                                  : "bg-blue-500 hover:bg-blue-600 text-white"
-                              }`}
-                            >
-                              ⚡ {label}
-                            </button>
-                          );
+                        {suggestions.flatMap((s, idx) => {
+                          // Break each free interval into individual 90-min slots
+                          const slots = [];
+                          let slotStart = s[0];
+                          while (slotStart + 90 <= s[1]) {
+                            slots.push(slotStart);
+                            slotStart += 90;
+                          }
+                          return slots.map((slotStartMins, slotIdx) => {
+                            const label = `${formatMinsTo12(slotStartMins)} - ${formatMinsTo12(slotStartMins + 90)}`;
+                            return (
+                              <button
+                                key={`${idx}-${slotIdx}`}
+                                type="button"
+                                onClick={() => applyVacantHoursSuggestion(slotStartMins)}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-semibold shadow-sm transition hover:-translate-y-0.5 ${
+                                  isDark 
+                                    ? "bg-blue-600 hover:bg-blue-500 text-white" 
+                                    : "bg-blue-500 hover:bg-blue-600 text-white"
+                                }`}
+                              >
+                                {label}
+                              </button>
+                            );
+                          });
                         })}
                       </div>
                     </div>

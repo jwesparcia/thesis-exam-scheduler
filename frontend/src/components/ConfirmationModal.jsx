@@ -26,7 +26,7 @@ export default function ConfirmationModal({
 
   if (!isOpen) return null;
 
-  const isConfirmedEnabled = !confirmText || inputVal.trim() === confirmText;
+  const isConfirmedEnabled = !confirmText || inputVal.trim().toLowerCase() === confirmText.toLowerCase();
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">

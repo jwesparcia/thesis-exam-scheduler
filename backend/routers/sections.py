@@ -1,9 +1,9 @@
 # routers/sections.py
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from database import get_db
-import crud
-from models import Section 
+from core import get_db
+from services import crud
+from model import Section, Room
 from pydantic import BaseModel
 from typing import Optional
 from .exams import is_generation_ongoing
@@ -20,6 +20,10 @@ def update_preferred_room(section_id: int, body: PreferredRoomRequest, db: Sessi
     section = db.query(Section).filter(Section.id == section_id).first()
     if not section:
         raise HTTPException(status_code=404, detail="Section not found")
+    if body.preferred_room_id is not None:
+        room = db.query(Room).filter(Room.id == body.preferred_room_id).first()
+        if not room:
+            raise HTTPException(status_code=404, detail="Preferred room not found")
     section.preferred_room_id = body.preferred_room_id
     db.commit()
     return {"message": "Preferred room updated", "preferred_room_id": section.preferred_room_id}

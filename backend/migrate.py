@@ -67,3 +67,42 @@ with engine.connect() as conn:
         print("Migration successful! Column 'translated_schedule' added to table 'proctors'.")
     else:
         print("Column 'translated_schedule' already exists in table 'proctors'. No migration needed.")
+
+    # Check if notifications table still has recipient_id column
+    result_notif_recipient = conn.execute(text("""
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name='notifications' AND column_name='recipient_id';
+    """)).fetchone()
+    
+    if result_notif_recipient:
+        print("Migrating notifications table: Dropping recipient_type/recipient_id and adding user_id...")
+        conn.execute(text("""
+            ALTER TABLE notifications 
+            DROP COLUMN IF EXISTS recipient_type,
+            DROP COLUMN IF EXISTS recipient_id;
+        """))
+        conn.execute(text("""
+            ALTER TABLE notifications 
+            ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE CASCADE NULL;
+        """))
+        conn.commit()
+        print("Migration successful! Notifications table updated to use user_id foreign key.")
+    else:
+        # Also check if user_id column is missing for some reason
+        result_notif_user = conn.execute(text("""
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name='notifications' AND column_name='user_id';
+        """)).fetchone()
+        if not result_notif_user:
+            print("Column 'user_id' not found in table 'notifications'. Adding column...")
+            conn.execute(text("""
+                ALTER TABLE notifications 
+                ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE CASCADE NULL;
+            """))
+            conn.commit()
+            print("Migration successful! Column 'user_id' added to table 'notifications'.")
+        else:
+            print("Notifications table is already up-to-date with 'user_id' column.")
+

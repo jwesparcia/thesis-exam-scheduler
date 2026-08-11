@@ -1,6 +1,6 @@
 import importlib
 from datetime import date
-from database import SessionLocal
+from core import SessionLocal
 
 def run_schedule():
     scheduler = importlib.import_module('utils.scheduler')

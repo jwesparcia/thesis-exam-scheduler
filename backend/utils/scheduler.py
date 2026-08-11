@@ -1,7 +1,7 @@
 import random
 from datetime import datetime, date, time, timedelta
 from sqlalchemy.orm import Session
-from models import Exam, Timeslot, Room, Subject, Section, DistributionRule, TeacherSchedule, Proctor, TeacherTeaching
+from model import Exam, Timeslot, Room, Subject, Section, DistributionRule, TeacherSchedule, Proctor, TeacherTeaching
 from room_data import get_room_names_for_department
 
 # Time slots per day matching the official Tertiary Periodical Departmental Exam Schedule:
@@ -115,7 +115,7 @@ def generate_exam_schedule(db: Session, start_date: date, end_date: date = None,
 
     # 1. Clear previous DRAFT schedules for the specific department, semester and term
     report_progress(4, "Preparing schedule", "Clearing previous draft schedules")
-    from models import Course
+    from model import Course
     drafts_to_delete = db.query(Exam).join(Course, Exam.course_id == Course.id).filter(
         Exam.status == "draft",
         Course.category == department,
@@ -242,7 +242,8 @@ def generate_exam_schedule(db: Session, start_date: date, end_date: date = None,
 
     # Fetch year level IDs for Y3 and Y4 (for major subject slot restriction)
     import re as _re
-    year_level_id_to_name = {yl.id: yl.name for yl in db.query(__import__('models').YearLevel).all()}
+    from model import YearLevel
+    year_level_id_to_name = {yl.id: yl.name for yl in db.query(YearLevel).all()}
     senior_year_level_ids = {
         yl_id for yl_id, name in year_level_id_to_name.items()
         if _re.search(r'(3rd|4th|grade\s*1[12])', name.lower())

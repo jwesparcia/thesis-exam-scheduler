@@ -6,8 +6,8 @@ import sys
 # Ensure backend directory is in python path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from database import SessionLocal
-from models import Section, Course
+from core import SessionLocal
+from model import Section, Course
 
 # List of common last names in the Philippines
 last_names = [

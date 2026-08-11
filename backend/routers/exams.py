@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, joinedload
-from database import get_db
-from models import Exam, Subject, Section, Room, Timeslot, Course, YearLevel, Teacher, User, Notification
+from core import get_db
+from model import Exam, Subject, Section, Room, Timeslot, Course, YearLevel, Teacher, User, Notification
 from room_data import AVAILABLE_EXAM_ROOMS, get_room_names_for_department
 from utils.scheduler import generate_exam_schedule
 from datetime import datetime
@@ -451,6 +451,32 @@ def get_generate_progress(
 ):
     return _get_generation_progress(_progress_key(current_user, job_id))
 
+@router.post("/generate/cancel")
+def cancel_schedule_generation(
+    job_id: Optional[str] = Query(None, description="Generation job id to cancel"),
+    current_user: User = Depends(require_role(["admin"]))
+):
+    key = _progress_key(current_user, job_id)
+    with _generation_progress_lock:
+        current = _generation_progress.get(key)
+        if current and current.get("status") == "running":
+            _generation_progress[key]["status"] = "cancelled"
+            _generation_progress[key]["phase"] = "Cancelling..."
+            _generation_progress[key]["detail"] = "Cancellation requested by user."
+            return {"message": "Generation cancellation requested."}
+        else:
+            # Try to cancel any running job
+            cancelled_any = False
+            for k, v in _generation_progress.items():
+                if v.get("status") == "running":
+                    v["status"] = "cancelled"
+                    v["phase"] = "Cancelling..."
+                    v["detail"] = "Cancellation requested by user."
+                    cancelled_any = True
+            if cancelled_any:
+                return {"message": "Generation cancellation requested."}
+            return {"message": "No active schedule generation job to cancel."}
+
 @router.post("/generate")
 def generate_schedule(
     payload: dict = Body(default={}),
@@ -481,6 +507,32 @@ def generate_schedule(
         if end_date_str:
             end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date()
         
+        # --- Date Validation ---
+        if start_date and end_date and end_date < start_date:
+            _set_generation_progress(job_id, "failed", 0, "Generation failed", "End date must be after or equal to start date.")
+            raise HTTPException(status_code=400, detail="End date cannot be before start date.")
+
+        # --- Guard: Ensure at least one student account exists ---
+        student_count = db.query(User).filter(User.role == "student").count()
+        if student_count == 0:
+            _set_generation_progress(job_id, "failed", 0, "Generation blocked", "No student accounts found.")
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot generate schedule: no student accounts have been uploaded. Please import students first."
+            )
+
+        def _on_progress(progress):
+            current = _get_generation_progress(job_id)
+            if current.get("status") == "cancelled":
+                raise RuntimeError("Schedule generation cancelled by user.")
+            _set_generation_progress(
+                job_id,
+                "running",
+                progress.get("percent", 0),
+                progress.get("phase", "Generating schedule"),
+                progress.get("detail", "")
+            )
+
         result = generate_exam_schedule(
             db, 
             start_date=start_date, 
@@ -489,13 +541,7 @@ def generate_schedule(
             semester=semester,
             excluded_subjects=excluded_subjects,
             term=term,
-            progress_callback=lambda progress: _set_generation_progress(
-                job_id,
-                "running",
-                progress.get("percent", 0),
-                progress.get("phase", "Generating schedule"),
-                progress.get("detail", "")
-            )
+            progress_callback=_on_progress
         )
         
         total = result["total_exams"]
@@ -517,15 +563,28 @@ def generate_schedule(
         _set_generation_progress(job_id, "completed", 100, "Schedule generated", message)
         return {"message": message, "job_id": job_id}
     except Exception as e:
+        db.rollback()
         if "job_id" in locals():
             current_progress = _get_generation_progress(job_id)
-            _set_generation_progress(
-                job_id,
-                "failed",
-                current_progress.get("percent", 0),
-                "Generation failed",
-                str(e),
-            )
+            if current_progress.get("status") == "cancelled" or "cancelled" in str(e).lower():
+                _set_generation_progress(
+                    job_id,
+                    "cancelled",
+                    0,
+                    "Generation cancelled",
+                    "Schedule generation was cancelled by the user."
+                )
+                raise HTTPException(status_code=400, detail="Schedule generation was cancelled by the user.")
+            else:
+                _set_generation_progress(
+                    job_id,
+                    "failed",
+                    current_progress.get("percent", 0),
+                    "Generation failed",
+                    str(e),
+                )
+        if isinstance(e, HTTPException):
+            raise e
         raise HTTPException(status_code=500, detail=str(e))
         
 @router.post("/post")
@@ -586,8 +645,7 @@ def post_exams(
                 
                 msg = f"You have been assigned to proctor {sub_name} ({sub_code}) for section {sec_name}{date_str}{time_str}."
                 notification = Notification(
-                    recipient_type="proctor",
-                    recipient_id=str(proctor_user.id),
+                    user_id=proctor_user.id,
                     message=msg,
                     type="info",
                     related_id=exam.id

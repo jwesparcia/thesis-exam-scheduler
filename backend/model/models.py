@@ -2,7 +2,7 @@ from sqlalchemy import Column, Integer, String, Text, ForeignKey, Date, Time, En
 from passlib.context import CryptContext
 from datetime import datetime, timezone
 from sqlalchemy.orm import relationship
-from database import Base
+from core.database import Base
 
 class Course(Base):
     __tablename__ = "courses"
@@ -179,13 +179,14 @@ class ReschedulingRequest(Base):
 class Notification(Base):
     __tablename__ = "notifications"
     id = Column(Integer, primary_key=True, index=True)
-    recipient_type = Column(String)
-    recipient_id = Column(String)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
     message = Column(String)
     type = Column(String)
     related_id = Column(Integer, nullable=True)
     is_read = Column(Boolean, default=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+
+    user = relationship("User", backref="notifications")
 
 class DistributionRule(Base):
     __tablename__ = "distribution_rules"

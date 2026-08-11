@@ -1,6 +1,6 @@
 import importlib
 from datetime import date
-from database import SessionLocal
+from core import SessionLocal
 
 def run_small_schedule():
     # Import the scheduler module and adjust GA parameters for faster execution

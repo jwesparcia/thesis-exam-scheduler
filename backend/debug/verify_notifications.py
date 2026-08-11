@@ -2,8 +2,8 @@ import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from database import SessionLocal
-from models import Notification, User, Exam
+from core import SessionLocal
+from model import Notification, User, Exam
 
 db = SessionLocal()
 
@@ -16,6 +16,6 @@ else:
     print(f"Found {len(notifications)} notifications. Last 10:")
     for n in notifications:
         msg_safe = n.message.encode('ascii', 'replace').decode('ascii')
-        print(f"ID: {n.id} | Recipient Type: {n.recipient_type} | Recipient ID: {n.recipient_id} | Type: {n.type} | Message: {msg_safe}")
+        print(f"ID: {n.id} | User ID: {n.user_id} | Type: {n.type} | Message: {msg_safe}")
 
 db.close()

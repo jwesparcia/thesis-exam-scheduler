@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.orm import Session, joinedload
-from database import get_db
-from models import Exam, Timeslot, ReschedulingRequest, User, IrregularSelection, Subject, Section
+from core import get_db
+from model import Exam, Timeslot, ReschedulingRequest, User, IrregularSelection, Subject, Section
 from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime

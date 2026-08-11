@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session, joinedload
-from database import get_db
-import models
+from core import get_db
+from model import models
 import pandas as pd
 import io
 from datetime import datetime, date
@@ -267,9 +267,9 @@ async def upload_my_schedule(proctor_id: int, file: UploadFile = File(...), db: 
             db.commit()
             
             # Notify Admin
+            admin_user = db.query(models.User).filter(models.User.role == "program_head").first()
             notif = models.Notification(
-                recipient_type="program_head",
-                recipient_id="admin",
+                user_id=admin_user.id if admin_user else None,
                 message=f"Proctor {proctor.name} has uploaded their teaching schedule.",
                 type="info",
                 related_id=proctor.id
@@ -334,9 +334,9 @@ async def upload_my_schedule(proctor_id: int, file: UploadFile = File(...), db: 
         db.commit()
         
         # Notify Admin
+        admin_user = db.query(models.User).filter(models.User.role == "program_head").first()
         notif = models.Notification(
-            recipient_type="program_head",
-            recipient_id="admin",
+            user_id=admin_user.id if admin_user else None,
             message=f"Proctor {proctor.name} has uploaded their teaching schedule.",
             type="info",
             related_id=proctor.id
@@ -402,9 +402,9 @@ def confirm_attendance(proctor_id: int, exam_id: int, db: Session = Depends(get_
     proctor_name = proctor.name if proctor else f"Proctor {proctor_id}"
     subject_name = exam.subject.name if exam.subject else "Unknown Subject"
     section_name = exam.section.name if exam.section else "Unknown Section"
+    admin_user = db.query(models.User).filter(models.User.role == "program_head").first()
     notif = models.Notification(
-        recipient_type="program_head",
-        recipient_id="admin",
+        user_id=admin_user.id if admin_user else None,
         message=f"Proctor {proctor_name} has confirmed attendance for {subject_name} ({section_name}).",
         type="success",
         related_id=exam.id
@@ -525,9 +525,9 @@ def delete_proctor_schedule(proctor_id: int, db: Session = Depends(get_db), curr
     db.commit()
     
     # Notify Admin that proctor deleted their schedule
+    admin_user = db.query(models.User).filter(models.User.role == "program_head").first()
     notif = models.Notification(
-        recipient_type="program_head",
-        recipient_id="admin",
+        user_id=admin_user.id if admin_user else None,
         message=f"Proctor {proctor.name} has deleted their teaching schedule.",
         type="info",
         related_id=proctor.id

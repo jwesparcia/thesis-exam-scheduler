@@ -5,7 +5,7 @@ Backend startup script with detailed error checking
 import sys
 import subprocess
 
-def check-python():
+def check_python():
     """Check if Python 3 is available"""
     try:
         version = sys.version_info
@@ -15,14 +15,14 @@ def check-python():
         print(f"❌ Python not found: {e}")
         return False
 
-def check-dependencies():
+def check_dependencies():
     """Check if required packages are installed"""
     packages = [
         ("fastapi", "FastAPI"),
         ("uvicorn", "Uvicorn"),
         ("sqlalchemy", "SQLAlchemy"),
         ("psycopg2", "psycopg2/binary"),
-        ("python-dotenv", "python-dotenv")
+        ("dotenv", "python-dotenv")
     ]
 
     missing = []
@@ -43,7 +43,7 @@ def check-dependencies():
         return False
     return True
 
-def check-postgresql():
+def check_postgresql():
     """Check PostgreSQL connection"""
     try:
         import psycopg2
@@ -61,17 +61,17 @@ def check-postgresql():
         print("   Make sure PostgreSQL is running and database exists")
         return False
 
-def test-import():
+def test_import():
     """Test importing our main modules"""
     try:
-        import database
+        from core import database
         print("✓ database module imported")
     except Exception as e:
         print(f"❌ database import failed: {e}")
         return False
 
     try:
-        import models
+        from model import models
         print("✓ models module imported")
     except Exception as e:
         print(f"❌ models import failed: {e}")
@@ -86,7 +86,7 @@ def test-import():
 
     return True
 
-def start-backend():
+def start_backend():
     """Try to start the backend"""
     print("\n🚀 Starting backend...")
     try:
@@ -100,7 +100,7 @@ def main():
     print("🔍 Backend Diagnostic Tool\n")
 
     # Step 1: Python
-    if not check-python():
+    if not check_python():
         return
 
     # Step 2: Dependencies

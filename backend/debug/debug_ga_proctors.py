@@ -2,9 +2,9 @@ import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from database import SessionLocal
+from core import SessionLocal
 from utils.scheduler import generate_exam_schedule
-from models import Proctor, TeacherSchedule
+from model import Proctor, TeacherSchedule
 from datetime import date
 
 def debug_proctors():
