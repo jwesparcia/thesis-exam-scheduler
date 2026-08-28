@@ -808,6 +808,7 @@ export default function ProctorDashboard() {
   const [filePreview, setFilePreview] = useState(null);
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [isClearNotifModalOpen, setIsClearNotifModalOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showDeleteScheduleModal, setShowDeleteScheduleModal] = useState(false);
   const [deletingSchedule, setDeletingSchedule] = useState(false);
@@ -899,6 +900,34 @@ export default function ProctorDashboard() {
       setNotifications(notifications.map(n => n.id === id ? { ...n, is_read: true } : n));
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const handleDeleteNotification = async (e, id) => {
+    e.stopPropagation();
+    try {
+      await api.delete(`/notifications/${id}`);
+      setNotifications(prev => prev.filter(n => n.id !== id));
+    } catch (err) {
+      console.error("Error deleting notification:", err);
+    }
+  };
+
+  const confirmClearAllNotifications = (e) => {
+    e.stopPropagation();
+    setShowNotifications(false);
+    setIsClearNotifModalOpen(true);
+  };
+
+  const executeClearAllNotifications = async () => {
+    if (!user?.id) return;
+    try {
+      await api.delete(`/notifications/clear/proctor/${user.id}`);
+      setNotifications([]);
+    } catch (err) {
+      console.error("Error clearing notifications:", err);
+    } finally {
+      setIsClearNotifModalOpen(false);
     }
   };
 
@@ -1044,6 +1073,7 @@ export default function ProctorDashboard() {
   }
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
+  const latestUnreadNotif = notifications.find(n => !n.is_read);
 
   return (
     <div className={`min-h-dvh w-full overflow-x-hidden flex transition-colors duration-300 ${isDark ? "bg-slate-900" : "bg-slate-50"}`}>
@@ -1056,8 +1086,20 @@ export default function ProctorDashboard() {
       {showNotifications && (
         <div onClick={(e) => e.stopPropagation()} className={`fixed left-3 right-3 top-20 sm:left-auto sm:right-6 sm:top-24 sm:w-96 max-h-[min(24rem,calc(100dvh-6rem))] flex flex-col rounded-2xl shadow-2xl border z-50 transform origin-top-right transition-all animate-in fade-in scale-95 duration-200 ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200"}`}>
           <div className={`px-5 py-4 border-b flex justify-between items-center ${isDark ? "border-slate-700" : "border-slate-100"}`}>
-            <h3 className={`font-semibold ${isDark ? "text-white" : "text-slate-900"}`}>Notifications</h3>
-            {unreadCount > 0 && <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-bold">{unreadCount} New</span>}
+            <div className="flex items-center gap-2">
+              <h3 className={`font-semibold ${isDark ? "text-white" : "text-slate-900"}`}>Notifications</h3>
+              {unreadCount > 0 && <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-bold">{unreadCount} New</span>}
+            </div>
+            {notifications.length > 0 && (
+              <button
+                onClick={confirmClearAllNotifications}
+                className="text-xs font-semibold text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1.5"
+                title="Clear all notifications"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Clear All</span>
+              </button>
+            )}
           </div>
           <div className="overflow-y-auto p-2 custom-scrollbar flex-1">
             {notifications.length === 0 ? (
@@ -1070,16 +1112,25 @@ export default function ProctorDashboard() {
                 <div
                   key={notif.id}
                   onClick={() => handleNotificationClick(notif)}
-                  className={`p-3.5 rounded-xl cursor-pointer transition-all duration-200 mb-1 ${notif.is_read ? (isDark ? "hover:bg-slate-700/50 opacity-60" : "hover:bg-slate-50 opacity-60") : (isDark ? "bg-blue-900/20 hover:bg-blue-900/40 border border-blue-800/30" : "bg-blue-50 hover:bg-blue-100 border border-blue-100")}`}
+                  className={`p-3.5 rounded-xl cursor-pointer transition-all duration-200 mb-1 group relative ${notif.is_read ? (isDark ? "hover:bg-slate-700/50 opacity-60" : "hover:bg-slate-50 opacity-60") : (isDark ? "bg-blue-900/20 hover:bg-blue-900/40 border border-blue-800/30" : "bg-blue-50 hover:bg-blue-100 border border-blue-100")}`}
                 >
-                  <div className="flex gap-3">
-                    <div className={`mt-1.5 w-2 h-2 rounded-full flex-shrink-0 ${notif.is_read ? "bg-slate-400" : "bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.8)]"}`}></div>
-                    <div>
-                      <p className={`text-sm leading-snug ${isDark ? "text-slate-200" : "text-slate-800"}`}>{notif.message}</p>
-                      <p className={`text-[11px] mt-1.5 font-medium ${isDark ? "text-slate-500" : "text-slate-400"}`}>
-                        {formatNotifTime(notif.created_at)}
-                      </p>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex gap-3 min-w-0 flex-1">
+                      <div className={`mt-1.5 w-2 h-2 rounded-full flex-shrink-0 ${notif.is_read ? "bg-slate-400" : "bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.8)]"}`}></div>
+                      <div className="min-w-0 flex-1">
+                        <p className={`text-sm leading-snug ${isDark ? "text-slate-200" : "text-slate-800"}`}>{notif.message}</p>
+                        <p className={`text-[11px] mt-1.5 font-medium ${isDark ? "text-slate-500" : "text-slate-400"}`}>
+                          {formatNotifTime(notif.created_at)}
+                        </p>
+                      </div>
                     </div>
+                    <button
+                      onClick={(e) => handleDeleteNotification(e, notif.id)}
+                      className={`p-1 rounded-lg transition-colors shrink-0 ${isDark ? "text-slate-400 hover:text-red-400 hover:bg-slate-700" : "text-slate-400 hover:text-red-600 hover:bg-slate-200/70"}`}
+                      title="Delete notification"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
               ))
@@ -1214,6 +1265,51 @@ export default function ProctorDashboard() {
           </div>
 
           <div className="relative z-10 max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-5 sm:pt-8 pb-4">
+            {latestUnreadNotif && (
+              <div className="mb-6 animate-in fade-in slide-in-from-top-4 duration-300 relative z-10">
+                <div className={`p-4 rounded-2xl border backdrop-blur-md shadow-md flex items-center justify-between gap-4 transition-all ${
+                  isDark 
+                    ? "bg-blue-950/40 border-blue-900/60 text-blue-100" 
+                    : "bg-blue-50/95 border-blue-200/80 text-blue-900"
+                }`}>
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                      isDark ? "bg-blue-500/20 text-blue-300" : "bg-blue-600 text-white shadow-sm"
+                    }`}>
+                      <Bell className="w-5 h-5 animate-bounce" />
+                    </div>
+                    <div>
+                      <span className="text-xs font-bold uppercase tracking-wider block opacity-75">New Notification</span>
+                      <p className="text-sm font-semibold mt-0.5 leading-snug">{latestUnreadNotif.message}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button 
+                      onClick={() => handleNotificationClick(latestUnreadNotif)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                        isDark 
+                          ? "bg-blue-600 hover:bg-blue-500 text-white" 
+                          : "bg-blue-600 hover:bg-blue-700 text-white"
+                      }`}
+                    >
+                      View Details
+                    </button>
+                    <button 
+                      onClick={() => markRead(latestUnreadNotif.id)}
+                      className={`p-2 rounded-lg transition-all ${
+                        isDark 
+                          ? "text-blue-400 hover:text-white hover:bg-slate-800" 
+                          : "text-blue-600 hover:text-blue-800 hover:bg-blue-100"
+                      }`}
+                      title="Mark as read"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className={`relative overflow-hidden p-4 sm:p-6 md:p-8 rounded-2xl sm:rounded-3xl shadow-sm border flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6 ${isDark ? "bg-slate-800/80 border-slate-700/50 backdrop-blur-xl" : "bg-white/80 border-slate-200 backdrop-blur-xl"}`}>
               <div className="absolute right-0 top-0 w-64 h-64 bg-blue-500/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3"></div>
               <div className={`w-16 h-16 sm:w-20 sm:h-20 shrink-0 rounded-2xl flex items-center justify-center text-xl sm:text-2xl font-bold shadow-inner relative z-10 ${isDark ? "bg-gradient-to-br from-blue-600 to-indigo-700 text-white" : "bg-gradient-to-br from-blue-100 to-indigo-100 text-blue-700 border border-blue-200"}`}>
@@ -1642,6 +1738,16 @@ export default function ProctorDashboard() {
           </div>
         </div>
       )}
+
+      <ConfirmationModal
+        isOpen={isClearNotifModalOpen}
+        title="Clear All Notifications"
+        message="Are you sure you want to clear all notifications? This action cannot be undone."
+        confirmLabel="Clear All"
+        isDanger={true}
+        onConfirm={executeClearAllNotifications}
+        onCancel={() => setIsClearNotifModalOpen(false)}
+      />
     </div>
   );
 }

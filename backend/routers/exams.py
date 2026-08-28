@@ -192,17 +192,22 @@ def get_exams(
 def get_department_subjects(
     department: str = Query("College", description="Department category (e.g., College or SHS)"),
     semester: int = Query(1, description="Semester (1 or 2)"),
+    course_id: Optional[int] = Query(None, description="Optional: filter by specific course ID"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """
     Get all unique written subject names for a specific department and semester.
+    Optionally filter by course_id when a specific course is selected.
     """
-    subjects = db.query(Subject.name).join(Course).filter(
+    query = db.query(Subject.name).join(Course).filter(
         Course.category == department,
         Subject.exam_type == "written",
         Subject.semester == semester
-    ).distinct().order_by(Subject.name).all()
+    )
+    if course_id:
+        query = query.filter(Course.id == course_id)
+    subjects = query.distinct().order_by(Subject.name).all()
     
     return [s[0] for s in subjects if s[0]]
 

@@ -54,3 +54,32 @@ def mark_notification_read(notification_id: int, db: Session = Depends(get_db)):
     notification.is_read = True
     db.commit()
     return {"message": "Notification marked as read"}
+
+@router.delete("/clear/{recipient_type}/{recipient_id}")
+def clear_all_notifications(recipient_type: str, recipient_id: str, db: Session = Depends(get_db)):
+    if recipient_type == "program_head" and recipient_id == "admin":
+        admin_user = db.query(User).filter(User.role == "program_head").first()
+        resolved_user_id = admin_user.id if admin_user else None
+    else:
+        try:
+            resolved_user_id = int(recipient_id)
+        except ValueError:
+            resolved_user_id = None
+
+    if resolved_user_id is None:
+        return {"message": "No notifications to clear"}
+
+    db.query(Notification).filter(Notification.user_id == resolved_user_id).delete(synchronize_session=False)
+    db.commit()
+    return {"message": "All notifications cleared"}
+
+@router.delete("/{notification_id}")
+def delete_notification(notification_id: int, db: Session = Depends(get_db)):
+    notification = db.query(Notification).filter(Notification.id == notification_id).first()
+    if not notification:
+        raise HTTPException(status_code=404, detail="Notification not found")
+
+    db.delete(notification)
+    db.commit()
+    return {"message": "Notification deleted"}
+

@@ -270,7 +270,7 @@ export default function DataImport({ isGenerating }) {
               className="w-full flex items-center justify-center gap-2.5 px-4 py-3 rounded-xl text-sm font-semibold bg-blue-600 text-white hover:bg-blue-700 transition duration-300 shadow-sm shadow-blue-600/10"
             >
               <Download className="w-4 h-4" />
-              Download Current Curriculum / Template
+              Download Current Curriculum
             </button>
           </div>
         </div>

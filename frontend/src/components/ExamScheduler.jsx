@@ -66,7 +66,7 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
     fetchOptions();
   }, []);
 
-  // Fetch subjects when department or semester changes
+  // Fetch subjects when department, course, or semester changes
   useEffect(() => {
     if (!selectedDept) {
       setSubjects([]);
@@ -82,12 +82,14 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
       setSubjectsError("");
       setSearchQuery("");
       try {
-        const res = await api.get("/exams/subjects", {
-          params: {
-            department: selectedDept,
-            semester,
-          },
-        });
+        const params = {
+          department: selectedDept,
+          semester,
+        };
+        if (courseId) {
+          params.course_id = courseId;
+        }
+        const res = await api.get("/exams/subjects", { params });
         if (!isCurrentRequest) return;
 
         const subjectNames = Array.isArray(res.data)
@@ -113,7 +115,8 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
     return () => {
       isCurrentRequest = false;
     };
-  }, [selectedDept, semester]);
+  }, [selectedDept, courseId, semester]);
+
 
   // Fetch rooms when selected department changes
   useEffect(() => {
