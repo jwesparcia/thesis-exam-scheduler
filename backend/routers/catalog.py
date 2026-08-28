@@ -22,6 +22,7 @@ def safe_clear_catalog_data(db: Session, exclude_program_head: bool = True):
     """
     Safely delete all catalog, scheduling, and proctor/teacher user data in dependency order.
     Student accounts are intentionally preserved — they are managed separately.
+    Their course_id and section_name are nulled out since the curriculum is being wiped.
     """
     # Delete proctor and teacher user accounts only; preserve students and program_head
     roles_to_delete = ["proctor", "teacher", "admin"] if not exclude_program_head else ["proctor", "teacher"]
@@ -42,9 +43,16 @@ def safe_clear_catalog_data(db: Session, exclude_program_head: bool = True):
     db.query(ProctorAvailability).delete(synchronize_session=False)
     db.query(Subject).delete(synchronize_session=False)
     db.query(Section).delete(synchronize_session=False)
-    
+
     if user_ids:
         db.query(User).filter(User.id.in_(user_ids)).delete(synchronize_session=False)
+
+    # Null out course_id on student accounts before deleting courses to avoid FK violations.
+    # Students are kept but their curriculum references are cleared since the data is gone.
+    db.query(User).filter(User.role == "student").update(
+        {User.course_id: None, User.section_name: None},
+        synchronize_session=False
+    )
 
     db.query(Proctor).delete(synchronize_session=False)
     db.query(Teacher).delete(synchronize_session=False)

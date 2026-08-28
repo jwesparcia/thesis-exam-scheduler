@@ -454,6 +454,26 @@ def get_room_status(
     }
 
 
+@router.get("/count")
+def get_exam_count(
+    department: str = Query("College", description="Department (College or SHS)"),
+    semester: int = Query(1, description="Semester"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(["admin"]))
+):
+    """
+    Return the count of existing exams for a given department and semester.
+    Used by the frontend to block re-generation when a schedule already exists.
+    """
+    count = (
+        db.query(Exam)
+        .join(Course, Exam.course_id == Course.id)
+        .filter(Course.category == department, Exam.semester == semester)
+        .count()
+    )
+    return {"count": count, "department": department, "semester": semester}
+
+
 @router.get("/generate/progress")
 def get_generate_progress(
     job_id: str = Query(None, description="Generation job id returned or sent with /exams/generate"),
@@ -523,6 +543,7 @@ def generate_schedule(
         semester = payload_data.get("semester", 1)
         term = payload_data.get("term", "Midterm")
         excluded_subjects = payload_data.get("excluded_subjects", [])
+        force_overwrite = payload_data.get("force_overwrite", False)
         
         start_date_str = payload_data.get("start_date")
         if start_date_str:
@@ -535,6 +556,34 @@ def generate_schedule(
         if start_date and end_date and end_date < start_date:
             _set_generation_progress(job_id, "failed", 0, "Generation failed", "End date must be after or equal to start date.")
             raise HTTPException(status_code=400, detail="End date cannot be before start date.")
+
+        # --- Guard: Block if existing exams exist and overwrite not confirmed ---
+        existing_count = (
+            db.query(Exam)
+            .join(Course, Exam.course_id == Course.id)
+            .filter(Course.category == department, Exam.semester == semester)
+            .count()
+        )
+        if existing_count > 0 and not force_overwrite:
+            _set_generation_progress(job_id, "failed", 0, "Generation blocked",
+                f"{existing_count} existing exam(s) found for {department} Semester {semester}.")
+            raise HTTPException(
+                status_code=409,
+                detail=f"A schedule already exists ({existing_count} exams) for {department} Semester {semester}. "
+                       f"Please delete or overwrite the existing schedule first."
+            )
+
+        # --- If overwriting: delete existing exams for this dept/semester first ---
+        if force_overwrite and existing_count > 0:
+            exams_to_delete = (
+                db.query(Exam)
+                .join(Course, Exam.course_id == Course.id)
+                .filter(Course.category == department, Exam.semester == semester)
+                .all()
+            )
+            for e in exams_to_delete:
+                db.delete(e)
+            db.flush()
 
         # --- Guard: Ensure at least one student account exists ---
         student_count = db.query(User).filter(User.role == "student").count()
