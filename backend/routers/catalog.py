@@ -20,12 +20,12 @@ from pydantic import BaseModel
 
 def safe_clear_catalog_data(db: Session, exclude_program_head: bool = True):
     """
-    Safely delete all catalog, scheduling, and user data in dependency order to prevent FK violations.
+    Safely delete all catalog, scheduling, and proctor/teacher user data in dependency order.
+    Student accounts are intentionally preserved — they are managed separately.
     """
-    if exclude_program_head:
-        users_to_delete = db.query(User).filter(User.role != "program_head").all()
-    else:
-        users_to_delete = db.query(User).all()
+    # Delete proctor and teacher user accounts only; preserve students and program_head
+    roles_to_delete = ["proctor", "teacher", "admin"] if not exclude_program_head else ["proctor", "teacher"]
+    users_to_delete = db.query(User).filter(User.role.in_(roles_to_delete)).all()
     
     user_ids = [u.id for u in users_to_delete]
 
@@ -720,8 +720,8 @@ def clear_catalog_data(
     current_user: User = Depends(require_role(["admin"]))
 ):
     """
-    Clear all database catalog data (courses, sections, subjects, teachers, proctors, proctor user accounts, and exam schedules).
-    Requires typing 'confirm' in the payload.
+    Delete all curriculum data (courses, sections, subjects, teachers, proctors, proctor accounts, and exam schedules).
+    Student accounts are preserved. Requires typing 'confirm' in the payload.
     """
     if payload.confirm_text != "confirm":
         raise HTTPException(status_code=400, detail="Invalid confirmation text. You must type 'confirm'.")
@@ -729,11 +729,11 @@ def clear_catalog_data(
     try:
         safe_clear_catalog_data(db, exclude_program_head=True)
         db.commit()
-        log_activity(db, current_user.id, "CURRICULUM_CLEAR_DATA", "Admin / Program Head cleared all database records via direct reset.")
-        return {"message": "All data cleared successfully!"}
+        log_activity(db, current_user.id, "CURRICULUM_CLEAR_DATA", "Admin deleted curriculum data (courses, sections, subjects, teachers, proctors). Student accounts preserved.")
+        return {"message": "Curriculum data deleted successfully! Student accounts were not affected."}
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Failed to clear database: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete curriculum: {str(e)}")
 
 @router.post("/clear-students")
 def clear_student_accounts_endpoint(

@@ -20,6 +20,11 @@ router = APIRouter(prefix="/exams", tags=["Exams"])
 _generation_progress = {}
 _generation_progress_lock = Lock()
 
+# Rate limiter: 1 generation request per user per 60 seconds
+_GENERATE_RATE_LIMIT_SECONDS = 60
+_generate_last_request: dict = {}  # user_id -> datetime of last accepted request
+_generate_rate_limit_lock = Lock()
+
 
 def _progress_key(current_user: User, job_id: str | None = None):
     return str(job_id or current_user.id)
@@ -492,6 +497,20 @@ def generate_schedule(
     Trigger the automatic scheduling for ALL courses based on distribution rules.
     Optionally accepts start_date (YYYY-MM-DD), end_date, department, semester, and excluded_subjects in the body.
     """
+    # --- Rate Limiting: 1 request per 60 seconds per user ---
+    now = datetime.utcnow()
+    with _generate_rate_limit_lock:
+        last = _generate_last_request.get(current_user.id)
+        if last is not None:
+            elapsed = (now - last).total_seconds()
+            remaining = _GENERATE_RATE_LIMIT_SECONDS - elapsed
+            if remaining > 0:
+                raise HTTPException(
+                    status_code=429,
+                    detail=f"Too many requests. Please wait {int(remaining) + 1} more second(s) before generating again."
+                )
+        _generate_last_request[current_user.id] = now
+
     try:
         payload_data = payload if payload else {}
         job_id = _progress_key(current_user, payload_data.get("job_id"))
