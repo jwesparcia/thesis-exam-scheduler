@@ -1,30 +1,30 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
-  Calendar,
-  Users,
-  LogOut,
-  Settings,
-  Bell,
-  LayoutGrid,
-  ClipboardList,
-  Target,
-  Sparkles,
-  CalendarDays,
-  Loader2,
-  ShieldCheck,
-  DoorOpen,
-  BookOpen,
-  User,
-  MessageSquare,
-  Send,
-  ChevronRight,
-  Edit,
-  Trash2,
-  Database,
-  Plus,
-  Search,
-  X,
-} from "lucide-react";
+  CalendarIcon,
+  UsersIcon,
+  ArrowLeftStartOnRectangleIcon,
+  Cog6ToothIcon,
+  BellIcon,
+  Squares2X2Icon,
+  ClipboardDocumentListIcon,
+  AdjustmentsHorizontalIcon,
+  SparklesIcon,
+  CalendarDaysIcon,
+  ArrowPathIcon,
+  ShieldCheckIcon,
+  BuildingOffice2Icon,
+  BookOpenIcon,
+  UserIcon,
+  ChatBubbleLeftRightIcon,
+  PaperAirplaneIcon,
+  ChevronRightIcon,
+  PencilIcon,
+  TrashIcon,
+  CircleStackIcon,
+  PlusIcon,
+  MagnifyingGlassIcon,
+  XMarkIcon,
+} from "@heroicons/react/24/outline";
 import ExamScheduler from "../components/ExamScheduler";
 import AddProctor from "../components/AddProctor";
 import { useTheme } from "../context/themeStore";
@@ -38,6 +38,7 @@ import SettingsDropdown from "../components/SettingsDropdown";
 import DataImport from "../components/DataImport";
 import StudentImport from "../components/StudentImport";
 import ConfirmationModal from "../components/ConfirmationModal";
+import FirstTimePasswordChange from "../components/FirstTimePasswordChange";
 
 import api from "../api";
 import { useToast } from "../context/ToastContext";
@@ -166,7 +167,7 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
           </div>
         ) : requests.length === 0 ? (
           <div className={`text-center py-16 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
-            <ClipboardList className="w-12 h-12 mx-auto mb-3 opacity-30" />
+            <ClipboardDocumentListIcon className="w-12 h-12 mx-auto mb-3 opacity-30" />
             <p className="font-medium">No pending rescheduling requests.</p>
             <p className="text-sm mt-1">Students with exam conflicts can submit requests from their dashboard.</p>
           </div>
@@ -256,7 +257,7 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
           </div>
         ) : history.length === 0 ? (
           <div className={`text-center py-16 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
-            <ClipboardList className="w-12 h-12 mx-auto mb-3 opacity-30" />
+            <ClipboardDocumentListIcon className="w-12 h-12 mx-auto mb-3 opacity-30" />
             <p className="font-medium">No rescheduling history.</p>
             <p className="text-sm mt-1">Processed rescheduling requests will appear here.</p>
           </div>
@@ -547,13 +548,13 @@ function ChatSupportPanel() {
             }`}
             title="Start New Chat"
           >
-            <Plus className="w-4 h-4" />
+            <PlusIcon className="w-4 h-4" />
           </button>
         </div>
         <div className="flex-1 overflow-y-auto custom-scrollbar">
           {conversations.length === 0 ? (
             <div className={`p-6 text-center text-sm ${isDark ? "text-gray-500" : "text-gray-400"}`}>
-              <MessageSquare className="w-8 h-8 mx-auto mb-2 opacity-30" />
+              <ChatBubbleLeftRightIcon className="w-8 h-8 mx-auto mb-2 opacity-30" />
               No conversations yet
             </div>
           ) : conversations.map((conv) => (
@@ -623,7 +624,7 @@ function ChatSupportPanel() {
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-red-500 hover:bg-red-500/10 border border-transparent hover:border-red-500/25 transition-all duration-200"
                 title="Delete Conversation"
               >
-                <Trash2 className="w-4 h-4" />
+                <TrashIcon className="w-4 h-4" />
                 Clear Chat
               </button>
             </div>
@@ -632,7 +633,7 @@ function ChatSupportPanel() {
             <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
               {messages.length === 0 ? (
                 <div className={`text-center py-12 text-sm ${isDark ? "text-gray-500" : "text-gray-400"}`}>
-                  <MessageSquare className="w-10 h-10 mx-auto mb-2 opacity-20" />
+                  <ChatBubbleLeftRightIcon className="w-10 h-10 mx-auto mb-2 opacity-20" />
                   No messages yet. Start the conversation!
                 </div>
               ) : messages.map((msg) => {
@@ -649,14 +650,14 @@ function ChatSupportPanel() {
                           }`}
                           title="Edit message"
                         >
-                          <Edit className="w-3.5 h-3.5" />
+                          <PencilIcon className="w-3.5 h-3.5" />
                         </button>
                         <button
                           onClick={() => deleteMessage(msg.id)}
                           className="p-1 rounded transition-colors hover:bg-red-500/10 text-red-500"
                           title="Delete message"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <TrashIcon className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     )}
@@ -724,7 +725,7 @@ function ChatSupportPanel() {
                   : "bg-blue-600 hover:bg-blue-700 text-white"
                   }`}
               >
-                <Send className="w-5 h-5" />
+                <PaperAirplaneIcon className="w-5 h-5" />
               </button>
             </div>
           </>
@@ -732,7 +733,7 @@ function ChatSupportPanel() {
           <div className={`flex-1 flex flex-col items-center justify-center gap-4 ${isDark ? "text-gray-500" : "text-gray-400"}`}>
             <div className={`w-16 h-16 rounded-2xl flex items-center justify-center ${isDark ? "bg-gray-800" : "bg-gray-100"
               }`}>
-              <MessageSquare className="w-8 h-8 opacity-40" />
+              <ChatBubbleLeftRightIcon className="w-8 h-8 opacity-40" />
             </div>
             <div className="text-center">
               <p className="font-semibold">Select a conversation</p>
@@ -786,7 +787,7 @@ function ChatSupportPanel() {
                   isDark ? "hover:bg-slate-700 text-slate-400 hover:text-white" : "hover:bg-slate-100 text-gray-500 hover:text-gray-900"
                 }`}
               >
-                <X className="w-5 h-5" />
+                <XMarkIcon className="w-5 h-5" />
               </button>
             </div>
 
@@ -816,7 +817,7 @@ function ChatSupportPanel() {
 
             {/* Search Input */}
             <div className="relative">
-              <Search className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 ${
+              <MagnifyingGlassIcon className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 ${
                 isDark ? "text-slate-500" : "text-slate-400"
               }`} />
               <input
@@ -895,11 +896,11 @@ function ProgramHeadManual() {
   const [activeSubTab, setActiveSubTab] = useState("generation");
 
   const topics = [
-    { id: "generation", label: "Schedule Generation", icon: Calendar },
-    { id: "rooms", label: "Room & Capacity Rules", icon: DoorOpen },
-    { id: "proctors", label: "Proctor Management", icon: Users },
-    { id: "rescheduling", label: "Rescheduling Requests", icon: ClipboardList },
-    { id: "rules", label: "Distribution Rules", icon: Target },
+    { id: "generation", label: "Schedule Generation", icon: CalendarIcon },
+    { id: "rooms", label: "Room & Capacity Rules", icon: BuildingOffice2Icon },
+    { id: "proctors", label: "Proctor Management", icon: UsersIcon },
+    { id: "rescheduling", label: "Rescheduling Requests", icon: ClipboardDocumentListIcon },
+    { id: "rules", label: "Distribution Rules", icon: AdjustmentsHorizontalIcon },
   ];
 
   return (
@@ -907,7 +908,7 @@ function ProgramHeadManual() {
       <div className={`p-6 rounded-2xl border ${isDark ? "bg-slate-800/40 border-slate-700" : "bg-gradient-to-r from-blue-500/10 to-indigo-500/10 border-blue-100"}`}>
         <div className="flex items-center gap-4">
           <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${isDark ? "bg-blue-500/20 text-blue-300" : "bg-blue-600 text-white shadow-md shadow-blue-500/20"}`}>
-            <BookOpen className="w-6 h-6" />
+            <BookOpenIcon className="w-6 h-6" />
           </div>
           <div>
             <h2 className={`text-xl font-bold tracking-tight ${isDark ? "text-white" : "text-slate-900"}`}>
@@ -1132,7 +1133,7 @@ function NavGroup({ label, icon: GroupIcon, children, defaultOpen = false, isDar
           <GroupIcon className="w-3.5 h-3.5" />
           <span className="text-[11px] font-bold uppercase tracking-widest">{label}</span>
         </div>
-        <ChevronRight
+        <ChevronRightIcon
           className={`w-3.5 h-3.5 transition-transform duration-200 ${open ? "rotate-90" : ""}`}
         />
       </button>
@@ -1189,30 +1190,30 @@ function NavSidebar({ activeTab, setActiveTab, isDark, unreadChatCount, pendingR
   return (
     <nav className="flex-1 px-4 py-5 space-y-3 overflow-y-auto custom-scrollbar">
       {/* Scheduling Group */}
-      <NavGroup label="Scheduling" icon={Calendar} defaultOpen={isSchedulingActive} isDark={isDark}>
-        <NavItem item={{ id: "generate", icon: Calendar, label: "Generate Schedule" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
-        <NavItem item={{ id: "schedules", icon: CalendarDays, label: "Generated Schedules" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
+      <NavGroup label="Scheduling" icon={CalendarIcon} defaultOpen={isSchedulingActive} isDark={isDark}>
+        <NavItem item={{ id: "generate", icon: CalendarIcon, label: "Generate Schedule" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
+        <NavItem item={{ id: "schedules", icon: CalendarDaysIcon, label: "Generated Schedules" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
       </NavGroup>
 
       {/* Management Group */}
-      <NavGroup label="Management" icon={Users} defaultOpen={isManagementActive} isDark={isDark}>
-        <NavItem item={{ id: "proctors", icon: Users, label: "Proctor Management" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
-        <NavItem item={{ id: "rooms", icon: DoorOpen, label: "Room Management" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
-        <NavItem item={{ id: "monitoring", icon: ShieldCheck, label: "Proctor Monitoring" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
-        <NavItem item={{ id: "rescheduling", icon: ClipboardList, label: "Rescheduling" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={pendingRescheduleCount} onSelect={onSelectNavItem} />
-        <NavItem item={{ id: "chat", icon: MessageSquare, label: "Chat" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={unreadChatCount} onSelect={onSelectNavItem} />
+      <NavGroup label="Management" icon={UsersIcon} defaultOpen={isManagementActive} isDark={isDark}>
+        <NavItem item={{ id: "proctors", icon: UsersIcon, label: "Proctor Management" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
+        <NavItem item={{ id: "rooms", icon: BuildingOffice2Icon, label: "Room Management" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
+        <NavItem item={{ id: "monitoring", icon: ShieldCheckIcon, label: "Proctor Monitoring" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
+        <NavItem item={{ id: "rescheduling", icon: ClipboardDocumentListIcon, label: "Rescheduling" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={pendingRescheduleCount} onSelect={onSelectNavItem} />
+        <NavItem item={{ id: "chat", icon: ChatBubbleLeftRightIcon, label: "Chat" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={unreadChatCount} onSelect={onSelectNavItem} />
       </NavGroup>
 
       {/* Data & Imports Group */}
-      <NavGroup label="Data & Imports" icon={Database} defaultOpen={isDataActive} isDark={isDark}>
-        <NavItem item={{ id: "import", icon: Database, label: "Data Import" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
-        <NavItem item={{ id: "students", icon: User, label: "Student Accounts" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
-        <NavItem item={{ id: "rules", icon: Target, label: "Distribution Rules" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
+      <NavGroup label="Data & Imports" icon={CircleStackIcon} defaultOpen={isDataActive} isDark={isDark}>
+        <NavItem item={{ id: "import", icon: CircleStackIcon, label: "Data Import" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
+        <NavItem item={{ id: "students", icon: UserIcon, label: "Student Accounts" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
+        <NavItem item={{ id: "rules", icon: AdjustmentsHorizontalIcon, label: "Distribution Rules" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
       </NavGroup>
 
       {/* Help standalone */}
       <div className={`pt-2 border-t ${isDark ? "border-slate-800" : "border-slate-100"}`}>
-        <NavItem item={{ id: "manual", icon: BookOpen, label: "User Manual" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
+        <NavItem item={{ id: "manual", icon: BookOpenIcon, label: "User Manual" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
       </div>
     </nav>
   );
@@ -1223,7 +1224,7 @@ export default function ProgramHeadDashboard() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [generationState, setGenerationState] = useState(INITIAL_GENERATION_STATE);
   const { theme } = useTheme();
-  const { user, logout } = useUser();
+  const { user, login, logout } = useUser();
   const navigate = useNavigate();
   const isDark = theme === "dark";
   const { showWarning } = useToast();
@@ -1373,6 +1374,30 @@ export default function ProgramHeadDashboard() {
     }
   };
 
+  if (!user) {
+    return (
+      <div className={`min-h-screen ${isDark ? "bg-gray-900" : "bg-gray-50"} flex items-center justify-center`}>
+        <p className={isDark ? "text-gray-300" : "text-gray-600"}>Redirecting...</p>
+      </div>
+    );
+  }
+
+  if (user && user.is_first_login) {
+    return (
+      <FirstTimePasswordChange
+        user={user}
+        onPasswordChanged={(updatedUser) => login(updatedUser)}
+        isDark={isDark}
+        onLogout={handleLogout}
+        onSkip={() => login({
+          ...user,
+          is_first_login: false,
+          temporary_skip: true
+        })}
+      />
+    );
+  }
+
   return (
     <div className={`min-h-screen flex transition-colors duration-300 ${isDark ? "bg-slate-900" : "bg-slate-50"}`}>
       {showNotifications && (
@@ -1394,14 +1419,14 @@ export default function ProgramHeadDashboard() {
                 className="text-xs font-semibold text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1.5"
                 title="Clear all notifications"
               >
-                <Trash2 className="w-3.5 h-3.5" />
+                <TrashIcon className="w-3.5 h-3.5" />
                 <span>Clear All</span>
               </button>
             )}
           </div>
           <div className="overflow-y-auto p-2 custom-scrollbar flex-1">
             {notifications.length === 0 ? (
-              <div className={`p-6 text-center text-sm ${isDark ? "text-slate-500" : "text-slate-400"}`}><Bell className="w-8 h-8 mx-auto mb-2 opacity-20" />You're all caught up!</div>
+              <div className={`p-6 text-center text-sm ${isDark ? "text-slate-500" : "text-slate-400"}`}><BellIcon className="w-8 h-8 mx-auto mb-2 opacity-20" />You're all caught up!</div>
             ) : notifications.map((notif) => (
               <div key={notif.id} onClick={() => handleNotificationClick(notif)} className={`p-3.5 rounded-xl cursor-pointer transition-all duration-200 mb-1 group relative ${notif.is_read ? (isDark ? "hover:bg-slate-700/50 opacity-60" : "hover:bg-slate-50 opacity-60") : (isDark ? "bg-blue-900/20 hover:bg-blue-900/40 border border-blue-800/30" : "bg-blue-50 hover:bg-blue-100 border border-blue-100")}`}>
                 <div className="flex items-start justify-between gap-2">
@@ -1417,7 +1442,7 @@ export default function ProgramHeadDashboard() {
                     className={`p-1 rounded-lg transition-colors shrink-0 ${isDark ? "text-slate-400 hover:text-red-400 hover:bg-slate-700" : "text-slate-400 hover:text-red-600 hover:bg-slate-200/70"}`}
                     title="Delete notification"
                   >
-                    <X className="w-4 h-4" />
+                    <XMarkIcon className="w-4 h-4" />
                   </button>
                 </div>
               </div>
@@ -1443,10 +1468,10 @@ export default function ProgramHeadDashboard() {
             aria-label="Close menu"
             className="absolute top-4 right-4 p-2 rounded-lg lg:hidden text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
           >
-            <X className="w-5 h-5" />
+            <XMarkIcon className="w-5 h-5" />
           </button>
           <div className={`w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg transition-transform hover:scale-105 duration-300 ${isDark ? "bg-gradient-to-br from-blue-600 to-indigo-700" : "bg-gradient-to-br from-blue-500 to-blue-700"}`}>
-            <User className="w-8 h-8 text-white" />
+            <UserIcon className="w-8 h-8 text-white" />
           </div>
           <div className="text-center">
             <h2 className={`text-lg font-bold tracking-tight ${isDark ? "text-white" : "text-slate-900"}`}>{user?.name || "Admin"}</h2>
@@ -1480,7 +1505,7 @@ export default function ProgramHeadDashboard() {
                   aria-label="Open menu"
                   className={`lg:hidden p-2 -ml-2 rounded-xl transition-colors ${isDark ? "text-slate-300 hover:bg-slate-800" : "text-slate-600 hover:bg-slate-100"}`}
                 >
-                  <LayoutGrid className="w-5 h-5 sm:w-6 sm:h-6" />
+                  <Squares2X2Icon className="w-5 h-5 sm:w-6 sm:h-6" />
                 </button>
                 <div className="min-w-0">
                   <h1 className={`text-base sm:text-2xl font-bold tracking-tight transition-colors truncate ${isDark ? "text-white" : "text-slate-900"}`}>
@@ -1504,7 +1529,7 @@ export default function ProgramHeadDashboard() {
                 </div>
                 <div className="relative">
                   <button onClick={() => setShowNotifications(!showNotifications)} className={`relative p-2.5 rounded-xl transition-all duration-300 ${isDark ? "text-slate-300 hover:text-white hover:bg-slate-800" : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"}`}>
-                    <Bell className="w-5 h-5" />
+                    <BellIcon className="w-5 h-5" />
                     {unreadCount > 0 && (
                       <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white ring-2 ring-white dark:ring-slate-900 animate-pulse">
                         {unreadCount}
@@ -1532,7 +1557,7 @@ export default function ProgramHeadDashboard() {
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
                       isDark ? "bg-blue-500/20 text-blue-300" : "bg-blue-600 text-white shadow-sm"
                     }`}>
-                      <Bell className="w-5 h-5 animate-bounce" />
+                      <BellIcon className="w-5 h-5 animate-bounce" />
                     </div>
                     <div>
                       <span className="text-xs font-bold uppercase tracking-wider block opacity-75">New Notification</span>
@@ -1559,7 +1584,7 @@ export default function ProgramHeadDashboard() {
                       }`}
                       title="Mark as read"
                     >
-                      <X className="w-4 h-4" />
+                      <XMarkIcon className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
@@ -1572,7 +1597,7 @@ export default function ProgramHeadDashboard() {
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div className="flex items-start gap-3 min-w-0">
                       <div className={`mt-0.5 w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${isDark ? "bg-blue-500/20 text-blue-300" : "bg-white text-blue-600 shadow-sm"}`}>
-                        <Loader2 className="w-5 h-5 animate-spin" />
+                        <ArrowPathIcon className="w-5 h-5 animate-spin" />
                       </div>
                       <div className="min-w-0">
                         <p className={`text-sm font-bold ${isDark ? "text-blue-100" : "text-blue-900"}`}>
@@ -1631,7 +1656,7 @@ export default function ProgramHeadDashboard() {
                 <div className="p-6 flex flex-col sm:flex-row items-center justify-between gap-6">
                   <div className="flex items-center gap-5">
                     <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-inner ${isDark ? "bg-slate-700 text-yellow-400" : "bg-white text-yellow-500"}`}>
-                      <Sparkles className="w-6 h-6" />
+                      <SparklesIcon className="w-6 h-6" />
                     </div>
                     <div>
                       <h3 className={`font-bold text-lg tracking-tight ${isDark ? "text-white" : "text-slate-900"}`}>How's Your Experience?</h3>

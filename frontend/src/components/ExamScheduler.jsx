@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { CalendarDays, FileText, Loader2, BookOpen, Sparkles, X } from "lucide-react";
+import { CalendarDaysIcon, DocumentTextIcon, ArrowPathIcon, BookOpenIcon, SparklesIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { useTheme } from "../context/themeStore";
 import api from "../api";
 import { useToast } from "../context/ToastContext";
@@ -36,6 +36,9 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
   const [excludedSubjects, setExcludedSubjects] = useState(new Set());
   const [searchQuery, setSearchQuery] = useState("");
   const [generationProgress, setGenerationProgress] = useState(INITIAL_GENERATION_PROGRESS);
+  const [existingExamCount, setExistingExamCount] = useState(0);
+  const [existingExamChecking, setExistingExamChecking] = useState(false);
+  const [overwriteModal, setOverwriteModal] = useState({ isOpen: false });
   const { showSuccess, showError, showWarning } = useToast();
   const [confirmModal, setConfirmModal] = useState({
     isOpen: false,
@@ -116,6 +119,28 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
       isCurrentRequest = false;
     };
   }, [selectedDept, courseId, semester]);
+
+  // Check for existing exams when department or semester changes
+  useEffect(() => {
+    if (!selectedDept) {
+      setExistingExamCount(0);
+      return;
+    }
+    const checkExisting = async () => {
+      setExistingExamChecking(true);
+      try {
+        const res = await api.get("/exams/count", {
+          params: { department: selectedDept, semester }
+        });
+        setExistingExamCount(res.data.count || 0);
+      } catch {
+        setExistingExamCount(0);
+      } finally {
+        setExistingExamChecking(false);
+      }
+    };
+    checkExisting();
+  }, [selectedDept, semester]);
 
 
   // Fetch rooms when selected department changes
@@ -260,7 +285,7 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
   };
 
   // Actual execution of generation
-  const executeGeneration = async () => {
+  const executeGeneration = async (forceOverwrite = false) => {
     const jobId = `schedule-${Date.now()}`;
     setActiveJobId(jobId);
     setLoading(true);
@@ -280,7 +305,8 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
         semester: semester,
         term: term,
         excluded_subjects: Array.from(excludedSubjects),
-        job_id: jobId
+        job_id: jobId,
+        force_overwrite: forceOverwrite,
       });
       const data = res.data;
       setGenerationProgress({
@@ -292,23 +318,41 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
       showSuccess(data.message);
     } catch (err) {
       console.error(err);
+      const status = err.response?.status;
       const message = err.response?.data?.detail || "Error generating schedule";
       const isCancelled = message.toLowerCase().includes("cancelled") || message.toLowerCase().includes("cancel");
-      setGenerationProgress({
-        status: isCancelled ? "cancelled" : "failed",
-        percent: 0,
-        phase: isCancelled ? "Generation cancelled" : "Generation failed",
-        detail: message,
-      });
-      if (isCancelled) {
+      const isRateLimited = status === 429;
+
+      if (isRateLimited) {
+        // Reset to idle — don't show a failed progress bar for rate limit
+        setGenerationProgress(INITIAL_GENERATION_PROGRESS);
+        showWarning(message);
+      } else if (isCancelled) {
+        setGenerationProgress({
+          status: "cancelled",
+          percent: 0,
+          phase: "Generation cancelled",
+          detail: message,
+        });
         showWarning("Schedule generation was cancelled.");
       } else {
+        setGenerationProgress({
+          status: "failed",
+          percent: 0,
+          phase: "Generation failed",
+          detail: message,
+        });
         showError(message);
       }
     } finally {
       stopProgressPolling(jobId);
       setLoading(false);
       setActiveJobId(null);
+      // Refresh existing exam count after generation attempt
+      try {
+        const res = await api.get("/exams/count", { params: { department: selectedDept, semester } });
+        setExistingExamCount(res.data.count || 0);
+      } catch { /* ignore */ }
     }
   };
 
@@ -340,6 +384,12 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
       return;
     }
 
+    // Guard: block if existing schedule already exists — must overwrite or delete first
+    if (existingExamCount > 0) {
+      setOverwriteModal({ isOpen: true });
+      return;
+    }
+
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
 
     // Call external warning from parent (if any)
@@ -351,11 +401,11 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
 
     let msg = "";
     if (diffDays < 3 || diffDays > 5) {
-      msg = `The selected range is ${diffDays} days (recommended is 4). Do you want to proceed? This will regenerate the schedule for ALL ${selectedDept} courses at once.`;
+      msg = `The selected range is ${diffDays} days (recommended is 4). Do you want to proceed? This will generate the schedule for ALL ${selectedDept} courses at once.`;
     } else if (diffDays !== 4) {
-      msg = `The selected range is ${diffDays} days (exactly 4 is recommended). Proceed? This will regenerate the schedule for ALL ${selectedDept} courses at once.`;
+      msg = `The selected range is ${diffDays} days (exactly 4 is recommended). Proceed? This will generate the schedule for ALL ${selectedDept} courses at once.`;
     } else {
-      msg = `This will regenerate the schedule for ALL ${selectedDept} courses at once, ensuring shared subjects are taken simultaneously. Continue?`;
+      msg = `This will generate the schedule for ALL ${selectedDept} courses at once, ensuring shared subjects are taken simultaneously. Continue?`;
     }
 
     setConfirmModal({
@@ -363,7 +413,7 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
       message: msg,
       onConfirm: () => {
         setConfirmModal(prev => ({ ...prev, isOpen: false }));
-        executeGeneration();
+        executeGeneration(false);
       }
     });
   };
@@ -384,7 +434,7 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
       <div className="max-w-7xl mx-auto px-6 py-10">
         <div className="flex items-center justify-between gap-3 mb-8">
           <div className="flex items-center gap-3">
-            <CalendarDays className="text-blue-500 w-8 h-8" />
+            <CalendarDaysIcon className="text-blue-500 w-8 h-8" />
             <h1 className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}>
               Exam Scheduler
             </h1>
@@ -393,7 +443,7 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
 
         <div className={`rounded-xl p-6 border mb-10 ${isDark ? "bg-gray-700 border-gray-700" : "bg-white border-gray-200"} shadow-sm`}>
           <h2 className={`text-xl font-semibold ${isDark ? "text-gray-300" : "text-gray-700"} mb-4 flex items-center gap-2`}>
-            <FileText className="w-5 h-5 text-blue-500" /> Schedule Filters
+            <DocumentTextIcon className="w-5 h-5 text-blue-500" /> Schedule Filters
           </h2>
 
           {/* Step 1: Select Department & Semester */}
@@ -593,13 +643,13 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
                       : "bg-gray-50 text-gray-700 border-gray-200 border"
                       }`}
                   />
-                  <FileText className={`absolute left-3 top-2.5 w-4 h-4 ${isDark ? "text-gray-500" : "text-gray-400"}`} />
+                  <DocumentTextIcon className={`absolute left-3 top-2.5 w-4 h-4 ${isDark ? "text-gray-500" : "text-gray-400"}`} />
                 </div>
 
                 <div className={`max-h-64 overflow-y-auto rounded-xl border p-2 ${isDark ? "border-gray-700 bg-gray-800/50" : "border-gray-200 bg-gray-50"}`}>
                   {subjectsLoading ? (
                     <div className={`p-4 text-center text-sm flex items-center justify-center gap-2 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
-                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <ArrowPathIcon className="w-4 h-4 animate-spin" />
                       Loading subjects...
                     </div>
                   ) : subjectsError ? (
@@ -686,22 +736,54 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
                   </div>
                 )}
 
+                {/* Existing schedule warning banner */}
+                {existingExamCount > 0 && !loading && (
+                  <div className={`mb-5 flex items-start gap-3 rounded-2xl border p-4 ${
+                    isDark ? "bg-amber-900/20 border-amber-700/40" : "bg-amber-50 border-amber-200"
+                  }`}>
+                    <div className={`shrink-0 w-5 h-5 mt-0.5 ${isDark ? "text-amber-400" : "text-amber-600"}`}>
+                      ⚠️
+                    </div>
+                    <div>
+                      <p className={`text-sm font-bold ${isDark ? "text-amber-300" : "text-amber-800"}`}>
+                        Existing Schedule Detected
+                      </p>
+                      <p className={`text-xs mt-1 ${isDark ? "text-amber-400/80" : "text-amber-700"}`}>
+                        There are already <strong>{existingExamCount} exams</strong> generated for {selectedDept} Semester {semester}.
+                        You must <strong>overwrite</strong> the existing schedule or go to <em>Generated Schedules</em> to delete it first.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex flex-col sm:flex-row items-center gap-4">
                   <button
                     onClick={generate}
-                    disabled={loading}
-                    className={`flex items-center justify-center gap-3 px-8 py-4 rounded-2xl w-full sm:w-auto text-white font-bold text-lg transition-all shadow-xl ${loading
-                      ? "bg-gray-400 cursor-not-allowed"
-                      : "bg-blue-600 hover:bg-blue-700 hover:shadow-blue-500/20 active:scale-95"
-                      }`}
+                    disabled={loading || existingExamChecking}
+                    className={`flex items-center justify-center gap-3 px-8 py-4 rounded-2xl w-full sm:w-auto text-white font-bold text-lg transition-all shadow-xl ${
+                      loading || existingExamChecking
+                        ? "bg-gray-400 cursor-not-allowed"
+                        : existingExamCount > 0
+                          ? "bg-amber-500 hover:bg-amber-600 hover:shadow-amber-500/20 active:scale-95"
+                          : "bg-blue-600 hover:bg-blue-700 hover:shadow-blue-500/20 active:scale-95"
+                    }`}
                   >
                     {loading ? (
                       <>
-                        <Loader2 className="w-6 h-6 animate-spin" /> Generating...
+                        <ArrowPathIcon className="w-6 h-6 animate-spin" /> Generating...
+                      </>
+                    ) : existingExamChecking ? (
+                      <>
+                        <ArrowPathIcon className="w-6 h-6 animate-spin" /> Checking...
+                      </>
+                    ) : existingExamCount > 0 ? (
+                      <>
+                        <SparklesIcon className="w-6 h-6" />
+                        Overwrite Existing Schedule
                       </>
                     ) : (
                       <>
-                        <Sparkles className="w-6 h-6" />
+                        <SparklesIcon className="w-6 h-6" />
                         Generate Schedule for All {selectedDept} Courses
                       </>
                     )}
@@ -716,11 +798,11 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
                     >
                       {cancelling ? (
                         <>
-                          <Loader2 className="w-5 h-5 animate-spin" /> Cancelling...
+                          <ArrowPathIcon className="w-5 h-5 animate-spin" /> Cancelling...
                         </>
                       ) : (
                         <>
-                          <X className="w-5 h-5" /> Cancel Generation
+                          <XMarkIcon className="w-5 h-5" /> Cancel Generation
                         </>
                       )}
                     </button>
@@ -730,7 +812,7 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
             </div>
           ) : (
             <div className={`p-10 text-center rounded-2xl border-2 border-dashed ${isDark ? "border-gray-800 bg-gray-800/20 text-gray-500" : "border-gray-100 bg-gray-50/50 text-gray-400"}`}>
-              <Sparkles className="w-12 h-12 mx-auto mb-4 opacity-20" />
+              <SparklesIcon className="w-12 h-12 mx-auto mb-4 opacity-20" />
               <p className="text-lg font-medium">Ready to create a schedule?</p>
               <p className="text-sm mt-1">Select an academic level above to begin configuring the filters.</p>
             </div>
@@ -741,7 +823,7 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
         {details.sections.length > 0 && (
           <div className={`rounded-xl p-6 mb-10 ${isDark ? "bg-gray-700 border border-gray-700" : "bg-white border border-gray-200"} shadow-sm`}>
             <h2 className={`text-xl font-semibold ${isDark ? "text-gray-300" : "text-gray-800"} mb-4 flex items-center gap-2`}>
-              <BookOpen className="w-5 h-5 text-blue-500" /> Sections & Subjects
+              <BookOpenIcon className="w-5 h-5 text-blue-500" /> Sections & Subjects
             </h2>
             <div className="space-y-6">
               {details.sections.map((section) => (
@@ -809,12 +891,52 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
         )}
       </div>
 
+      {/* Overwrite existing schedule modal */}
+      {overwriteModal.isOpen && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black/60 z-50 p-4">
+          <div className={`${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"} border rounded-2xl shadow-2xl max-w-md w-full p-8`}>
+            <div className="flex flex-col items-center text-center">
+              <div className="w-16 h-16 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center mb-5">
+                <span className="text-3xl">⚠️</span>
+              </div>
+              <h3 className={`text-xl font-bold mb-2 ${isDark ? "text-white" : "text-gray-900"}`}>
+                Schedule Already Exists
+              </h3>
+              <p className={`text-sm mb-2 ${isDark ? "text-gray-400" : "text-gray-600"} leading-relaxed`}>
+                There are already <strong>{existingExamCount} exams</strong> generated for{" "}
+                <strong>{selectedDept}</strong> Semester <strong>{semester}</strong>.
+              </p>
+              <p className={`text-xs mb-8 px-2 ${isDark ? "text-amber-400" : "text-amber-700"} leading-relaxed`}>
+                Proceeding will <strong>permanently delete</strong> all existing exams for this department and semester, then generate a fresh schedule. This cannot be undone.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3 w-full">
+                <button
+                  onClick={() => setOverwriteModal({ isOpen: false })}
+                  className={`flex-1 px-6 py-3 rounded-xl font-semibold transition ${isDark ? "bg-gray-700 text-gray-300 hover:bg-gray-600" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    setOverwriteModal({ isOpen: false });
+                    executeGeneration(true);
+                  }}
+                  className="flex-1 px-6 py-3 rounded-xl font-semibold bg-amber-500 hover:bg-amber-600 text-white transition shadow-lg shadow-amber-500/30"
+                >
+                  Overwrite Schedule
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {confirmModal.isOpen && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-50 p-4">
           <div className={`${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"} border rounded-2xl shadow-2xl max-w-md w-full p-8 animate-slide-in`}>
             <div className="flex flex-col items-center text-center">
               <div className="w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center mb-6">
-                <CalendarDays className="w-8 h-8 text-blue-500" />
+                <CalendarDaysIcon className="w-8 h-8 text-blue-500" />
               </div>
               <h3 className={`text-xl font-bold mb-3 ${isDark ? "text-white" : "text-gray-900"}`}>Confirm Regeneration</h3>
               <p className={`text-sm mb-8 ${isDark ? "text-gray-400" : "text-gray-600"} leading-relaxed`}>{confirmModal.message}</p>
@@ -829,3 +951,5 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
     </div>
   );
 }
+
+

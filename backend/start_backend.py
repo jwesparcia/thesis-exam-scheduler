@@ -3,7 +3,13 @@
 Backend startup script with detailed error checking
 """
 import sys
+import io
 import subprocess
+
+# Fix Unicode encoding on Windows terminals (cp1252 can't handle emoji)
+if sys.platform == "win32":
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
 def check_python():
     """Check if Python 3 is available"""

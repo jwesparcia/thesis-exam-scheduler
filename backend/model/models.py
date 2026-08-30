@@ -12,7 +12,7 @@ class Course(Base):
     
     sections = relationship("Section", back_populates="course")
     subjects = relationship("Subject", back_populates="course")
-    exams = relationship("Exam")
+    exams = relationship("Exam", back_populates="course")
 
 class YearLevel(Base):
     __tablename__ = "year_levels"
@@ -21,7 +21,7 @@ class YearLevel(Base):
     
     sections = relationship("Section", back_populates="year_level")
     subjects = relationship("Subject", back_populates="year_level")
-    exams = relationship("Exam")
+    exams = relationship("Exam", back_populates="year_level")
 
 class Teacher(Base):
     __tablename__ = "teachers"
@@ -143,9 +143,9 @@ class Exam(Base):
     subject = relationship("Subject")
     section = relationship("Section")
     room = relationship("Room")
-    timeslot = relationship("Timeslot")
-    course = relationship("Course")
-    year_level = relationship("YearLevel")
+    timeslot = relationship("Timeslot", back_populates="exams")
+    course = relationship("Course", back_populates="exams")
+    year_level = relationship("YearLevel", back_populates="exams")
     proctor = relationship("Proctor")
 
 class ReschedulingRequest(Base):
@@ -210,6 +210,7 @@ class User(Base):
     proctor_id = Column(Integer, ForeignKey("proctors.id"), nullable=True)
     student_type = Column(String, default="regular")  
     course_id = Column(Integer, ForeignKey("courses.id"), nullable=True)
+    is_first_login = Column(Boolean, default=True)
 
 class IrregularSelection(Base):
     __tablename__ = "irregular_selections"

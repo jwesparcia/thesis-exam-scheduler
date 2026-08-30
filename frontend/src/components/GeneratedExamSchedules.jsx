@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { CalendarDays, FileText, Loader2, Send, Download, Trash2, Save } from "lucide-react";
+import { CalendarDaysIcon, DocumentTextIcon, ArrowPathIcon, PaperAirplaneIcon, ArrowDownTrayIcon, TrashIcon, DocumentCheckIcon } from "@heroicons/react/24/outline";
 import { useTheme } from "../context/themeStore";
 import api from "../api";
 import { useToast } from "../context/ToastContext";
@@ -68,7 +68,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                 `/exams/post?semester=${semester}&department=${selectedDept}&term=${selectedTerm}`
             );
             if (res.status === 200) {
-                showSuccess(`Successfully posted all ${selectedDept} ${selectedTerm} schedules to students' dashboards!`);
+                showSuccess(res.data.message || `Successfully posted all ${selectedDept} ${selectedTerm} schedules to students' dashboards!`);
                 fetchExams();
             } else {
                 showError("Failed to post schedules.");
@@ -195,7 +195,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                 {/* Header */}
                 <div className="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4 mb-8">
                     <div className="flex items-center gap-3">
-                        <CalendarDays className="text-blue-500 w-8 h-8" />
+                        <CalendarDaysIcon className="text-blue-500 w-8 h-8" />
                         <h1 className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}>
                             Generated Exam Schedules
                         </h1>
@@ -213,7 +213,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                             }`}
                             title={isGenerating ? "Cannot delete schedules while schedule generation is ongoing" : ""}
                         >
-                            <Trash2 className="w-4 h-4" />
+                            <TrashIcon className="w-4 h-4" />
                             Delete All Schedules
                         </button>
                         <button
@@ -227,7 +227,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                             }`}
                             title={isGenerating ? "Cannot delete schedules while schedule generation is ongoing" : ""}
                         >
-                            <Trash2 className="w-4 h-4" />
+                            <TrashIcon className="w-4 h-4" />
                             Delete {selectedDept} Schedule
                         </button>
                         <button
@@ -240,7 +240,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                             }`}
                             title={isGenerating ? "Cannot post schedules while schedule generation is ongoing" : ""}
                         >
-                            <Send className="w-4 h-4" />
+                            <PaperAirplaneIcon className="w-4 h-4" />
                             Post All {selectedDept} Schedules
                         </button>
                         <button
@@ -253,7 +253,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                             }`}
                             title={isGenerating ? "Cannot save schedules while schedule generation is ongoing" : ""}
                         >
-                            <Save className="w-4 h-4" />
+                            <DocumentCheckIcon className="w-4 h-4" />
                             Save All {selectedDept} Schedules
                         </button>
                         <button
@@ -262,9 +262,9 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                             className="bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 transition-all hover:scale-105 active:scale-95 font-bold text-sm"
                         >
                             {downloading ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
+                                <ArrowPathIcon className="w-4 h-4 animate-spin" />
                             ) : (
-                                <Download className="w-4 h-4" />
+                                <ArrowDownTrayIcon className="w-4 h-4" />
                             )}
                             {downloading ? "Downloading..." : "Download Master Schedule"}
                         </button>
@@ -286,7 +286,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                     : "border-gray-100 bg-gray-50 text-gray-500 hover:border-blue-200 hover:text-blue-600"
                                 }`}
                         >
-                            <FileText className={`w-8 h-8 ${selectedDept === "College" ? "text-white" : "text-blue-500"}`} />
+                            <DocumentTextIcon className={`w-8 h-8 ${selectedDept === "College" ? "text-white" : "text-blue-500"}`} />
                             <span className="font-bold text-lg">College</span>
                         </button>
                         <button
@@ -298,7 +298,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                     : "border-gray-100 bg-gray-50 text-gray-500 hover:border-blue-200 hover:text-blue-600"
                                 }`}
                         >
-                            <CalendarDays className={`w-8 h-8 ${selectedDept === "SHS" ? "text-white" : "text-blue-500"}`} />
+                            <CalendarDaysIcon className={`w-8 h-8 ${selectedDept === "SHS" ? "text-white" : "text-blue-500"}`} />
                             <span className="font-bold text-lg">Senior High</span>
                         </button>
                     </div>
@@ -316,7 +316,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                 className={`text-xl font-semibold ${isDark ? "text-gray-300" : "text-gray-700"
                                     } mb-6 flex items-center gap-2`}
                             >
-                                <FileText className="w-5 h-5 text-blue-500" /> 2. Refine Results ({selectedDept})
+                                <DocumentTextIcon className="w-5 h-5 text-blue-500" /> 2. Refine Results ({selectedDept})
                             </h2>
 
                             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -419,25 +419,25 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                 className={`text-2xl font-bold ${isDark ? "text-white" : "text-gray-800"
                                     } mb-6 flex items-center gap-3`}
                             >
-                                <CalendarDays className="w-8 h-8 text-blue-500" /> Generated Schedule Results
+                                <CalendarDaysIcon className="w-8 h-8 text-blue-500" /> Generated Schedule Results
                             </h2>
 
                             {loading ? (
                                 <div className="flex flex-col items-center justify-center py-20 bg-white/50 dark:bg-gray-800/50 rounded-3xl border border-dashed border-gray-200 dark:border-gray-700">
-                                    <Loader2 className="w-12 h-12 animate-spin text-blue-500 mb-4" />
+                                    <ArrowPathIcon className="w-12 h-12 animate-spin text-blue-500 mb-4" />
                                     <span className={`text-lg font-medium ${isDark ? "text-gray-300" : "text-gray-600"}`}>
                                         Fetching your schedules...
                                     </span>
                                 </div>
                             ) : (!courseId || !yearId) ? (
                                 <div className={`p-12 text-center rounded-3xl border-2 border-dashed ${isDark ? "border-gray-800 text-gray-500 bg-gray-800/20" : "border-gray-100 text-gray-400 bg-gray-50/30"}`}>
-                                    <FileText className="w-16 h-16 mx-auto mb-4 opacity-10" />
+                                    <DocumentTextIcon className="w-16 h-16 mx-auto mb-4 opacity-10" />
                                     <p className="text-xl font-semibold mb-2">Ready to view schedules?</p>
                                     <p className="text-sm">Please select a {selectedDept === "SHS" ? "strand and grade" : "course and year level"} above to reveal the exam timetable.</p>
                                 </div>
                             ) : exams.length === 0 ? (
                                 <div className={`p-12 text-center rounded-3xl border-2 border-dashed ${isDark ? "border-gray-800 text-gray-500" : "border-gray-100 text-gray-400"}`}>
-                                    <CalendarDays className="w-16 h-16 mx-auto mb-4 opacity-10" />
+                                    <CalendarDaysIcon className="w-16 h-16 mx-auto mb-4 opacity-10" />
                                     <p className="text-xl font-semibold mb-2">No schedules found</p>
                                     <p className="text-sm">We couldn't find any generated exams for this selection. Try adjusting your filters or generate a new schedule in the first tab.</p>
                                 </div>
@@ -582,9 +582,9 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                         title={isGenerating ? "Cannot save schedules while schedule generation is ongoing" : ""}
                                     >
                                         {saving ? (
-                                            <Loader2 className="w-6 h-6 animate-spin" />
+                                            <ArrowPathIcon className="w-6 h-6 animate-spin" />
                                         ) : (
-                                            <Save className="w-6 h-6" />
+                                            <DocumentCheckIcon className="w-6 h-6" />
                                         )}
                                         {saving ? "Saving..." : "Save Schedule"}
                                     </button>
@@ -604,7 +604,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                                 );
 
                                                 if (res.status === 200) {
-                                                    showSuccess("Exams successfully posted for students to view!");
+                                                    showSuccess(res.data.message || "Exams successfully posted for students to view!");
                                                     await fetchExams();
                                                 } else {
                                                     showError("Failed to post exams.");
@@ -622,7 +622,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                         }`}
                                         title={isGenerating ? "Cannot post schedules while schedule generation is ongoing" : ""}
                                     >
-                                        <Send className="w-6 h-6" />
+                                        <PaperAirplaneIcon className="w-6 h-6" />
                                         Post Schedule
                                     </button>
                                 )}
@@ -631,7 +631,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                     </div>
                 ) : (
                     <div className={`p-20 text-center rounded-3xl border-2 border-dashed ${isDark ? "border-gray-800 bg-gray-800/20 text-gray-600" : "border-gray-100 bg-gray-50/50 text-gray-400"}`}>
-                        <CalendarDays className="w-16 h-16 mx-auto mb-4 opacity-10" />
+                        <CalendarDaysIcon className="w-16 h-16 mx-auto mb-4 opacity-10" />
                         <p className="text-xl font-semibold mb-2">Welcome to Schedule Viewer</p>
                         <p className="text-sm">Select an academic level above to filter and view generated schedules.</p>
                     </div>
@@ -644,7 +644,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                     <div className={`p-8 rounded-3xl shadow-2xl max-w-md w-full transform transition-all scale-100 ${isDark ? "bg-gray-800 border border-gray-700" : "bg-white"}`}>
                         <div className="flex flex-col items-center text-center">
                             <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-6 shadow-lg ${isDark ? "bg-emerald-900/50 shadow-emerald-900/20" : "bg-emerald-100 shadow-emerald-200/50"}`}>
-                                <Send className={`w-8 h-8 ${isDark ? "text-emerald-400" : "text-emerald-600"}`} />
+                                <PaperAirplaneIcon className={`w-8 h-8 ${isDark ? "text-emerald-400" : "text-emerald-600"}`} />
                             </div>
                             <h3 className={`text-2xl font-bold mb-3 ${isDark ? "text-white" : "text-gray-900"}`}>
                                 Post All Schedules?
@@ -682,7 +682,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                     <div className={`p-8 rounded-3xl shadow-2xl max-w-md w-full transform transition-all scale-100 ${isDark ? "bg-gray-800 border border-gray-700" : "bg-white"}`}>
                         <div className="flex flex-col items-center text-center">
                             <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-6 shadow-lg ${isDark ? "bg-indigo-900/50 shadow-indigo-900/20" : "bg-indigo-100 shadow-indigo-200/50"}`}>
-                                <Save className={`w-8 h-8 ${isDark ? "text-indigo-400" : "text-indigo-600"}`} />
+                                <DocumentCheckIcon className={`w-8 h-8 ${isDark ? "text-indigo-400" : "text-indigo-600"}`} />
                             </div>
                             <h3 className={`text-2xl font-bold mb-3 ${isDark ? "text-white" : "text-gray-900"}`}>
                                 Save All Schedules?
@@ -721,7 +721,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                     <div className={`p-8 rounded-3xl shadow-2xl max-w-md w-full transform transition-all scale-100 ${isDark ? "bg-gray-800 border border-gray-700" : "bg-white"}`}>
                         <div className="flex flex-col items-center text-center">
                             <div className="w-16 h-16 rounded-full flex items-center justify-center mb-6 bg-red-100 dark:bg-red-900/50 shadow-lg shadow-red-200/50 dark:shadow-red-900/20">
-                                <Trash2 className="w-8 h-8 text-red-600 dark:text-red-400" />
+                                <TrashIcon className="w-8 h-8 text-red-600 dark:text-red-400" />
                             </div>
                             <h3 className={`text-2xl font-bold mb-3 ${isDark ? "text-white" : "text-gray-900"}`}>
                                 {deleteScope === "all" ? "Delete All Schedules?" : `Delete ${selectedDept} Schedule?`}
@@ -747,7 +747,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                 >
                                     {deleting ? (
                                         <>
-                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                            <ArrowPathIcon className="w-4 h-4 animate-spin" />
                                             <span>Deleting...</span>
                                         </>
                                     ) : (

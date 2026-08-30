@@ -2,7 +2,8 @@
 from fastapi import APIRouter, Depends, Query, HTTPException, File, UploadFile, Form
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
-from core import get_db
+from core import get_db, cache
+from core.cache import TTL_STATIC, TTL_CATALOG_STATS, TTL_CATALOG_DETAILS
 from services import crud
 import io
 import pandas as pd
@@ -17,6 +18,15 @@ from model import (
 from routers.auth import require_role, get_current_user
 from utils.logging import log_activity
 from pydantic import BaseModel
+
+# ── cache keys ────────────────────────────────────────────────────────
+_KEY_COURSES       = "courses:all"
+_KEY_YEAR_LEVELS   = "year_levels:all"
+_KEY_STATS         = "catalog:stats"
+_KEY_STUDENT_STATS = "catalog:student_stats"
+
+def _details_key(course_id: int, year_level_id: int, semester: int) -> str:
+    return f"catalog:details:{course_id}:{year_level_id}:{semester}"
 
 def safe_clear_catalog_data(db: Session, exclude_program_head: bool = True):
     """
@@ -113,13 +123,23 @@ def classify_subject(name: str):
 
 @router.get("/courses")
 def get_courses(db: Session = Depends(get_db)):
+    cached = cache.get(_KEY_COURSES)
+    if cached is not None:
+        return cached
     courses = crud.list_courses(db)
-    return [{"id": c.id, "name": c.name, "category": c.category} for c in courses]
+    result = [{"id": c.id, "name": c.name, "category": c.category} for c in courses]
+    cache.set(_KEY_COURSES, result, TTL_STATIC)
+    return result
 
 @router.get("/year-levels")
 def get_year_levels(db: Session = Depends(get_db)):
+    cached = cache.get(_KEY_YEAR_LEVELS)
+    if cached is not None:
+        return cached
     year_levels = crud.list_year_levels(db)
-    return [{"id": y.id, "name": y.name} for y in year_levels]
+    result = [{"id": y.id, "name": y.name} for y in year_levels]
+    cache.set(_KEY_YEAR_LEVELS, result, TTL_STATIC)
+    return result
 
 @router.get("/details")
 def get_details(
@@ -128,33 +148,49 @@ def get_details(
     semester: int = Query(...),
     db: Session = Depends(get_db)
 ):
-    return crud.get_course_year_sem_details(course_id, year_level_id, semester, db)
+    key = _details_key(course_id, year_level_id, semester)
+    cached = cache.get(key)
+    if cached is not None:
+        return cached
+    result = crud.get_course_year_sem_details(course_id, year_level_id, semester, db)
+    cache.set(key, result, TTL_CATALOG_DETAILS)
+    return result
 
 @router.get("/stats")
 def get_catalog_stats(db: Session = Depends(get_db), current_user: User = Depends(require_role(["admin"]))):
     """
     Get counts of courses, sections, subjects, and teachers in the database.
     """
-    return {
+    cached = cache.get(_KEY_STATS)
+    if cached is not None:
+        return cached
+    result = {
         "courses": db.query(Course).count(),
         "sections": db.query(Section).count(),
         "subjects": db.query(Subject).count(),
         "teachers": db.query(Teacher).count()
     }
+    cache.set(_KEY_STATS, result, TTL_CATALOG_STATS)
+    return result
 
 @router.get("/student-stats")
 def get_student_stats(db: Session = Depends(get_db), current_user: User = Depends(require_role(["admin"]))):
     """
     Get counts of total, regular, and irregular student accounts.
     """
+    cached = cache.get(_KEY_STUDENT_STATS)
+    if cached is not None:
+        return cached
     total_students = db.query(User).filter(User.role == "student").count()
     regular_students = db.query(User).filter(User.role == "student", User.student_type == "regular").count()
     irregular_students = db.query(User).filter(User.role == "student", User.student_type == "irregular").count()
-    return {
+    result = {
         "total": total_students,
         "regular": regular_students,
         "irregular": irregular_students
     }
+    cache.set(_KEY_STUDENT_STATS, result, TTL_CATALOG_STATS)
+    return result
 
 @router.get("/download-template")
 def download_template(db: Session = Depends(get_db), current_user: User = Depends(require_role(["admin"]))):
@@ -564,6 +600,8 @@ def upload_catalog_excel(
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Database commit error: {str(e)}")
 
+    # ── invalidate catalog caches ─────────────────────────────────────
+    cache.invalidate_catalog()
     return {"message": "Catalog data successfully imported!", "details": stats}
 
 @router.post("/upload-students")
@@ -614,6 +652,9 @@ def upload_students_excel(
     # Pre-cache course mapping and section mapping to minimize DB roundtrips
     courses_cache = {c.name.upper(): c.id for c in db.query(Course).all()}
     sections_cache = {s.name.upper(): s for s in db.query(Section).all()}
+
+    # Pre-cache existing student users by email to avoid per-row DB queries
+    existing_users_cache = {u.email: u for u in db.query(User).filter(User.role == "student").all()}
 
     # We will process in batches to be fast
     for index, row in df.iterrows():
@@ -673,8 +714,8 @@ def upload_students_excel(
             # Irregular students might not have a section
             sec_name = None
 
-        # Check if student exists
-        existing_student = db.query(User).filter(User.email == email).first()
+        # Check if student exists (using pre-cached dict, not per-row DB query)
+        existing_student = existing_users_cache.get(email)
         if existing_student:
             existing_student.name = name
             existing_student.role = "student"
@@ -693,6 +734,7 @@ def upload_students_excel(
                 course_id=course_id
             )
             db.add(new_student)
+            existing_users_cache[email] = new_student  # avoid duplicate inserts
             stats["created"] += 1
 
     try:
@@ -702,6 +744,9 @@ def upload_students_excel(
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Database transaction error: {str(e)}")
 
+    # ── invalidate student-related caches ─────────────────────────────
+    cache.delete(_KEY_STUDENT_STATS)
+    cache.delete_pattern("exam_schedule:section:*")
     return {"message": "Student list successfully imported!", "details": stats}
 
 @router.get("/download-students-dummy")
@@ -738,6 +783,10 @@ def clear_catalog_data(
         safe_clear_catalog_data(db, exclude_program_head=True)
         db.commit()
         log_activity(db, current_user.id, "CURRICULUM_CLEAR_DATA", "Admin deleted curriculum data (courses, sections, subjects, teachers, proctors). Student accounts preserved.")
+        # ── invalidate all catalog + schedule caches ───────────────────
+        cache.invalidate_catalog()
+        cache.invalidate_proctors()
+        cache.delete("distribution_rules:all")
         return {"message": "Curriculum data deleted successfully! Student accounts were not affected."}
     except Exception as e:
         db.rollback()
@@ -756,6 +805,10 @@ def clear_student_accounts_endpoint(
         count = safe_clear_student_accounts(db)
         db.commit()
         log_activity(db, current_user.id, "STUDENTS_CLEAR_DATA", f"Program Head / Admin cleared {count} student accounts.")
+        # ── invalidate student caches ──────────────────────────────────
+        cache.delete(_KEY_STUDENT_STATS)
+        cache.delete_pattern("exam_schedule:section:*")
+        cache.delete_pattern("exam_schedule:irregular:*")
         return {"message": f"Successfully deleted {count} student account(s)!"}
     except Exception as e:
         db.rollback()

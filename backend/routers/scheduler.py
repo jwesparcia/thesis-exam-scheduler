@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session
-from core import get_db
+from core import get_db, cache
 from model import Section, Subject, Exam, Room, Timeslot, Teacher, Exam, DistributionRule, User, Proctor, ProctorAvailability, TeacherTeaching, Course
 from room_data import get_room_names_for_department
 from datetime import datetime, timedelta, time, date
@@ -61,6 +61,20 @@ def generate_exam_schedule(payload: dict = Body(...), db: Session = Depends(get_
     # subjects = subjects[:7]  <-- Removed limit
 
     # --- Remove old draft exams for this specific course/year/semester ---
+    # First delete any rescheduling requests referencing these exams (FK constraint)
+    from model import ReschedulingRequest
+    draft_exam_ids = [
+        row[0] for row in db.query(Exam.id).filter(
+            Exam.course_id == course_id,
+            Exam.year_level_id == year_level_id,
+            Exam.semester == semester,
+            Exam.status == "draft"
+        ).all()
+    ]
+    if draft_exam_ids:
+        db.query(ReschedulingRequest).filter(
+            ReschedulingRequest.exam_id.in_(draft_exam_ids)
+        ).delete(synchronize_session=False)
     db.query(Exam).filter(
         Exam.course_id == course_id,
         Exam.year_level_id == year_level_id,
@@ -196,6 +210,8 @@ def generate_exam_schedule(payload: dict = Body(...), db: Session = Depends(get_
     exams_data.sort(key=parse_exam_datetime)
 
     log_activity(db, current_user.id, "LEGACY_SCHEDULER_GENERATE", f"Course: {course_id}, Year: {year_level_id}, Sem: {semester}")
+    # ── invalidate schedule caches ────────────────────────────────────
+    cache.invalidate_exam_schedules()
     return {
         "message": f"Generated {len(created_exams)} exams ({len(subjects)} per section) from {start_date} to {end_date}.",
         "exams": exams_data

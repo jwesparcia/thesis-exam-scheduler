@@ -1,22 +1,49 @@
 import sys
 import os
+import io
+
+# Fix Unicode encoding on Windows terminals (cp1252 can't handle emoji)
+if sys.platform == "win32":
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import requests
 
 BASE_URL = "http://localhost:8000"
 
+# Default passwords - update these if users have changed their passwords
+ADMIN_PASSWORD = os.environ.get("TEST_ADMIN_PASSWORD", "admin123")
+STUDENT_PASSWORD = os.environ.get("TEST_STUDENT_PASSWORD", "student123")
+
+
+def try_login(email, password, role="user"):
+    """Attempt login, return (token, success). Handles password-change scenarios."""
+    res = requests.post(f"{BASE_URL}/auth/login", json={
+        "email": email,
+        "password": password
+    })
+    if res.status_code == 200:
+        data = res.json()
+        return data.get("access_token"), True
+    else:
+        detail = ""
+        try:
+            detail = res.json().get("detail", res.text)
+        except Exception:
+            detail = res.text
+        print(f"  Login failed for {email}: {detail}")
+        print(f"  (You can set TEST_{role.upper()}_PASSWORD env var or update the script)")
+        return None, False
+
+
 def test_flow():
     # 1. Login as Admin
     print("Logging in as Admin...")
-    login_res = requests.post(f"{BASE_URL}/auth/login", json={
-        "email": "admin@school.edu",
-        "password": "admin123"
-    })
-    if login_res.status_code != 200:
-        print(f"Admin login failed: {login_res.text}")
+    admin_token, ok = try_login("admin@school.edu", ADMIN_PASSWORD, role="admin")
+    if not ok:
         return
-    admin_token = login_res.json()["access_token"]
     headers = {"Authorization": f"Bearer {admin_token}"}
     print("Admin login successful!")
 
@@ -56,14 +83,9 @@ def test_flow():
     # 5. Login as Student
     print("Logging in as regular student...")
     # bsit_subjects Y1 S1: student_bsit_1st_year
-    student_login_res = requests.post(f"{BASE_URL}/auth/login", json={
-        "email": "student_bsit_1st_year@school.edu",
-        "password": "student123"
-    })
-    if student_login_res.status_code != 200:
-        print(f"Student login failed: {student_login_res.text}")
+    student_token, ok = try_login("student_bsit_1st_year@school.edu", STUDENT_PASSWORD, role="student")
+    if not ok:
         return
-    student_token = student_login_res.json()["access_token"]
     student_headers = {"Authorization": f"Bearer {student_token}"}
     print("Student login successful!")
 
@@ -86,3 +108,4 @@ def test_flow():
 
 if __name__ == "__main__":
     test_flow()
+

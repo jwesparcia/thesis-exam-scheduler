@@ -1,15 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { 
-  User, 
-  Upload, 
-  Download, 
-  AlertTriangle, 
-  CheckCircle, 
-  RefreshCw, 
-  Users,
-  Loader2,
-  Trash2
-} from "lucide-react";
+  UserIcon, 
+  ArrowUpTrayIcon, 
+  ArrowDownTrayIcon, 
+  ExclamationTriangleIcon, 
+  ArrowPathIcon, 
+  UsersIcon,
+  TrashIcon
+} from "@heroicons/react/24/outline";
 import { useTheme } from "../context/themeStore";
 import { useToast } from "../context/ToastContext";
 import api from "../api";
@@ -26,10 +24,10 @@ export default function StudentImport({ isGenerating }) {
   const [clearExisting, setClearExisting] = useState(false);
   const [file, setFile] = useState(null);
   const [dragOver, setDragOver] = useState(false);
-  const [importResult, setImportResult] = useState(null);
   const [isImportConfirmOpen, setIsImportConfirmOpen] = useState(false);
   const [isClearAllStudentsModalOpen, setIsClearAllStudentsModalOpen] = useState(false);
   const [clearingStudents, setClearingStudents] = useState(false);
+  const [importResult, setImportResult] = useState(null);
 
   const fetchStats = async () => {
     setLoadingStats(true);
@@ -155,7 +153,7 @@ export default function StudentImport({ isGenerating }) {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="flex items-center gap-4">
             <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${isDark ? "bg-blue-500/20 text-blue-300" : "bg-blue-600 text-white shadow-md shadow-blue-500/20"}`}>
-              <Users className="w-6 h-6" />
+              <UsersIcon className="w-6 h-6" />
             </div>
             <div>
               <h2 className={`text-xl font-bold tracking-tight ${isDark ? "text-white" : "text-slate-900"}`}>
@@ -176,7 +174,7 @@ export default function StudentImport({ isGenerating }) {
                   : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
               }`}
             >
-              <RefreshCw className={`w-4 h-4 ${loadingStats ? "animate-spin" : ""}`} />
+              <ArrowPathIcon className={`w-4 h-4 ${loadingStats ? "animate-spin" : ""}`} />
               Refresh Stats
             </button>
 
@@ -187,9 +185,9 @@ export default function StudentImport({ isGenerating }) {
               title={stats.total === 0 ? "No student accounts to delete" : "Delete all student accounts"}
             >
               {clearingStudents ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <ArrowPathIcon className="w-4 h-4 animate-spin" />
               ) : (
-                <Trash2 className="w-4 h-4" />
+                <TrashIcon className="w-4 h-4" />
               )}
               Clear All Students
             </button>
@@ -200,9 +198,9 @@ export default function StudentImport({ isGenerating }) {
       {/* Student Statistics */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
         {[
-          { label: "Total Students", value: stats.total, icon: Users, color: "text-blue-500 bg-blue-500/10" },
-          { label: "Regular Students", value: stats.regular, icon: User, color: "text-green-500 bg-green-500/10" },
-          { label: "Irregular Students", value: stats.irregular, icon: User, color: "text-purple-500 bg-purple-500/10" },
+          { label: "Total Students", value: stats.total, icon: UsersIcon, color: "text-blue-500 bg-blue-500/10" },
+          { label: "Regular Students", value: stats.regular, icon: UserIcon, color: "text-green-500 bg-green-500/10" },
+          { label: "Irregular Students", value: stats.irregular, icon: UserIcon, color: "text-purple-500 bg-purple-500/10" },
         ].map((card, i) => {
           const Icon = card.icon;
           return (
@@ -270,7 +268,7 @@ export default function StudentImport({ isGenerating }) {
               onClick={downloadDummyStudents}
               className="w-full flex items-center justify-center gap-2.5 px-4 py-3 rounded-xl text-sm font-semibold bg-blue-600 text-white hover:bg-blue-700 transition duration-300 shadow-sm shadow-blue-600/10"
             >
-              <Download className="w-4 h-4" />
+              <ArrowDownTrayIcon className="w-4 h-4" />
               Download 3,000 Dummy Student List
             </button>
           </div>
@@ -306,7 +304,7 @@ export default function StudentImport({ isGenerating }) {
               />
               <div className="flex flex-col items-center justify-center gap-3.5">
                 <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${isDark ? "bg-slate-800 text-slate-400" : "bg-slate-100 text-slate-500"}`}>
-                  <Upload className="w-5 h-5" />
+                  <ArrowUpTrayIcon className="w-5 h-5" />
                 </div>
                 <div>
                   <p className={`text-sm font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
@@ -358,12 +356,12 @@ export default function StudentImport({ isGenerating }) {
             >
               {uploading ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <ArrowPathIcon className="w-4 h-4 animate-spin" />
                   Importing Students...
                 </>
               ) : (
                 <>
-                  <Upload className="w-4 h-4" />
+                  <ArrowUpTrayIcon className="w-4 h-4" />
                   Upload & Import Students
                 </>
               )}
@@ -398,34 +396,7 @@ export default function StudentImport({ isGenerating }) {
         isDanger={true}
       />
 
-      {/* Summary Results */}
-      {importResult && (
-        <div className={`p-6 rounded-2xl border ${isDark ? "bg-slate-800/20 border-slate-800" : "bg-white border-slate-200"} animate-in fade-in duration-300`}>
-          <div className="flex items-center gap-3 mb-6">
-            <CheckCircle className="w-5 h-5 text-green-500" />
-            <h3 className={`text-md font-bold ${isDark ? "text-white" : "text-slate-800"}`}>
-              Students Successfully Imported!
-            </h3>
-          </div>
 
-          <div className="grid grid-cols-3 gap-4">
-            {[
-              { label: "New Students Created", value: importResult.created, color: "text-green-500" },
-              { label: "Existing Students Updated", value: importResult.updated, color: "text-blue-500" },
-              { label: "Rows Skipped (Empty Email)", value: importResult.skipped, color: "text-orange-500" },
-            ].map((stat, i) => (
-              <div key={i} className={`p-4 rounded-xl border text-center ${isDark ? "bg-slate-900/40 border-slate-800" : "bg-slate-50 border-slate-100"}`}>
-                <p className={`text-[10px] font-bold uppercase tracking-wider ${isDark ? "text-slate-500" : "text-slate-400"}`}>
-                  {stat.label}
-                </p>
-                <p className={`text-2xl font-extrabold tracking-tight mt-1 ${stat.color}`}>
-                  {stat.value}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

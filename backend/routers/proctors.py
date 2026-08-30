@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session, joinedload
-from core import get_db
+from core import get_db, cache
+from core.cache import TTL_PROCTORS, TTL_MONITORING
 from model import models
 import pandas as pd
 import io
@@ -33,10 +34,13 @@ def read_excel_with_fallback(content: bytes, filename: str):
 
 @router.get("/")
 def get_proctors(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
-    # Any logged in user can see proctors list (e.g. students might see proctors? 
-    # Actually, students shouldn't see full proctor list. Only Admin/Proctor).
     if current_user.role not in ["admin", "proctor", "program_head"]:
         raise HTTPException(status_code=403, detail="Not authorized to view proctors")
+
+    cached = cache.get("proctors:all")
+    if cached is not None:
+        return cached
+
     proctors = db.query(models.Proctor).all()
     result = []
     for p in proctors:
@@ -62,6 +66,7 @@ def get_proctors(db: Session = Depends(get_db), current_user: models.User = Depe
                 } for a in p.availabilities
             ]
         })
+    cache.set("proctors:all", result, TTL_PROCTORS)
     return result
 
 @router.post("/")
@@ -76,6 +81,8 @@ def create_proctor(proctor: dict, db: Session = Depends(get_db), current_user: m
     db.add(new_p)
     db.commit()
     db.refresh(new_p)
+    # ── invalidate ──────────────────────────────────────────────────
+    cache.invalidate_proctors()
     return {"message": "Proctor added", "id": new_p.id}
 
 @router.post("/{proctor_id}/availability")
@@ -169,6 +176,8 @@ async def upload_schedules(file: UploadFile = File(...), db: Session = Depends(g
             db.add(new_sched)
             records_processed += 1
         db.commit()
+        # ── invalidate proctor schedule caches ───────────────────────────
+        cache.invalidate_proctors()
         return {"message": f"Successfully processed {records_processed} schedule entries."}
     except Exception as e:
         db.rollback()
@@ -176,6 +185,7 @@ async def upload_schedules(file: UploadFile = File(...), db: Session = Depends(g
         if "File is not a zip" in error_msg:
             raise HTTPException(status_code=400, detail="Invalid Excel file format.")
         raise HTTPException(status_code=500, detail=f"Error processing file: {error_msg}")
+
 
 @router.post("/{proctor_id}/upload-my-schedule")
 async def upload_my_schedule(proctor_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
@@ -277,6 +287,8 @@ async def upload_my_schedule(proctor_id: int, file: UploadFile = File(...), db: 
             db.add(notif)
             db.commit()
             
+            # ── invalidate proctor schedule caches ─────────────────────
+            cache.invalidate_proctors()
             return {
                 "message": f"Successfully processed grid schedule with {records} entries.",
                 "translated_schedule": proctor.translated_schedule
@@ -344,6 +356,8 @@ async def upload_my_schedule(proctor_id: int, file: UploadFile = File(...), db: 
         db.add(notif)
         db.commit()
         
+        # ── invalidate proctor schedule caches ──────────────────────────
+        cache.invalidate_proctors()
         return {
             "message": f"Successfully processed {records_processed} schedule entries.",
             "translated_schedule": proctor.translated_schedule
@@ -364,6 +378,11 @@ def get_translated_schedule(proctor_id: int, db: Session = Depends(get_db)):
 
 @router.get("/schedules")
 def get_schedules(published_only: bool = False, db: Session = Depends(get_db)):
+    cache_key = "proctors:schedules"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
     query = db.query(models.TeacherSchedule).options(joinedload(models.TeacherSchedule.teacher))
     if published_only:
         query = query.filter(models.TeacherSchedule.is_published == True)
@@ -380,6 +399,7 @@ def get_schedules(published_only: bool = False, db: Session = Depends(get_db)):
             "end_time": s.end_time.strftime("%I:%M %p"),
             "subject": s.subject_name
         })
+    cache.set(cache_key, result, TTL_PROCTORS)
     return result
 
 @router.post("/publish-schedules")
@@ -388,6 +408,8 @@ def publish_schedules(db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Cannot publish schedules while schedule generation is ongoing")
     db.execute(text("UPDATE teacher_schedules SET is_published = TRUE"))
     db.commit()
+    # ── invalidate ──────────────────────────────────────────────────
+    cache.delete("proctors:schedules")
     return {"message": "All schedules have been published."}
 
 @router.post("/{proctor_id}/confirm-attendance/{exam_id}")
@@ -411,10 +433,16 @@ def confirm_attendance(proctor_id: int, exam_id: int, db: Session = Depends(get_
     )
     db.add(notif)
     db.commit()
+    # ── invalidate monitoring cache (attendance_status changed) ──────
+    cache.invalidate_monitoring()
     return {"message": "Attendance confirmed and program head notified"}
 
 @router.get("/monitoring")
 def get_proctor_monitoring(db: Session = Depends(get_db)):
+    cached = cache.get("proctors:monitoring")
+    if cached is not None:
+        return cached
+
     exams = (
         db.query(models.Exam)
         .options(
@@ -468,11 +496,16 @@ def get_proctor_monitoring(db: Session = Depends(get_db)):
             "attendance_status": e.proctor_attendance or "pending",
         })
     result = [{"course_name": course, "exams": entries} for course, entries in sorted(course_map.items())]
+    cache.set("proctors:monitoring", result, TTL_MONITORING)
     return result
 
 # ----- NEW ENDPOINTS for missing schedules, exclude, remind -----
 @router.get("/missing-schedules")
 def get_missing_schedules(db: Session = Depends(get_db)):
+    cached = cache.get("proctors:missing_schedules")
+    if cached is not None:
+        return cached
+
     proctors = db.query(models.Proctor).all()
     result = []
     for p in proctors:
@@ -482,6 +515,7 @@ def get_missing_schedules(db: Session = Depends(get_db)):
             ).count()
             if sched_count == 0:
                 result.append({"id": p.id, "name": p.name, "teacher_id": p.teacher_id, "excluded": p.exclude_from_scheduling})
+    cache.set("proctors:missing_schedules", result, TTL_PROCTORS)
     return result
 
 @router.post("/{id}/exclude")
@@ -494,6 +528,8 @@ def toggle_exclude(id: int, db: Session = Depends(get_db), current_user: models.
     proctor.exclude_from_scheduling = not proctor.exclude_from_scheduling
     db.commit()
     log_activity(db, current_user.id, "PROCTOR_EXCLUDE_TOGGLE", f"Proctor ID: {id}, New State: {proctor.exclude_from_scheduling}")
+    # ── invalidate ──────────────────────────────────────────────────
+    cache.delete("proctors:all")
     return {"message": "Toggled", "excluded": proctor.exclude_from_scheduling}
 
 @router.post("/{id}/send-reminder")
@@ -536,4 +572,6 @@ def delete_proctor_schedule(proctor_id: int, db: Session = Depends(get_db), curr
     db.commit()
     
     log_activity(db, current_user.id, "PROCTOR_SCHEDULE_DELETE", f"Proctor: {proctor.name}, entries deleted: {count}")
+    # ── invalidate proctor schedule caches ───────────────────────────
+    cache.invalidate_proctors()
     return {"message": f"Successfully deleted teaching schedule ({count} entries)."}

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.orm import Session, joinedload
-from core import get_db
+from core import get_db, cache
+from core.cache import TTL_EXAM_SCHEDULE
 from model import Exam, Timeslot, ReschedulingRequest, User, IrregularSelection, Subject, Section
 from pydantic import BaseModel
 from typing import List, Optional
@@ -65,6 +66,25 @@ def get_student_exams(
         raise HTTPException(status_code=400, detail="Irregular students use /custom-exams")
     if not current_user.section_name:
         return []
+
+    # All regular students in the same section see the same posted exams
+    # ── cache key scoped to section (not user_id) ─────────────────────
+    import hashlib
+    section_slug = hashlib.md5(current_user.section_name.encode()).hexdigest()[:12]
+    cache_key = f"exam_schedule:section:{section_slug}"
+
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    # Soft lock: prevent stampede when key expires under load
+    won_lock = cache.acquire_fill_lock(cache_key)
+    if not won_lock:
+        waited = cache.wait_for_fill(cache_key)
+        if waited is not None:
+            return waited
+        # Fallback: populate ourselves if the lock holder failed
+
     exams = (
         db.query(Exam)
         .options(
@@ -82,7 +102,9 @@ def get_student_exams(
         .order_by(Timeslot.date, Timeslot.start_time)
         .all()
     )
-    return build_exam_response(exams)
+    result = build_exam_response(exams)
+    cache.set(cache_key, result, TTL_EXAM_SCHEDULE)
+    return result
 
 # Student: conflict detection (supports regular and irregular students)
 @router.get("/conflicts")
@@ -384,6 +406,8 @@ def save_selected_subjects(
         db.add(new_sel)
     db.commit()
     log_activity(db, current_user.id, "IRREGULAR_SELECTION_SAVE", f"Count: {len(selections)}")
+    # ── invalidate this student’s custom exam cache ──────────────────
+    cache.delete(f"exam_schedule:irregular:{current_user.id}")
     return {"message": "Selection saved"}
 
 @router.get("/selected-subjects")
@@ -402,7 +426,14 @@ def get_custom_exams(
     """For irregular students: get exams based on saved selections (match by subject name)"""
     if current_user.student_type != "irregular":
         raise HTTPException(status_code=400, detail="Not an irregular student")
-    
+
+    # Irregular schedules are user-specific (different subject selections)
+    # ── cache key scoped strictly to user_id ─────────────────────────
+    cache_key = f"exam_schedule:irregular:{current_user.id}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
     selections = db.query(IrregularSelection).filter(IrregularSelection.user_id == current_user.id).all()
     if not selections:
         return []
@@ -447,4 +478,6 @@ def get_custom_exams(
         or_(*conditions)
     ).join(Exam.timeslot).order_by(Timeslot.date, Timeslot.start_time).all()
     
-    return build_exam_response(exams)
+    result = build_exam_response(exams)
+    cache.set(cache_key, result, TTL_EXAM_SCHEDULE)
+    return result

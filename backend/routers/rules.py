@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
-from core import get_db
+from core import get_db, cache
+from core.cache import TTL_RULES
 from model import DistributionRule, YearLevel
 from pydantic import BaseModel
 from typing import List, Optional
@@ -10,6 +11,9 @@ from model import User
 from .exams import is_generation_ongoing
 
 router = APIRouter(prefix="/rules", tags=["Distribution Rules"])
+
+# ── cache key ─────────────────────────────────────────────────────────
+_KEY_RULES = "distribution_rules:all"
 
 # Pydantic Schemas
 class RuleCreate(BaseModel):
@@ -27,11 +31,13 @@ class RuleSchema(RuleCreate):
 
 @router.get("/", response_model=List[RuleSchema])
 def get_rules(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    # ── cache check ───────────────────────────────────────────────────
+    cached = cache.get(_KEY_RULES)
+    if cached is not None:
+        return cached
+
     rules = db.query(DistributionRule).options(joinedload(DistributionRule.year_level)).all()
     
-    # Manually map to schema to handle flattening if needed, 
-    # but Pydantic orm_mode + joinedload should handle relationships if defined.
-    # Let's add computed field for year_level_name
     result = []
     for r in rules:
         r_dict = {
@@ -43,6 +49,8 @@ def get_rules(db: Session = Depends(get_db), current_user: User = Depends(get_cu
             "year_level_name": r.year_level.name if r.year_level else "All Levels"
         }
         result.append(r_dict)
+
+    cache.set(_KEY_RULES, result, TTL_RULES)
     return result
 
 @router.post("/")
@@ -59,6 +67,8 @@ def create_rule(rule: RuleCreate, db: Session = Depends(get_db), current_user: U
     db.commit()
     db.refresh(new_rule)
     log_activity(db, current_user.id, "RULE_CREATE", f"Type: {rule.category_type}, YearLevel: {rule.year_level_id}")
+    # ── invalidate ────────────────────────────────────────────────────
+    cache.delete(_KEY_RULES)
     return new_rule
 
 @router.delete("/{rule_id}")
@@ -73,4 +83,6 @@ def delete_rule(rule_id: int, db: Session = Depends(get_db), current_user: User 
     db.delete(rule)
     db.commit()
     log_activity(db, current_user.id, "RULE_DELETE", f"Rule ID: {rule_id}")
+    # ── invalidate ────────────────────────────────────────────────────
+    cache.delete(_KEY_RULES)
     return {"message": "Rule deleted"}

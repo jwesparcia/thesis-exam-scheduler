@@ -42,6 +42,17 @@ def on_startup():
         print(f"Failed to create database tables or run migrations: {e}")
         print("Make sure the database is accessible")
 
+    # Connect Redis cache (non-fatal — app works without Redis)
+    from core import cache
+    connected = cache.connect()
+    if not connected:
+        print("[WARNING] Redis unavailable - running without cache (PostgreSQL only)")
+
+@app.on_event("shutdown")
+def on_shutdown():
+    from core import cache
+    cache.disconnect()
+
 # Routers
 app.include_router(catalog.router)
 app.include_router(scheduler.router)

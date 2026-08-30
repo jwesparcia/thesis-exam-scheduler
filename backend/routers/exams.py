@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, joinedload
-from core import get_db
+from core import get_db, cache
+from core.cache import TTL_ROOMS, TTL_EXAM_COUNT
 from model import Exam, Subject, Section, Room, Timeslot, Course, YearLevel, Teacher, User, Notification
 from room_data import AVAILABLE_EXAM_ROOMS, get_room_names_for_department
 from utils.scheduler import generate_exam_schedule
@@ -224,14 +225,21 @@ def list_rooms(
     current_user: User = Depends(get_current_user)
 ):
     """Return all rooms, optionally filtered by department."""
+    cache_key = f"rooms:department:{department}" if department else "rooms:all"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
     query = db.query(Room)
     if department:
         query = query.filter(Room.department == department)
     rooms = query.order_by(Room.name).all()
-    return [
+    result = [
         {"id": r.id, "name": r.name, "building": r.building, "capacity": r.capacity, "department": r.department}
         for r in rooms
     ]
+    cache.set(cache_key, result, TTL_ROOMS)
+    return result
 
 
 @router.post("/rooms")
@@ -289,6 +297,8 @@ def create_room(
     except Exception as e:
         print(f"Error logging room creation: {e}")
 
+    # ── invalidate room caches ───────────────────────────────────────
+    cache.invalidate_rooms()
     return {
         "message": "Room created successfully",
         "room": {
@@ -329,7 +339,9 @@ def delete_room(
         )
     except Exception as e:
         print(f"Error logging room deletion: {e}")
-        
+
+    # ── invalidate room caches ───────────────────────────────────────
+    cache.invalidate_rooms()
     return {"message": "Room deleted successfully"}
 
 
@@ -465,13 +477,20 @@ def get_exam_count(
     Return the count of existing exams for a given department and semester.
     Used by the frontend to block re-generation when a schedule already exists.
     """
+    cache_key = f"exam_count:{department}:{semester}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
     count = (
         db.query(Exam)
         .join(Course, Exam.course_id == Course.id)
         .filter(Course.category == department, Exam.semester == semester)
         .count()
     )
-    return {"count": count, "department": department, "semester": semester}
+    result = {"count": count, "department": department, "semester": semester}
+    cache.set(cache_key, result, TTL_EXAM_COUNT)
+    return result
 
 
 @router.get("/generate/progress")
@@ -581,6 +600,12 @@ def generate_schedule(
                 .filter(Course.category == department, Exam.semester == semester)
                 .all()
             )
+            exams_to_delete_ids = [e.id for e in exams_to_delete]
+            if exams_to_delete_ids:
+                from model import ReschedulingRequest
+                db.query(ReschedulingRequest).filter(
+                    ReschedulingRequest.exam_id.in_(exams_to_delete_ids)
+                ).delete(synchronize_session=False)
             for e in exams_to_delete:
                 db.delete(e)
             db.flush()
@@ -634,6 +659,8 @@ def generate_schedule(
         
         log_activity(db, current_user.id, "EXAM_GENERATE", f"Dept: {department}, Sem: {semester}", None)
         _set_generation_progress(job_id, "completed", 100, "Schedule generated", message)
+        # ── invalidate all schedule-related caches ───────────────────────
+        cache.invalidate_exam_schedules()
         return {"message": message, "job_id": job_id}
     except Exception as e:
         db.rollback()
@@ -697,6 +724,23 @@ def post_exams(
     latest_drafts = query.all()
     
     if not latest_drafts:
+        # Check if they are already posted
+        posted_query = db.query(Exam).filter(
+            Exam.status == "posted",
+            Exam.semester == semester
+        )
+        if course_id:
+            posted_query = posted_query.filter(Exam.course_id == course_id)
+        if year_level_id:
+            posted_query = posted_query.filter(Exam.year_level_id == year_level_id)
+        if department:
+            posted_query = posted_query.join(Course).filter(Course.category == department)
+        if term:
+            posted_query = posted_query.filter(Exam.term == term)
+            
+        if posted_query.first():
+            return {"message": "All exam schedules are already posted and active!"}
+            
         raise HTTPException(status_code=404, detail="No draft or saved exams found to post")
 
     for exam in latest_drafts:
@@ -728,6 +772,8 @@ def post_exams(
     db.commit()
 
     log_activity(db, current_user.id, "EXAM_POST", f"Course: {course_id}, Year: {year_level_id}, Sem: {semester}, Dept: {department}")
+    # ── invalidate posted-exam caches ────────────────────────────────
+    cache.invalidate_exam_schedules()
     return {"message": f"✅ Successfully posted {len(latest_drafts)} exams."}
 
 @router.post("/save")
@@ -771,6 +817,8 @@ def save_exams(
     db.commit()
 
     log_activity(db, current_user.id, "EXAM_SAVE", f"Course: {course_id}, Year: {year_level_id}, Sem: {semester}, Dept: {department}, Term: {term}")
+    # ── invalidate exam count cache (draft count changed) ─────────────
+    cache.delete_pattern("exam_count:*")
     return {"message": f"✅ Successfully saved {len(latest_drafts)} exams."}
 
 @router.get("/download")
@@ -971,9 +1019,15 @@ def clear_exams(
         
     exams_to_delete = query.all()
     count = len(exams_to_delete)
+    exam_ids = [exam.id for exam in exams_to_delete]
+    if exam_ids:
+        from model import ReschedulingRequest
+        db.query(ReschedulingRequest).filter(ReschedulingRequest.exam_id.in_(exam_ids)).delete(synchronize_session=False)
     for exam in exams_to_delete:
         db.delete(exam)
     db.commit()
     
     log_activity(db, current_user.id, "EXAM_CLEAR", f"Deleted {count} exams (dept={department}, sem={semester})")
+    # ── invalidate all schedule + count caches ───────────────────────
+    cache.invalidate_exam_schedules()
     return {"message": f"🧹 Deleted {count} exams."}

@@ -12,3 +12,4 @@ openpyxl
 xlrd
 python-multipart
 python-jose[cryptography]
+redis>=4.6.0

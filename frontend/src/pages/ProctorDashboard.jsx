@@ -1,33 +1,34 @@
 import React, { useCallback, useEffect, useState, useRef } from "react";
 import * as XLSX from "xlsx";
 import {
-  UserCheck,
-  Calendar,
-  MapPin,
-  Clock,
-  Bell,
-  AlertCircle,
-  LayoutGrid,
-  BookOpen,
-  CalendarDays,
-  FileSpreadsheet,
-  Upload,
-  CheckCircle2,
-  X,
-  Trash2,
-  Loader2,
-  MessageSquare,
-  Send,
-  Edit,
-  Plus,
-  Search
-} from "lucide-react";
+  CheckBadgeIcon,
+  CalendarIcon,
+  MapPinIcon,
+  ClockIcon,
+  BellIcon,
+  ExclamationCircleIcon,
+  Squares2X2Icon,
+  BookOpenIcon,
+  CalendarDaysIcon,
+  TableCellsIcon,
+  ArrowUpTrayIcon,
+  CheckCircleIcon,
+  XMarkIcon,
+  TrashIcon,
+  ArrowPathIcon,
+  ChatBubbleLeftRightIcon,
+  PaperAirplaneIcon,
+  PencilIcon,
+  PlusIcon,
+  MagnifyingGlassIcon,
+} from "@heroicons/react/24/outline";
 import { useTheme } from "../context/themeStore";
 import { useUser } from "../context/userStore";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "../context/ToastContext";
 import SettingsDropdown from "../components/SettingsDropdown";
 import ConfirmationModal from "../components/ConfirmationModal";
+import FirstTimePasswordChange from "../components/FirstTimePasswordChange";
 import api from "../api";
 
 function ProctorManual() {
@@ -36,9 +37,9 @@ function ProctorManual() {
   const [activeSubTab, setActiveSubTab] = useState("supervision");
 
   const topics = [
-    { id: "supervision", label: "Supervision Duties", icon: CalendarDays },
-    { id: "attendance", label: "Attendance Check-in", icon: UserCheck },
-    { id: "schedule", label: "Teaching Schedule Uploads", icon: FileSpreadsheet },
+    { id: "supervision", label: "Supervision Duties", icon: CalendarDaysIcon },
+    { id: "attendance", label: "Attendance Check-in", icon: CheckBadgeIcon },
+    { id: "schedule", label: "Teaching Schedule Uploads", icon: TableCellsIcon },
   ];
 
   return (
@@ -46,7 +47,7 @@ function ProctorManual() {
       <div className={`p-6 rounded-2xl border ${isDark ? "bg-slate-800/40 border-slate-700" : "bg-gradient-to-r from-blue-500/10 to-indigo-500/10 border-blue-100"}`}>
         <div className="flex items-center gap-4">
           <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${isDark ? "bg-blue-500/20 text-blue-300" : "bg-blue-600 text-white shadow-md shadow-blue-500/20"}`}>
-            <BookOpen className="w-6 h-6" />
+            <BookOpenIcon className="w-6 h-6" />
           </div>
           <div>
             <h2 className={`text-xl font-bold tracking-tight ${isDark ? "text-white" : "text-slate-900"}`}>
@@ -99,7 +100,7 @@ function ProctorManual() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className={`p-4 rounded-xl border ${isDark ? "bg-slate-900/40 border-slate-800" : "bg-slate-50 border-slate-100"}`}>
                 <h4 className={`font-bold text-sm mb-1.5 flex items-center gap-2 ${isDark ? "text-slate-200" : "text-slate-800"}`}>
-                  <Clock className="w-4 h-4 text-blue-500" /> Date & Time
+                  <ClockIcon className="w-4 h-4 text-blue-500" /> Date & Time
                 </h4>
                 <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-500"}`}>
                   The exact date and timeslot range (e.g. 7:30 AM - 9:00 AM) of the exam. Make sure to arrive 15 minutes before.
@@ -107,7 +108,7 @@ function ProctorManual() {
               </div>
               <div className={`p-4 rounded-xl border ${isDark ? "bg-slate-900/40 border-slate-800" : "bg-slate-50 border-slate-100"}`}>
                 <h4 className={`font-bold text-sm mb-1.5 flex items-center gap-2 ${isDark ? "text-slate-200" : "text-slate-800"}`}>
-                  <MapPin className="w-4 h-4 text-indigo-500" /> Location / Room
+                  <MapPinIcon className="w-4 h-4 text-indigo-500" /> Location / Room
                 </h4>
                 <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-500"}`}>
                   The room (e.g., Computer Lab 1, Room 403) allocated for the exam. Check seating guidelines for the room.
@@ -115,7 +116,7 @@ function ProctorManual() {
               </div>
               <div className={`p-4 rounded-xl border ${isDark ? "bg-slate-900/40 border-slate-800" : "bg-slate-50 border-slate-100"}`}>
                 <h4 className={`font-bold text-sm mb-1.5 flex items-center gap-2 ${isDark ? "text-slate-200" : "text-slate-800"}`}>
-                  <BookOpen className="w-4 h-4 text-emerald-500" /> Class Info
+                  <BookOpenIcon className="w-4 h-4 text-emerald-500" /> Class Info
                 </h4>
                 <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-500"}`}>
                   The subject code, subject description, and the section (e.g., BSIT 3-201) you will be supervising.
@@ -449,13 +450,13 @@ function ProctorChatPanel() {
             }`}
             title="Start New Chat"
           >
-            <Plus className="w-4 h-4" />
+            <PlusIcon className="w-4 h-4" />
           </button>
         </div>
         <div className="flex-1 overflow-y-auto custom-scrollbar">
           {conversations.length === 0 ? (
             <div className={`p-6 text-center text-sm ${isDark ? "text-slate-500" : "text-slate-400"}`}>
-              <MessageSquare className="w-8 h-8 mx-auto mb-2 opacity-30" />
+              <ChatBubbleLeftRightIcon className="w-8 h-8 mx-auto mb-2 opacity-30" />
               No conversations yet
             </div>
           ) : conversations.map((conv) => (
@@ -525,7 +526,7 @@ function ProctorChatPanel() {
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-red-500 hover:bg-red-500/10 border border-transparent hover:border-red-500/25 transition-all duration-200"
                 title="Delete Conversation"
               >
-                <Trash2 className="w-4 h-4" />
+                <TrashIcon className="w-4 h-4" />
                 Clear Chat
               </button>
             </div>
@@ -534,7 +535,7 @@ function ProctorChatPanel() {
             <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
               {messages.length === 0 ? (
                 <div className={`text-center py-12 text-sm ${isDark ? "text-slate-500" : "text-slate-400"}`}>
-                  <MessageSquare className="w-10 h-10 mx-auto mb-2 opacity-20" />
+                  <ChatBubbleLeftRightIcon className="w-10 h-10 mx-auto mb-2 opacity-20" />
                   No messages yet. Start the conversation!
                 </div>
               ) : messages.map((msg) => {
@@ -551,14 +552,14 @@ function ProctorChatPanel() {
                           }`}
                           title="Edit message"
                         >
-                          <Edit className="w-3.5 h-3.5" />
+                          <PencilIcon className="w-3.5 h-3.5" />
                         </button>
                         <button
                           onClick={() => deleteMessage(msg.id)}
                           className="p-1 rounded transition-colors hover:bg-red-500/10 text-red-500"
                           title="Delete message"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <TrashIcon className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     )}
@@ -626,7 +627,7 @@ function ProctorChatPanel() {
                   : "bg-blue-600 hover:bg-blue-700 text-white"
                   }`}
               >
-                <Send className="w-5 h-5" />
+                <PaperAirplaneIcon className="w-5 h-5" />
               </button>
             </div>
           </>
@@ -634,7 +635,7 @@ function ProctorChatPanel() {
           <div className={`flex-1 flex flex-col items-center justify-center gap-4 ${isDark ? "text-slate-500" : "text-slate-400"}`}>
             <div className={`w-16 h-16 rounded-2xl flex items-center justify-center ${isDark ? "bg-slate-850" : "bg-slate-100"
               }`}>
-              <MessageSquare className="w-8 h-8 opacity-40" />
+              <ChatBubbleLeftRightIcon className="w-8 h-8 opacity-40" />
             </div>
             <div className="text-center">
               <p className="font-semibold">Select a conversation</p>
@@ -688,7 +689,7 @@ function ProctorChatPanel() {
                   isDark ? "hover:bg-slate-700 text-slate-400 hover:text-white" : "hover:bg-slate-100 text-gray-500 hover:text-gray-900"
                 }`}
               >
-                <X className="w-5 h-5" />
+                <XMarkIcon className="w-5 h-5" />
               </button>
             </div>
 
@@ -718,7 +719,7 @@ function ProctorChatPanel() {
 
             {/* Search Input */}
             <div className="relative">
-              <Search className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 ${
+              <MagnifyingGlassIcon className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 ${
                 isDark ? "text-slate-500" : "text-slate-400"
               }`} />
               <input
@@ -794,7 +795,7 @@ function ProctorChatPanel() {
 export default function ProctorDashboard() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
-  const { user, logout } = useUser();
+  const { user, login, logout } = useUser();
   const navigate = useNavigate();
   const { showSuccess, showError } = useToast();
   const [exams, setExams] = useState([]);
@@ -1072,6 +1073,22 @@ export default function ProctorDashboard() {
     );
   }
 
+  if (user && user.is_first_login) {
+    return (
+      <FirstTimePasswordChange
+        user={user}
+        onPasswordChanged={(updatedUser) => login(updatedUser)}
+        isDark={isDark}
+        onLogout={handleLogout}
+        onSkip={() => login({
+          ...user,
+          is_first_login: false,
+          temporary_skip: true
+        })}
+      />
+    );
+  }
+
   const unreadCount = notifications.filter(n => !n.is_read).length;
   const latestUnreadNotif = notifications.find(n => !n.is_read);
 
@@ -1096,7 +1113,7 @@ export default function ProctorDashboard() {
                 className="text-xs font-semibold text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1.5"
                 title="Clear all notifications"
               >
-                <Trash2 className="w-3.5 h-3.5" />
+                <TrashIcon className="w-3.5 h-3.5" />
                 <span>Clear All</span>
               </button>
             )}
@@ -1104,7 +1121,7 @@ export default function ProctorDashboard() {
           <div className="overflow-y-auto p-2 custom-scrollbar flex-1">
             {notifications.length === 0 ? (
               <div className={`p-6 text-center text-sm ${isDark ? "text-slate-500" : "text-slate-400"}`}>
-                <Bell className="w-8 h-8 mx-auto mb-2 opacity-20" />
+                <BellIcon className="w-8 h-8 mx-auto mb-2 opacity-20" />
                 You're all caught up!
               </div>
             ) : (
@@ -1129,7 +1146,7 @@ export default function ProctorDashboard() {
                       className={`p-1 rounded-lg transition-colors shrink-0 ${isDark ? "text-slate-400 hover:text-red-400 hover:bg-slate-700" : "text-slate-400 hover:text-red-600 hover:bg-slate-200/70"}`}
                       title="Delete notification"
                     >
-                      <X className="w-4 h-4" />
+                      <XMarkIcon className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
@@ -1156,7 +1173,7 @@ export default function ProctorDashboard() {
             aria-label="Close menu"
             className="absolute top-4 right-4 p-2 rounded-lg lg:hidden text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
           >
-            <X className="w-5 h-5" />
+            <XMarkIcon className="w-5 h-5" />
           </button>
           <div className={`w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg transition-transform hover:scale-105 duration-300 ${isDark ? "bg-gradient-to-br from-blue-600 to-indigo-700" : "bg-gradient-to-br from-blue-500 to-blue-700"}`}>
             <img src="/images.png" alt="STI Logo" className="rounded-xl h-10 w-10 object-contain drop-shadow-md" />
@@ -1169,10 +1186,10 @@ export default function ProctorDashboard() {
         
         <nav className="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto custom-scrollbar">
           {[
-            { id: "assignments", icon: CalendarDays, label: "My Assignments" },
-            { id: "schedule", icon: FileSpreadsheet, label: "My Schedule" },
-            { id: "chat", icon: MessageSquare, label: "Chat" },
-            { id: "manual", icon: BookOpen, label: "User Manual" },
+            { id: "assignments", icon: CalendarDaysIcon, label: "My Assignments" },
+            { id: "schedule", icon: TableCellsIcon, label: "My Schedule" },
+            { id: "chat", icon: ChatBubbleLeftRightIcon, label: "Chat" },
+            { id: "manual", icon: BookOpenIcon, label: "User Manual" },
           ].map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
@@ -1218,7 +1235,7 @@ export default function ProctorDashboard() {
                   aria-label="Open menu"
                   className={`lg:hidden p-2 -ml-2 rounded-xl transition-colors ${isDark ? "text-slate-300 hover:bg-slate-800" : "text-slate-600 hover:bg-slate-100"}`}
                 >
-                  <LayoutGrid className="w-5 h-5 sm:w-6 sm:h-6" />
+                  <Squares2X2Icon className="w-5 h-5 sm:w-6 sm:h-6" />
                 </button>
                 <div className="min-w-0">
                   <h1 className={`text-base sm:text-2xl font-bold tracking-tight transition-colors truncate ${isDark ? "text-white" : "text-slate-900"}`}>
@@ -1242,7 +1259,7 @@ export default function ProctorDashboard() {
                     aria-label="Open notifications"
                     className={`relative p-2 sm:p-2.5 rounded-xl transition-all duration-300 ${isDark ? "text-slate-300 hover:text-white hover:bg-slate-800" : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"}`}
                   >
-                    <Bell className="w-5 h-5" />
+                    <BellIcon className="w-5 h-5" />
                     {unreadCount > 0 && (
                       <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white ring-2 ring-white dark:ring-slate-900 animate-pulse">
                         {unreadCount}
@@ -1276,7 +1293,7 @@ export default function ProctorDashboard() {
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
                       isDark ? "bg-blue-500/20 text-blue-300" : "bg-blue-600 text-white shadow-sm"
                     }`}>
-                      <Bell className="w-5 h-5 animate-bounce" />
+                      <BellIcon className="w-5 h-5 animate-bounce" />
                     </div>
                     <div>
                       <span className="text-xs font-bold uppercase tracking-wider block opacity-75">New Notification</span>
@@ -1303,7 +1320,7 @@ export default function ProctorDashboard() {
                       }`}
                       title="Mark as read"
                     >
-                      <X className="w-4 h-4" />
+                      <XMarkIcon className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
@@ -1319,11 +1336,11 @@ export default function ProctorDashboard() {
                 <h2 className={`text-xl sm:text-3xl font-bold tracking-tight break-words ${isDark ? "text-white" : "text-gray-900"}`}>{user?.name || "Proctor Name"}</h2>
                 <div className="flex flex-wrap gap-2 sm:gap-4 mt-3">
                   <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium border ${isDark ? "bg-slate-700/50 border-slate-600 text-slate-300" : "bg-slate-50 border-slate-200 text-slate-600"}`}>
-                    <UserCheck className="w-4 h-4 text-emerald-500" />
+                    <CheckBadgeIcon className="w-4 h-4 text-emerald-500" />
                     <span>Licensed Proctor</span>
                   </div>
                   <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium border ${isDark ? "bg-slate-700/50 border-slate-600 text-slate-300" : "bg-slate-50 border-slate-200 text-slate-600"}`}>
-                    <LayoutGrid className="w-4 h-4 text-blue-500" />
+                    <Squares2X2Icon className="w-4 h-4 text-blue-500" />
                     <span>{exams.length} Active Assignment{exams.length !== 1 ? 's' : ''}</span>
                   </div>
                 </div>
@@ -1354,7 +1371,7 @@ export default function ProctorDashboard() {
                 <div className={`p-4 sm:p-8 rounded-2xl sm:rounded-3xl border ${isDark ? "bg-slate-800/80 border-slate-700/50 backdrop-blur-xl" : "bg-white/80 border-slate-200 backdrop-blur-xl shadow-sm"}`}>
                   <div className="flex items-start gap-3 sm:gap-4 mb-6">
                     <div className={`p-3 rounded-2xl shrink-0 ${isDark ? "bg-emerald-500/20" : "bg-emerald-50"}`}>
-                      <FileSpreadsheet className={`w-6 h-6 ${isDark ? "text-emerald-400" : "text-emerald-500"}`} />
+                      <TableCellsIcon className={`w-6 h-6 ${isDark ? "text-emerald-400" : "text-emerald-500"}`} />
                     </div>
                     <div className="min-w-0">
                       <h3 className={`text-lg sm:text-xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>Upload My Teaching Schedule</h3>
@@ -1364,7 +1381,7 @@ export default function ProctorDashboard() {
                   {!selectedFile ? (
                     <div className={`border-2 border-dashed rounded-2xl p-6 sm:p-12 flex flex-col items-center justify-center transition-all hover:bg-slate-50 dark:hover:bg-slate-800/50 border-slate-300 dark:border-slate-700`}>
                       <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 ${isDark ? "bg-slate-800" : "bg-slate-100"}`}>
-                        <Upload className={`w-8 h-8 ${isDark ? "text-slate-400" : "text-slate-500"}`} />
+                        <ArrowUpTrayIcon className={`w-8 h-8 ${isDark ? "text-slate-400" : "text-slate-500"}`} />
                       </div>
                       <p className={`text-sm mb-6 text-center ${isDark ? "text-slate-400" : "text-slate-500"}`}>Drag and drop your Excel file here or click to browse</p>
                       <label className="cursor-pointer w-full sm:w-auto text-center px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold transition shadow-lg shadow-blue-500/20 hover:-translate-y-0.5">
@@ -1376,7 +1393,7 @@ export default function ProctorDashboard() {
                     <div className="space-y-6">
                       <div className={`flex flex-col sm:flex-row items-start sm:items-center gap-4 px-5 py-4 rounded-2xl border ${isDark ? "bg-slate-700/40 border-emerald-700/40" : "bg-emerald-50/50 border-emerald-200"}`}>
                         <div className="flex items-center gap-3 flex-1 min-w-0">
-                          <CheckCircle2 className="w-6 h-6 text-emerald-500 shrink-0" />
+                          <CheckCircleIcon className="w-6 h-6 text-emerald-500 shrink-0" />
                           <div className="flex-1 min-w-0">
                             <p className={`text-sm font-semibold truncate ${isDark ? "text-gray-200" : "text-gray-800"}`}>{selectedFile.name}</p>
                             <p className={`text-xs mt-0.5 ${isDark ? "text-gray-400" : "text-gray-500"}`}>{filePreview ? `${filePreview.rows.length} data row${filePreview.rows.length !== 1 ? 's' : ''} · ${filePreview.headers.length} column${filePreview.headers.length !== 1 ? 's' : ''}` : 'Reading file…'}</p>
@@ -1385,7 +1402,7 @@ export default function ProctorDashboard() {
                         <div className="flex gap-3 w-full sm:w-auto shrink-0">
                           <button onClick={() => { setSelectedFile(null); setFilePreview(null); }} className={`flex-1 sm:flex-none px-4 py-2.5 rounded-xl text-xs font-bold transition ${isDark ? "text-gray-300 hover:text-white bg-slate-700 hover:bg-slate-600" : "text-gray-600 hover:text-gray-900 bg-white border border-gray-200 hover:bg-gray-50"}`}>Cancel</button>
                           <button onClick={handleFileUpload} disabled={uploading} className="flex-1 sm:flex-none px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white rounded-xl text-xs font-bold transition shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2">
-                            {uploading ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : <Upload className="w-4 h-4" />}
+                            {uploading ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : <ArrowUpTrayIcon className="w-4 h-4" />}
                             {uploading ? "Uploading…" : "Confirm Upload"}
                           </button>
                         </div>
@@ -1393,7 +1410,7 @@ export default function ProctorDashboard() {
                       {filePreview && (
                         <div className={`rounded-2xl border overflow-hidden shadow-sm ${isDark ? "border-slate-700 bg-slate-800/50" : "border-slate-200 bg-white"}`}>
                           <div className={`px-5 py-3 flex items-center gap-2 border-b text-xs font-bold uppercase tracking-wider ${isDark ? "bg-slate-800/80 border-slate-700 text-slate-400" : "bg-slate-50 border-slate-200 text-slate-500"}`}>
-                            <FileSpreadsheet className="w-4 h-4" />
+                            <TableCellsIcon className="w-4 h-4" />
                             Preview — {filePreview.sheetName || 'Sheet 1'}
                           </div>
                           <div className="overflow-x-auto max-h-[60dvh] sm:max-h-80 overflow-y-auto custom-scrollbar">
@@ -1437,7 +1454,7 @@ export default function ProctorDashboard() {
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-2">
                         <div className="flex items-center gap-3">
                           <div className={`p-2 rounded-xl ${isDark ? "bg-blue-500/20" : "bg-blue-100"}`}>
-                            <Calendar className={`w-5 h-5 ${isDark ? "text-blue-400" : "text-blue-600"}`} />
+                            <CalendarIcon className={`w-5 h-5 ${isDark ? "text-blue-400" : "text-blue-600"}`} />
                           </div>
                           <h3 className={`text-xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Weekly Teaching Schedule</h3>
                         </div>
@@ -1470,7 +1487,7 @@ export default function ProctorDashboard() {
                             onClick={() => setShowDeleteScheduleModal(true)}
                             className="bg-red-500 hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-700 text-white px-4 py-2.5 rounded-xl shadow-md flex items-center gap-2 transition-all hover:scale-105 active:scale-95 font-bold text-xs"
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
+                            <TrashIcon className="w-3.5 h-3.5" />
                             Delete My Schedule
                           </button>
                         </div>
@@ -1604,7 +1621,7 @@ export default function ProctorDashboard() {
                   <div className={`text-center py-12 sm:py-20 px-4 rounded-2xl sm:rounded-3xl border-2 border-dashed transition-colors ${isDark ? "border-slate-700 bg-slate-800/30 hover:bg-slate-800/50" : "border-slate-300 bg-slate-50/50 hover:bg-slate-50"}`}>
                     <div className="max-w-sm mx-auto">
                       <div className={`w-24 h-24 mx-auto mb-6 rounded-full flex items-center justify-center shadow-inner ${isDark ? "bg-slate-800" : "bg-white"}`}>
-                        <Calendar className={`w-12 h-12 ${isDark ? "text-slate-600" : "text-blue-300"}`} />
+                        <CalendarIcon className={`w-12 h-12 ${isDark ? "text-slate-600" : "text-blue-300"}`} />
                       </div>
                       <h3 className={`text-xl font-bold mb-3 ${isDark ? "text-white" : "text-slate-900"}`}>No Schedule Found</h3>
                       <p className={`text-sm leading-relaxed ${isDark ? "text-slate-400" : "text-slate-500"}`}>You haven't uploaded your teaching schedule yet. Use the upload section above to submit your Excel schedule file.</p>
@@ -1620,7 +1637,7 @@ export default function ProctorDashboard() {
               <div className={`text-center py-14 sm:py-24 px-4 rounded-2xl sm:rounded-3xl border-2 border-dashed transition-all animate-in fade-in zoom-in-95 duration-500 ${isDark ? "border-slate-700 bg-slate-800/30" : "border-slate-300 bg-white/50 backdrop-blur-sm"}`}>
                 <div className="max-w-sm mx-auto">
                   <div className={`w-24 h-24 mx-auto mb-6 rounded-full flex items-center justify-center shadow-inner ${isDark ? "bg-slate-800" : "bg-slate-50"}`}>
-                    <AlertCircle className={`w-12 h-12 ${isDark ? "text-slate-600" : "text-slate-400"}`} />
+                    <ExclamationCircleIcon className={`w-12 h-12 ${isDark ? "text-slate-600" : "text-slate-400"}`} />
                   </div>
                   <h3 className={`text-xl sm:text-2xl font-bold mb-3 ${isDark ? "text-white" : "text-slate-900"}`}>No Active Assignments</h3>
                   <p className={`text-sm leading-relaxed ${isDark ? "text-slate-400" : "text-slate-500"}`}>Your program head hasn't assigned any posted exams to you yet. You will receive a notification when a new assignment is available.</p>
@@ -1631,22 +1648,15 @@ export default function ProctorDashboard() {
                 <div className="flex items-center justify-between px-1 sm:px-2">
                   <div className="flex items-center gap-3">
                     <div className={`p-2 rounded-xl ${isDark ? "bg-blue-500/20" : "bg-blue-100"}`}>
-                      <BookOpen className={`w-5 h-5 ${isDark ? "text-blue-400" : "text-blue-600"}`} />
+                      <BookOpenIcon className={`w-5 h-5 ${isDark ? "text-blue-400" : "text-blue-600"}`} />
                     </div>
                     <h3 className={`text-lg sm:text-xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Exam Supervision List</h3>
                   </div>
                 </div>
                 <div className="grid gap-4 sm:gap-6 md:grid-cols-2 xl:grid-cols-3">
                   {exams.map((exam) => (
-                    <div key={exam.id} className={`group relative rounded-2xl sm:rounded-3xl border transition-all duration-300 hover:-translate-y-1 hover:shadow-xl overflow-hidden ${isDark ? "bg-slate-800/80 border-slate-700/50 hover:border-blue-500/50 backdrop-blur-xl" : "bg-white/90 border-slate-200 hover:border-blue-300 backdrop-blur-xl shadow-sm"}`}>
-                      {/* Decorative top gradient */}
-                      <div className={`absolute top-0 inset-x-0 h-1 ${exam.proctor_attendance === "attended" ? "bg-gradient-to-r from-emerald-400 to-emerald-600" : "bg-gradient-to-r from-blue-400 to-blue-600"}`}></div>
-                      
-                      <div className="absolute top-4 right-4 sm:top-5 sm:right-5 flex flex-col items-end gap-2">
-                        <div className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider shadow-sm ${exam.proctor_attendance === "attended" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30" : "bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400 border border-blue-200 dark:border-blue-500/30"}`}>
-                          {exam.proctor_attendance === "attended" ? "Attended" : "Confirmed"}
-                        </div>
-                      </div>
+                    <div key={exam.id} className={`rounded-2xl sm:rounded-3xl border transition-all duration-300 hover:shadow-lg relative overflow-hidden group ${isDark ? "bg-slate-800/90 border-slate-700/50 hover:border-slate-600" : "bg-white border-slate-200 hover:border-blue-200 shadow-sm"}`}>
+                      <div className={`h-2 w-full ${exam.proctor_attendance === "confirmed" ? "bg-emerald-500" : "bg-amber-500"}`}></div>
                       
                       <div className="p-4 sm:p-6">
                         <div className="flex flex-col gap-1.5 mb-5 pr-16 sm:pr-20">
@@ -1658,19 +1668,19 @@ export default function ProctorDashboard() {
                         <div className={`space-y-3.5 pt-5 border-t ${isDark ? "border-slate-700/50" : "border-slate-100"}`}>
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
-                              <div className={`p-1.5 rounded-lg ${isDark ? "bg-blue-500/10" : "bg-blue-50"}`}><Calendar className={`w-4 h-4 ${isDark ? "text-blue-400" : "text-blue-500"}`} /></div>
+                              <div className={`p-1.5 rounded-lg ${isDark ? "bg-blue-500/10" : "bg-blue-50"}`}><CalendarIcon className={`w-4 h-4 ${isDark ? "text-blue-400" : "text-blue-500"}`} /></div>
                               <span className={`text-sm font-medium ${isDark ? "text-slate-300" : "text-slate-700"}`}>{formatDate(exam.exam_date)}</span>
                             </div>
                           </div>
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
-                              <div className={`p-1.5 rounded-lg ${isDark ? "bg-purple-500/10" : "bg-purple-50"}`}><Clock className={`w-4 h-4 ${isDark ? "text-purple-400" : "text-purple-500"}`} /></div>
+                              <div className={`p-1.5 rounded-lg ${isDark ? "bg-purple-500/10" : "bg-blue-50"}`}><ClockIcon className={`w-4 h-4 ${isDark ? "text-purple-400" : "text-purple-500"}`} /></div>
                               <span className={`text-sm font-medium ${isDark ? "text-slate-300" : "text-slate-700"}`}>{exam.start_time} - {exam.end_time}</span>
                             </div>
                           </div>
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
-                              <div className={`p-1.5 rounded-lg ${isDark ? "bg-pink-500/10" : "bg-pink-50"}`}><MapPin className={`w-4 h-4 ${isDark ? "text-pink-400" : "text-pink-500"}`} /></div>
+                              <div className={`p-1.5 rounded-lg ${isDark ? "bg-pink-500/10" : "bg-pink-50"}`}><MapPinIcon className={`w-4 h-4 ${isDark ? "text-pink-400" : "text-pink-500"}`} /></div>
                               <span className={`text-sm font-bold ${isDark ? "text-pink-400" : "text-pink-600"}`}>{exam.room}</span>
                             </div>
                           </div>
@@ -1678,12 +1688,12 @@ export default function ProctorDashboard() {
                         
                         {exam.proctor_attendance === "pending" ? (
                           <button onClick={() => handleConfirmAttendance(exam.id)} className="w-full mt-7 py-3 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 hover:-translate-y-0.5">
-                            <UserCheck className="w-4 h-4" /> 
+                            <CheckBadgeIcon className="w-4 h-4" /> 
                             Confirm My Attendance
                           </button>
                         ) : (
                           <div className={`w-full mt-7 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 ${isDark ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-emerald-50 text-emerald-700 border border-emerald-200"}`}>
-                            <UserCheck className="w-4 h-4 text-emerald-500" /> 
+                            <CheckBadgeIcon className="w-4 h-4 text-emerald-500" /> 
                             Attendance Confirmed
                           </div>
                         )}
@@ -1703,7 +1713,7 @@ export default function ProctorDashboard() {
           <div className={`p-8 rounded-3xl shadow-2xl max-w-md w-full transform transition-all scale-100 ${isDark ? "bg-slate-800 border border-slate-700" : "bg-white border border-slate-200"}`}>
             <div className="flex flex-col items-center text-center">
               <div className="w-16 h-16 rounded-full flex items-center justify-center mb-6 bg-red-100 dark:bg-red-900/50 shadow-lg shadow-red-200/50 dark:shadow-red-900/20">
-                <Trash2 className="w-8 h-8 text-red-600 dark:text-red-400" />
+                <TrashIcon className="w-8 h-8 text-red-600 dark:text-red-400" />
               </div>
               <h3 className={`text-2xl font-bold mb-3 ${isDark ? "text-white" : "text-slate-900"}`}>
                 Delete My Schedule?
@@ -1726,7 +1736,7 @@ export default function ProctorDashboard() {
                 >
                   {deletingSchedule ? (
                     <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <ArrowPathIcon className="w-4 h-4 animate-spin" />
                       <span>Deleting...</span>
                     </>
                   ) : (

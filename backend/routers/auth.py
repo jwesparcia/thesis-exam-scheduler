@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from core import get_db
-from model import User
+from model import User, PasswordResetToken
 import bcrypt
 from pydantic import BaseModel
 from jose import JWTError, jwt
@@ -10,9 +10,11 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional, List
 import os
 import time
+import random
 from collections import defaultdict
 from dotenv import load_dotenv
 from utils.logging import log_activity
+from utils.mail import send_verification_email
 
 load_dotenv()
 
@@ -155,7 +157,8 @@ def login(request: Request, login_data: LoginRequest, db: Session = Depends(get_
             "teacher_id": user.teacher_id,
             "proctor_id": user.proctor_id,
             "student_type": user.student_type,
-            "course_id": user.course_id
+            "course_id": user.course_id,
+            "is_first_login": user.is_first_login
         }
     }
 
@@ -174,5 +177,90 @@ def read_users_me(current_user: User = Depends(get_current_user)):
         "teacher_id": current_user.teacher_id,
         "proctor_id": current_user.proctor_id,
         "student_type": current_user.student_type,
-        "course_id": current_user.course_id
+        "course_id": current_user.course_id,
+        "is_first_login": current_user.is_first_login
     }
+
+class RequestCodeRequest(BaseModel):
+    email: str
+
+class VerifyAndChangePasswordRequest(BaseModel):
+    email: str
+    code: str
+    new_password: str
+
+@router.post("/request-verification-code")
+def request_verification_code(
+    payload: RequestCodeRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if current_user.email != payload.email:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only request verification codes for your own account."
+        )
+    
+    code = f"{random.randint(100000, 999999)}"
+    expires_at = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(minutes=15)
+    
+    db.query(PasswordResetToken).filter(PasswordResetToken.user_id == current_user.id).delete()
+    
+    token_obj = PasswordResetToken(
+        user_id=current_user.id,
+        token=code,
+        expires_at=expires_at
+    )
+    db.add(token_obj)
+    db.commit()
+    
+    sent = send_verification_email(current_user.email, code)
+    if not sent:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to send/log verification email."
+        )
+        
+    return {"message": "Verification code sent successfully"}
+
+@router.post("/verify-and-change-password")
+def verify_and_change_password(
+    payload: VerifyAndChangePasswordRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if current_user.email != payload.email:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only change the password for your own account."
+        )
+        
+    now_naive = datetime.now(timezone.utc).replace(tzinfo=None)
+    token_record = db.query(PasswordResetToken).filter(
+        PasswordResetToken.user_id == current_user.id,
+        PasswordResetToken.token == payload.code.strip(),
+        PasswordResetToken.expires_at > now_naive
+    ).first()
+    
+    if not token_record:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired verification code."
+        )
+        
+    if len(payload.new_password) < 6:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password must be at least 6 characters long."
+        )
+        
+    hashed = hash_password(payload.new_password)
+    current_user.hashed_password = hashed
+    current_user.is_first_login = False
+    
+    db.delete(token_record)
+    db.commit()
+    
+    log_activity(db, current_user.id, "PASSWORD_CHANGED", "First login password change verified by email.", None)
+    
+    return {"message": "Password changed successfully"}

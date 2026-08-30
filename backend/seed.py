@@ -1017,6 +1017,7 @@ program_head = User(
     email="admin@school.edu",
     hashed_password=hash_password("admin123"),
     role="program_head",
+    is_first_login=True,
 )
 db.add(program_head)
 
@@ -1049,7 +1050,8 @@ for name in proctor_names:
         hashed_password=hash_password("proctor123"),
         role="proctor",
         teacher_id=t.id,
-        proctor_id=p.id
+        proctor_id=p.id,
+        is_first_login=True,
     )
     db.add(u)
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Plus, Users, Bell, Shield, ShieldOff, CheckCircle2, XCircle, RefreshCw } from "lucide-react";
+import { PlusIcon, UsersIcon, BellIcon, ShieldCheckIcon, ShieldExclamationIcon, CheckCircleIcon, XCircleIcon, ArrowPathIcon } from "@heroicons/react/24/outline";
 import { useTheme } from "../context/themeStore";
 import ThemeToggle from "../components/ThemeToggle";
 import api from "../api";
@@ -73,7 +73,7 @@ export default function AddProctor({ isGenerating }) {
             className={`p-2 rounded-lg transition ${isDark ? "hover:bg-gray-700 text-gray-400" : "hover:bg-gray-100 text-gray-600"}`}
             title="Refresh list"
           >
-            <RefreshCw className={`w-5 h-5 ${fetching ? "animate-spin" : ""}`} />
+            <ArrowPathIcon className={`w-5 h-5 ${fetching ? "animate-spin" : ""}`} />
           </button>
         </div>
 
@@ -100,12 +100,12 @@ export default function AddProctor({ isGenerating }) {
                     <td className="py-3 px-4">
                       {p.has_schedule ? (
                         <div className="flex items-center gap-1.5 text-emerald-500 font-medium">
-                          <CheckCircle2 className="w-4 h-4" />
+                          <CheckCircleIcon className="w-4 h-4" />
                           <span>Uploaded</span>
                         </div>
                       ) : (
                         <div className="flex items-center gap-1.5 text-amber-500 font-medium">
-                          <XCircle className="w-4 h-4" />
+                          <XCircleIcon className="w-4 h-4" />
                           <span>No Schedule</span>
                         </div>
                       )}
@@ -134,7 +134,7 @@ export default function AddProctor({ isGenerating }) {
                             }`}
                             title={isGenerating ? "Cannot send reminders while schedule generation is ongoing" : "Send Reminder"}
                           >
-                            <Bell className="w-4 h-4" />
+                            <BellIcon className="w-4 h-4" />
                           </button>
                         )}
                         <button
@@ -149,7 +149,7 @@ export default function AddProctor({ isGenerating }) {
                           }`}
                           title={isGenerating ? "Cannot modify proctors while schedule generation is ongoing" : (p.exclude_from_scheduling ? "Include in Scheduling" : "Exclude from Scheduling")}
                         >
-                          {p.exclude_from_scheduling ? <Shield className="w-4 h-4" /> : <ShieldOff className="w-4 h-4" />}
+                          {p.exclude_from_scheduling ? <ShieldCheckIcon className="w-4 h-4" /> : <ShieldExclamationIcon className="w-4 h-4" />}
                         </button>
                       </div>
                     </td>

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Settings, LogOut, Sun, Moon } from 'lucide-react';
+import { Cog6ToothIcon, ArrowLeftStartOnRectangleIcon, SunIcon, MoonIcon } from '@heroicons/react/24/outline';
 import { useTheme } from '../context/themeStore';
 
 export default function SettingsDropdown({ onLogout, isDark }) {
@@ -32,7 +32,7 @@ export default function SettingsDropdown({ onLogout, isDark }) {
             : isDark ? "text-gray-400 hover:text-gray-100 hover:bg-gray-700" : "text-gray-600 hover:text-gray-800 hover:bg-gray-100"
         }`}
       >
-        <Settings className="w-5 h-5" />
+        <Cog6ToothIcon className="w-5 h-5" />
       </button>
 
       {isOpen && (
@@ -53,7 +53,7 @@ export default function SettingsDropdown({ onLogout, isDark }) {
             >
               <div className="flex items-center gap-3">
                 <div className={`p-1.5 rounded-lg ${isDark ? "bg-gray-900/50" : "bg-white shadow-sm border border-gray-100"}`}>
-                  {theme === "dark" ? <Sun className="w-4 h-4 text-yellow-400" /> : <Moon className="w-4 h-4 text-blue-500" />}
+                  {theme === "dark" ? <SunIcon className="w-4 h-4 text-yellow-400" /> : <MoonIcon className="w-4 h-4 text-blue-500" />}
                 </div>
                 <span className="text-sm font-semibold">{theme === "dark" ? "Light Mode" : "Dark Mode"}</span>
               </div>
@@ -70,7 +70,7 @@ export default function SettingsDropdown({ onLogout, isDark }) {
               }`}
             >
               <div className={`p-1.5 rounded-lg transition ${isDark ? "bg-red-900/20 group-hover:bg-red-900/40" : "bg-red-100/50 group-hover:bg-red-100"}`}>
-                <LogOut className="w-4 h-4" />
+                <ArrowLeftStartOnRectangleIcon className="w-4 h-4" />
               </div>
               <span className="text-sm font-bold">Logout Session</span>
             </button>

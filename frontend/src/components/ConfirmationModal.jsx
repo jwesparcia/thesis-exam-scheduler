@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { AlertTriangle, Info, X } from "lucide-react";
+import { ExclamationTriangleIcon, InformationCircleIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { useTheme } from "../context/themeStore";
 
 export default function ConfirmationModal({
@@ -52,7 +52,7 @@ export default function ConfirmationModal({
                 ? "bg-red-500/10 text-red-500" 
                 : "bg-blue-500/10 text-blue-500"
             }`}>
-              {isDanger ? <AlertTriangle className="w-5 h-5" /> : <Info className="w-5 h-5" />}
+              {isDanger ? <ExclamationTriangleIcon className="w-5 h-5" /> : <InformationCircleIcon className="w-5 h-5" />}
             </div>
             <h3 className="text-md font-bold leading-tight">{title}</h3>
           </div>
@@ -62,7 +62,7 @@ export default function ConfirmationModal({
               isDark ? "hover:bg-slate-800 text-slate-400 hover:text-white" : "hover:bg-slate-100 text-slate-500 hover:text-slate-900"
             }`}
           >
-            <X className="w-4 h-4" />
+            <XMarkIcon className="w-4 h-4" />
           </button>
         </div>
 

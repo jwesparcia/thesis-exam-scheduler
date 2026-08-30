@@ -1,6 +1,6 @@
 // src/components/Header.jsx
 import React from "react";
-import { Search } from "lucide-react";
+import { MagnifyingGlassIcon } from "@heroicons/react/24/outline";
 import ThemeToggle from "./ThemeToggle";
 
 /*
@@ -12,7 +12,7 @@ export default function Header({ title = "Dashboard" }) {
       <div className="flex items-center gap-4">
         <h2 className="text-xl font-semibold text-slate-800 dark:text-gray-100">{title}</h2>
         <div className="hidden sm:flex items-center gap-2 bg-slate-100 dark:bg-gray-700 rounded-full px-3 py-1">
-          <Search className="w-4 h-4 text-slate-500" />
+          <MagnifyingGlassIcon className="w-4 h-4 text-slate-500" />
           <input className="bg-transparent outline-none text-sm text-slate-600 dark:text-gray-200" placeholder="Search" />
         </div>
       </div>

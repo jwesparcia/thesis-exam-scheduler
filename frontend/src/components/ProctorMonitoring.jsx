@@ -1,18 +1,18 @@
 import React, { useEffect, useState, useCallback } from "react";
 import {
-  ShieldCheck,
-  Clock,
-  MapPin,
-  Calendar,
-  Users,
-  CheckCircle2,
-  AlertCircle,
-  RefreshCw,
-  BookOpen,
-  GraduationCap,
-  UserCheck,
-  Filter,
-} from "lucide-react";
+  ShieldCheckIcon,
+  ClockIcon,
+  MapPinIcon,
+  CalendarIcon,
+  UsersIcon,
+  CheckCircleIcon,
+  ExclamationCircleIcon,
+  ArrowPathIcon,
+  BookOpenIcon,
+  AcademicCapIcon,
+  CheckBadgeIcon,
+  FunnelIcon,
+} from "@heroicons/react/24/outline";
 import { useTheme } from "../context/themeStore";
 import api from "../api";
 
@@ -29,9 +29,9 @@ function AttendanceBadge({ status }) {
       }`}
     >
       {attended ? (
-        <CheckCircle2 className="w-3 h-3" />
+        <CheckCircleIcon className="w-3 h-3" />
       ) : (
-        <AlertCircle className="w-3 h-3" />
+        <ExclamationCircleIcon className="w-3 h-3" />
       )}
       {attended ? "Attended" : "Pending"}
     </span>
@@ -122,7 +122,7 @@ export default function ProctorMonitoring() {
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3">
             <div className={`p-3 rounded-2xl ${isDark ? "bg-blue-600/20" : "bg-blue-50"}`}>
-              <ShieldCheck className="w-7 h-7 text-blue-500" />
+              <ShieldCheckIcon className="w-7 h-7 text-blue-500" />
             </div>
             <div>
               <h1 className={`text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
@@ -147,7 +147,7 @@ export default function ProctorMonitoring() {
                 : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50"
             } shadow-sm`}
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+            <ArrowPathIcon className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
             Refresh
           </button>
         </div>
@@ -158,25 +158,25 @@ export default function ProctorMonitoring() {
             {
               label: "Total Assignments",
               value: totalExams,
-              icon: <BookOpen className="w-5 h-5 text-blue-500" />,
+              icon: <BookOpenIcon className="w-5 h-5 text-blue-500" />,
               color: "blue",
             },
             {
               label: "Attended",
               value: attendedCount,
-              icon: <CheckCircle2 className="w-5 h-5 text-emerald-500" />,
+              icon: <CheckCircleIcon className="w-5 h-5 text-emerald-500" />,
               color: "emerald",
             },
             {
               label: "Pending",
               value: pendingCount,
-              icon: <AlertCircle className="w-5 h-5 text-amber-500" />,
+              icon: <ExclamationCircleIcon className="w-5 h-5 text-amber-500" />,
               color: "amber",
             },
             {
               label: "Completion",
               value: `${completionPct}%`,
-              icon: <UserCheck className="w-5 h-5 text-purple-500" />,
+              icon: <CheckBadgeIcon className="w-5 h-5 text-purple-500" />,
               color: "purple",
             },
           ].map(({ label, value, icon, color }) => (
@@ -221,7 +221,7 @@ export default function ProctorMonitoring() {
         <div className={`${card} px-5 py-4`}>
           <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
             <div className="flex items-center gap-2">
-              <Filter className={`w-4 h-4 ${isDark ? "text-gray-400" : "text-gray-500"}`} />
+              <FunnelIcon className={`w-4 h-4 ${isDark ? "text-gray-400" : "text-gray-500"}`} />
               <span className={`text-sm font-semibold ${isDark ? "text-gray-300" : "text-gray-700"}`}>
                 Filters
               </span>
@@ -279,7 +279,7 @@ export default function ProctorMonitoring() {
               isDark ? "border-gray-700 text-gray-500" : "border-gray-200 text-gray-400"
             }`}
           >
-            <Users className="w-12 h-12 mx-auto mb-4 opacity-40" />
+            <UsersIcon className="w-12 h-12 mx-auto mb-4 opacity-40" />
             <p className="text-lg font-semibold mb-1">No Assignments Found</p>
             <p className="text-sm">
               {totalExams === 0
@@ -309,7 +309,7 @@ export default function ProctorMonitoring() {
                           isDark ? "bg-blue-600/20" : "bg-blue-50"
                         }`}
                       >
-                        <GraduationCap className="w-5 h-5 text-blue-500" />
+                        <AcademicCapIcon className="w-5 h-5 text-blue-500" />
                       </div>
                       <div>
                         <h2
@@ -375,17 +375,17 @@ export default function ProctorMonitoring() {
                           <th className={th}>Subject</th>
                           <th className={th}>
                             <span className="flex items-center gap-1">
-                              <Calendar className="w-3 h-3" /> Date
+                              <CalendarIcon className="w-3 h-3" /> Date
                             </span>
                           </th>
                           <th className={th}>
                             <span className="flex items-center gap-1">
-                              <Clock className="w-3 h-3" /> Time
+                              <ClockIcon className="w-3 h-3" /> Time
                             </span>
                           </th>
                           <th className={th}>
                             <span className="flex items-center gap-1">
-                              <MapPin className="w-3 h-3" /> Room
+                              <MapPinIcon className="w-3 h-3" /> Room
                             </span>
                           </th>
                           <th className={th}>Attendance</th>
@@ -463,7 +463,7 @@ export default function ProctorMonitoring() {
                                   isDark ? "text-pink-400" : "text-pink-600"
                                 }`}
                               >
-                                <MapPin className="w-3 h-3" /> {exam.room}
+                                <MapPinIcon className="w-3 h-3" /> {exam.room}
                               </span>
                             </td>
                             {/* Attendance */}

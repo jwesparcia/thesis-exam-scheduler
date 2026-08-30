@@ -1,14 +1,13 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  AlertTriangle,
-  Building2,
-  CheckCircle2,
-  DoorOpen,
-  Loader2,
-  RefreshCw,
-  Search,
-  Trash2,
-} from "lucide-react";
+  ExclamationTriangleIcon,
+  BuildingOfficeIcon,
+  CheckCircleIcon,
+  BuildingOffice2Icon,
+  ArrowPathIcon,
+  MagnifyingGlassIcon,
+  TrashIcon,
+} from "@heroicons/react/24/outline";
 import { useTheme } from "../context/themeStore";
 import { useToast } from "../context/ToastContext";
 import { useUser } from "../context/userStore";
@@ -174,11 +173,11 @@ export default function RoomManagement({ isGenerating }) {
   }, [selectedRoom]);
 
   const statCards = [
-    { label: "Rooms", value: summary.total_rooms || 0, icon: DoorOpen, tone: "blue" },
-    { label: "In Use", value: summary.in_use_rooms || 0, icon: Building2, tone: "amber" },
-    { label: "Available", value: summary.available_rooms || 0, icon: CheckCircle2, tone: "emerald" },
-    { label: "Room Needed", value: summary.unassigned_exams || 0, icon: AlertTriangle, tone: "red" },
-    { label: "Wrong Building", value: summary.wrong_building_exams || 0, icon: AlertTriangle, tone: "orange" },
+    { label: "Rooms", value: summary.total_rooms || 0, icon: BuildingOffice2Icon, tone: "blue" },
+    { label: "In Use", value: summary.in_use_rooms || 0, icon: BuildingOfficeIcon, tone: "amber" },
+    { label: "Available", value: summary.available_rooms || 0, icon: CheckCircleIcon, tone: "emerald" },
+    { label: "Room Needed", value: summary.unassigned_exams || 0, icon: ExclamationTriangleIcon, tone: "red" },
+    { label: "Wrong Building", value: summary.wrong_building_exams || 0, icon: ExclamationTriangleIcon, tone: "orange" },
   ];
 
   const toneClasses = {
@@ -204,7 +203,7 @@ export default function RoomManagement({ isGenerating }) {
       <div className="max-w-7xl mx-auto px-6 py-10 space-y-8">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <DoorOpen className="w-8 h-8 text-blue-500" />
+            <BuildingOffice2Icon className="w-8 h-8 text-blue-500" />
             <h1 className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}>Room Management</h1>
           </div>
           <div className="flex items-center gap-3">
@@ -213,7 +212,7 @@ export default function RoomManagement({ isGenerating }) {
               disabled={loading}
               className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition ${isDark ? "bg-gray-800 text-gray-100 hover:bg-gray-700" : "bg-white text-gray-700 border border-gray-200 hover:bg-gray-50"}`}
             >
-              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+              {loading ? <ArrowPathIcon className="w-4 h-4 animate-spin" /> : <ArrowPathIcon className="w-4 h-4" />}
               Refresh
             </button>
             {isAdmin && (
@@ -291,7 +290,7 @@ export default function RoomManagement({ isGenerating }) {
         {issues.length > 0 && (
           <div className={`rounded-2xl border p-5 ${isDark ? "bg-red-500/10 border-red-500/20" : "bg-red-50 border-red-100"}`}>
             <div className="flex items-center gap-3 mb-4">
-              <AlertTriangle className={isDark ? "text-red-300" : "text-red-600"} />
+              <ExclamationTriangleIcon className={isDark ? "text-red-300" : "text-red-600"} />
               <h2 className={`text-lg font-bold ${isDark ? "text-red-100" : "text-red-900"}`}>Room Assignment Issues</h2>
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
@@ -314,7 +313,7 @@ export default function RoomManagement({ isGenerating }) {
           <div className={`rounded-2xl border overflow-hidden ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"} shadow-sm`}>
             <div className={`p-5 border-b ${isDark ? "border-gray-700" : "border-gray-100"}`}>
               <div className="relative">
-                <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${isDark ? "text-gray-500" : "text-gray-400"}`} />
+                <MagnifyingGlassIcon className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${isDark ? "text-gray-500" : "text-gray-400"}`} />
                 <input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -340,7 +339,7 @@ export default function RoomManagement({ isGenerating }) {
                   {loading ? (
                     <tr>
                       <td colSpan="6" className="px-5 py-12 text-center">
-                        <Loader2 className="w-8 h-8 animate-spin text-blue-500 mx-auto" />
+                        <ArrowPathIcon className="w-8 h-8 animate-spin text-blue-500 mx-auto" />
                       </td>
                     </tr>
                   ) : filteredRooms.length === 0 ? (
@@ -415,7 +414,7 @@ export default function RoomManagement({ isGenerating }) {
                         }`}
                         title={isGenerating ? "Cannot delete rooms while schedule generation is ongoing" : ""}
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <TrashIcon className="w-4 h-4" />
                         Delete Room
                       </button>
                     ) : (
@@ -435,9 +434,9 @@ export default function RoomManagement({ isGenerating }) {
                             }`}
                           >
                             {deleting ? (
-                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              <ArrowPathIcon className="w-3.5 h-3.5 animate-spin" />
                             ) : (
-                              <Trash2 className="w-3.5 h-3.5" />
+                              <TrashIcon className="w-3.5 h-3.5" />
                             )}
                             Yes, Delete
                           </button>
@@ -499,7 +498,7 @@ export default function RoomManagement({ isGenerating }) {
           <div className={`relative w-full max-w-md rounded-2xl border p-6 shadow-2xl transition-all transform scale-100 duration-300 animate-scale-in ${isDark ? "bg-gray-800 border-gray-700 text-white" : "bg-white border-gray-100 text-gray-900"}`}>
             <div className="flex items-center gap-3 mb-4">
               <div className="p-2.5 rounded-xl bg-blue-500/10 text-blue-500">
-                <DoorOpen className="w-6 h-6" />
+                <BuildingOffice2Icon className="w-6 h-6" />
               </div>
               <div>
                 <h3 className="text-xl font-bold">Add Exam Room</h3>
@@ -569,7 +568,7 @@ export default function RoomManagement({ isGenerating }) {
                       : "bg-blue-600 hover:bg-blue-700 shadow-blue-500/20"
                   }`}
                 >
-                  {(submitting || isGenerating) && <Loader2 className="w-4 h-4 animate-spin" />}
+                  {(submitting || isGenerating) && <ArrowPathIcon className="w-4 h-4 animate-spin" />}
                   Save Room
                 </button>
               </div>

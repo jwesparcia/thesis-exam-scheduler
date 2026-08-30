@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useUser } from "../context/userStore";
 import { useTheme } from "../context/themeStore";
-import { Eye, EyeOff, LogIn, UserCircle, Sun, Moon, Lock } from "lucide-react";
+import { EyeIcon, EyeSlashIcon, ArrowRightStartOnRectangleIcon, UserCircleIcon, SunIcon, MoonIcon, LockClosedIcon } from "@heroicons/react/24/outline";
 import api from "../api";
 import { useToast } from "../context/ToastContext";
 
@@ -111,7 +111,7 @@ export default function Login() {
               } shadow-sm`}
             aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
           >
-            {isDark ? <Sun className="w-5 h-5 cursor-pointer" /> : <Moon className="w-5 h-5 cursor-pointer" />}
+            {isDark ? <SunIcon className="w-5 h-5 cursor-pointer" /> : <MoonIcon className="w-5 h-5 cursor-pointer" />}
           </button>
         </div>
 
@@ -134,7 +134,7 @@ export default function Login() {
                 Email Address
               </label>
               <div className="relative group">
-                <UserCircle className={`absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 transition ${isDark ? "text-gray-500 group-focus-within:text-blue-400" : "text-gray-400 group-focus-within:text-blue-600"}`} />
+                <UserCircleIcon className={`absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 transition ${isDark ? "text-gray-500 group-focus-within:text-blue-400" : "text-gray-400 group-focus-within:text-blue-600"}`} />
                 <input
                   type="text"
                   placeholder="Enter your email"
@@ -153,7 +153,7 @@ export default function Login() {
                 Password
               </label>
               <div className="relative group">
-                <Lock className={`absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 transition ${isDark ? "text-gray-500 group-focus-within:text-blue-400" : "text-gray-400 group-focus-within:text-blue-600"}`} />
+                <LockClosedIcon className={`absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 transition ${isDark ? "text-gray-500 group-focus-within:text-blue-400" : "text-gray-400 group-focus-within:text-blue-600"}`} />
                 <input
                   type={showPassword ? "text" : "password"}
                   placeholder="Enter your password"
@@ -173,7 +173,7 @@ export default function Login() {
                     }`}
                   aria-label={showPassword ? "Hide password" : "Show password"}
                 >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  {showPassword ? <EyeSlashIcon className="w-5 h-5" /> : <EyeIcon className="w-5 h-5" />}
                 </button>
               </div>
             </div>
@@ -194,7 +194,7 @@ export default function Login() {
                       : "border-gray-200 bg-white text-gray-500 hover:bg-gray-50 hover:text-gray-700"
                     }`}
                 >
-                  <UserCircle className="w-5 h-5 mx-auto mb-1.5" />
+                  <UserCircleIcon className="w-5 h-5 mx-auto mb-1.5" />
                   <div className="text-xs font-semibold">Admin</div>
                 </button>
 
@@ -208,7 +208,7 @@ export default function Login() {
                       : "border-gray-200 bg-white text-gray-500 hover:bg-gray-50 hover:text-gray-700"
                     }`}
                 >
-                  <UserCircle className="w-5 h-5 mx-auto mb-1.5" />
+                  <UserCircleIcon className="w-5 h-5 mx-auto mb-1.5" />
                   <div className="text-xs font-semibold">Proctor</div>
                 </button>
 
@@ -222,7 +222,7 @@ export default function Login() {
                       : "border-gray-200 bg-white text-gray-500 hover:bg-gray-50 hover:text-gray-700"
                     }`}
                 >
-                  <UserCircle className="w-5 h-5 mx-auto mb-1.5" />
+                  <UserCircleIcon className="w-5 h-5 mx-auto mb-1.5" />
                   <div className="text-xs font-semibold">Student</div>
                 </button>
               </div>
@@ -243,7 +243,7 @@ export default function Login() {
                 </div>
               ) : (
                 <div className="flex items-center justify-center gap-2">
-                  <LogIn className="w-5 h-5" />
+                  <ArrowRightStartOnRectangleIcon className="w-5 h-5" />
                   <span>Sign In</span>
                 </div>
               )}

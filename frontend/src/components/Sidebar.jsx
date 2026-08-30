@@ -1,6 +1,6 @@
 // src/components/Sidebar.jsx
 import React from "react";
-import { Home, BookOpen, Layers, Target, Users, Grid, MoreHorizontal } from "lucide-react";
+import { HomeIcon, BookOpenIcon, Square2StackIcon, AcademicCapIcon, UsersIcon, Squares2X2Icon, EllipsisHorizontalIcon } from "@heroicons/react/24/outline";
 
 /*
   Sidebar matches STI look:
@@ -10,13 +10,13 @@ import { Home, BookOpen, Layers, Target, Users, Grid, MoreHorizontal } from "luc
 
 export default function Sidebar({ className = "" }) {
   const menu = [
-    { label: "Home", icon: Home },
-    { label: "Courses", icon: BookOpen },
-    { label: "Paths", icon: Layers },
-    { label: "Goals", icon: Target },
-    { label: "Groups", icon: Users },
-    { label: "Catalog", icon: Grid },
-    { label: "More", icon: MoreHorizontal }
+    { label: "Home", icon: HomeIcon },
+    { label: "Courses", icon: BookOpenIcon },
+    { label: "Paths", icon: Square2StackIcon },
+    { label: "Goals", icon: AcademicCapIcon },
+    { label: "Groups", icon: UsersIcon },
+    { label: "Catalog", icon: Squares2X2Icon },
+    { label: "More", icon: EllipsisHorizontalIcon }
   ];
 
   return (

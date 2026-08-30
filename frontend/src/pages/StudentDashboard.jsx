@@ -1,5 +1,23 @@
 import React, { useEffect, useState, useRef } from "react";
-import { Search, LogOut, Calendar, Clock, MapPin, BookOpen, ChevronRight, Bell, UserCheck, Edit, Trash2, X, Send, Settings, MessageSquare, Plus, Loader2 } from "lucide-react";
+import {
+  MagnifyingGlassIcon,
+  ArrowLeftStartOnRectangleIcon,
+  CalendarIcon,
+  ClockIcon,
+  MapPinIcon,
+  BookOpenIcon,
+  ChevronRightIcon,
+  BellIcon,
+  CheckBadgeIcon,
+  PencilIcon,
+  TrashIcon,
+  XMarkIcon,
+  PaperAirplaneIcon,
+  Cog6ToothIcon,
+  ChatBubbleLeftRightIcon,
+  PlusIcon,
+  ArrowPathIcon,
+} from "@heroicons/react/24/outline";
 import { useTheme } from "../context/themeStore";
 import ThemeToggle from "../components/ThemeToggle";
 import { useUser } from "../context/userStore";
@@ -8,6 +26,7 @@ import api from "../api";
 import { useToast } from "../context/ToastContext";
 import SettingsDropdown from "../components/SettingsDropdown";
 import ConfirmationModal from "../components/ConfirmationModal";
+import FirstTimePasswordChange from "../components/FirstTimePasswordChange";
 
 function formatDate(dateStr) {
   if (!dateStr) return "";
@@ -22,9 +41,9 @@ function StudentManual() {
   const [activeSubTab, setActiveSubTab] = useState("schedule");
 
   const topics = [
-    { id: "schedule", label: "My Schedule Guide", icon: Calendar },
-    { id: "rescheduling", label: "Reschedule Requests", icon: Edit },
-    { id: "irregular", label: "Custom Schedule Builder", icon: BookOpen },
+    { id: "schedule", label: "My Schedule Guide", icon: CalendarIcon },
+    { id: "rescheduling", label: "Reschedule Requests", icon: PencilIcon },
+    { id: "irregular", label: "Custom Schedule Builder", icon: BookOpenIcon },
   ];
 
   return (
@@ -32,7 +51,7 @@ function StudentManual() {
       <div className={`p-6 rounded-2xl border ${isDark ? "bg-slate-800/40 border-slate-700" : "bg-gradient-to-r from-blue-500/10 to-indigo-500/10 border-blue-100"}`}>
         <div className="flex items-center gap-4">
           <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${isDark ? "bg-blue-500/20 text-blue-300" : "bg-blue-600 text-white shadow-md shadow-blue-500/20"}`}>
-            <BookOpen className="w-6 h-6" />
+            <BookOpenIcon className="w-6 h-6" />
           </div>
           <div>
             <h2 className={`text-xl font-bold tracking-tight ${isDark ? "text-white" : "text-slate-900"}`}>
@@ -84,7 +103,7 @@ function StudentManual() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className={`p-4 rounded-xl border ${isDark ? "bg-slate-900/40 border-slate-800" : "bg-slate-50 border-slate-100"}`}>
                 <h4 className={`font-bold text-sm mb-1.5 flex items-center gap-2 ${isDark ? "text-slate-200" : "text-slate-800"}`}>
-                  <Clock className="w-4 h-4 text-blue-500" /> Exam Date & Time
+                  <ClockIcon className="w-4 h-4 text-blue-500" /> Exam Date & Time
                 </h4>
                 <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-500"}`}>
                   Note if the exam is in the Morning or Afternoon. Make sure to arrive early.
@@ -92,7 +111,7 @@ function StudentManual() {
               </div>
               <div className={`p-4 rounded-xl border ${isDark ? "bg-slate-900/40 border-slate-800" : "bg-slate-50 border-slate-100"}`}>
                 <h4 className={`font-bold text-sm mb-1.5 flex items-center gap-2 ${isDark ? "text-slate-200" : "text-slate-800"}`}>
-                  <MapPin className="w-4 h-4 text-indigo-500" /> Exam Room
+                  <MapPinIcon className="w-4 h-4 text-indigo-500" /> Exam Room
                 </h4>
                 <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-500"}`}>
                   The room code and building floor where your exam is scheduled.
@@ -100,7 +119,7 @@ function StudentManual() {
               </div>
               <div className={`p-4 rounded-xl border ${isDark ? "bg-slate-900/40 border-slate-800" : "bg-slate-50 border-slate-100"}`}>
                 <h4 className={`font-bold text-sm mb-1.5 flex items-center gap-2 ${isDark ? "text-slate-200" : "text-slate-800"}`}>
-                  <UserCheck className="w-4 h-4 text-emerald-500" /> Proctor Name
+                  <CheckBadgeIcon className="w-4 h-4 text-emerald-500" /> Proctor Name
                 </h4>
                 <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-500"}`}>
                   The faculty member supervising your exam session.
@@ -358,13 +377,13 @@ function StudentChatPanel() {
               }}
               className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition flex items-center justify-center gap-1.5 text-xs font-semibold"
             >
-              <Plus className="w-3.5 h-3.5" />
+              <PlusIcon className="w-3.5 h-3.5" />
               New Chat
             </button>
           </div>
           {/* Active Chats Search */}
           <div className="relative">
-            <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-400" />
+            <MagnifyingGlassIcon className="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-400" />
             <input
               type="text"
               placeholder="Search conversations..."
@@ -383,12 +402,12 @@ function StudentChatPanel() {
         <div className="flex-1 overflow-y-auto p-2 space-y-1 custom-scrollbar">
           {loadingConv ? (
             <div className="flex flex-col items-center justify-center h-48 gap-2">
-              <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
+              <ArrowPathIcon className="w-6 h-6 animate-spin text-blue-500" />
               <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>Loading conversations...</p>
             </div>
           ) : filteredConversations.length === 0 ? (
             <div className="text-center py-12 text-slate-400 dark:text-slate-500">
-              <MessageSquare className="w-8 h-8 mx-auto mb-2 opacity-35" />
+              <ChatBubbleLeftRightIcon className="w-8 h-8 mx-auto mb-2 opacity-35" />
               <p className="text-xs">No active chats</p>
               <p className="text-[10px] mt-1">Click "New Chat" to start a discussion</p>
             </div>
@@ -460,7 +479,7 @@ function StudentChatPanel() {
                   onClick={() => setShowMobileSidebar(true)}
                   className="p-1.5 rounded-lg md:hidden hover:bg-slate-200 dark:hover:bg-slate-700 transition"
                 >
-                  <ChevronRight className="w-5 h-5 rotate-180 text-slate-500 dark:text-slate-400" />
+                  <ChevronRightIcon className="w-5 h-5 rotate-180 text-slate-500 dark:text-slate-400" />
                 </button>
                 <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${isDark ? "bg-blue-600/30 text-blue-300" : "bg-blue-100 text-blue-700"}`}>
                   {(activeContactName || "").split(" ").filter(Boolean).map(n => n[0]).join("").slice(0, 2).toUpperCase()}
@@ -481,7 +500,7 @@ function StudentChatPanel() {
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-red-500 hover:bg-red-500/10 border border-transparent hover:border-red-500/25 transition"
                 title="Clear conversation history"
               >
-                <Trash2 className="w-3.5 h-3.5" />
+                <TrashIcon className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">Clear Chat</span>
               </button>
             </div>
@@ -491,7 +510,7 @@ function StudentChatPanel() {
               {chatMessages.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full gap-3 text-slate-400 dark:text-slate-500">
                   <div className={`w-16 h-16 rounded-2xl flex items-center justify-center ${isDark ? "bg-slate-800" : "bg-slate-100"}`}>
-                    <MessageSquare className="w-8 h-8 opacity-30" />
+                    <ChatBubbleLeftRightIcon className="w-8 h-8 opacity-30" />
                   </div>
                   <div className="text-center max-w-xs">
                     <p className="font-semibold text-sm">Start a conversation</p>
@@ -516,7 +535,7 @@ function StudentChatPanel() {
                             className={`p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 transition`}
                             title="Edit message"
                           >
-                            <Edit className="w-3.5 h-3.5" />
+                            <PencilIcon className="w-3.5 h-3.5" />
                           </button>
                           <button
                             onClick={() => {
@@ -526,7 +545,7 @@ function StudentChatPanel() {
                             className="p-1 rounded hover:bg-red-500/10 text-red-500 transition"
                             title="Delete message"
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
+                            <TrashIcon className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       )}
@@ -611,13 +630,13 @@ function StudentChatPanel() {
                     : "bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/25"
                 }`}
               >
-                <Send className="w-4 h-4" />
+                <PaperAirplaneIcon className="w-4 h-4" />
               </button>
             </div>
           </>
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center p-8 text-slate-400 dark:text-slate-500">
-            <MessageSquare className="w-12 h-12 mb-3 opacity-30 text-blue-500" />
+            <ChatBubbleLeftRightIcon className="w-12 h-12 mb-3 opacity-30 text-blue-500" />
             <h3 className="font-bold text-sm mb-1 text-slate-700 dark:text-slate-300">No Chat Selected</h3>
             <p className="text-xs text-center max-w-xs leading-relaxed">
               Select an active conversation from the list or click the "New Chat" button to contact an administrator or proctor.
@@ -637,7 +656,7 @@ function StudentChatPanel() {
                 onClick={() => setIsNewChatModalOpen(false)}
                 className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition"
               >
-                <X className="w-4 h-4 text-slate-500" />
+                <XMarkIcon className="w-4 h-4 text-slate-500" />
               </button>
             </div>
 
@@ -668,7 +687,7 @@ function StudentChatPanel() {
             {/* Contact Directory Search */}
             <div className="p-3 border-b border-slate-200 dark:border-slate-700">
               <div className="relative">
-                <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
+                <MagnifyingGlassIcon className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
                 <input
                   type="text"
                   placeholder={`Search ${contactTab === "admins" ? "admins" : "proctors"}...`}
@@ -1137,6 +1156,22 @@ export default function StudentDashboard() {
 
   if (!user) return <div className={`min-h-screen ${isDark ? "bg-gray-900" : "bg-gray-50"} flex items-center justify-center`}>Redirecting...</div>;
 
+  if (user && user.is_first_login) {
+    return (
+      <FirstTimePasswordChange
+        user={user}
+        onPasswordChanged={(updatedUser) => login(updatedUser)}
+        isDark={isDark}
+        onLogout={handleLogout}
+        onSkip={() => login({
+          ...user,
+          is_first_login: false,
+          temporary_skip: true
+        })}
+      />
+    );
+  }
+
   // Filters for regular students
   const processedExams = user?.student_type === "regular" ? exams.filter(exam => {
     if (exam.exam_type?.toLowerCase() !== "written") return false;
@@ -1182,13 +1217,13 @@ export default function StudentDashboard() {
                 className="text-xs font-semibold text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1.5"
                 title="Clear all notifications"
               >
-                <Trash2 className="w-3.5 h-3.5" />
+                <TrashIcon className="w-3.5 h-3.5" />
                 <span>Clear All</span>
               </button>
             )}
           </div>
           <div className="overflow-y-auto p-2 custom-scrollbar flex-1">
-            {notifications.length === 0 ? <div className={`p-6 text-center text-sm ${isDark ? "text-slate-500" : "text-slate-400"}`}><Bell className="w-8 h-8 mx-auto mb-2 opacity-20" />You're all caught up!</div> : notifications.map((notif) => (
+            {notifications.length === 0 ? <div className={`p-6 text-center text-sm ${isDark ? "text-slate-500" : "text-slate-400"}`}><BellIcon className="w-8 h-8 mx-auto mb-2 opacity-20" />You're all caught up!</div> : notifications.map((notif) => (
               <div key={notif.id} onClick={() => handleNotificationClick(notif)} className={`p-3.5 rounded-xl cursor-pointer transition-all duration-200 mb-1 group relative ${notif.is_read ? (isDark ? "hover:bg-slate-700/50 opacity-60" : "hover:bg-slate-50 opacity-60") : (isDark ? "bg-blue-900/20 hover:bg-blue-900/40 border border-blue-800/30" : "bg-blue-50 hover:bg-blue-100 border border-blue-100")}`}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex gap-3 min-w-0 flex-1">
@@ -1203,7 +1238,7 @@ export default function StudentDashboard() {
                     className={`p-1 rounded-lg transition-colors shrink-0 ${isDark ? "text-slate-400 hover:text-red-400 hover:bg-slate-700" : "text-slate-400 hover:text-red-600 hover:bg-slate-200/70"}`}
                     title="Delete notification"
                   >
-                    <X className="w-4 h-4" />
+                    <XMarkIcon className="w-4 h-4" />
                   </button>
                 </div>
               </div>
@@ -1220,7 +1255,7 @@ export default function StudentDashboard() {
                 }`}
               title="Close"
             >
-              <X className="w-5 h-5" />
+              <XMarkIcon className="w-5 h-5" />
             </button>
             <h2 className={`text-2xl font-bold mb-6 text-center ${isDark ? "text-white" : "text-slate-900"}`}>Select Schedule Type</h2>
             <div className="flex gap-4 mb-6">
@@ -1274,7 +1309,7 @@ export default function StudentDashboard() {
             <div className="flex-1 max-w-xl hidden md:block">
               {user?.student_type === "regular" && (
                 <div className="relative group">
-                  <Search className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors ${isDark ? "text-slate-500 group-focus-within:text-blue-400" : "text-slate-400 group-focus-within:text-blue-500"}`} />
+                  <MagnifyingGlassIcon className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors ${isDark ? "text-slate-500 group-focus-within:text-blue-400" : "text-slate-400 group-focus-within:text-blue-500"}`} />
                   <input type="text" placeholder="Search exams..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className={`w-full pl-12 pr-5 py-3 rounded-2xl border outline-none transition-all text-sm shadow-sm ${isDark ? "bg-slate-800/50 border-slate-700 text-slate-100 placeholder-slate-500 focus:border-blue-500 focus:bg-slate-800" : "bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10"}`} />
                 </div>
               )}
@@ -1286,7 +1321,7 @@ export default function StudentDashboard() {
 
               <div className="relative">
                 <button onClick={() => setShowNotifications(!showNotifications)} className={`relative p-2 sm:p-2.5 rounded-xl transition-all duration-300 ${isDark ? "text-slate-300 hover:text-white hover:bg-slate-800" : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"}`}>
-                  <Bell className="w-5 h-5" />
+                  <BellIcon className="w-5 h-5" />
                   {unreadCount > 0 && (
                     <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white ring-2 ring-white dark:ring-slate-900 animate-pulse">
                       {unreadCount}
@@ -1314,7 +1349,7 @@ export default function StudentDashboard() {
                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
                   isDark ? "bg-blue-500/20 text-blue-300" : "bg-blue-600 text-white shadow-sm"
                 }`}>
-                  <Bell className="w-5 h-5 animate-bounce" />
+                  <BellIcon className="w-5 h-5 animate-bounce" />
                 </div>
                 <div>
                   <span className="text-xs font-bold uppercase tracking-wider block opacity-75">New Notification</span>
@@ -1341,7 +1376,7 @@ export default function StudentDashboard() {
                   }`}
                   title="Mark as read"
                 >
-                  <X className="w-4 h-4" />
+                  <XMarkIcon className="w-4 h-4" />
                 </button>
               </div>
             </div>
@@ -1399,7 +1434,7 @@ export default function StudentDashboard() {
               }`}
           >
             <div className="relative flex items-center justify-center">
-              <MessageSquare className="w-4 h-4" />
+              <ChatBubbleLeftRightIcon className="w-4 h-4" />
               {unreadChatCount > 0 && (
                 <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse border-2 border-white dark:border-slate-900"></span>
               )}
@@ -1479,7 +1514,7 @@ export default function StudentDashboard() {
                         Refresh Schedule
                       </button>
                       <button onClick={() => setSelectedSubjects([])} className="flex items-center gap-1.5 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition font-medium text-sm shadow-sm shadow-red-500/20">
-                        <Trash2 className="w-4 h-4" />
+                        <TrashIcon className="w-4 h-4" />
                         Remove All Selected Subjects
                       </button>
                     </div>
@@ -1494,7 +1529,7 @@ export default function StudentDashboard() {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
               <div className={`p-4 rounded-xl shadow-sm border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
                 <div className="flex flex-wrap gap-4 items-center">
-                  <div className="flex items-center gap-2"><Calendar className={`w-4 h-4 ${isDark ? "text-gray-400" : "text-gray-500"}`} /><span className={`text-sm font-medium ${isDark ? "text-gray-300" : "text-gray-700"}`}>Filters:</span></div>
+                  <div className="flex items-center gap-2"><CalendarIcon className={`w-4 h-4 ${isDark ? "text-gray-400" : "text-gray-500"}`} /><span className={`text-sm font-medium ${isDark ? "text-gray-300" : "text-gray-700"}`}>Filters:</span></div>
                   <select value={filterDay} onChange={(e) => setFilterDay(e.target.value)} className={`px-3 py-1.5 rounded-lg text-sm border ${isDark ? "bg-gray-700 border-gray-600 text-white" : "bg-gray-50 border-gray-300"}`}><option value="all">All Days</option><option>Monday</option><option>Tuesday</option><option>Wednesday</option><option>Thursday</option><option>Friday</option><option>Saturday</option></select>
                   <select value={filterSession} onChange={(e) => setFilterSession(e.target.value)} className={`px-3 py-1.5 rounded-lg text-sm border ${isDark ? "bg-gray-700 border-gray-600 text-white" : "bg-gray-50 border-gray-300"}`}><option value="all">All Sessions</option><option value="morning">Morning</option><option value="afternoon">Afternoon</option></select>
                   <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} className={`px-3 py-1.5 rounded-lg text-sm border ${isDark ? "bg-gray-700 border-gray-600 text-white" : "bg-gray-50 border-gray-300"}`}><option value="all">All Categories</option><option value="major">Major</option><option value="general">General</option></select>
@@ -1510,15 +1545,15 @@ export default function StudentDashboard() {
               <div className="flex items-center justify-center py-20"><div className="w-10 h-10 rounded-full border-4 border-t-blue-500 animate-spin"></div><p className="ml-3">Loading your schedule...</p></div>
             ) : filtered.length === 0 ? (
               <div className={`text-center py-20 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
-                <div className="max-w-md mx-auto"><div className={`w-20 h-20 mx-auto mb-6 rounded-2xl ${isDark ? "bg-gray-800" : "bg-white border border-gray-200"} flex items-center justify-center`}><BookOpen className={`w-10 h-10 ${isDark ? "text-gray-500" : "text-gray-400"}`} /></div><p className="text-xl font-medium mb-2">{exams.length === 0 ? "No Exams Posted" : "No Results Found"}</p><p className="text-sm leading-relaxed">{exams.length === 0 ? "Your program head hasn't posted any exams yet. Check back soon!" : "Try adjusting your search term."}</p></div>
+                <div className="max-w-md mx-auto"><div className={`w-20 h-20 mx-auto mb-6 rounded-2xl ${isDark ? "bg-gray-800" : "bg-white border border-gray-200"} flex items-center justify-center`}><BookOpenIcon className={`w-10 h-10 ${isDark ? "text-gray-500" : "text-gray-400"}`} /></div><p className="text-xl font-medium mb-2">{exams.length === 0 ? "No Exams Posted" : "No Results Found"}</p><p className="text-sm leading-relaxed">{exams.length === 0 ? "Your program head hasn't posted any exams yet. Check back soon!" : "Try adjusting your search term."}</p></div>
               </div>
             ) : (
               <div className="space-y-4">
                 {filtered.map(([sectionName, sectionExams]) => (
                   <div key={sectionName} className={`rounded-lg overflow-hidden border shadow-sm ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
                     <button onClick={() => setExpandedSection(expandedSection === sectionName ? null : sectionName)} className={`w-full px-6 py-4 flex items-center justify-between transition ${isDark ? "bg-gray-700/50 hover:bg-gray-700/70" : "bg-gray-50 hover:bg-gray-100"}`}>
-                      <div className="flex items-center gap-4"><div className={`w-10 h-10 rounded-lg flex items-center justify-center ${isDark ? "bg-blue-900/30 text-blue-300" : "bg-blue-50 text-blue-600"}`}><BookOpen className="w-5 h-5" /></div><div className="text-left"><h2 className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>{sectionName}</h2><p className={`text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}>{sectionExams.length} scheduled exam{sectionExams.length !== 1 ? "s" : ""}</p></div></div>
-                      <ChevronRight className={`w-5 h-5 transition-transform ${expandedSection === sectionName ? "rotate-90 text-blue-500" : isDark ? "text-gray-500" : "text-gray-400"}`} />
+                      <div className="flex items-center gap-4"><div className={`w-10 h-10 rounded-lg flex items-center justify-center ${isDark ? "bg-blue-900/30 text-blue-300" : "bg-blue-50 text-blue-600"}`}><BookOpenIcon className="w-5 h-5" /></div><div className="text-left"><h2 className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>{sectionName}</h2><p className={`text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}>{sectionExams.length} scheduled exam{sectionExams.length !== 1 ? "s" : ""}</p></div></div>
+                      <ChevronRightIcon className={`w-5 h-5 transition-transform ${expandedSection === sectionName ? "rotate-90 text-blue-500" : isDark ? "text-gray-500" : "text-gray-400"}`} />
                     </button>
                     {expandedSection === sectionName && (
                       <div className="animate-slideDown">
@@ -1532,9 +1567,9 @@ export default function StudentDashboard() {
                                   <tr key={exam.id} className={`${isDark ? "hover:bg-gray-700/30" : "hover:bg-gray-50"} transition ${isConflicting ? (isDark ? "bg-red-900/20 border-l-4 border-red-500" : "bg-red-50 border-l-4 border-red-500") : ""}`}>
                                     <td className={`px-6 py-4 border-t ${isDark ? "border-gray-700" : "border-gray-200"}`}><div className={`font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>{exam.subject_name}</div><div className={`text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}>{exam.subject_code}</div>{isConflicting && <div className="text-xs text-red-500 font-bold mt-1">⚠ CONFLICT DETECTED</div>}</td>
                                     <td className={`px-6 py-4 border-t ${isDark ? "border-gray-700" : "border-gray-200"}`}><span className={`px-2 py-1 rounded-full text-xs font-medium ${exam.category === "major" ? (isDark ? "bg-purple-900/30 text-purple-300" : "bg-purple-100 text-purple-700") : (isDark ? "bg-blue-900/30 text-blue-300" : "bg-blue-100 text-blue-700")}`}>{exam.category ? exam.category.toUpperCase() : "-"}</span></td>
-                                    <td className={`px-6 py-4 border-t ${isDark ? "border-gray-700" : "border-gray-200"}`}><div className={`flex items-center gap-2 ${isDark ? "text-gray-200" : "text-gray-800"}`}><Calendar className="w-4 h-4 text-blue-500" />{formatDate(exam.exam_date)}</div><div className={`flex items-center gap-2 mt-1 text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}><Clock className="w-4 h-4 text-purple-500" />{exam.start_time} - {exam.end_time}</div></td>
-                                    <td className={`px-6 py-4 border-t ${isDark ? "border-gray-700" : "border-gray-200"}`}><div className="flex items-center gap-2"><MapPin className={`w-4 h-4 ${isDark ? "text-gray-400" : "text-gray-500"}`} /><span className={`px-2.5 py-0.5 rounded text-sm font-medium ${isDark ? "bg-gray-700 text-gray-300" : "bg-gray-100 text-gray-700"}`}>{exam.room}</span></div><div className={`mt-1 text-xs ${isDark ? "text-gray-500" : "text-gray-400"}`}>{exam.course_name} • {exam.year_level}</div></td>
-                                    <td className={`px-6 py-4 border-t ${isDark ? "border-gray-700" : "border-gray-200"}`}><div className={`flex items-center gap-2 ${isDark ? "text-gray-300" : "text-gray-700"}`}><UserCheck className="w-4 h-4 text-emerald-500" /><span className="text-sm">{exam.proctor || "Unassigned"}</span></div></td>
+                                    <td className={`px-6 py-4 border-t ${isDark ? "border-gray-700" : "border-gray-200"}`}><div className={`flex items-center gap-2 ${isDark ? "text-gray-200" : "text-gray-800"}`}><CalendarIcon className="w-4 h-4 text-blue-500" />{formatDate(exam.exam_date)}</div><div className={`flex items-center gap-2 mt-1 text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}><ClockIcon className="w-4 h-4 text-purple-500" />{exam.start_time} - {exam.end_time}</div></td>
+                                    <td className={`px-6 py-4 border-t ${isDark ? "border-gray-700" : "border-gray-200"}`}><div className="flex items-center gap-2"><MapPinIcon className={`w-4 h-4 ${isDark ? "text-gray-400" : "text-gray-500"}`} /><span className={`px-2.5 py-0.5 rounded text-sm font-medium ${isDark ? "bg-gray-700 text-gray-300" : "bg-gray-100 text-gray-700"}`}>{exam.room}</span></div><div className={`mt-1 text-xs ${isDark ? "text-gray-500" : "text-gray-400"}`}>{exam.course_name} • {exam.year_level}</div></td>
+                                    <td className={`px-6 py-4 border-t ${isDark ? "border-gray-700" : "border-gray-200"}`}><div className={`flex items-center gap-2 ${isDark ? "text-gray-300" : "text-gray-700"}`}><CheckBadgeIcon className="w-4 h-4 text-emerald-500" /><span className="text-sm">{exam.proctor || "Unassigned"}</span></div></td>
                                     <td className={`px-6 py-4 border-t ${isDark ? "border-gray-700" : "border-gray-200"}`}><div className="group relative"><button onClick={() => { if (!isConflicting) return; setSelectedExam(exam); setCourseCode(exam.subject_code); setCourseName(exam.subject_name); const parts = exam.exam_date.split(", "); const d = new Date(`${parts[1]}, ${parts[2]}`); setOriginalExamDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`); setOriginalStartTime(exam.start_time); setOriginalEndTime(exam.end_time); setExamType(exam.exam_type || "Midterm"); setIsModalOpen(true); }} disabled={!isConflicting} className={`px-3 py-1 rounded-lg text-sm font-medium transition ${isConflicting ? (isDark ? "bg-red-600 hover:bg-red-700 text-white" : "bg-red-500 hover:bg-red-600 text-white shadow-sm") : (isDark ? "bg-gray-700 text-gray-500 cursor-not-allowed" : "bg-gray-200 text-gray-400 cursor-not-allowed")}`}>Request Reschedule</button>{!isConflicting && <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-gray-800 text-white text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 transition pointer-events-none z-10">Rescheduling is only available if there is a conflict.</div>}</div></td>
                                   </tr>
                                 );
@@ -1569,7 +1604,7 @@ export default function StudentDashboard() {
             <div className="flex items-center justify-between mb-8 pb-4 border-b dark:border-gray-800">
               <h3 className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>Request Exam Reschedule</h3>
               <button onClick={() => setIsModalOpen(false)} className={`p-2 rounded-lg transition ${isDark ? "hover:bg-gray-800 text-gray-400" : "hover:bg-gray-100 text-gray-500"}`}>
-                <X className="w-5 h-5" />
+                <XMarkIcon className="w-5 h-5" />
               </button>
             </div>
 

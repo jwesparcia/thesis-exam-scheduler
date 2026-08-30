@@ -122,6 +122,13 @@ def generate_exam_schedule(db: Session, start_date: date, end_date: date = None,
         Exam.semester == semester,
         Exam.term == term
     ).all()
+    draft_ids = [draft.id for draft in drafts_to_delete]
+    if draft_ids:
+        # Delete rescheduling requests first to avoid FK violation
+        from model import ReschedulingRequest
+        db.query(ReschedulingRequest).filter(
+            ReschedulingRequest.exam_id.in_(draft_ids)
+        ).delete(synchronize_session=False)
     for draft in drafts_to_delete:
         db.delete(draft)
     db.commit()

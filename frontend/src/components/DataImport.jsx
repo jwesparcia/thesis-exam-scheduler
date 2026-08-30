@@ -1,17 +1,16 @@
 import React, { useState, useEffect } from "react";
 import { 
-  Database, 
-  Upload, 
-  Download, 
-  AlertTriangle, 
-  CheckCircle, 
-  RefreshCw, 
-  BookOpen, 
-  Users, 
-  Layers, 
-  HelpCircle,
-  Loader2
-} from "lucide-react";
+  CircleStackIcon, 
+  ArrowUpTrayIcon, 
+  ArrowDownTrayIcon, 
+  ExclamationTriangleIcon, 
+  CheckCircleIcon, 
+  ArrowPathIcon, 
+  BookOpenIcon, 
+  UsersIcon, 
+  Square2StackIcon, 
+  QuestionMarkCircleIcon
+} from "@heroicons/react/24/outline";
 import { useTheme } from "../context/themeStore";
 import { useToast } from "../context/ToastContext";
 import api from "../api";
@@ -165,7 +164,7 @@ export default function DataImport({ isGenerating }) {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="flex items-center gap-4">
             <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${isDark ? "bg-blue-500/20 text-blue-300" : "bg-blue-600 text-white shadow-md shadow-blue-500/20"}`}>
-              <Database className="w-6 h-6" />
+              <CircleStackIcon className="w-6 h-6" />
             </div>
             <div>
               <h2 className={`text-xl font-bold tracking-tight ${isDark ? "text-white" : "text-slate-900"}`}>
@@ -185,7 +184,7 @@ export default function DataImport({ isGenerating }) {
                 : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
             }`}
           >
-            <RefreshCw className={`w-4 h-4 ${loadingStats ? "animate-spin" : ""}`} />
+            <ArrowPathIcon className={`w-4 h-4 ${loadingStats ? "animate-spin" : ""}`} />
             Refresh Stats
           </button>
         </div>
@@ -194,10 +193,10 @@ export default function DataImport({ isGenerating }) {
       {/* Database Statistics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         {[
-          { label: "Total Courses", value: stats.courses, icon: Layers, color: "text-blue-500 bg-blue-500/10" },
-          { label: "Total Sections", value: stats.sections, icon: BookOpen, color: "text-green-500 bg-green-500/10" },
-          { label: "Total Subjects", value: stats.subjects, icon: Database, color: "text-purple-500 bg-purple-500/10" },
-          { label: "Total Teachers", value: stats.teachers, icon: Users, color: "text-orange-500 bg-orange-500/10" },
+          { label: "Total Courses", value: stats.courses, icon: Square2StackIcon, color: "text-blue-500 bg-blue-500/10" },
+          { label: "Total Sections", value: stats.sections, icon: BookOpenIcon, color: "text-green-500 bg-green-500/10" },
+          { label: "Total Subjects", value: stats.subjects, icon: CircleStackIcon, color: "text-purple-500 bg-purple-500/10" },
+          { label: "Total Teachers", value: stats.teachers, icon: UsersIcon, color: "text-orange-500 bg-orange-500/10" },
         ].map((card, i) => {
           const Icon = card.icon;
           return (
@@ -269,7 +268,7 @@ export default function DataImport({ isGenerating }) {
               onClick={downloadTemplate}
               className="w-full flex items-center justify-center gap-2.5 px-4 py-3 rounded-xl text-sm font-semibold bg-blue-600 text-white hover:bg-blue-700 transition duration-300 shadow-sm shadow-blue-600/10"
             >
-              <Download className="w-4 h-4" />
+              <ArrowDownTrayIcon className="w-4 h-4" />
               Download Current Curriculum
             </button>
           </div>
@@ -305,7 +304,7 @@ export default function DataImport({ isGenerating }) {
               />
               <div className="flex flex-col items-center justify-center gap-3.5">
                 <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${isDark ? "bg-slate-800 text-slate-400" : "bg-slate-100 text-slate-500"}`}>
-                  <Upload className="w-5 h-5" />
+                  <ArrowUpTrayIcon className="w-5 h-5" />
                 </div>
                 <div>
                   <p className={`text-sm font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
@@ -337,7 +336,7 @@ export default function DataImport({ isGenerating }) {
                 />
                 <div className="text-xs">
                   <span className="font-bold block mb-0.5">Clear existing curriculum catalog data</span>
-                  <span>Enable this to replace existing courses, sections, and subjects. <strong>Warning: This also deletes all current active/draft exam schedules!</strong></span>
+                  <span>Enable this to replace existing courses, sections, and subjects. <strong>Warning: This also deletes all current active/draft exam schedules. Student accounts are not affected.</strong></span>
                 </div>
               </label>
             </div>
@@ -357,12 +356,12 @@ export default function DataImport({ isGenerating }) {
             >
               {uploading ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <ArrowPathIcon className="w-4 h-4 animate-spin" />
                   Importing Curriculum Data...
                 </>
               ) : (
                 <>
-                  <Upload className="w-4 h-4" />
+                  <ArrowUpTrayIcon className="w-4 h-4" />
                   Upload & Import Data
                 </>
               )}
@@ -375,7 +374,7 @@ export default function DataImport({ isGenerating }) {
       {importResult && (
         <div className={`p-6 rounded-2xl border ${isDark ? "bg-slate-800/20 border-slate-800" : "bg-white border-slate-200"} animate-in fade-in duration-300`}>
           <div className="flex items-center gap-3 mb-6">
-            <CheckCircle className="w-5 h-5 text-green-500" />
+            <CheckCircleIcon className="w-5 h-5 text-green-500" />
             <h3 className={`text-md font-bold ${isDark ? "text-white" : "text-slate-800"}`}>
               Curriculum Data Successfully Synced!
             </h3>
@@ -410,11 +409,11 @@ export default function DataImport({ isGenerating }) {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-1">
             <h4 className="text-sm font-bold text-red-600 dark:text-red-400 uppercase tracking-wider flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4" />
+              <ExclamationTriangleIcon className="w-4 h-4" />
               Danger Zone
             </h4>
             <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-600"}`}>
-              Permanently wipe the entire database curriculum (Courses, Sections, Subjects, Teachers, Proctor Accounts, and Schedules). This action is irreversible.
+              Permanently delete all curriculum data (Courses, Sections, Subjects, Teachers, Proctor Accounts, and Schedules). Student accounts are <strong>not</strong> affected.
             </p>
           </div>
           <button
@@ -428,11 +427,11 @@ export default function DataImport({ isGenerating }) {
           >
             {clearing ? (
               <>
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                Clearing Database...
+                <ArrowPathIcon className="w-3.5 h-3.5 animate-spin" />
+                Deleting Curriculum...
               </>
             ) : (
-              "Reset & Clear Database"
+              "Delete Curriculum"
             )}
           </button>
         </div>
@@ -440,10 +439,10 @@ export default function DataImport({ isGenerating }) {
 
       <ConfirmationModal
         isOpen={isClearModalOpen}
-        title="Reset System Database"
-        message="This action will permanently delete all courses, year levels, sections, subjects, proctors, teacher accounts, and ALL active exam schedules. This is irreversible."
+        title="Delete Curriculum Data"
+        message="This will permanently delete all courses, year levels, sections, subjects, teachers, proctors, proctor accounts, and ALL active exam schedules. Student accounts will NOT be deleted."
         confirmText="confirm"
-        confirmLabel="Reset & Clear Database"
+        confirmLabel="Delete Curriculum"
         isDanger={true}
         onConfirm={executeClearDatabase}
         onCancel={() => setIsClearModalOpen(false)}
@@ -452,7 +451,7 @@ export default function DataImport({ isGenerating }) {
       <ConfirmationModal
         isOpen={isImportConfirmOpen}
         title="Confirm Curriculum Import"
-        message="WARNING: You have enabled 'Clear existing data'. This will wipe out all current courses, year levels, sections, subjects, and generated exam schedules before importing the new file. Are you sure you want to proceed?"
+        message="WARNING: You have enabled 'Clear existing data'. This will wipe out all current courses, year levels, sections, subjects, and generated exam schedules before importing the new file. Student accounts will NOT be deleted. Are you sure you want to proceed?"
         confirmLabel="Wipe and Import Data"
         isDanger={true}
         onConfirm={() => {

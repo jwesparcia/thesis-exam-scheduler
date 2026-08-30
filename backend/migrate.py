@@ -106,3 +106,21 @@ with engine.connect() as conn:
         else:
             print("Notifications table is already up-to-date with 'user_id' column.")
 
+    # Check if users table has is_first_login column
+    result_first_login = conn.execute(text("""
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name='users' AND column_name='is_first_login';
+    """)).fetchone()
+    
+    if not result_first_login:
+        print("Column 'is_first_login' not found in table 'users'. Adding column...")
+        conn.execute(text("""
+            ALTER TABLE users 
+            ADD COLUMN is_first_login BOOLEAN DEFAULT TRUE;
+        """))
+        conn.commit()
+        print("Migration successful! Column 'is_first_login' added to table 'users'.")
+    else:
+        print("Column 'is_first_login' already exists in table 'users'. No migration needed.")
+

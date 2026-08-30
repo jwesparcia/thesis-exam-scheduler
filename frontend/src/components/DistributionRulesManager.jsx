@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Trash2, Plus, Save, X, AlertCircle } from "lucide-react";
+import { TrashIcon, PlusIcon } from "@heroicons/react/24/outline";
 import { useToast } from "../context/ToastContext";
 import { useTheme } from "../context/themeStore";
 import api from "../api";
@@ -120,7 +120,7 @@ export default function DistributionRulesManager({ isGenerating }) {
                     }`}
                     title={isGenerating ? "Cannot add rules while schedule generation is ongoing" : "Add Rule"}
                 >
-                    <Plus className="w-4 h-4" />
+                    <PlusIcon className="w-4 h-4" />
                     Add Rule
                 </button>
             </div>
@@ -249,7 +249,7 @@ export default function DistributionRulesManager({ isGenerating }) {
                                                 }`}
                                                 title={isGenerating ? "Cannot delete rules while schedule generation is ongoing" : "Delete Rule"}
                                             >
-                                                <Trash2 className="w-4 h-4" />
+                                                <TrashIcon className="w-4 h-4" />
                                             </button>
                                         </td>
                                     </tr>
@@ -269,7 +269,7 @@ export default function DistributionRulesManager({ isGenerating }) {
                             <div className={`${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"} border rounded-2xl shadow-2xl max-w-sm w-full p-8 animate-slide-in`}>
                                 <div className="flex flex-col items-center text-center">
                                     <div className="w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mb-6">
-                                        <Trash2 className="w-8 h-8 text-red-500" />
+                                        <TrashIcon className="w-8 h-8 text-red-500" />
                                     </div>
                                     <h3 className={`text-xl font-bold mb-3 ${isDark ? "text-white" : "text-gray-900"}`}>
                                         Delete Rule?

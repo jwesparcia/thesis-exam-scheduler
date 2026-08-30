@@ -118,7 +118,8 @@ def run_setup():
         name="Administrator",
         email="admin@school.edu",
         hashed_password=hash_password("admin123"),
-        role="program_head"
+        role="program_head",
+        is_first_login=True
     )
     db.add(admin_user)
     db.commit()
