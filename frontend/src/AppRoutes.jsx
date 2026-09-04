@@ -1,5 +1,5 @@
-import React from "react";
-import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
+import React, { useEffect } from "react";
+import { Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 import { useUser } from "./context/userStore";
 import Login from "./pages/Login";
 import ProgramHeadDashboard from "./pages/ProgramHeadDashboard";
@@ -37,6 +37,18 @@ function NavigateToDashboard() {
 }
 
 export default function AppRoutes() {
+  const location = useLocation();
+
+  useEffect(() => {
+    const titles = {
+      "/login": "Login | Exam Scheduler",
+      "/program-head": "Program Head Dashboard | Exam Scheduler",
+      "/proctor": "Proctor Dashboard | Exam Scheduler",
+      "/student": "Student Dashboard | Exam Scheduler",
+    };
+    document.title = titles[location.pathname] || "Exam Scheduler";
+  }, [location.pathname]);
+
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
