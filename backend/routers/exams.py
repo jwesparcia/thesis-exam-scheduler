@@ -323,9 +323,14 @@ def delete_room(
     room = db.query(Room).filter(Room.id == room_id).first()
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
-        
-    # Unassign this room from any existing exams
-    db.query(Exam).filter(Exam.room_id == room_id).update({Exam.room_id: None}, synchronize_session=False)
+
+    # Block deletion if the room has any scheduled exams
+    exam_count = db.query(Exam).filter(Exam.room_id == room_id).count()
+    if exam_count > 0:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot delete room \"{room.name}\" because it has {exam_count} scheduled exam(s). Remove the schedules first."
+        )
     
     db.delete(room)
     db.commit()
@@ -343,6 +348,61 @@ def delete_room(
     # ── invalidate room caches ───────────────────────────────────────
     cache.invalidate_rooms()
     return {"message": "Room deleted successfully"}
+
+
+@router.delete("/rooms/all")
+def delete_all_rooms(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(["admin"]))
+):
+    """Delete all rooms that have no exams assigned to them."""
+    if is_generation_ongoing():
+        raise HTTPException(status_code=400, detail="Cannot delete rooms while schedule generation is ongoing")
+
+    # Find rooms that have NO exams assigned
+    from sqlalchemy import func
+    rooms_with_exams = (
+        db.query(Exam.room_id)
+        .filter(Exam.room_id.isnot(None))
+        .distinct()
+        .subquery()
+    )
+    deletable_rooms = (
+        db.query(Room)
+        .filter(~Room.id.in_(db.query(rooms_with_exams.c.room_id)))
+        .all()
+    )
+
+    if not deletable_rooms:
+        raise HTTPException(
+            status_code=400,
+            detail="No rooms can be deleted. All rooms have scheduled exams assigned."
+        )
+
+    deleted_names = [r.name for r in deletable_rooms]
+    deleted_count = len(deletable_rooms)
+
+    for room in deletable_rooms:
+        db.delete(room)
+    db.commit()
+
+    try:
+        log_activity(
+            db,
+            user_id=current_user.id,
+            action="DELETE_ALL_ROOMS",
+            details=f"Deleted {deleted_count} room(s): {', '.join(deleted_names)}"
+        )
+    except Exception as e:
+        print(f"Error logging bulk room deletion: {e}")
+
+    # ── invalidate room caches ───────────────────────────────────────
+    cache.invalidate_rooms()
+    return {
+        "message": f"Successfully deleted {deleted_count} room(s)",
+        "deleted_count": deleted_count,
+        "deleted_rooms": deleted_names,
+    }
 
 
 

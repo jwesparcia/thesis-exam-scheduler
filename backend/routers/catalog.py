@@ -673,7 +673,12 @@ def upload_students_excel(
         course_id = courses_cache.get(course_name.upper())
         if not course_id and course_name and course_name.lower() != "nan":
             # Create course if not found
-            new_course = Course(name=course_name, category="College")
+            course_key = course_name.upper()
+            if course_key in ["STEM", "ABM", "HUMSS", "HUMMS", "GAS", "DIGITAL ARTS", "CULINARY", "TOURISM", "IT-MAWDEV", "ICT"]:
+                cat_val = "SHS"
+            else:
+                cat_val = "College"
+            new_course = Course(name=course_name, category=cat_val)
             db.add(new_course)
             db.flush()
             courses_cache[course_name.upper()] = new_course.id

@@ -203,10 +203,20 @@ def get_student_requests(
             "exam_id": r.exam_id,
             "section_name": r.section_name,
             "student_name": r.student_name,
+            "course_code": r.course_code,
             "course_name": r.course_name,
             "reason": r.detailed_explanation,
             "requested_mode": r.requested_mode,
             "status": r.status,
+            "reviewer_comments": r.reviewer_comments,
+            # Original schedule details
+            "original_exam_date": r.original_exam_date.strftime("%A, %B %d, %Y") if r.original_exam_date else None,
+            "original_start_time": r.original_start_time.strftime("%I:%M %p") if r.original_start_time else None,
+            "original_end_time": r.original_end_time.strftime("%I:%M %p") if r.original_end_time else None,
+            # Preferred/new schedule details
+            "preferred_date": r.preferred_date.strftime("%A, %B %d, %Y") if r.preferred_date else None,
+            "preferred_start_time": r.preferred_start_time.strftime("%I:%M %p") if r.preferred_start_time else None,
+            "preferred_end_time": r.preferred_end_time.strftime("%I:%M %p") if r.preferred_end_time else None,
         }
         for r in requests
     ]
@@ -337,50 +347,87 @@ def set_student_course(
 
 @router.get("/available-subjects")
 def get_available_subjects(
+    course_id: Optional[int] = None,
     current_user: User = Depends(require_role(["student"])),
     db: Session = Depends(get_db)
 ):
     """
-    Return unique subject names with sections related to the student's selected course.
+    Return unique subject names with sections for irregular students.
+    If course_id query param is provided, filter by that course.
+    If course_id is 0 (or omitted without a student course_id), return all
+    written subjects across all courses so irregular students can pick freely.
     """
     from collections import defaultdict
+    from model import TeacherTeaching
 
-    if not current_user.course_id:
-        return []
+    # course_id=0 is a sentinel meaning "all programs" sent from the frontend.
+    # A real course filter is only applied when a positive course_id is given.
+    target_course_id = course_id if (course_id is not None and course_id > 0) else None
+
+    # Base query for written subjects
+    query = db.query(Subject).filter(Subject.exam_type == "written")
+    if target_course_id:
+        query = query.filter(Subject.course_id == target_course_id)
+
+    subjects = query.all()
 
     # Group sections by subject name
     subject_map = defaultdict(lambda: {
         "id": None,          
         "code": None,
         "name": None,
+        "course_id": None,
         "sections": []      
     })
 
-    # Filter subjects by student's course and ensure it is a written exam
-    subjects = db.query(Subject).filter(
-        Subject.course_id == current_user.course_id,
-        Subject.exam_type == "written"
-    ).all()
     for sub in subjects:
         name = sub.name
-        # Use first occurrence's id and code
         if subject_map[name]["id"] is None:
             subject_map[name]["id"] = sub.id
             subject_map[name]["code"] = sub.code
             subject_map[name]["name"] = name
+            subject_map[name]["course_id"] = sub.course_id
         
-        # Get all sections that have this subject in their curriculum
-        sections = db.query(Section).filter(
-            Section.course_id == sub.course_id,
-            Section.year_level_id == sub.year_level_id
-        ).all()
-        
-        for sec in sections:
-            # Avoid duplicate sections for the same subject name
-            if not any(s["id"] == sec.id for s in subject_map[name]["sections"]):
-                subject_map[name]["sections"].append({"id": sec.id, "name": sec.name})
-    
-    # Convert to list and sort by name
+        sec_dict = {}
+
+        # 1. From TeacherTeaching
+        tt_query = db.query(Section).join(TeacherTeaching, TeacherTeaching.section_id == Section.id).filter(TeacherTeaching.subject_id == sub.id)
+        if target_course_id:
+            tt_query = tt_query.filter(Section.course_id == target_course_id)
+        for sec in tt_query.all():
+            sec_dict[sec.id] = sec.name
+
+        # 2. From Exam
+        ex_query = db.query(Section).join(Exam, Exam.section_id == Section.id).filter(Exam.subject_id == sub.id)
+        if target_course_id:
+            ex_query = ex_query.filter(Section.course_id == target_course_id)
+        for sec in ex_query.all():
+            sec_dict[sec.id] = sec.name
+
+        # 3. Fallback ONLY if no sections found in TeacherTeaching or Exam for this subject
+        if not sec_dict:
+            sec_q = db.query(Section)
+            if sub.course_id and sub.year_level_id:
+                sec_q = sec_q.filter(Section.course_id == sub.course_id, Section.year_level_id == sub.year_level_id)
+            elif sub.course_id:
+                sec_q = sec_q.filter(Section.course_id == sub.course_id)
+            elif sub.year_level_id:
+                sec_q = sec_q.filter(Section.year_level_id == sub.year_level_id)
+
+            if target_course_id:
+                sec_q = sec_q.filter(Section.course_id == target_course_id)
+
+            for sec in sec_q.all():
+                sec_dict[sec.id] = sec.name
+
+        # Add to subject_map sections list
+        for s_id, s_name in sec_dict.items():
+            if not any(s["id"] == s_id for s in subject_map[name]["sections"]):
+                subject_map[name]["sections"].append({"id": s_id, "name": s_name})
+
+    for s_item in subject_map.values():
+        s_item["sections"].sort(key=lambda x: x["name"])
+
     result = list(subject_map.values())
     result.sort(key=lambda x: x["name"])
     return result
@@ -395,7 +442,6 @@ def save_selected_subjects(
     current_user: User = Depends(require_role(["student"])),
     db: Session = Depends(get_db)
 ):
-   
     db.query(IrregularSelection).filter(IrregularSelection.user_id == current_user.id).delete()
     for sel in selections:
         new_sel = IrregularSelection(
@@ -406,7 +452,6 @@ def save_selected_subjects(
         db.add(new_sel)
     db.commit()
     log_activity(db, current_user.id, "IRREGULAR_SELECTION_SAVE", f"Count: {len(selections)}")
-    # ── invalidate this student’s custom exam cache ──────────────────
     cache.delete(f"exam_schedule:irregular:{current_user.id}")
     return {"message": "Selection saved"}
 
@@ -423,12 +468,10 @@ def get_custom_exams(
     current_user: User = Depends(require_role(["student"])),
     db: Session = Depends(get_db)
 ):
-    """For irregular students: get exams based on saved selections (match by subject name)"""
+    """For irregular students: get exams based on saved selections (match by subject name or code)"""
     if current_user.student_type != "irregular":
         raise HTTPException(status_code=400, detail="Not an irregular student")
 
-    # Irregular schedules are user-specific (different subject selections)
-    # ── cache key scoped strictly to user_id ─────────────────────────
     cache_key = f"exam_schedule:irregular:{current_user.id}"
     cached = cache.get(cache_key)
     if cached is not None:
@@ -438,29 +481,28 @@ def get_custom_exams(
     if not selections:
         return []
     
-    # Get all subject names from the selected subject_ids
     selected_subject_ids = [sel.subject_id for sel in selections]
     selected_subjects = db.query(Subject).filter(Subject.id.in_(selected_subject_ids)).all()
-    selected_names = [sub.name for sub in selected_subjects]
+    selected_names = [sub.name for sub in selected_subjects if sub.name]
+    selected_codes = [sub.code for sub in selected_subjects if sub.code]
     
     all_matching_subjects = db.query(Subject).filter(
-        Subject.name.in_(selected_names),
+        (Subject.name.in_(selected_names)) | (Subject.code.in_(selected_codes)) | (Subject.id.in_(selected_subject_ids)),
         Subject.exam_type == "written"
     ).all()
     
-    subject_name_to_ids = {}
-    for sub in all_matching_subjects:
-        subject_name_to_ids.setdefault(sub.name, []).append(sub.id)
+    subject_id_to_matching_ids = {}
+    for sub in selected_subjects:
+        matching_ids = [m.id for m in all_matching_subjects if m.name == sub.name or m.code == sub.code or m.id == sub.id]
+        subject_id_to_matching_ids[sub.id] = matching_ids
     
     from sqlalchemy import or_
     conditions = []
     for sel in selections:
-        subject = db.query(Subject).get(sel.subject_id)
-        if subject and subject.name in subject_name_to_ids:
-            matching_ids = subject_name_to_ids[subject.name]
-            conditions.append(
-                (Exam.subject_id.in_(matching_ids)) & (Exam.section_id == sel.section_id)
-            )
+        matching_ids = subject_id_to_matching_ids.get(sel.subject_id, [sel.subject_id])
+        conditions.append(
+            (Exam.subject_id.in_(matching_ids)) & (Exam.section_id == sel.section_id)
+        )
     
     if not conditions:
         return []

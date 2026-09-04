@@ -108,7 +108,109 @@ export default function DistributionRulesManager({ isGenerating }) {
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-center">
+            {/* Official Schedule Template Reference Card */}
+            <div className={`p-5 rounded-2xl border shadow-sm transition-all ${isDark ? "bg-slate-800/80 border-slate-700" : "bg-white border-slate-200"}`}>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                    <div>
+                        <h3 className={`text-xl font-bold tracking-tight ${isDark ? "text-white" : "text-slate-900"}`}>
+                            Tertiary Periodical Departmental Exam Schedule
+                        </h3>
+                        <p className={`text-xs mt-0.5 ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                            Official 4-Day Departmental Matrix enforced by the Genetic Algorithm schedule generator.
+                        </p>
+                    </div>
+                    <span className={`self-start sm:self-auto px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
+                        isDark ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" : "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                    }`}>
+                        ✓ Template Enforced
+                    </span>
+                </div>
+
+                <div className="overflow-x-auto rounded-xl border dark:border-slate-700">
+                    <table className="w-full text-center text-xs border-collapse">
+                        <thead>
+                            <tr className={`${isDark ? "bg-amber-500/20 text-amber-300 border-b border-slate-700" : "bg-amber-300 text-slate-900 font-bold border-b border-amber-400"}`}>
+                                <th className="px-3 py-2.5 font-bold uppercase border-r dark:border-slate-700">TIME BLOCK</th>
+                                <th className="px-3 py-2.5 font-bold uppercase border-r dark:border-slate-700">TIME</th>
+                                <th className="px-3 py-2.5 font-bold uppercase border-r dark:border-slate-700">DAY 1</th>
+                                <th className="px-3 py-2.5 font-bold uppercase border-r dark:border-slate-700">DAY 2</th>
+                                <th className="px-3 py-2.5 font-bold uppercase border-r dark:border-slate-700">DAY 3</th>
+                                <th className="px-3 py-2.5 font-bold uppercase">DAY 4</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y dark:divide-slate-700">
+                            {/* Morning Block */}
+                            <tr className={isDark ? "bg-slate-900/40" : "bg-slate-50/70"}>
+                                <td rowSpan={3} className={`px-3 py-4 font-extrabold uppercase border-r text-sm ${isDark ? "bg-amber-500/10 text-amber-300 border-slate-700" : "bg-amber-100 text-amber-900 border-slate-200"}`}>
+                                    MORNING
+                                </td>
+                                <td className={`px-2 py-1.5 font-mono text-[11px] border-r ${isDark ? "bg-slate-800 text-slate-300 border-slate-700" : "bg-blue-50 text-slate-700 border-slate-200"}`}>
+                                    7:00 - 8:30 AM
+                                </td>
+                                <td rowSpan={3} className={`px-4 py-3 font-semibold border-r align-middle ${isDark ? "bg-blue-950/30 text-blue-200 border-slate-700" : "bg-blue-50/60 text-slate-800 border-slate-200"}`}>
+                                    <div className="font-bold text-blue-600 dark:text-blue-400 text-sm">GE</div>
+                                    <div className="text-[11px] opacity-90 mt-0.5">(Comm & Lit, Math, Sciences)</div>
+                                </td>
+                                <td rowSpan={3} className={`px-4 py-3 font-semibold border-r align-middle ${isDark ? "bg-indigo-950/30 text-indigo-200 border-slate-700" : "bg-indigo-50/60 text-slate-800 border-slate-200"}`}>
+                                    <div className="font-bold text-indigo-600 dark:text-indigo-400 text-sm">GE</div>
+                                    <div className="text-[11px] opacity-90 mt-0.5">(Filipino, SOCSCI - <em>except Lit</em>)</div>
+                                </td>
+                                <td rowSpan={7} className={`px-4 py-3 font-bold border-r align-middle ${isDark ? "bg-purple-950/20 text-purple-200 border-slate-700" : "bg-purple-50/40 text-purple-900 border-slate-200"}`}>
+                                    <div className="text-sm">Major for all year levels</div>
+                                </td>
+                                <td rowSpan={7} className={`px-4 py-3 font-bold align-middle ${isDark ? "bg-purple-950/20 text-purple-200" : "bg-purple-50/40 text-purple-900"}`}>
+                                    <div className="text-sm">Major for all year levels</div>
+                                </td>
+                            </tr>
+                            <tr className={isDark ? "bg-slate-900/40" : "bg-slate-50/70"}>
+                                <td className={`px-2 py-1.5 font-mono text-[11px] border-r ${isDark ? "bg-slate-800 text-slate-300 border-slate-700" : "bg-blue-50 text-slate-700 border-slate-200"}`}>
+                                    8:30 - 10:00 AM
+                                </td>
+                            </tr>
+                            <tr className={isDark ? "bg-slate-900/40" : "bg-slate-50/70"}>
+                                <td className={`px-2 py-1.5 font-mono text-[11px] border-r ${isDark ? "bg-slate-800 text-slate-300 border-slate-700" : "bg-blue-50 text-slate-700 border-slate-200"}`}>
+                                    10:00 - 11:30 AM
+                                </td>
+                            </tr>
+
+                            {/* Afternoon Block */}
+                            <tr className={isDark ? "bg-slate-800/40" : "bg-white"}>
+                                <td rowSpan={4} className={`px-3 py-4 font-extrabold uppercase border-r text-sm ${isDark ? "bg-amber-500/10 text-amber-300 border-slate-700" : "bg-amber-100 text-amber-900 border-slate-200"}`}>
+                                    AFTERNOON
+                                </td>
+                                <td className={`px-2 py-1.5 font-mono text-[11px] border-r ${isDark ? "bg-slate-800 text-slate-300 border-slate-700" : "bg-blue-50 text-slate-700 border-slate-200"}`}>
+                                    11:30 - 1:00 PM
+                                </td>
+                                <td rowSpan={4} className={`px-4 py-3 font-semibold border-r align-middle ${isDark ? "bg-amber-950/20 text-amber-200 border-slate-700" : "bg-amber-50/60 text-slate-800 border-slate-200"}`}>
+                                    <div className="font-bold text-amber-700 dark:text-amber-400 text-xs">Computer Fundamentals</div>
+                                    <div className="text-[11px] mt-1 font-bold text-slate-700 dark:text-slate-300">& Major for Y3 & Y4</div>
+                                </td>
+                                <td rowSpan={4} className={`px-4 py-3 font-semibold border-r align-middle ${isDark ? "bg-emerald-950/20 text-emerald-200 border-slate-700" : "bg-emerald-50/60 text-slate-800 border-slate-200"}`}>
+                                    <div className="font-bold text-emerald-700 dark:text-emerald-400 text-xs">2 Major for all year levels</div>
+                                    <div className="text-[10px] opacity-75 mt-0.5">(Max 2 majors per section)</div>
+                                </td>
+                            </tr>
+                            <tr className={isDark ? "bg-slate-800/40" : "bg-white"}>
+                                <td className={`px-2 py-1.5 font-mono text-[11px] border-r ${isDark ? "bg-slate-800 text-slate-300 border-slate-700" : "bg-blue-50 text-slate-700 border-slate-200"}`}>
+                                    1:00 - 2:30 PM
+                                </td>
+                            </tr>
+                            <tr className={isDark ? "bg-slate-800/40" : "bg-white"}>
+                                <td className={`px-2 py-1.5 font-mono text-[11px] border-r ${isDark ? "bg-slate-800 text-slate-300 border-slate-700" : "bg-blue-50 text-slate-700 border-slate-200"}`}>
+                                    2:30 - 4:00 PM
+                                </td>
+                            </tr>
+                            <tr className={isDark ? "bg-slate-800/40" : "bg-white"}>
+                                <td className={`px-2 py-1.5 font-mono text-[11px] border-r ${isDark ? "bg-slate-800 text-slate-300 border-slate-700" : "bg-blue-50 text-slate-700 border-slate-200"}`}>
+                                    4:00 - 5:30 PM
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div className="flex justify-between items-center pt-2">
                 <h3 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>Distribution Rules</h3>
                 <button
                     onClick={() => setShowAddForm(true)}

@@ -115,9 +115,37 @@ def verify_constraints():
                 exam_details = ", ".join([f"Exam {e.id} ({e.subject.name} - {e.section.name})" for e in exam_list])
                 violations.append(f"Room collision: Room {r_name} is booked for multiple exams in timeslot {s_obj.start_time}-{s_obj.end_time} on {s_obj.date}: {exam_details}")
 
+        # 6. Check vacant time / gap limits for each section on the same day (max 90 min / 1h 30m)
+        from collections import defaultdict
+        section_day_exams = defaultdict(lambda: defaultdict(list))
+        for exam in exams:
+            if exam.section and exam.timeslot:
+                section_day_exams[exam.section.name][exam.timeslot.date].append(exam)
+
+        gap_violations = 0
+        for sec_name, day_map in section_day_exams.items():
+            for d, exam_list in day_map.items():
+                if len(exam_list) >= 2:
+                    sorted_exams = sorted(exam_list, key=lambda e: e.timeslot.start_time)
+                    for i in range(len(sorted_exams) - 1):
+                        e1 = sorted_exams[i]
+                        e2 = sorted_exams[i+1]
+                        e1_end = e1.timeslot.end_time.hour * 60 + e1.timeslot.end_time.minute
+                        e2_start = e2.timeslot.start_time.hour * 60 + e2.timeslot.start_time.minute
+                        gap = e2_start - e1_end
+                        if gap > 90:
+                            gap_violations += 1
+                            violations.append(
+                                f"Gap violation for section {sec_name} on {d}: "
+                                f"{e1.subject.name} ({e1.timeslot.start_time.strftime('%I:%M %p')}-{e1.timeslot.end_time.strftime('%I:%M %p')}) to "
+                                f"{e2.subject.name} ({e2.timeslot.start_time.strftime('%I:%M %p')}-{e2.timeslot.end_time.strftime('%I:%M %p')}) "
+                                f"has vacant time of {gap} mins ({gap/60:.1f} hrs), exceeding maximum 90 mins (1:30h)."
+                            )
+
         # Summary
         print(f"Assigned proctors count: {assigned_proctors_count}")
         print(f"Unassigned exams count (no proctor): {unassigned_proctors_count}")
+        print(f"Section gap (>90m) violations: {gap_violations}")
         print(f"Total violations found: {len(violations)}")
         
         if violations:

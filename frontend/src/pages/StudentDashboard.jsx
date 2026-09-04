@@ -790,6 +790,11 @@ export default function StudentDashboard() {
   const [activeTab, setActiveTab] = useState("schedule");
   const [coursesList, setCoursesList] = useState([]);
   const [selectedCourseId, setSelectedCourseId] = useState("");
+  // filterCourseId: which program to browse in the subject picker (0 = all programs)
+  const [filterCourseId, setFilterCourseId] = useState(0);
+  // subjectCache: accumulates subject details as the user browses programs
+  // so the Selected list can display names even when a different program is shown
+  const [subjectCache, setSubjectCache] = useState({});
 
   // Reschedule form states
   const [studentName, setStudentName] = useState(user?.name || "");
@@ -840,8 +845,11 @@ export default function StudentDashboard() {
       } else if (user.student_type === "irregular") {
         if (user.course_id) {
           setSelectedCourseId(user.course_id.toString());
+          setFilterCourseId(user.course_id);
+        } else {
+          setFilterCourseId(0);
         }
-        fetchAvailableSubjects();
+        fetchAvailableSubjects(user.course_id || 0);
         fetchCustomExams();
       } else if (user.student_type === "regular") {
         fetchData();
@@ -876,11 +884,21 @@ export default function StudentDashboard() {
     }
   };
 
-  // Irregular: fetch all available subjects with sections
-  const fetchAvailableSubjects = async () => {
+  // Irregular: fetch all available subjects with sections.
+  // Pass courseId=0 to get all programs, or a positive id to filter by one program.
+  const fetchAvailableSubjects = async (courseIdOverride) => {
     try {
-      const res = await api.get("/student/available-subjects");
+      const targetCourse = courseIdOverride !== undefined ? courseIdOverride : filterCourseId;
+      // course_id=0 → backend returns all programs (no filter)
+      const params = targetCourse > 0 ? { course_id: targetCourse } : {};
+      const res = await api.get("/student/available-subjects", { params });
       setAvailableSubjects(res.data);
+      // Accumulate into subjectCache so the Selected list always shows names
+      setSubjectCache(prev => {
+        const updated = { ...prev };
+        res.data.forEach(sub => { updated[sub.id] = sub; });
+        return updated;
+      });
       try {
         const savedRes = await api.get("/student/selected-subjects");
         setSelectedSubjects(savedRes.data);
@@ -978,7 +996,9 @@ export default function StudentDashboard() {
       setShowTypeModal(false);
 
       if (selectedType === "irregular") {
-        fetchAvailableSubjects();
+        const homeId = res.data.course_id || 0;
+        setFilterCourseId(homeId);
+        fetchAvailableSubjects(homeId);
         fetchCustomExams();
       } else {
         fetchData();
@@ -1466,42 +1486,98 @@ export default function StudentDashboard() {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
               <div className={`p-5 rounded-xl shadow-sm border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
                 <h3 className={`text-lg font-semibold mb-3 ${isDark ? "text-white" : "text-gray-900"}`}>Customize Your Exam Schedule</h3>
-                <div className="flex gap-2 mb-4">
-                  <input type="text" placeholder="Search subject code or name" value={irregularSearchTerm} onChange={(e) => setIrregularSearchTerm(e.target.value)} className={`flex-1 p-2 rounded-lg border ${isDark ? "bg-gray-700 border-gray-600 text-white" : "bg-white border-gray-300"}`} />
+
+                {/* Program filter row */}
+                <div className="flex flex-col sm:flex-row gap-2 mb-4">
+                  <div className="flex items-center gap-2 flex-1">
+                    <label className={`text-sm font-medium shrink-0 ${isDark ? "text-gray-300" : "text-gray-700"}`}>Browse Program:</label>
+                    <select
+                      value={filterCourseId}
+                      onChange={(e) => {
+                        const newCourseId = parseInt(e.target.value) || 0;
+                        setFilterCourseId(newCourseId);
+                        setIrregularSearchTerm("");
+                        fetchAvailableSubjects(newCourseId);
+                      }}
+                      className={`flex-1 px-3 py-2 rounded-lg border text-sm font-medium outline-none transition-all ${isDark ? "bg-gray-700 border-gray-600 text-white focus:border-blue-500" : "bg-white border-gray-300 text-gray-800 focus:border-blue-500"}`}
+                    >
+                      <option value={0}>— All Programs —</option>
+                      {coursesList.map((c) => (
+                        <option key={c.id} value={c.id}>{c.name}{c.category ? ` (${c.category})` : ""}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Search subject code or name…"
+                    value={irregularSearchTerm}
+                    onChange={(e) => setIrregularSearchTerm(e.target.value)}
+                    className={`flex-1 p-2 rounded-lg border text-sm ${isDark ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400" : "bg-white border-gray-300 placeholder-gray-400"}`}
+                  />
                 </div>
-                <div className="max-h-64 overflow-y-auto mb-4 space-y-2">
-                  {availableSubjects.filter(s => s.name.toLowerCase().includes(irregularSearchTerm.toLowerCase()) || s.code.toLowerCase().includes(irregularSearchTerm.toLowerCase())).map(sub => (
-                    <div key={sub.id} className={`p-3 rounded-lg border ${isDark ? "border-gray-700" : "border-gray-200"}`}>
-                      <div className={`font-semibold ${isDark ? "text-gray-100" : "text-gray-900"}`}>{sub.code} - {sub.name}</div>
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        {sub.sections.map(sec => {
-                          const isSubjectSelected = selectedSubjects.some(sel => sel.subject_id === sub.id);
-                          return (
-                            <button
-                              key={sec.id}
-                              onClick={() => addSubjectSelection(sub.id, sec.id)}
-                              disabled={isSubjectSelected}
-                              className={`px-2 py-1 text-xs rounded ${isSubjectSelected ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-500 hover:bg-blue-600 text-white'}`}
-                            >
-                              Add {sec.name}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
+
+                <div className="max-h-72 overflow-y-auto mb-4 space-y-2 pr-1">
+                  {availableSubjects.length === 0 ? (
+                    <p className={`text-sm text-center py-6 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                      No subjects found for the selected program.
+                    </p>
+                  ) : (
+                    availableSubjects
+                      .filter(s =>
+                        s.name.toLowerCase().includes(irregularSearchTerm.toLowerCase()) ||
+                        s.code.toLowerCase().includes(irregularSearchTerm.toLowerCase())
+                      )
+                      .map(sub => {
+                        const selectedSection = selectedSubjects.find(sel => sel.subject_id === sub.id);
+                        return (
+                          <div key={sub.id} className={`p-3 rounded-lg border ${selectedSection ? (isDark ? "border-emerald-700 bg-emerald-900/10" : "border-emerald-300 bg-emerald-50") : (isDark ? "border-gray-700" : "border-gray-200")}`}>
+                            <div className={`font-semibold text-sm ${isDark ? "text-gray-100" : "text-gray-900"}`}>
+                              {sub.code} — {sub.name}
+                              {selectedSection && <span className={`ml-2 text-xs font-medium px-1.5 py-0.5 rounded ${isDark ? "bg-emerald-800 text-emerald-200" : "bg-emerald-100 text-emerald-700"}`}>✓ Added</span>}
+                            </div>
+                            <div className="flex flex-wrap gap-2 mt-2">
+                              {sub.sections.map(sec => {
+                                const isSelectedSection = selectedSection?.section_id === sec.id;
+                                return (
+                                  <button
+                                    type="button"
+                                    key={sec.id}
+                                    onClick={() => addSubjectSelection(sub.id, sec.id)}
+                                    aria-pressed={isSelectedSection}
+                                    className={`px-2.5 py-1 text-xs rounded-md font-medium transition-all ${
+                                      isSelectedSection
+                                        ? "bg-emerald-600 hover:bg-emerald-700 text-white ring-2 ring-emerald-500 ring-offset-1"
+                                        : isDark
+                                          ? "bg-blue-700/60 hover:bg-blue-600 text-blue-100 border border-blue-600"
+                                          : "bg-blue-100 hover:bg-blue-200 text-blue-700 border border-blue-200"
+                                    }`}
+                                  >
+                                    {isSelectedSection ? `✓ ${sec.name}` : `+ ${sec.name}`}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })
+                  )}
                 </div>
                 {selectedSubjects.length > 0 && (
                   <div className="mt-4">
                     <h4 className={`font-semibold mb-2 ${isDark ? "text-white" : "text-gray-900"}`}>Selected Subjects & Sections</h4>
-                    <ul className="space-y-1">
+                    <ul className="space-y-1.5">
                       {selectedSubjects.map((sel, idx) => {
-                        const sub = availableSubjects.find(s => s.id === sel.subject_id);
+                        // Look up from subjectCache first (works across all programs),
+                        // then fall back to the currently loaded availableSubjects list.
+                        const sub = subjectCache[sel.subject_id] || availableSubjects.find(s => s.id === sel.subject_id);
                         const sec = sub?.sections.find(s => s.id === sel.section_id);
                         return (
-                          <li key={idx} className="flex justify-between items-center text-sm">
-                            <span className={isDark ? "text-gray-200" : "text-gray-800"}>{sub?.code} - {sub?.name} ({sec?.name})</span>
-                            <button onClick={() => removeSubjectSelection(idx)} className="text-red-500 text-xs">Remove</button>
+                          <li key={idx} className={`flex justify-between items-center text-sm p-2 rounded-lg ${isDark ? "bg-gray-700/50" : "bg-gray-50"}`}>
+                            <span className={isDark ? "text-gray-200" : "text-gray-800"}>
+                              <span className="font-semibold">{sub?.code || `Subject #${sel.subject_id}`}</span> — {sub?.name || "Unknown"}
+                              <span className={`ml-2 text-xs px-1.5 py-0.5 rounded ${isDark ? "bg-slate-600 text-slate-300" : "bg-slate-200 text-slate-600"}`}>{sec?.name || `Section #${sel.section_id}`}</span>
+                            </span>
+                            <button onClick={() => removeSubjectSelection(idx)} className="text-red-400 hover:text-red-600 text-xs font-medium ml-4 shrink-0">Remove</button>
                           </li>
                         );
                       })}

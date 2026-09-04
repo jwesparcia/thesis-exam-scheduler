@@ -66,10 +66,11 @@ def verify_conflicts():
     # Check Proctor Overlaps: (proctor_id, timeslot_id) must be unique
     seen_proctor_slots = {}
     for e in all_exams:
-        key = (e.proctor_id, e.timeslot_id)
-        if key in seen_proctor_slots:
-            conflicts.append(f"Proctor {e.proctor_id} double-booked at slot {e.timeslot_id}")
-        seen_proctor_slots[key] = True
+        if e.proctor_id is not None:
+            key = (e.proctor_id, e.timeslot_id)
+            if key in seen_proctor_slots:
+                conflicts.append(f"Proctor {e.proctor_id} double-booked at slot {e.timeslot_id}")
+            seen_proctor_slots[key] = True
 
     if conflicts:
         print("FAILED: Conflicts found!")

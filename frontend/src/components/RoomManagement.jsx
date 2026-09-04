@@ -46,6 +46,10 @@ export default function RoomManagement({ isGenerating }) {
   const [deleting, setDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
+  // Delete all rooms states
+  const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false);
+  const [deletingAll, setDeletingAll] = useState(false);
+
   const handleAddRoom = async (e) => {
     e.preventDefault();
     if (isGenerating) {
@@ -95,6 +99,26 @@ export default function RoomManagement({ isGenerating }) {
       showError(err.response?.data?.detail || "Failed to delete room");
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const handleDeleteAllRooms = async () => {
+    if (isGenerating) {
+      showError("Cannot delete rooms while schedule generation is ongoing");
+      return;
+    }
+    setDeletingAll(true);
+    try {
+      const res = await api.delete("/exams/rooms/all");
+      showSuccess(res.data?.message || "All eligible rooms deleted successfully!");
+      setShowDeleteAllConfirm(false);
+      setSelectedRoomId(null);
+      fetchRoomStatus();
+    } catch (err) {
+      console.error("Failed to delete all rooms", err);
+      showError(err.response?.data?.detail || "Failed to delete rooms");
+    } finally {
+      setDeletingAll(false);
     }
   };
 
@@ -216,18 +240,35 @@ export default function RoomManagement({ isGenerating }) {
               Refresh
             </button>
             {isAdmin && (
-              <button
-                onClick={() => setShowAddModal(true)}
-                disabled={isGenerating}
-                className={`inline-flex items-center justify-center gap-2 rounded-xl text-white px-4 py-2.5 text-sm font-bold transition shadow-md ${
-                  isGenerating
-                    ? "bg-blue-600/50 opacity-50 cursor-not-allowed"
-                    : "bg-blue-600 hover:bg-blue-700 shadow-blue-500/20"
-                }`}
-                title={isGenerating ? "Cannot add rooms while schedule generation is ongoing" : ""}
-              >
-                + Add Room
-              </button>
+              <>
+                <button
+                  onClick={() => setShowDeleteAllConfirm(true)}
+                  disabled={isGenerating || !rooms.length}
+                  className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition ${
+                    isGenerating || !rooms.length
+                      ? "bg-gray-300 text-gray-500 cursor-not-allowed dark:bg-gray-700 dark:text-gray-400"
+                      : isDark
+                      ? "bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20"
+                      : "bg-red-50 text-red-600 border border-red-100 hover:bg-red-100"
+                  }`}
+                  title={isGenerating ? "Cannot delete rooms while schedule generation is ongoing" : !rooms.length ? "No rooms to delete" : "Delete all rooms without schedules"}
+                >
+                  <TrashIcon className="w-4 h-4" />
+                  Delete All Rooms
+                </button>
+                <button
+                  onClick={() => setShowAddModal(true)}
+                  disabled={isGenerating}
+                  className={`inline-flex items-center justify-center gap-2 rounded-xl text-white px-4 py-2.5 text-sm font-bold transition shadow-md ${
+                    isGenerating
+                      ? "bg-blue-600/50 opacity-50 cursor-not-allowed"
+                      : "bg-blue-600 hover:bg-blue-700 shadow-blue-500/20"
+                  }`}
+                  title={isGenerating ? "Cannot add rooms while schedule generation is ongoing" : ""}
+                >
+                  + Add Room
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -401,7 +442,12 @@ export default function RoomManagement({ isGenerating }) {
 
                 {isAdmin && (
                   <div className="mt-4 pt-4 border-t border-dashed border-gray-200 dark:border-gray-700">
-                    {!showDeleteConfirm ? (
+                    {selectedRoom.booking_count > 0 ? (
+                      <div className={`w-full inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold bg-gray-300 text-gray-500 cursor-not-allowed dark:bg-gray-700 dark:text-gray-400`}>
+                        <TrashIcon className="w-4 h-4" />
+                        Cannot Delete (Has Schedules)
+                      </div>
+                    ) : !showDeleteConfirm ? (
                       <button
                         onClick={() => setShowDeleteConfirm(true)}
                         disabled={isGenerating}
@@ -423,7 +469,7 @@ export default function RoomManagement({ isGenerating }) {
                           Are you sure you want to delete room "{selectedRoom.name}"?
                         </p>
                         <p className={`text-[11px] mt-1 ${isDark ? "text-red-400/80" : "text-red-700/80"}`}>
-                          Any exams scheduled in this room will be unassigned.
+                          This action cannot be undone.
                         </p>
                         <div className="flex items-center gap-2 mt-3">
                           <button
@@ -573,6 +619,57 @@ export default function RoomManagement({ isGenerating }) {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete All Rooms Confirmation Modal */}
+      {showDeleteAllConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => !deletingAll && setShowDeleteAllConfirm(false)} />
+          <div className={`relative w-full max-w-md rounded-2xl border p-6 shadow-2xl transition-all transform scale-100 duration-300 animate-scale-in ${isDark ? "bg-gray-800 border-gray-700 text-white" : "bg-white border-gray-100 text-gray-900"}`}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2.5 rounded-xl bg-red-500/10 text-red-500">
+                <TrashIcon className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold">Delete All Rooms</h3>
+                <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>This action cannot be undone</p>
+              </div>
+            </div>
+
+            <div className={`rounded-xl border p-4 mb-5 ${isDark ? "bg-red-500/10 border-red-500/20" : "bg-red-50 border-red-100"}`}>
+              <p className={`text-sm font-semibold ${isDark ? "text-red-300" : "text-red-800"}`}>
+                Are you sure you want to delete all rooms?
+              </p>
+              <p className={`text-xs mt-2 ${isDark ? "text-red-400/80" : "text-red-700/80"}`}>
+                Only rooms <strong>without scheduled exams</strong> will be deleted. Rooms with assigned schedules will be kept.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowDeleteAllConfirm(false)}
+                disabled={deletingAll}
+                className={`px-4 py-2.5 rounded-xl text-sm font-bold transition ${isDark ? "bg-gray-700 hover:bg-gray-600 text-gray-200" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteAllRooms}
+                disabled={deletingAll || isGenerating}
+                className={`inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition shadow-md ${
+                  (deletingAll || isGenerating)
+                    ? "bg-red-600/50 opacity-50 cursor-not-allowed"
+                    : "bg-red-600 hover:bg-red-700 shadow-red-500/20"
+                }`}
+              >
+                {deletingAll && <ArrowPathIcon className="w-4 h-4 animate-spin" />}
+                Yes, Delete All
+              </button>
+            </div>
           </div>
         </div>
       )}
