@@ -224,17 +224,17 @@ export default function RoomManagement({ isGenerating }) {
 
   return (
     <div className={`min-h-screen rounded-2xl ${isDark ? "bg-gray-900" : "bg-gray-50"}`}>
-      <div className="max-w-7xl mx-auto px-6 py-10 space-y-8">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-10 space-y-6 sm:space-y-8">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <BuildingOffice2Icon className="w-8 h-8 text-blue-500" />
-            <h1 className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}>Room Management</h1>
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <BuildingOffice2Icon className="w-7 h-7 sm:w-8 sm:h-8 text-blue-500 shrink-0" />
+            <h1 className={`text-xl sm:text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}>Room Management</h1>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full lg:w-auto">
             <button
               onClick={fetchRoomStatus}
               disabled={loading}
-              className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition ${isDark ? "bg-gray-800 text-gray-100 hover:bg-gray-700" : "bg-white text-gray-700 border border-gray-200 hover:bg-gray-50"}`}
+              className={`flex-1 sm:flex-none inline-flex items-center justify-center gap-2 rounded-xl px-3.5 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-bold transition ${isDark ? "bg-gray-800 text-gray-100 hover:bg-gray-700" : "bg-white text-gray-700 border border-gray-200 hover:bg-gray-50"}`}
             >
               {loading ? <ArrowPathIcon className="w-4 h-4 animate-spin" /> : <ArrowPathIcon className="w-4 h-4" />}
               Refresh
@@ -244,7 +244,7 @@ export default function RoomManagement({ isGenerating }) {
                 <button
                   onClick={() => setShowDeleteAllConfirm(true)}
                   disabled={isGenerating || !rooms.length}
-                  className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition ${
+                  className={`flex-1 sm:flex-none inline-flex items-center justify-center gap-2 rounded-xl px-3.5 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-bold transition ${
                     isGenerating || !rooms.length
                       ? "bg-gray-300 text-gray-500 cursor-not-allowed dark:bg-gray-700 dark:text-gray-400"
                       : isDark
@@ -259,7 +259,7 @@ export default function RoomManagement({ isGenerating }) {
                 <button
                   onClick={() => setShowAddModal(true)}
                   disabled={isGenerating}
-                  className={`inline-flex items-center justify-center gap-2 rounded-xl text-white px-4 py-2.5 text-sm font-bold transition shadow-md ${
+                  className={`w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl text-white px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-bold transition shadow-md ${
                     isGenerating
                       ? "bg-blue-600/50 opacity-50 cursor-not-allowed"
                       : "bg-blue-600 hover:bg-blue-700 shadow-blue-500/20"
@@ -273,35 +273,35 @@ export default function RoomManagement({ isGenerating }) {
           </div>
         </div>
 
-        <div className={`rounded-2xl border p-5 ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"} shadow-sm`}>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className={`rounded-2xl border p-4 sm:p-5 ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"} shadow-sm`}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
             <div>
-              <label className={`block text-xs font-bold uppercase mb-2 ${isDark ? "text-gray-500" : "text-gray-400"}`}>Academic Level</label>
-              <select value={department} onChange={(e) => setDepartment(e.target.value)} className={`w-full rounded-xl border p-3 text-sm font-semibold ${isDark ? "bg-gray-900 text-gray-100 border-gray-700" : "bg-gray-50 text-gray-700 border-gray-200"}`}>
+              <label className={`block text-xs font-bold uppercase mb-1.5 sm:mb-2 ${isDark ? "text-gray-500" : "text-gray-400"}`}>Academic Level</label>
+              <select value={department} onChange={(e) => setDepartment(e.target.value)} className={`w-full rounded-xl border p-2.5 sm:p-3 text-xs sm:text-sm font-semibold ${isDark ? "bg-gray-900 text-gray-100 border-gray-700" : "bg-gray-50 text-gray-700 border-gray-200"}`}>
                 <option value="College">College</option>
                 <option value="SHS">Senior High</option>
                 <option value="All">All</option>
               </select>
             </div>
             <div>
-              <label className={`block text-xs font-bold uppercase mb-2 ${isDark ? "text-gray-500" : "text-gray-400"}`}>Semester</label>
-              <select value={semester} onChange={(e) => setSemester(Number(e.target.value))} className={`w-full rounded-xl border p-3 text-sm font-semibold ${isDark ? "bg-gray-900 text-gray-100 border-gray-700" : "bg-gray-50 text-gray-700 border-gray-200"}`}>
+              <label className={`block text-xs font-bold uppercase mb-1.5 sm:mb-2 ${isDark ? "text-gray-500" : "text-gray-400"}`}>Semester</label>
+              <select value={semester} onChange={(e) => setSemester(Number(e.target.value))} className={`w-full rounded-xl border p-2.5 sm:p-3 text-xs sm:text-sm font-semibold ${isDark ? "bg-gray-900 text-gray-100 border-gray-700" : "bg-gray-50 text-gray-700 border-gray-200"}`}>
                 <option value={1}>1st Semester</option>
                 <option value={2}>2nd Semester</option>
                 <option value={3}>3rd Semester</option>
               </select>
             </div>
             <div>
-              <label className={`block text-xs font-bold uppercase mb-2 ${isDark ? "text-gray-500" : "text-gray-400"}`}>Schedule Status</label>
-              <select value={scheduleStatus} onChange={(e) => setScheduleStatus(e.target.value)} className={`w-full rounded-xl border p-3 text-sm font-semibold ${isDark ? "bg-gray-900 text-gray-100 border-gray-700" : "bg-gray-50 text-gray-700 border-gray-200"}`}>
+              <label className={`block text-xs font-bold uppercase mb-1.5 sm:mb-2 ${isDark ? "text-gray-500" : "text-gray-400"}`}>Schedule Status</label>
+              <select value={scheduleStatus} onChange={(e) => setScheduleStatus(e.target.value)} className={`w-full rounded-xl border p-2.5 sm:p-3 text-xs sm:text-sm font-semibold ${isDark ? "bg-gray-900 text-gray-100 border-gray-700" : "bg-gray-50 text-gray-700 border-gray-200"}`}>
                 <option value="all">All Schedules</option>
                 <option value="draft">Draft Only</option>
                 <option value="posted">Posted Only</option>
               </select>
             </div>
             <div>
-              <label className={`block text-xs font-bold uppercase mb-2 ${isDark ? "text-gray-500" : "text-gray-400"}`}>Room Status</label>
-              <select value={roomStatus} onChange={(e) => setRoomStatus(e.target.value)} className={`w-full rounded-xl border p-3 text-sm font-semibold ${isDark ? "bg-gray-900 text-gray-100 border-gray-700" : "bg-gray-50 text-gray-700 border-gray-200"}`}>
+              <label className={`block text-xs font-bold uppercase mb-1.5 sm:mb-2 ${isDark ? "text-gray-500" : "text-gray-400"}`}>Room Status</label>
+              <select value={roomStatus} onChange={(e) => setRoomStatus(e.target.value)} className={`w-full rounded-xl border p-2.5 sm:p-3 text-xs sm:text-sm font-semibold ${isDark ? "bg-gray-900 text-gray-100 border-gray-700" : "bg-gray-50 text-gray-700 border-gray-200"}`}>
                 <option value="all">All Rooms</option>
                 <option value="available">Available</option>
                 <option value="in_use">In Use</option>
@@ -311,17 +311,17 @@ export default function RoomManagement({ isGenerating }) {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4">
           {statCards.map((card) => {
             const Icon = card.icon;
             return (
-              <div key={card.label} className={`rounded-2xl border p-5 ${toneClasses[card.tone]}`}>
-                <div className="flex items-center justify-between gap-3">
+              <div key={card.label} className={`rounded-2xl border p-3.5 sm:p-5 ${toneClasses[card.tone]}`}>
+                <div className="flex items-center justify-between gap-2">
                   <div>
-                    <p className="text-xs font-bold uppercase opacity-75">{card.label}</p>
-                    <p className="mt-2 text-3xl font-black">{card.value}</p>
+                    <p className="text-[10px] sm:text-xs font-bold uppercase opacity-75">{card.label}</p>
+                    <p className="mt-1 sm:mt-2 text-xl sm:text-3xl font-black">{card.value}</p>
                   </div>
-                  <Icon className="w-8 h-8 opacity-70" />
+                  <Icon className="w-6 h-6 sm:w-8 sm:h-8 opacity-70 shrink-0" />
                 </div>
               </div>
             );
@@ -536,18 +536,18 @@ export default function RoomManagement({ isGenerating }) {
 
       {/* Add Room Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
           {/* Backdrop */}
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setShowAddModal(false)} />
           
           {/* Modal Content */}
-          <div className={`relative w-full max-w-md rounded-2xl border p-6 shadow-2xl transition-all transform scale-100 duration-300 animate-scale-in ${isDark ? "bg-gray-800 border-gray-700 text-white" : "bg-white border-gray-100 text-gray-900"}`}>
+          <div className={`relative w-full max-w-md rounded-2xl sm:rounded-3xl border p-5 sm:p-6 shadow-2xl transition-all transform scale-100 duration-300 animate-scale-in ${isDark ? "bg-gray-800 border-gray-700 text-white" : "bg-white border-gray-100 text-gray-900"}`}>
             <div className="flex items-center gap-3 mb-4">
               <div className="p-2.5 rounded-xl bg-blue-500/10 text-blue-500">
                 <BuildingOffice2Icon className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="text-xl font-bold">Add Exam Room</h3>
+                <h3 className="text-lg sm:text-xl font-bold">Add Exam Room</h3>
                 <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>Register a new room for examinations</p>
               </div>
             </div>
@@ -567,7 +567,7 @@ export default function RoomManagement({ isGenerating }) {
                 />
               </div>
               
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div>
                   <label className={`block text-xs font-bold uppercase mb-1.5 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
                     Building
@@ -597,18 +597,18 @@ export default function RoomManagement({ isGenerating }) {
                 </div>
               </div>
               
-              <div className="flex items-center justify-end gap-3 pt-4 mt-2 border-t border-gray-200/10">
+              <div className="flex flex-col-reverse sm:flex-row items-center justify-end gap-2.5 sm:gap-3 pt-4 mt-2 border-t border-gray-200/10">
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
-                  className={`px-4 py-2.5 rounded-xl text-sm font-bold transition ${isDark ? "bg-gray-700 hover:bg-gray-600 text-gray-200" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
+                  className={`w-full sm:w-auto px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition ${isDark ? "bg-gray-700 hover:bg-gray-600 text-gray-200" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
                 >
                   Cancel
                 </button>
                  <button
                   type="submit"
                   disabled={submitting || isGenerating}
-                  className={`inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition shadow-md ${
+                  className={`w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white transition shadow-md ${
                     (submitting || isGenerating)
                       ? "bg-blue-600/50 opacity-50 cursor-not-allowed"
                       : "bg-blue-600 hover:bg-blue-700 shadow-blue-500/20"
@@ -625,15 +625,15 @@ export default function RoomManagement({ isGenerating }) {
 
       {/* Delete All Rooms Confirmation Modal */}
       {showDeleteAllConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => !deletingAll && setShowDeleteAllConfirm(false)} />
-          <div className={`relative w-full max-w-md rounded-2xl border p-6 shadow-2xl transition-all transform scale-100 duration-300 animate-scale-in ${isDark ? "bg-gray-800 border-gray-700 text-white" : "bg-white border-gray-100 text-gray-900"}`}>
+          <div className={`relative w-full max-w-md rounded-2xl sm:rounded-3xl border p-5 sm:p-6 shadow-2xl transition-all transform scale-100 duration-300 animate-scale-in ${isDark ? "bg-gray-800 border-gray-700 text-white" : "bg-white border-gray-100 text-gray-900"}`}>
             <div className="flex items-center gap-3 mb-4">
               <div className="p-2.5 rounded-xl bg-red-500/10 text-red-500">
                 <TrashIcon className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="text-xl font-bold">Delete All Rooms</h3>
+                <h3 className="text-lg sm:text-xl font-bold">Delete All Rooms</h3>
                 <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>This action cannot be undone</p>
               </div>
             </div>
@@ -647,12 +647,12 @@ export default function RoomManagement({ isGenerating }) {
               </p>
             </div>
 
-            <div className="flex items-center justify-end gap-3">
+            <div className="flex flex-col-reverse sm:flex-row items-center justify-end gap-2.5 sm:gap-3">
               <button
                 type="button"
                 onClick={() => setShowDeleteAllConfirm(false)}
                 disabled={deletingAll}
-                className={`px-4 py-2.5 rounded-xl text-sm font-bold transition ${isDark ? "bg-gray-700 hover:bg-gray-600 text-gray-200" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
+                className={`w-full sm:w-auto px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition ${isDark ? "bg-gray-700 hover:bg-gray-600 text-gray-200" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
               >
                 Cancel
               </button>
@@ -660,7 +660,7 @@ export default function RoomManagement({ isGenerating }) {
                 type="button"
                 onClick={handleDeleteAllRooms}
                 disabled={deletingAll || isGenerating}
-                className={`inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition shadow-md ${
+                className={`w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white transition shadow-md ${
                   (deletingAll || isGenerating)
                     ? "bg-red-600/50 opacity-50 cursor-not-allowed"
                     : "bg-red-600 hover:bg-red-700 shadow-red-500/20"

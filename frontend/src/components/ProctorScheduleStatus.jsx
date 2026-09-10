@@ -46,8 +46,8 @@ export default function ProctorScheduleStatus() {
             {loading ? <div className="text-center py-8">Loading...</div> : missing.length === 0 ? (
                 <div className={`p-8 text-center rounded-xl ${isDark ? "bg-gray-800" : "bg-gray-100"}`}>✅ All proctors have uploaded schedules or are excluded.</div>
             ) : (
-                <div className="overflow-x-auto rounded-lg border dark:border-gray-700">
-                    <table className="w-full text-sm">
+                <div className="overflow-x-auto custom-scrollbar rounded-xl border dark:border-gray-700">
+                    <table className="w-full min-w-[480px] text-sm">
                         <thead className={`${isDark ? "bg-gray-700 text-gray-300" : "bg-gray-50 text-gray-600"}`}>
                             <tr><th className="px-4 py-3 text-left">Name</th><th className="px-4 py-3 text-left">Status</th><th className="px-4 py-3 text-right">Actions</th></tr>
                         </thead>

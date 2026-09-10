@@ -191,24 +191,24 @@ export default function GeneratedExamSchedules({ isGenerating }) {
 
     return (
         <div className={`min-h-screen ${isDark ? "bg-gray-900" : "bg-gray-50"} rounded-2xl`}>
-            <div className="max-w-7xl mx-auto px-6 py-10">
+            <div className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-10">
                 {/* Header */}
-                <div className="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4 mb-8">
-                    <div className="flex items-center gap-3">
-                        <CalendarDaysIcon className="text-blue-500 w-8 h-8" />
-                        <h1 className={`text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}>
+                <div className="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4 mb-6 sm:mb-8">
+                    <div className="flex items-center gap-2.5 sm:gap-3">
+                        <CalendarDaysIcon className="text-blue-500 w-7 h-7 sm:w-8 sm:h-8 shrink-0" />
+                        <h1 className={`text-xl sm:text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}>
                             Generated Exam Schedules
                         </h1>
                     </div>
                     
-                    <div className="flex flex-wrap gap-3 items-center">
+                    <div className="flex flex-wrap gap-2 sm:gap-3 items-center w-full xl:w-auto">
                         <button
                             onClick={() => {
                                 setDeleteScope("all");
                                 setShowDeleteModal(true);
                             }}
                             disabled={isGenerating}
-                            className={`bg-red-600 hover:bg-red-700 text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 transition-all hover:scale-105 active:scale-95 font-bold text-sm ${
+                            className={`flex-1 sm:flex-none bg-red-600 hover:bg-red-700 text-white px-3.5 sm:px-5 py-2.5 sm:py-3 rounded-xl shadow-lg flex items-center justify-center gap-1.5 sm:gap-2 transition-all hover:scale-105 active:scale-95 font-bold text-xs sm:text-sm ${
                                 isGenerating ? "opacity-50 cursor-not-allowed" : ""
                             }`}
                             title={isGenerating ? "Cannot delete schedules while schedule generation is ongoing" : ""}
@@ -222,7 +222,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                 setShowDeleteModal(true);
                             }}
                             disabled={isGenerating}
-                            className={`bg-red-500 hover:bg-red-600 text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 transition-all hover:scale-105 active:scale-95 font-bold text-sm ${
+                            className={`flex-1 sm:flex-none bg-red-500 hover:bg-red-600 text-white px-3.5 sm:px-5 py-2.5 sm:py-3 rounded-xl shadow-lg flex items-center justify-center gap-1.5 sm:gap-2 transition-all hover:scale-105 active:scale-95 font-bold text-xs sm:text-sm ${
                                 isGenerating ? "opacity-50 cursor-not-allowed" : ""
                             }`}
                             title={isGenerating ? "Cannot delete schedules while schedule generation is ongoing" : ""}
@@ -233,7 +233,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                         <button
                             onClick={() => setShowPostAllModal(true)}
                             disabled={isGenerating}
-                            className={`text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 transition-all hover:scale-105 active:scale-95 font-bold text-sm ${
+                            className={`flex-1 sm:flex-none text-white px-3.5 sm:px-5 py-2.5 sm:py-3 rounded-xl shadow-lg flex items-center justify-center gap-1.5 sm:gap-2 transition-all hover:scale-105 active:scale-95 font-bold text-xs sm:text-sm ${
                                 isGenerating
                                     ? "bg-emerald-600/50 opacity-50 cursor-not-allowed"
                                     : "bg-emerald-600 hover:bg-emerald-700"
@@ -246,7 +246,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                         <button
                             onClick={() => setShowSaveAllModal(true)}
                             disabled={isGenerating}
-                            className={`text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 transition-all hover:scale-105 active:scale-95 font-bold text-sm ${
+                            className={`flex-1 sm:flex-none text-white px-3.5 sm:px-5 py-2.5 sm:py-3 rounded-xl shadow-lg flex items-center justify-center gap-1.5 sm:gap-2 transition-all hover:scale-105 active:scale-95 font-bold text-xs sm:text-sm ${
                                 isGenerating
                                     ? "bg-indigo-600/50 opacity-50 cursor-not-allowed"
                                     : "bg-indigo-600 hover:bg-indigo-700"
@@ -259,7 +259,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                         <button
                             onClick={handleDownload}
                             disabled={downloading}
-                            className="bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 transition-all hover:scale-105 active:scale-95 font-bold text-sm"
+                            className="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white px-3.5 sm:px-5 py-2.5 sm:py-3 rounded-xl shadow-lg flex items-center justify-center gap-1.5 sm:gap-2 transition-all hover:scale-105 active:scale-95 font-bold text-xs sm:text-sm"
                         >
                             {downloading ? (
                                 <ArrowPathIcon className="w-4 h-4 animate-spin" />
@@ -272,54 +272,54 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                 </div>
 
                 {/* Step 1: Select Department */}
-                <div className={`rounded-2xl p-6 border mb-8 transition-all duration-500 ${isDark ? "bg-gray-800 border-gray-700 shadow-xl shadow-black/20" : "bg-white border-gray-100 shadow-lg shadow-gray-200/50"}`}>
-                    <label className={`block text-sm font-semibold mb-6 ${isDark ? "text-blue-300" : "text-blue-700"}`}>
+                <div className={`rounded-2xl p-4 sm:p-6 border mb-6 sm:mb-8 transition-all duration-500 ${isDark ? "bg-gray-800 border-gray-700 shadow-xl shadow-black/20" : "bg-white border-gray-100 shadow-lg shadow-gray-200/50"}`}>
+                    <label className={`block text-xs sm:text-sm font-semibold mb-4 sm:mb-6 ${isDark ? "text-blue-300" : "text-blue-700"}`}>
                         1. Choose Academic Level to View Schedules
                     </label>
-                    <div className="flex gap-4">
+                    <div className="flex gap-3 sm:gap-4">
                         <button
                             onClick={() => setSelectedDept("College")}
-                            className={`flex-1 max-w-[220px] py-4 px-6 rounded-2xl border-2 transition-all duration-300 flex flex-col items-center gap-2 ${selectedDept === "College"
+                            className={`flex-1 max-w-[220px] py-3 sm:py-4 px-3 sm:px-6 rounded-xl sm:rounded-2xl border-2 transition-all duration-300 flex flex-col items-center gap-1.5 sm:gap-2 ${selectedDept === "College"
                                 ? "border-blue-500 bg-blue-500 text-white shadow-xl shadow-blue-500/30 scale-[1.02]"
                                 : isDark
                                     ? "border-gray-700 bg-gray-900 text-gray-400 hover:border-gray-600 hover:bg-gray-800"
                                     : "border-gray-100 bg-gray-50 text-gray-500 hover:border-blue-200 hover:text-blue-600"
                                 }`}
                         >
-                            <DocumentTextIcon className={`w-8 h-8 ${selectedDept === "College" ? "text-white" : "text-blue-500"}`} />
-                            <span className="font-bold text-lg">College</span>
+                            <DocumentTextIcon className={`w-6 h-6 sm:w-8 sm:h-8 ${selectedDept === "College" ? "text-white" : "text-blue-500"}`} />
+                            <span className="font-bold text-base sm:text-lg">College</span>
                         </button>
                         <button
                             onClick={() => setSelectedDept("SHS")}
-                            className={`flex-1 max-w-[220px] py-4 px-6 rounded-2xl border-2 transition-all duration-300 flex flex-col items-center gap-2 ${selectedDept === "SHS"
+                            className={`flex-1 max-w-[220px] py-3 sm:py-4 px-3 sm:px-6 rounded-xl sm:rounded-2xl border-2 transition-all duration-300 flex flex-col items-center gap-1.5 sm:gap-2 ${selectedDept === "SHS"
                                 ? "border-blue-500 bg-blue-500 text-white shadow-xl shadow-blue-500/30 scale-[1.02]"
                                 : isDark
                                     ? "border-gray-700 bg-gray-900 text-gray-400 hover:border-gray-600 hover:bg-gray-800"
                                     : "border-gray-100 bg-gray-50 text-gray-500 hover:border-blue-200 hover:text-blue-600"
                                 }`}
                         >
-                            <CalendarDaysIcon className={`w-8 h-8 ${selectedDept === "SHS" ? "text-white" : "text-blue-500"}`} />
-                            <span className="font-bold text-lg">Senior High</span>
+                            <CalendarDaysIcon className={`w-6 h-6 sm:w-8 sm:h-8 ${selectedDept === "SHS" ? "text-white" : "text-blue-500"}`} />
+                            <span className="font-bold text-base sm:text-lg">Senior High</span>
                         </button>
                     </div>
                 </div>
 
                 {/* Step 2: Sequential Filters and Results */}
                 {selectedDept ? (
-                    <div className="space-y-10 animate-in fade-in slide-in-from-top-4 duration-500">
+                    <div className="space-y-6 sm:space-y-10 animate-in fade-in slide-in-from-top-4 duration-500">
                         {/* Filters Card */}
                         <div
-                            className={`rounded-2xl p-6 border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"
+                            className={`rounded-2xl p-4 sm:p-6 border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"
                                 } shadow-sm`}
                         >
                             <h2
-                                className={`text-xl font-semibold ${isDark ? "text-gray-300" : "text-gray-700"
-                                    } mb-6 flex items-center gap-2`}
+                                className={`text-lg sm:text-xl font-bold ${isDark ? "text-gray-200" : "text-gray-700"
+                                    } mb-4 sm:mb-6 flex items-center gap-2`}
                             >
                                 <DocumentTextIcon className="w-5 h-5 text-blue-500" /> 2. Refine Results ({selectedDept})
                             </h2>
 
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
                                 {/* Select Course / Strand */}
                                 <div className="space-y-2">
                                     <label
@@ -461,8 +461,8 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                                 {sectionExams.length} Exams
                                             </div>
                                         </div>
-                                        <div className="overflow-x-auto">
-                                            <table className="w-full text-sm border-separate border-spacing-0">
+                                        <div className="overflow-x-auto custom-scrollbar">
+                                            <table className="w-full text-xs sm:text-sm border-separate border-spacing-0 min-w-[640px]">
                                                 <thead
                                                     className={`${isDark
                                                         ? "bg-gray-700/50 text-gray-100"
@@ -489,14 +489,9 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                                 </thead>
                                                 <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                                                     {sectionExams.map((e) => (
-                                                        <tr
-                                                            key={e.id}
-                                                            className="hover:bg-blue-50/30 dark:hover:bg-blue-900/10 transition-colors"
-                                                        >
-                                                            <td
-                                                                className="px-4 py-4 font-medium"
-                                                            >
-                                                                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                                        <tr key={e.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition">
+                                                            <td className="px-4 py-4">
+                                                                <div className="flex items-center gap-2 mb-1">
                                                                     <span className={`text-xs font-bold ${isDark ? "text-gray-400" : "text-gray-500"}`}>{e.subject_code}</span>
                                                                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wide ${
                                                                         e.status === "posted"
@@ -545,7 +540,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
 
                         {/* Floating Action Buttons */}
                         {courseId && yearId && exams.length > 0 && (
-                            <div className="fixed bottom-10 right-10 flex flex-col sm:flex-row gap-4 z-50">
+                            <div className="fixed bottom-4 right-4 sm:bottom-10 sm:right-10 flex flex-col sm:flex-row gap-2.5 sm:gap-4 z-50 max-w-[calc(100vw-2rem)]">
                                 {/* Save Schedule Button */}
                                 {exams.some(e => e.status === "draft") && (
                                     <button
@@ -574,7 +569,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                             }
                                         }}
                                         disabled={isGenerating || saving}
-                                        className={`text-white px-8 py-4 rounded-2xl shadow-2xl flex items-center gap-3 transition-all hover:scale-110 active:scale-95 font-bold ${
+                                        className={`text-white px-5 sm:px-8 py-3 sm:py-4 rounded-xl sm:rounded-2xl shadow-2xl flex items-center justify-center gap-2 sm:gap-3 transition-all hover:scale-105 active:scale-95 font-bold text-xs sm:text-base ${
                                             isGenerating || saving
                                                 ? "bg-indigo-600/50 opacity-50 cursor-not-allowed"
                                                 : "bg-indigo-600 hover:bg-indigo-700"
@@ -582,9 +577,9 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                         title={isGenerating ? "Cannot save schedules while schedule generation is ongoing" : ""}
                                     >
                                         {saving ? (
-                                            <ArrowPathIcon className="w-6 h-6 animate-spin" />
+                                            <ArrowPathIcon className="w-5 h-5 animate-spin" />
                                         ) : (
-                                            <DocumentCheckIcon className="w-6 h-6" />
+                                            <DocumentCheckIcon className="w-5 h-5" />
                                         )}
                                         {saving ? "Saving..." : "Save Schedule"}
                                     </button>
@@ -615,14 +610,14 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                             }
                                         }}
                                         disabled={isGenerating}
-                                        className={`text-white px-8 py-4 rounded-2xl shadow-2xl flex items-center gap-3 transition-all hover:scale-110 active:scale-95 font-bold ${
+                                        className={`text-white px-5 sm:px-8 py-3 sm:py-4 rounded-xl sm:rounded-2xl shadow-2xl flex items-center justify-center gap-2 sm:gap-3 transition-all hover:scale-105 active:scale-95 font-bold text-xs sm:text-base ${
                                             isGenerating
                                                 ? "bg-emerald-600/50 opacity-50 cursor-not-allowed"
                                                 : "bg-emerald-600 hover:bg-emerald-700"
                                         }`}
                                         title={isGenerating ? "Cannot post schedules while schedule generation is ongoing" : ""}
                                     >
-                                        <PaperAirplaneIcon className="w-6 h-6" />
+                                        <PaperAirplaneIcon className="w-5 h-5" />
                                         Post Schedule
                                     </button>
                                 )}
@@ -630,39 +625,39 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                         )}
                     </div>
                 ) : (
-                    <div className={`p-20 text-center rounded-3xl border-2 border-dashed ${isDark ? "border-gray-800 bg-gray-800/20 text-gray-600" : "border-gray-100 bg-gray-50/50 text-gray-400"}`}>
-                        <CalendarDaysIcon className="w-16 h-16 mx-auto mb-4 opacity-10" />
-                        <p className="text-xl font-semibold mb-2">Welcome to Schedule Viewer</p>
-                        <p className="text-sm">Select an academic level above to filter and view generated schedules.</p>
+                    <div className={`p-10 sm:p-20 text-center rounded-3xl border-2 border-dashed ${isDark ? "border-gray-800 bg-gray-800/20 text-gray-600" : "border-gray-100 bg-gray-50/50 text-gray-400"}`}>
+                        <CalendarDaysIcon className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 opacity-10" />
+                        <p className="text-lg sm:text-xl font-semibold mb-2">Welcome to Schedule Viewer</p>
+                        <p className="text-xs sm:text-sm">Select an academic level above to filter and view generated schedules.</p>
                     </div>
                 )}
             </div>
 
             {/* Confirmation Modal */}
             {showPostAllModal && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-                    <div className={`p-8 rounded-3xl shadow-2xl max-w-md w-full transform transition-all scale-100 ${isDark ? "bg-gray-800 border border-gray-700" : "bg-white"}`}>
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4 animate-in fade-in duration-200">
+                    <div className={`p-5 sm:p-8 rounded-2xl sm:rounded-3xl shadow-2xl max-w-md w-full transform transition-all scale-100 ${isDark ? "bg-gray-800 border border-gray-700" : "bg-white"}`}>
                         <div className="flex flex-col items-center text-center">
-                            <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-6 shadow-lg ${isDark ? "bg-emerald-900/50 shadow-emerald-900/20" : "bg-emerald-100 shadow-emerald-200/50"}`}>
-                                <PaperAirplaneIcon className={`w-8 h-8 ${isDark ? "text-emerald-400" : "text-emerald-600"}`} />
+                            <div className={`w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mb-4 sm:mb-6 shadow-lg ${isDark ? "bg-emerald-900/50 shadow-emerald-900/20" : "bg-emerald-100 shadow-emerald-200/50"}`}>
+                                <PaperAirplaneIcon className={`w-7 h-7 sm:w-8 sm:h-8 ${isDark ? "text-emerald-400" : "text-emerald-600"}`} />
                             </div>
-                            <h3 className={`text-2xl font-bold mb-3 ${isDark ? "text-white" : "text-gray-900"}`}>
+                            <h3 className={`text-xl sm:text-2xl font-bold mb-2 sm:mb-3 ${isDark ? "text-white" : "text-gray-900"}`}>
                                 Post All Schedules?
                             </h3>
-                            <p className={`mb-8 text-sm leading-relaxed ${isDark ? "text-gray-300" : "text-gray-600"}`}>
+                            <p className={`mb-6 sm:mb-8 text-xs sm:text-sm leading-relaxed ${isDark ? "text-gray-300" : "text-gray-600"}`}>
                                 Are you sure you want to post ALL draft schedules for <span className="font-bold">{selectedDept}</span> (Semester {semester}) to students? This action will make them visible on their dashboards.
                             </p>
-                            <div className="flex gap-4 w-full">
+                            <div className="flex flex-col-reverse sm:flex-row gap-2.5 sm:gap-4 w-full">
                                 <button
                                     onClick={() => setShowPostAllModal(false)}
-                                    className={`flex-1 py-3.5 rounded-xl font-bold transition-all active:scale-95 ${isDark ? "bg-gray-700 hover:bg-gray-600 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-800"}`}
+                                    className={`w-full py-3 sm:py-3.5 rounded-xl font-bold text-xs sm:text-sm transition-all active:scale-95 ${isDark ? "bg-gray-700 hover:bg-gray-600 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-800"}`}
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     onClick={handlePostAll}
                                     disabled={isGenerating}
-                                    className={`flex-1 py-3.5 rounded-xl font-bold text-white transition-all shadow-lg active:scale-95 ${
+                                    className={`w-full py-3 sm:py-3.5 rounded-xl font-bold text-xs sm:text-sm text-white transition-all shadow-lg active:scale-95 ${
                                         isGenerating
                                             ? "bg-emerald-600/50 opacity-50 cursor-not-allowed"
                                             : "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/30"
@@ -678,30 +673,30 @@ export default function GeneratedExamSchedules({ isGenerating }) {
 
             {/* Save All Confirmation Modal */}
             {showSaveAllModal && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-                    <div className={`p-8 rounded-3xl shadow-2xl max-w-md w-full transform transition-all scale-100 ${isDark ? "bg-gray-800 border border-gray-700" : "bg-white"}`}>
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4 animate-in fade-in duration-200">
+                    <div className={`p-5 sm:p-8 rounded-2xl sm:rounded-3xl shadow-2xl max-w-md w-full transform transition-all scale-100 ${isDark ? "bg-gray-800 border border-gray-700" : "bg-white"}`}>
                         <div className="flex flex-col items-center text-center">
-                            <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-6 shadow-lg ${isDark ? "bg-indigo-900/50 shadow-indigo-900/20" : "bg-indigo-100 shadow-indigo-200/50"}`}>
-                                <DocumentCheckIcon className={`w-8 h-8 ${isDark ? "text-indigo-400" : "text-indigo-600"}`} />
+                            <div className={`w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mb-4 sm:mb-6 shadow-lg ${isDark ? "bg-indigo-900/50 shadow-indigo-900/20" : "bg-indigo-100 shadow-indigo-200/50"}`}>
+                                <DocumentCheckIcon className={`w-7 h-7 sm:w-8 sm:h-8 ${isDark ? "text-indigo-400" : "text-indigo-600"}`} />
                             </div>
-                            <h3 className={`text-2xl font-bold mb-3 ${isDark ? "text-white" : "text-gray-900"}`}>
+                            <h3 className={`text-xl sm:text-2xl font-bold mb-2 sm:mb-3 ${isDark ? "text-white" : "text-gray-900"}`}>
                                 Save All Schedules?
                             </h3>
-                            <p className={`mb-8 text-sm leading-relaxed ${isDark ? "text-gray-300" : "text-gray-600"}`}>
+                            <p className={`mb-6 sm:mb-8 text-xs sm:text-sm leading-relaxed ${isDark ? "text-gray-300" : "text-gray-600"}`}>
                                 Are you sure you want to save all draft schedules for <span className="font-bold">{selectedDept}</span> <span className="font-bold">{selectedTerm}</span> (Semester {semester})? They will not be visible to students until posted.
                             </p>
-                            <div className="flex gap-4 w-full">
+                            <div className="flex flex-col-reverse sm:flex-row gap-2.5 sm:gap-4 w-full">
                                 <button
                                     onClick={() => setShowSaveAllModal(false)}
                                     disabled={saving}
-                                    className={`flex-1 py-3.5 rounded-xl font-bold transition-all active:scale-95 ${isDark ? "bg-gray-700 hover:bg-gray-600 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-800"}`}
+                                    className={`w-full py-3 sm:py-3.5 rounded-xl font-bold text-xs sm:text-sm transition-all active:scale-95 ${isDark ? "bg-gray-700 hover:bg-gray-600 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-800"}`}
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     onClick={handleSaveAll}
                                     disabled={saving || isGenerating}
-                                    className={`flex-1 py-3.5 rounded-xl font-bold text-white transition-all shadow-lg active:scale-95 ${
+                                    className={`w-full py-3 sm:py-3.5 rounded-xl font-bold text-xs sm:text-sm text-white transition-all shadow-lg active:scale-95 ${
                                         isGenerating || saving
                                             ? "bg-indigo-600/50 opacity-50 cursor-not-allowed"
                                             : "bg-indigo-600 hover:bg-indigo-700 shadow-indigo-600/30"
@@ -717,33 +712,33 @@ export default function GeneratedExamSchedules({ isGenerating }) {
 
             {/* Delete Confirmation Modal */}
             {showDeleteModal && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-                    <div className={`p-8 rounded-3xl shadow-2xl max-w-md w-full transform transition-all scale-100 ${isDark ? "bg-gray-800 border border-gray-700" : "bg-white"}`}>
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4 animate-in fade-in duration-200">
+                    <div className={`p-5 sm:p-8 rounded-2xl sm:rounded-3xl shadow-2xl max-w-md w-full transform transition-all scale-100 ${isDark ? "bg-gray-800 border border-gray-700" : "bg-white"}`}>
                         <div className="flex flex-col items-center text-center">
-                            <div className="w-16 h-16 rounded-full flex items-center justify-center mb-6 bg-red-100 dark:bg-red-900/50 shadow-lg shadow-red-200/50 dark:shadow-red-900/20">
-                                <TrashIcon className="w-8 h-8 text-red-600 dark:text-red-400" />
+                            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mb-4 sm:mb-6 bg-red-100 dark:bg-red-900/50 shadow-lg shadow-red-200/50 dark:shadow-red-900/20">
+                                <TrashIcon className="w-7 h-7 sm:w-8 sm:h-8 text-red-600 dark:text-red-400" />
                             </div>
-                            <h3 className={`text-2xl font-bold mb-3 ${isDark ? "text-white" : "text-gray-900"}`}>
+                            <h3 className={`text-xl sm:text-2xl font-bold mb-2 sm:mb-3 ${isDark ? "text-white" : "text-gray-900"}`}>
                                 {deleteScope === "all" ? "Delete All Schedules?" : `Delete ${selectedDept} Schedule?`}
                             </h3>
-                            <p className={`mb-8 text-sm leading-relaxed ${isDark ? "text-gray-300" : "text-gray-600"}`}>
+                            <p className={`mb-6 sm:mb-8 text-xs sm:text-sm leading-relaxed ${isDark ? "text-gray-300" : "text-gray-600"}`}>
                                 {deleteScope === "all" 
                                     ? "Are you sure you want to delete ALL generated exam schedules across the entire platform? This operation is permanent and cannot be undone."
                                     : `Are you sure you want to delete all generated exam schedules for ${selectedDept} (Semester ${semester})? This operation is permanent and cannot be undone.`
                                 }
                             </p>
-                            <div className="flex gap-4 w-full">
+                            <div className="flex flex-col-reverse sm:flex-row gap-2.5 sm:gap-4 w-full">
                                 <button
                                     onClick={() => setShowDeleteModal(false)}
                                     disabled={deleting}
-                                    className={`flex-1 py-3.5 rounded-xl font-bold transition-all active:scale-95 disabled:opacity-55 ${isDark ? "bg-gray-700 hover:bg-gray-600 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-800"}`}
+                                    className={`w-full py-3 sm:py-3.5 rounded-xl font-bold text-xs sm:text-sm transition-all active:scale-95 disabled:opacity-55 ${isDark ? "bg-gray-700 hover:bg-gray-600 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-800"}`}
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     onClick={handleDeleteSchedule}
                                     disabled={deleting || isGenerating}
-                                    className="flex-1 py-3.5 rounded-xl font-bold bg-red-600 hover:bg-red-700 text-white transition-all shadow-lg shadow-red-600/30 active:scale-95 disabled:opacity-55 flex items-center justify-center gap-2"
+                                    className="w-full py-3 sm:py-3.5 rounded-xl font-bold text-xs sm:text-sm bg-red-600 hover:bg-red-700 text-white transition-all shadow-lg shadow-red-600/30 active:scale-95 disabled:opacity-55 flex items-center justify-center gap-2"
                                 >
                                     {deleting ? (
                                         <>

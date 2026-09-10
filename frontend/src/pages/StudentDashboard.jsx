@@ -1267,31 +1267,31 @@ export default function StudentDashboard() {
         </div>
       )}
       {showTypeModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 transition-opacity">
-          <div className={`p-8 rounded-3xl max-w-md w-full shadow-2xl border relative ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200"}`}>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4 transition-opacity animate-in fade-in duration-200">
+          <div className={`p-5 sm:p-8 rounded-2xl sm:rounded-3xl max-w-md w-full shadow-2xl border relative max-h-[90dvh] overflow-y-auto custom-scrollbar ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200"}`}>
             <button
               onClick={() => setShowTypeModal(false)}
-              className={`absolute top-5 right-5 p-1.5 rounded-full transition-colors ${isDark ? "text-slate-400 hover:text-white hover:bg-slate-700" : "text-slate-500 hover:text-slate-800 hover:bg-slate-100"
+              className={`absolute top-4 right-4 sm:top-5 sm:right-5 p-1.5 rounded-full transition-colors ${isDark ? "text-slate-400 hover:text-white hover:bg-slate-700" : "text-slate-500 hover:text-slate-800 hover:bg-slate-100"
                 }`}
               title="Close"
             >
               <XMarkIcon className="w-5 h-5" />
             </button>
-            <h2 className={`text-2xl font-bold mb-6 text-center ${isDark ? "text-white" : "text-slate-900"}`}>Select Schedule Type</h2>
-            <div className="flex gap-4 mb-6">
-              <button onClick={() => setSelectedType("regular")} className={`flex-1 py-4 rounded-2xl font-bold transition-all duration-300 ${selectedType === "regular" ? "bg-blue-600 text-white shadow-lg shadow-blue-500/40 ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-slate-800 scale-105" : isDark ? "bg-slate-700 text-slate-300 hover:bg-slate-600" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>Standard (Fixed Section)</button>
-              <button onClick={() => setSelectedType("irregular")} className={`flex-1 py-4 rounded-2xl font-bold transition-all duration-300 ${selectedType === "irregular" ? "bg-blue-600 text-white shadow-lg shadow-blue-500/40 ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-slate-800 scale-105" : isDark ? "bg-slate-700 text-slate-300 hover:bg-slate-600" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>Customized (Mixed Sections)</button>
+            <h2 className={`text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-center ${isDark ? "text-white" : "text-slate-900"}`}>Select Schedule Type</h2>
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-5 sm:mb-6">
+              <button onClick={() => setSelectedType("regular")} className={`w-full py-3.5 sm:py-4 px-3 rounded-xl sm:rounded-2xl text-xs sm:text-sm font-bold transition-all duration-300 ${selectedType === "regular" ? "bg-blue-600 text-white shadow-lg shadow-blue-500/40 ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-slate-800 scale-[1.02]" : isDark ? "bg-slate-700 text-slate-300 hover:bg-slate-600" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>Standard (Fixed Section)</button>
+              <button onClick={() => setSelectedType("irregular")} className={`w-full py-3.5 sm:py-4 px-3 rounded-xl sm:rounded-2xl text-xs sm:text-sm font-bold transition-all duration-300 ${selectedType === "irregular" ? "bg-blue-600 text-white shadow-lg shadow-blue-500/40 ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-slate-800 scale-[1.02]" : isDark ? "bg-slate-700 text-slate-300 hover:bg-slate-600" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>Customized (Mixed Sections)</button>
             </div>
 
             {selectedType === "irregular" && (
-              <div className="mb-6 animate-fadeIn">
-                <label className={`block text-sm font-semibold mb-2 ${isDark ? "text-slate-300" : "text-slate-700"}`}>
+              <div className="mb-5 sm:mb-6 animate-fadeIn">
+                <label className={`block text-xs sm:text-sm font-semibold mb-2 ${isDark ? "text-slate-300" : "text-slate-700"}`}>
                   What is your Course?
                 </label>
                 <select
                   value={selectedCourseId}
                   onChange={(e) => setSelectedCourseId(e.target.value)}
-                  className={`w-full p-3 rounded-xl border outline-none font-medium transition-all ${isDark
+                  className={`w-full p-3 rounded-xl border text-sm outline-none font-medium transition-all ${isDark
                     ? "bg-slate-700 border-slate-600 text-white focus:border-blue-500"
                     : "bg-slate-50 border-slate-200 text-slate-800 focus:border-blue-500 focus:bg-white"
                     }`}
@@ -1307,7 +1307,7 @@ export default function StudentDashboard() {
               </div>
             )}
 
-            <button onClick={saveStudentType} disabled={!selectedType || (selectedType === "irregular" && !selectedCourseId)} className={`w-full py-4 rounded-2xl font-bold transition-all shadow-md ${(!selectedType || (selectedType === "irregular" && !selectedCourseId)) ? "opacity-50 cursor-not-allowed bg-slate-400 text-white" : "bg-emerald-600 hover:bg-emerald-500 text-white hover:shadow-lg hover:-translate-y-0.5"}`}>Confirm Selection</button>
+            <button onClick={saveStudentType} disabled={!selectedType || (selectedType === "irregular" && !selectedCourseId)} className={`w-full py-3.5 sm:py-4 rounded-xl sm:rounded-2xl text-sm font-bold transition-all shadow-md ${(!selectedType || (selectedType === "irregular" && !selectedCourseId)) ? "opacity-50 cursor-not-allowed bg-slate-400 text-white" : "bg-emerald-600 hover:bg-emerald-500 text-white hover:shadow-lg hover:-translate-y-0.5"}`}>Confirm Selection</button>
           </div>
         </div>
       )}
@@ -1358,9 +1358,9 @@ export default function StudentDashboard() {
 
       {/* Latest Notification Banner */}
       {latestUnreadNotif && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 -mb-4">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-4 sm:pt-6 -mb-2 sm:-mb-4">
           <div className="animate-in fade-in slide-in-from-top-4 duration-300 relative z-10">
-            <div className={`p-4 rounded-2xl border backdrop-blur-md shadow-md flex items-center justify-between gap-4 transition-all ${
+            <div className={`p-3.5 sm:p-4 rounded-2xl border backdrop-blur-md shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 transition-all ${
               isDark 
                 ? "bg-blue-950/40 border-blue-900/60 text-blue-100" 
                 : "bg-blue-50/95 border-blue-200/80 text-blue-900"
@@ -1371,12 +1371,12 @@ export default function StudentDashboard() {
                 }`}>
                   <BellIcon className="w-5 h-5 animate-bounce" />
                 </div>
-                <div>
+                <div className="min-w-0 flex-1">
                   <span className="text-xs font-bold uppercase tracking-wider block opacity-75">New Notification</span>
-                  <p className="text-sm font-semibold mt-0.5 leading-snug">{latestUnreadNotif.message}</p>
+                  <p className="text-xs sm:text-sm font-semibold mt-0.5 leading-snug">{latestUnreadNotif.message}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
                 <button 
                   onClick={() => handleNotificationClick(latestUnreadNotif)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
@@ -1405,8 +1405,8 @@ export default function StudentDashboard() {
       )}
 
       {/* Student Info Hero Section */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
-        <div className={`p-5 sm:p-8 rounded-3xl shadow-sm border flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6 overflow-hidden relative ${isDark ? "bg-slate-800/50 border-slate-700/50" : "bg-white border-slate-200"}`}>
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-8">
+        <div className={`p-4 sm:p-8 rounded-2xl sm:rounded-3xl shadow-sm border flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6 overflow-hidden relative ${isDark ? "bg-slate-800/50 border-slate-700/50" : "bg-white border-slate-200"}`}>
           <div className="absolute right-0 top-0 w-64 h-64 bg-blue-500/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3"></div>
           <div className={`w-14 h-14 sm:w-20 sm:h-20 rounded-2xl flex shrink-0 items-center justify-center text-xl sm:text-3xl font-bold shadow-inner ${isDark ? "bg-gradient-to-br from-blue-600 to-indigo-700 text-white" : "bg-gradient-to-br from-blue-50 to-indigo-100 text-blue-700 border border-blue-200"}`}>
             {(user?.name || "S").split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2)}
@@ -1427,11 +1427,11 @@ export default function StudentDashboard() {
       </div>
 
       {/* Tab Selection */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-6">
-        <div className="flex gap-2 sm:gap-4 border-b border-slate-200 dark:border-slate-700 pb-2 overflow-x-auto no-scrollbar">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 mb-4 sm:mb-6">
+        <div className="flex gap-2 sm:gap-4 border-b border-slate-200 dark:border-slate-700 pb-2 overflow-x-auto no-scrollbar whitespace-nowrap">
           <button
             onClick={() => setActiveTab("schedule")}
-            className={`px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${activeTab === "schedule"
+            className={`px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold shrink-0 transition-all ${activeTab === "schedule"
               ? isDark
                 ? "bg-blue-600 text-white shadow-lg shadow-blue-900/50"
                 : "bg-blue-600 text-white shadow-md shadow-blue-500/25"
@@ -1444,7 +1444,7 @@ export default function StudentDashboard() {
           </button>
           <button
             onClick={() => setActiveTab("chat")}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${activeTab === "chat"
+            className={`flex items-center gap-2 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold shrink-0 transition-all ${activeTab === "chat"
               ? isDark
                 ? "bg-blue-600 text-white shadow-lg shadow-blue-900/50"
                 : "bg-blue-600 text-white shadow-md shadow-blue-500/25"
@@ -1463,7 +1463,7 @@ export default function StudentDashboard() {
           </button>
           <button
             onClick={() => setActiveTab("manual")}
-            className={`px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${activeTab === "manual"
+            className={`px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold shrink-0 transition-all ${activeTab === "manual"
               ? isDark
                 ? "bg-blue-600 text-white shadow-lg shadow-blue-900/50"
                 : "bg-blue-600 text-white shadow-md shadow-blue-500/25"
@@ -1483,14 +1483,14 @@ export default function StudentDashboard() {
         <>
           {/* Irregular subject picker */}
           {user?.student_type === "irregular" && (
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-              <div className={`p-5 rounded-xl shadow-sm border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
-                <h3 className={`text-lg font-semibold mb-3 ${isDark ? "text-white" : "text-gray-900"}`}>Customize Your Exam Schedule</h3>
+            <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-4">
+              <div className={`p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border ${isDark ? "bg-gray-800/80 border-gray-700" : "bg-white border-gray-200"}`}>
+                <h3 className={`text-base sm:text-lg font-bold mb-3 ${isDark ? "text-white" : "text-gray-900"}`}>Customize Your Exam Schedule</h3>
 
                 {/* Program filter row */}
-                <div className="flex flex-col sm:flex-row gap-2 mb-4">
-                  <div className="flex items-center gap-2 flex-1">
-                    <label className={`text-sm font-medium shrink-0 ${isDark ? "text-gray-300" : "text-gray-700"}`}>Browse Program:</label>
+                <div className="flex flex-col sm:flex-row gap-2.5 mb-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 flex-1">
+                    <label className={`text-xs sm:text-sm font-semibold shrink-0 ${isDark ? "text-gray-300" : "text-gray-700"}`}>Browse Program:</label>
                     <select
                       value={filterCourseId}
                       onChange={(e) => {
@@ -1499,7 +1499,7 @@ export default function StudentDashboard() {
                         setIrregularSearchTerm("");
                         fetchAvailableSubjects(newCourseId);
                       }}
-                      className={`flex-1 px-3 py-2 rounded-lg border text-sm font-medium outline-none transition-all ${isDark ? "bg-gray-700 border-gray-600 text-white focus:border-blue-500" : "bg-white border-gray-300 text-gray-800 focus:border-blue-500"}`}
+                      className={`w-full px-3 py-2 rounded-xl border text-xs sm:text-sm font-medium outline-none transition-all ${isDark ? "bg-gray-700 border-gray-600 text-white focus:border-blue-500" : "bg-white border-gray-300 text-gray-800 focus:border-blue-500"}`}
                     >
                       <option value={0}>— All Programs —</option>
                       {coursesList.map((c) => (
@@ -1512,13 +1512,13 @@ export default function StudentDashboard() {
                     placeholder="Search subject code or name…"
                     value={irregularSearchTerm}
                     onChange={(e) => setIrregularSearchTerm(e.target.value)}
-                    className={`flex-1 p-2 rounded-lg border text-sm ${isDark ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400" : "bg-white border-gray-300 placeholder-gray-400"}`}
+                    className={`flex-1 p-2.5 rounded-xl border text-xs sm:text-sm ${isDark ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400" : "bg-white border-gray-300 placeholder-gray-400"}`}
                   />
                 </div>
 
-                <div className="max-h-72 overflow-y-auto mb-4 space-y-2 pr-1">
+                <div className="max-h-72 overflow-y-auto mb-4 space-y-2.5 pr-1 custom-scrollbar">
                   {availableSubjects.length === 0 ? (
-                    <p className={`text-sm text-center py-6 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                    <p className={`text-xs sm:text-sm text-center py-8 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
                       No subjects found for the selected program.
                     </p>
                   ) : (
@@ -1530,12 +1530,12 @@ export default function StudentDashboard() {
                       .map(sub => {
                         const selectedSection = selectedSubjects.find(sel => sel.subject_id === sub.id);
                         return (
-                          <div key={sub.id} className={`p-3 rounded-lg border ${selectedSection ? (isDark ? "border-emerald-700 bg-emerald-900/10" : "border-emerald-300 bg-emerald-50") : (isDark ? "border-gray-700" : "border-gray-200")}`}>
-                            <div className={`font-semibold text-sm ${isDark ? "text-gray-100" : "text-gray-900"}`}>
+                          <div key={sub.id} className={`p-3 sm:p-3.5 rounded-xl border ${selectedSection ? (isDark ? "border-emerald-700 bg-emerald-900/15" : "border-emerald-300 bg-emerald-50") : (isDark ? "border-gray-700" : "border-gray-200")}`}>
+                            <div className={`font-semibold text-xs sm:text-sm ${isDark ? "text-gray-100" : "text-gray-900"}`}>
                               {sub.code} — {sub.name}
-                              {selectedSection && <span className={`ml-2 text-xs font-medium px-1.5 py-0.5 rounded ${isDark ? "bg-emerald-800 text-emerald-200" : "bg-emerald-100 text-emerald-700"}`}>✓ Added</span>}
+                              {selectedSection && <span className={`ml-2 text-[10px] sm:text-xs font-semibold px-2 py-0.5 rounded-full ${isDark ? "bg-emerald-800 text-emerald-200" : "bg-emerald-100 text-emerald-700"}`}>✓ Added</span>}
                             </div>
-                            <div className="flex flex-wrap gap-2 mt-2">
+                            <div className="flex flex-wrap gap-2 mt-2.5">
                               {sub.sections.map(sec => {
                                 const isSelectedSection = selectedSection?.section_id === sec.id;
                                 return (
@@ -1544,12 +1544,12 @@ export default function StudentDashboard() {
                                     key={sec.id}
                                     onClick={() => addSubjectSelection(sub.id, sec.id)}
                                     aria-pressed={isSelectedSection}
-                                    className={`px-2.5 py-1 text-xs rounded-md font-medium transition-all ${
+                                    className={`px-3 py-1.5 min-h-[36px] text-xs rounded-lg font-medium transition-all ${
                                       isSelectedSection
                                         ? "bg-emerald-600 hover:bg-emerald-700 text-white ring-2 ring-emerald-500 ring-offset-1"
                                         : isDark
                                           ? "bg-blue-700/60 hover:bg-blue-600 text-blue-100 border border-blue-600"
-                                          : "bg-blue-100 hover:bg-blue-200 text-blue-700 border border-blue-200"
+                                          : "bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200"
                                     }`}
                                   >
                                     {isSelectedSection ? `✓ ${sec.name}` : `+ ${sec.name}`}
@@ -1563,35 +1563,33 @@ export default function StudentDashboard() {
                   )}
                 </div>
                 {selectedSubjects.length > 0 && (
-                  <div className="mt-4">
-                    <h4 className={`font-semibold mb-2 ${isDark ? "text-white" : "text-gray-900"}`}>Selected Subjects & Sections</h4>
-                    <ul className="space-y-1.5">
+                  <div className="mt-4 pt-4 border-t dark:border-gray-700">
+                    <h4 className={`font-semibold text-xs sm:text-sm mb-2.5 ${isDark ? "text-white" : "text-gray-900"}`}>Selected Subjects & Sections</h4>
+                    <ul className="space-y-2">
                       {selectedSubjects.map((sel, idx) => {
-                        // Look up from subjectCache first (works across all programs),
-                        // then fall back to the currently loaded availableSubjects list.
                         const sub = subjectCache[sel.subject_id] || availableSubjects.find(s => s.id === sel.subject_id);
                         const sec = sub?.sections.find(s => s.id === sel.section_id);
                         return (
-                          <li key={idx} className={`flex justify-between items-center text-sm p-2 rounded-lg ${isDark ? "bg-gray-700/50" : "bg-gray-50"}`}>
+                          <li key={idx} className={`flex flex-col sm:flex-row justify-between sm:items-center gap-2 text-xs sm:text-sm p-2.5 sm:p-3 rounded-xl border ${isDark ? "bg-gray-700/40 border-gray-700" : "bg-gray-50 border-gray-200"}`}>
                             <span className={isDark ? "text-gray-200" : "text-gray-800"}>
-                              <span className="font-semibold">{sub?.code || `Subject #${sel.subject_id}`}</span> — {sub?.name || "Unknown"}
-                              <span className={`ml-2 text-xs px-1.5 py-0.5 rounded ${isDark ? "bg-slate-600 text-slate-300" : "bg-slate-200 text-slate-600"}`}>{sec?.name || `Section #${sel.section_id}`}</span>
+                              <span className="font-bold">{sub?.code || `Subject #${sel.subject_id}`}</span> — {sub?.name || "Unknown"}
+                              <span className={`ml-2 text-[11px] px-2 py-0.5 rounded-md font-semibold ${isDark ? "bg-slate-600 text-slate-200" : "bg-slate-200 text-slate-700"}`}>{sec?.name || `Section #${sel.section_id}`}</span>
                             </span>
-                            <button onClick={() => removeSubjectSelection(idx)} className="text-red-400 hover:text-red-600 text-xs font-medium ml-4 shrink-0">Remove</button>
+                            <button onClick={() => removeSubjectSelection(idx)} className="text-red-400 hover:text-red-600 text-xs font-semibold self-end sm:self-auto shrink-0">Remove</button>
                           </li>
                         );
                       })}
                     </ul>
-                    <div className="flex gap-3 mt-3 flex-wrap">
-                      <button onClick={saveIrregularSelections} className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition font-medium text-sm">
+                    <div className="flex gap-2.5 mt-4 flex-wrap">
+                      <button onClick={saveIrregularSelections} className="w-full sm:w-auto px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-xl transition font-bold text-xs sm:text-sm">
                         Save My Selections
                       </button>
-                      <button onClick={fetchCustomExams} className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition font-medium text-sm">
+                      <button onClick={fetchCustomExams} className="flex-1 sm:flex-none px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition font-bold text-xs sm:text-sm">
                         Refresh Schedule
                       </button>
-                      <button onClick={() => setSelectedSubjects([])} className="flex items-center gap-1.5 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition font-medium text-sm shadow-sm shadow-red-500/20">
+                      <button onClick={() => setSelectedSubjects([])} className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl transition font-bold text-xs sm:text-sm shadow-sm shadow-red-500/20">
                         <TrashIcon className="w-4 h-4" />
-                        Remove All Selected Subjects
+                        Remove All
                       </button>
                     </div>
                   </div>
@@ -1602,51 +1600,63 @@ export default function StudentDashboard() {
 
           {/* Regular filters bar */}
           {user?.student_type === "regular" && (
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-              <div className={`p-4 rounded-xl shadow-sm border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
-                <div className="flex flex-wrap gap-4 items-center">
-                  <div className="flex items-center gap-2"><CalendarIcon className={`w-4 h-4 ${isDark ? "text-gray-400" : "text-gray-500"}`} /><span className={`text-sm font-medium ${isDark ? "text-gray-300" : "text-gray-700"}`}>Filters:</span></div>
-                  <select value={filterDay} onChange={(e) => setFilterDay(e.target.value)} className={`px-3 py-1.5 rounded-lg text-sm border ${isDark ? "bg-gray-700 border-gray-600 text-white" : "bg-gray-50 border-gray-300"}`}><option value="all">All Days</option><option>Monday</option><option>Tuesday</option><option>Wednesday</option><option>Thursday</option><option>Friday</option><option>Saturday</option></select>
-                  <select value={filterSession} onChange={(e) => setFilterSession(e.target.value)} className={`px-3 py-1.5 rounded-lg text-sm border ${isDark ? "bg-gray-700 border-gray-600 text-white" : "bg-gray-50 border-gray-300"}`}><option value="all">All Sessions</option><option value="morning">Morning</option><option value="afternoon">Afternoon</option></select>
-                  <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} className={`px-3 py-1.5 rounded-lg text-sm border ${isDark ? "bg-gray-700 border-gray-600 text-white" : "bg-gray-50 border-gray-300"}`}><option value="all">All Categories</option><option value="major">Major</option><option value="general">General</option></select>
-                  {(filterDay !== "all" || filterSession !== "all" || filterCategory !== "all") && <button onClick={() => { setFilterDay("all"); setFilterSession("all"); setFilterCategory("all"); }} className="text-sm text-blue-500 hover:underline ml-auto">Clear Filters</button>}
+            <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2 sm:py-4">
+              <div className={`p-3.5 sm:p-4 rounded-2xl shadow-sm border ${isDark ? "bg-gray-800/80 border-gray-700" : "bg-white border-gray-200"}`}>
+                <div className="md:hidden mb-3">
+                  <div className="relative">
+                    <MagnifyingGlassIcon className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 ${isDark ? "text-slate-400" : "text-slate-400"}`} />
+                    <input 
+                      type="text" 
+                      placeholder="Search exams..." 
+                      value={searchTerm} 
+                      onChange={(e) => setSearchTerm(e.target.value)} 
+                      className={`w-full pl-10 pr-4 py-2 rounded-xl border outline-none text-xs ${isDark ? "bg-slate-700 border-slate-600 text-slate-100 placeholder-slate-400 focus:border-blue-500" : "bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400 focus:border-blue-500"}`} 
+                    />
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2.5 sm:gap-4 items-center">
+                  <div className="flex items-center gap-2"><CalendarIcon className={`w-4 h-4 ${isDark ? "text-gray-400" : "text-gray-500"}`} /><span className={`text-xs sm:text-sm font-semibold ${isDark ? "text-gray-300" : "text-gray-700"}`}>Filters:</span></div>
+                  <select value={filterDay} onChange={(e) => setFilterDay(e.target.value)} className={`flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs sm:text-sm border ${isDark ? "bg-gray-700 border-gray-600 text-white" : "bg-gray-50 border-gray-300"}`}><option value="all">All Days</option><option>Monday</option><option>Tuesday</option><option>Wednesday</option><option>Thursday</option><option>Friday</option><option>Saturday</option></select>
+                  <select value={filterSession} onChange={(e) => setFilterSession(e.target.value)} className={`flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs sm:text-sm border ${isDark ? "bg-gray-700 border-gray-600 text-white" : "bg-gray-50 border-gray-300"}`}><option value="all">All Sessions</option><option value="morning">Morning</option><option value="afternoon">Afternoon</option></select>
+                  <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} className={`flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs sm:text-sm border ${isDark ? "bg-gray-700 border-gray-600 text-white" : "bg-gray-50 border-gray-300"}`}><option value="all">All Categories</option><option value="major">Major</option><option value="general">General</option></select>
+                  {(filterDay !== "all" || filterSession !== "all" || filterCategory !== "all") && <button onClick={() => { setFilterDay("all"); setFilterSession("all"); setFilterCategory("all"); }} className="text-xs sm:text-sm font-medium text-blue-500 hover:underline ml-auto">Clear Filters</button>}
                 </div>
               </div>
             </div>
           )}
 
           {/* Main Content - Exam Schedule */}
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6">
             {loading ? (
-              <div className="flex items-center justify-center py-20"><div className="w-10 h-10 rounded-full border-4 border-t-blue-500 animate-spin"></div><p className="ml-3">Loading your schedule...</p></div>
+              <div className="flex items-center justify-center py-20"><div className="w-10 h-10 rounded-full border-4 border-t-blue-500 animate-spin"></div><p className="ml-3 text-sm font-medium">Loading your schedule...</p></div>
             ) : filtered.length === 0 ? (
-              <div className={`text-center py-20 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
-                <div className="max-w-md mx-auto"><div className={`w-20 h-20 mx-auto mb-6 rounded-2xl ${isDark ? "bg-gray-800" : "bg-white border border-gray-200"} flex items-center justify-center`}><BookOpenIcon className={`w-10 h-10 ${isDark ? "text-gray-500" : "text-gray-400"}`} /></div><p className="text-xl font-medium mb-2">{exams.length === 0 ? "No Exams Posted" : "No Results Found"}</p><p className="text-sm leading-relaxed">{exams.length === 0 ? "Your program head hasn't posted any exams yet. Check back soon!" : "Try adjusting your search term."}</p></div>
+              <div className={`text-center py-16 sm:py-20 px-4 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                <div className="max-w-md mx-auto"><div className={`w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-5 rounded-2xl ${isDark ? "bg-gray-800" : "bg-white border border-gray-200"} flex items-center justify-center`}><BookOpenIcon className={`w-8 h-8 sm:w-10 sm:h-10 ${isDark ? "text-gray-500" : "text-gray-400"}`} /></div><p className="text-lg sm:text-xl font-bold mb-2">{exams.length === 0 ? "No Exams Posted" : "No Results Found"}</p><p className="text-xs sm:text-sm leading-relaxed">{exams.length === 0 ? "Your program head hasn't posted any exams yet. Check back soon!" : "Try adjusting your search term."}</p></div>
               </div>
             ) : (
               <div className="space-y-4">
                 {filtered.map(([sectionName, sectionExams]) => (
-                  <div key={sectionName} className={`rounded-lg overflow-hidden border shadow-sm ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
-                    <button onClick={() => setExpandedSection(expandedSection === sectionName ? null : sectionName)} className={`w-full px-6 py-4 flex items-center justify-between transition ${isDark ? "bg-gray-700/50 hover:bg-gray-700/70" : "bg-gray-50 hover:bg-gray-100"}`}>
-                      <div className="flex items-center gap-4"><div className={`w-10 h-10 rounded-lg flex items-center justify-center ${isDark ? "bg-blue-900/30 text-blue-300" : "bg-blue-50 text-blue-600"}`}><BookOpenIcon className="w-5 h-5" /></div><div className="text-left"><h2 className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>{sectionName}</h2><p className={`text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}>{sectionExams.length} scheduled exam{sectionExams.length !== 1 ? "s" : ""}</p></div></div>
+                  <div key={sectionName} className={`rounded-2xl overflow-hidden border shadow-sm ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
+                    <button onClick={() => setExpandedSection(expandedSection === sectionName ? null : sectionName)} className={`w-full px-4 sm:px-6 py-3.5 sm:py-4 flex items-center justify-between transition ${isDark ? "bg-gray-700/50 hover:bg-gray-700/70" : "bg-gray-50 hover:bg-gray-100"}`}>
+                      <div className="flex items-center gap-3 sm:gap-4"><div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center shrink-0 ${isDark ? "bg-blue-900/30 text-blue-300" : "bg-blue-50 text-blue-600"}`}><BookOpenIcon className="w-5 h-5" /></div><div className="text-left"><h2 className={`text-base sm:text-xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>{sectionName}</h2><p className={`text-xs sm:text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}>{sectionExams.length} scheduled exam{sectionExams.length !== 1 ? "s" : ""}</p></div></div>
                       <ChevronRightIcon className={`w-5 h-5 transition-transform ${expandedSection === sectionName ? "rotate-90 text-blue-500" : isDark ? "text-gray-500" : "text-gray-400"}`} />
                     </button>
                     {expandedSection === sectionName && (
                       <div className="animate-slideDown">
-                        <div className="overflow-x-auto">
-                          <table className="w-full">
-                            <thead className={`${isDark ? "bg-gray-700/50 text-gray-300" : "bg-gray-100 text-gray-700"}`}><tr><th className="px-6 py-4 text-left font-semibold">Subject</th><th className="px-6 py-4 text-left font-semibold">Category</th><th className="px-6 py-4 text-left font-semibold">Schedule</th><th className="px-6 py-4 text-left font-semibold">Details</th><th className="px-6 py-4 text-left font-semibold">Proctor</th><th className="px-6 py-4 text-left font-semibold">Actions</th></tr></thead>
+                        <div className="overflow-x-auto custom-scrollbar">
+                          <table className="w-full text-xs sm:text-sm min-w-[640px]">
+                            <thead className={`${isDark ? "bg-gray-700/50 text-gray-300" : "bg-gray-100 text-gray-700"}`}><tr><th className="px-4 sm:px-6 py-3 sm:py-4 text-left font-bold">Subject</th><th className="px-4 sm:px-6 py-3 sm:py-4 text-left font-bold">Category</th><th className="px-4 sm:px-6 py-3 sm:py-4 text-left font-bold">Schedule</th><th className="px-4 sm:px-6 py-3 sm:py-4 text-left font-bold">Details</th><th className="px-4 sm:px-6 py-3 sm:py-4 text-left font-bold">Proctor</th><th className="px-4 sm:px-6 py-3 sm:py-4 text-left font-bold">Actions</th></tr></thead>
                             <tbody>
                               {sectionExams.map((exam) => {
                                 const isConflicting = conflictIds.has(exam.id);
                                 return (
                                   <tr key={exam.id} className={`${isDark ? "hover:bg-gray-700/30" : "hover:bg-gray-50"} transition ${isConflicting ? (isDark ? "bg-red-900/20 border-l-4 border-red-500" : "bg-red-50 border-l-4 border-red-500") : ""}`}>
-                                    <td className={`px-6 py-4 border-t ${isDark ? "border-gray-700" : "border-gray-200"}`}><div className={`font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>{exam.subject_name}</div><div className={`text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}>{exam.subject_code}</div>{isConflicting && <div className="text-xs text-red-500 font-bold mt-1">⚠ CONFLICT DETECTED</div>}</td>
-                                    <td className={`px-6 py-4 border-t ${isDark ? "border-gray-700" : "border-gray-200"}`}><span className={`px-2 py-1 rounded-full text-xs font-medium ${exam.category === "major" ? (isDark ? "bg-purple-900/30 text-purple-300" : "bg-purple-100 text-purple-700") : (isDark ? "bg-blue-900/30 text-blue-300" : "bg-blue-100 text-blue-700")}`}>{exam.category ? exam.category.toUpperCase() : "-"}</span></td>
-                                    <td className={`px-6 py-4 border-t ${isDark ? "border-gray-700" : "border-gray-200"}`}><div className={`flex items-center gap-2 ${isDark ? "text-gray-200" : "text-gray-800"}`}><CalendarIcon className="w-4 h-4 text-blue-500" />{formatDate(exam.exam_date)}</div><div className={`flex items-center gap-2 mt-1 text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}><ClockIcon className="w-4 h-4 text-purple-500" />{exam.start_time} - {exam.end_time}</div></td>
-                                    <td className={`px-6 py-4 border-t ${isDark ? "border-gray-700" : "border-gray-200"}`}><div className="flex items-center gap-2"><MapPinIcon className={`w-4 h-4 ${isDark ? "text-gray-400" : "text-gray-500"}`} /><span className={`px-2.5 py-0.5 rounded text-sm font-medium ${isDark ? "bg-gray-700 text-gray-300" : "bg-gray-100 text-gray-700"}`}>{exam.room}</span></div><div className={`mt-1 text-xs ${isDark ? "text-gray-500" : "text-gray-400"}`}>{exam.course_name} • {exam.year_level}</div></td>
-                                    <td className={`px-6 py-4 border-t ${isDark ? "border-gray-700" : "border-gray-200"}`}><div className={`flex items-center gap-2 ${isDark ? "text-gray-300" : "text-gray-700"}`}><CheckBadgeIcon className="w-4 h-4 text-emerald-500" /><span className="text-sm">{exam.proctor || "Unassigned"}</span></div></td>
-                                    <td className={`px-6 py-4 border-t ${isDark ? "border-gray-700" : "border-gray-200"}`}><div className="group relative"><button onClick={() => { if (!isConflicting) return; setSelectedExam(exam); setCourseCode(exam.subject_code); setCourseName(exam.subject_name); const parts = exam.exam_date.split(", "); const d = new Date(`${parts[1]}, ${parts[2]}`); setOriginalExamDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`); setOriginalStartTime(exam.start_time); setOriginalEndTime(exam.end_time); setExamType(exam.exam_type || "Midterm"); setIsModalOpen(true); }} disabled={!isConflicting} className={`px-3 py-1 rounded-lg text-sm font-medium transition ${isConflicting ? (isDark ? "bg-red-600 hover:bg-red-700 text-white" : "bg-red-500 hover:bg-red-600 text-white shadow-sm") : (isDark ? "bg-gray-700 text-gray-500 cursor-not-allowed" : "bg-gray-200 text-gray-400 cursor-not-allowed")}`}>Request Reschedule</button>{!isConflicting && <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-gray-800 text-white text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 transition pointer-events-none z-10">Rescheduling is only available if there is a conflict.</div>}</div></td>
+                                    <td className={`px-4 sm:px-6 py-3 sm:py-4 border-t ${isDark ? "border-gray-700" : "border-gray-200"}`}><div className={`font-bold ${isDark ? "text-white" : "text-gray-900"}`}>{exam.subject_name}</div><div className={`text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>{exam.subject_code}</div>{isConflicting && <div className="text-[10px] sm:text-xs text-red-500 font-bold mt-1">⚠ CONFLICT DETECTED</div>}</td>
+                                    <td className={`px-4 sm:px-6 py-3 sm:py-4 border-t ${isDark ? "border-gray-700" : "border-gray-200"}`}><span className={`px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold ${exam.category === "major" ? (isDark ? "bg-purple-900/30 text-purple-300" : "bg-purple-100 text-purple-700") : (isDark ? "bg-blue-900/30 text-blue-300" : "bg-blue-100 text-blue-700")}`}>{exam.category ? exam.category.toUpperCase() : "-"}</span></td>
+                                    <td className={`px-4 sm:px-6 py-3 sm:py-4 border-t ${isDark ? "border-gray-700" : "border-gray-200"}`}><div className={`flex items-center gap-1.5 ${isDark ? "text-gray-200" : "text-gray-800"}`}><CalendarIcon className="w-3.5 h-3.5 text-blue-500" />{formatDate(exam.exam_date)}</div><div className={`flex items-center gap-1.5 mt-1 text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}><ClockIcon className="w-3.5 h-3.5 text-purple-500" />{exam.start_time} - {exam.end_time}</div></td>
+                                    <td className={`px-4 sm:px-6 py-3 sm:py-4 border-t ${isDark ? "border-gray-700" : "border-gray-200"}`}><div className="flex items-center gap-1.5"><MapPinIcon className={`w-3.5 h-3.5 ${isDark ? "text-gray-400" : "text-gray-500"}`} /><span className={`px-2 py-0.5 rounded text-xs font-medium ${isDark ? "bg-gray-700 text-gray-300" : "bg-gray-100 text-gray-700"}`}>{exam.room}</span></div><div className={`mt-1 text-[11px] ${isDark ? "text-gray-500" : "text-gray-400"}`}>{exam.course_name} • {exam.year_level}</div></td>
+                                    <td className={`px-4 sm:px-6 py-3 sm:py-4 border-t ${isDark ? "border-gray-700" : "border-gray-200"}`}><div className={`flex items-center gap-1.5 ${isDark ? "text-gray-300" : "text-gray-700"}`}><CheckBadgeIcon className="w-3.5 h-3.5 text-emerald-500" /><span className="text-xs sm:text-sm">{exam.proctor || "Unassigned"}</span></div></td>
+                                    <td className={`px-4 sm:px-6 py-3 sm:py-4 border-t ${isDark ? "border-gray-700" : "border-gray-200"}`}><div className="group relative"><button onClick={() => { if (!isConflicting) return; setSelectedExam(exam); setCourseCode(exam.subject_code); setCourseName(exam.subject_name); const parts = exam.exam_date.split(", "); const d = new Date(`${parts[1]}, ${parts[2]}`); setOriginalExamDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`); setOriginalStartTime(exam.start_time); setOriginalEndTime(exam.end_time); setExamType(exam.exam_type || "Midterm"); setIsModalOpen(true); }} disabled={!isConflicting} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${isConflicting ? (isDark ? "bg-red-600 hover:bg-red-700 text-white" : "bg-red-500 hover:bg-red-600 text-white shadow-sm") : (isDark ? "bg-gray-700 text-gray-500 cursor-not-allowed" : "bg-gray-200 text-gray-400 cursor-not-allowed")}`}>Request Reschedule</button>{!isConflicting && <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-gray-800 text-white text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 transition pointer-events-none z-10">Rescheduling is only available if there is a conflict.</div>}</div></td>
                                   </tr>
                                 );
                               })}
@@ -1661,9 +1671,9 @@ export default function StudentDashboard() {
             )}
 
             {/* My Requests */}
-            <div id="my-rescheduling-requests-section" className={`mt-8 rounded-lg overflow-hidden border shadow-sm ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
-              <div className={`px-6 py-4 border-b ${isDark ? "border-gray-700 bg-gray-700/50" : "border-gray-200 bg-gray-50"}`}><h3 className={`text-xl font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>My Rescheduling Requests</h3></div>
-              <div className="p-6">{myRequests.length === 0 ? <p className={isDark ? "text-gray-400" : "text-gray-600"}>No rescheduling requests yet.</p> : <div className="space-y-4">{myRequests.map((req) => (<div key={req.id} className={`p-4 rounded-lg border ${isDark ? "bg-gray-700 border-gray-600" : "bg-gray-50 border-gray-300"}`}><div className="flex items-center justify-between"><div><p className={`font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>Exam ID: {req.exam_id}</p><p className={`text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}>Requested Mode: {req.requested_mode}</p><p className={`text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}>Reason: {req.reason}</p></div><span className={`px-3 py-1 rounded-full text-sm font-medium ${req.status === "approved" ? "bg-green-100 text-green-800" : req.status === "rejected" ? "bg-red-100 text-red-800" : "bg-yellow-100 text-yellow-800"}`}>{req.status}</span></div></div>))}</div>}</div>
+            <div id="my-rescheduling-requests-section" className={`mt-6 sm:mt-8 rounded-2xl overflow-hidden border shadow-sm ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
+              <div className={`px-4 sm:px-6 py-3.5 sm:py-4 border-b ${isDark ? "border-gray-700 bg-gray-700/50" : "border-gray-200 bg-gray-50"}`}><h3 className={`text-base sm:text-xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>My Rescheduling Requests</h3></div>
+              <div className="p-4 sm:p-6">{myRequests.length === 0 ? <p className={`text-xs sm:text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}>No rescheduling requests yet.</p> : <div className="space-y-3 sm:space-y-4">{myRequests.map((req) => (<div key={req.id} className={`p-3.5 sm:p-4 rounded-xl border ${isDark ? "bg-gray-700/50 border-gray-600" : "bg-gray-50 border-gray-300"}`}><div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3"><div><p className={`font-bold text-xs sm:text-sm ${isDark ? "text-white" : "text-gray-900"}`}>Exam ID: {req.exam_id}</p><p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>Requested Mode: {req.requested_mode}</p><p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>Reason: {req.reason}</p></div><span className={`px-3 py-1 rounded-full text-xs font-semibold self-start sm:self-auto ${req.status === "approved" ? "bg-green-100 text-green-800" : req.status === "rejected" ? "bg-red-100 text-red-800" : "bg-yellow-100 text-yellow-800"}`}>{req.status}</span></div></div>))}</div>}</div>
             </div>
           </div>
         </>
@@ -1675,11 +1685,11 @@ export default function StudentDashboard() {
 
       {/* Reschedule Modal - FULL MODAL CODE */}
       {isModalOpen && selectedExam && (
-        <div className="fixed inset-0 flex items-center justify-start bg-black/60 z-50">
-          <div className={`w-full max-w-2xl max-h-screen overflow-y-auto p-6 rounded-none sm:rounded-r-2xl border-l shadow-2xl ${isDark ? "bg-gray-900 border-gray-800" : "bg-white border-gray-200"}`}>
-            <div className="flex items-center justify-between mb-8 pb-4 border-b dark:border-gray-800">
-              <h3 className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>Request Exam Reschedule</h3>
-              <button onClick={() => setIsModalOpen(false)} className={`p-2 rounded-lg transition ${isDark ? "hover:bg-gray-800 text-gray-400" : "hover:bg-gray-100 text-gray-500"}`}>
+        <div className="fixed inset-0 flex items-center justify-center p-3 sm:p-6 bg-black/60 backdrop-blur-sm z-50 animate-in fade-in duration-200">
+          <div className={`w-full max-w-2xl max-h-[92dvh] overflow-y-auto p-5 sm:p-7 rounded-2xl sm:rounded-3xl border shadow-2xl custom-scrollbar ${isDark ? "bg-gray-900 border-gray-800" : "bg-white border-gray-200"}`}>
+            <div className="flex items-center justify-between mb-6 pb-3 border-b dark:border-gray-800">
+              <h3 className={`text-lg sm:text-xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>Request Exam Reschedule</h3>
+              <button onClick={() => setIsModalOpen(false)} className={`p-2 rounded-xl transition ${isDark ? "hover:bg-gray-800 text-gray-400" : "hover:bg-gray-100 text-gray-500"}`}>
                 <XMarkIcon className="w-5 h-5" />
               </button>
             </div>
@@ -1728,41 +1738,41 @@ export default function StudentDashboard() {
                 showError(err.response?.data?.detail || "Error submitting request");
               }
               setLoadingRequest(false);
-            }} className="space-y-6">
+            }} className="space-y-5 sm:space-y-6">
               {/* Student Information */}
-              <div className={`p-4 rounded-lg ${isDark ? "bg-gray-700" : "bg-gray-50"}`}>
-                <h4 className={`font-medium mb-3 ${isDark ? "text-white" : "text-gray-900"}`}>1. Student Information</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div><label className={`block text-sm mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}>Student Name *</label><input type="text" value={studentName} onChange={(e) => setStudentName(e.target.value)} className={`w-full p-2 rounded-lg border ${isDark ? "bg-gray-600 text-white border-gray-500" : "bg-white text-gray-900 border-gray-300"}`} required /></div>
-                  <div><label className={`block text-sm mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}>Student ID *</label><input type="text" value={studentId} onChange={(e) => setStudentId(e.target.value)} className={`w-full p-2 rounded-lg border ${isDark ? "bg-gray-600 text-white border-gray-500" : "bg-white text-gray-900 border-gray-300"}`} required /></div>
-                  <div><label className={`block text-sm mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}>Program *</label><input type="text" value={program} onChange={(e) => setProgram(e.target.value)} className={`w-full p-2 rounded-lg border ${isDark ? "bg-gray-600 text-white border-gray-500" : "bg-white text-gray-900 border-gray-300"}`} required /></div>
-                  <div><label className={`block text-sm mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}>Section *</label><input type="text" value={section} onChange={(e) => setSection(e.target.value)} className={`w-full p-2 rounded-lg border ${isDark ? "bg-gray-600 text-white border-gray-500" : "bg-white text-gray-900 border-gray-300"}`} required /></div>
-                  <div className="md:col-span-2"><label className={`block text-sm mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}>School Email *</label><input type="email" value={schoolEmail} onChange={(e) => setSchoolEmail(e.target.value)} className={`w-full p-2 rounded-lg border ${isDark ? "bg-gray-600 text-white border-gray-500" : "bg-white text-gray-900 border-gray-300"}`} required /></div>
+              <div className={`p-4 rounded-xl ${isDark ? "bg-gray-800/80" : "bg-gray-50"}`}>
+                <h4 className={`text-xs sm:text-sm font-bold uppercase tracking-wider mb-3 ${isDark ? "text-slate-300" : "text-gray-900"}`}>1. Student Information</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+                  <div><label className={`block text-xs font-semibold mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}>Student Name *</label><input type="text" value={studentName} onChange={(e) => setStudentName(e.target.value)} className={`w-full p-2.5 rounded-xl text-xs sm:text-sm border ${isDark ? "bg-gray-700 text-white border-gray-600" : "bg-white text-gray-900 border-gray-300"}`} required /></div>
+                  <div><label className={`block text-xs font-semibold mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}>Student ID *</label><input type="text" value={studentId} onChange={(e) => setStudentId(e.target.value)} className={`w-full p-2.5 rounded-xl text-xs sm:text-sm border ${isDark ? "bg-gray-700 text-white border-gray-600" : "bg-white text-gray-900 border-gray-300"}`} required /></div>
+                  <div><label className={`block text-xs font-semibold mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}>Program *</label><input type="text" value={program} onChange={(e) => setProgram(e.target.value)} className={`w-full p-2.5 rounded-xl text-xs sm:text-sm border ${isDark ? "bg-gray-700 text-white border-gray-600" : "bg-white text-gray-900 border-gray-300"}`} required /></div>
+                  <div><label className={`block text-xs font-semibold mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}>Section *</label><input type="text" value={section} onChange={(e) => setSection(e.target.value)} className={`w-full p-2.5 rounded-xl text-xs sm:text-sm border ${isDark ? "bg-gray-700 text-white border-gray-600" : "bg-white text-gray-900 border-gray-300"}`} required /></div>
+                  <div className="md:col-span-2"><label className={`block text-xs font-semibold mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}>School Email *</label><input type="email" value={schoolEmail} onChange={(e) => setSchoolEmail(e.target.value)} className={`w-full p-2.5 rounded-xl text-xs sm:text-sm border ${isDark ? "bg-gray-700 text-white border-gray-600" : "bg-white text-gray-900 border-gray-300"}`} required /></div>
                 </div>
               </div>
 
               {/* Exam Details */}
-              <div className={`p-4 rounded-lg ${isDark ? "bg-gray-700" : "bg-gray-50"}`}>
-                <h4 className={`font-medium mb-3 ${isDark ? "text-white" : "text-gray-900"}`}>2. Exam to Be Rescheduled</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div><label className={`block text-sm mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}>Course Code / Course Name</label><input type="text" value={courseCode + " / " + courseName} readOnly className={`w-full p-2 rounded-lg border ${isDark ? "bg-gray-600 text-white border-gray-500" : "bg-white text-gray-900 border-gray-300"}`} /></div>
-                  <div><label className={`block text-sm mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}>Original Exam Date</label><input type="text" value={new Date(originalExamDate).toLocaleDateString()} readOnly className={`w-full p-2 rounded-lg border ${isDark ? "bg-gray-600 text-white border-gray-500" : "bg-white text-gray-900 border-gray-300"}`} /></div>
-                  <div><label className={`block text-sm mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}>Original Exam Time</label><input type="text" value={originalStartTime + " - " + originalEndTime} readOnly className={`w-full p-2 rounded-lg border ${isDark ? "bg-gray-600 text-white border-gray-500" : "bg-white text-gray-900 border-gray-300"}`} /></div>
+              <div className={`p-4 rounded-xl ${isDark ? "bg-gray-800/80" : "bg-gray-50"}`}>
+                <h4 className={`text-xs sm:text-sm font-bold uppercase tracking-wider mb-3 ${isDark ? "text-slate-300" : "text-gray-900"}`}>2. Exam to Be Rescheduled</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+                  <div><label className={`block text-xs font-semibold mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}>Course Code / Course Name</label><input type="text" value={courseCode + " / " + courseName} readOnly className={`w-full p-2.5 rounded-xl text-xs sm:text-sm border ${isDark ? "bg-gray-700 text-white border-gray-600" : "bg-white text-gray-900 border-gray-300"}`} /></div>
+                  <div><label className={`block text-xs font-semibold mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}>Original Exam Date</label><input type="text" value={new Date(originalExamDate).toLocaleDateString()} readOnly className={`w-full p-2.5 rounded-xl text-xs sm:text-sm border ${isDark ? "bg-gray-700 text-white border-gray-600" : "bg-white text-gray-900 border-gray-300"}`} /></div>
+                  <div><label className={`block text-xs font-semibold mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}>Original Exam Time</label><input type="text" value={originalStartTime + " - " + originalEndTime} readOnly className={`w-full p-2.5 rounded-xl text-xs sm:text-sm border ${isDark ? "bg-gray-700 text-white border-gray-600" : "bg-white text-gray-900 border-gray-300"}`} /></div>
                 </div>
               </div>
 
               {/* Reason */}
-              <div className={`p-4 rounded-lg ${isDark ? "bg-gray-700" : "bg-gray-50"}`}>
-                <h4 className={`font-medium mb-3 ${isDark ? "text-white" : "text-gray-900"}`}>3. Reason for Rescheduling</h4>
-                <div className="space-y-4">
-                  <div><label className={`block text-sm mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}>Reason for Request *</label><select value={reasonType} onChange={(e) => setReasonType(e.target.value)} className={`w-full p-2 rounded-lg border ${isDark ? "bg-gray-600 text-white border-gray-500" : "bg-white text-gray-900 border-gray-300"}`} required><option value="">Select a reason</option><option value="exam conflict">Exam schedule conflict</option><option value="medical">Medical reason</option><option value="emergency">Emergency</option><option value="other">Other</option></select></div>
-                  <div><label className={`block text-sm mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}>Detailed Explanation *</label><textarea value={detailedExplanation} onChange={(e) => setDetailedExplanation(e.target.value)} rows={4} className={`w-full p-2 rounded-lg border ${isDark ? "bg-gray-600 text-white border-gray-500" : "bg-white text-gray-900 border-gray-300"}`} required /></div>
+              <div className={`p-4 rounded-xl ${isDark ? "bg-gray-800/80" : "bg-gray-50"}`}>
+                <h4 className={`text-xs sm:text-sm font-bold uppercase tracking-wider mb-3 ${isDark ? "text-slate-300" : "text-gray-900"}`}>3. Reason for Rescheduling</h4>
+                <div className="space-y-3 sm:space-y-4">
+                  <div><label className={`block text-xs font-semibold mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}>Reason for Request *</label><select value={reasonType} onChange={(e) => setReasonType(e.target.value)} className={`w-full p-2.5 rounded-xl text-xs sm:text-sm border ${isDark ? "bg-gray-700 text-white border-gray-600" : "bg-white text-gray-900 border-gray-300"}`} required><option value="">Select a reason</option><option value="exam conflict">Exam schedule conflict</option><option value="medical">Medical reason</option><option value="emergency">Emergency</option><option value="other">Other</option></select></div>
+                  <div><label className={`block text-xs font-semibold mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}>Detailed Explanation *</label><textarea value={detailedExplanation} onChange={(e) => setDetailedExplanation(e.target.value)} rows={4} className={`w-full p-2.5 rounded-xl text-xs sm:text-sm border ${isDark ? "bg-gray-700 text-white border-gray-600" : "bg-white text-gray-900 border-gray-300"}`} required /></div>
                 </div>
               </div>
 
               {/* Preferred Reschedule */}
-              <div className={`p-4 rounded-lg ${isDark ? "bg-gray-700" : "bg-gray-50"}`}>
-                <h4 className={`font-medium mb-3 ${isDark ? "text-white" : "text-gray-900"}`}>4. Preferred Reschedule Details</h4>
+              <div className={`p-4 rounded-xl ${isDark ? "bg-gray-800/80" : "bg-gray-50"}`}>
+                <h4 className={`text-xs sm:text-sm font-bold uppercase tracking-wider mb-3 ${isDark ? "text-slate-300" : "text-gray-900"}`}>4. Preferred Reschedule Details</h4>
                 {/* Smart vacant hours suggestions */}
                 {selectedExam && (() => {
                   const suggestions = getVacantHoursSuggestions(selectedExam);
@@ -1786,7 +1796,6 @@ export default function StudentDashboard() {
                       </p>
                       <div className="flex flex-wrap gap-2 mt-1">
                         {suggestions.flatMap((s, idx) => {
-                          // Break each free interval into individual 90-min slots
                           const slots = [];
                           let slotStart = s[0];
                           while (slotStart + 90 <= s[1]) {
@@ -1817,17 +1826,17 @@ export default function StudentDashboard() {
                 })()}
                 <div className="grid grid-cols-1 gap-4">
                   <div>
-                    <label className={`block text-sm mb-1.5 font-medium ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+                    <label className={`block text-xs sm:text-sm mb-1.5 font-semibold ${isDark ? "text-gray-300" : "text-gray-700"}`}>
                       Preferred New Exam Time (Within the Day)
                     </label>
-                    <div className="flex gap-4">
+                    <div className="flex gap-3 sm:gap-4">
                       <div className="flex-1">
                         <label className={`block text-xs mb-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}>Start Time</label>
                         <input 
                           type="time" 
                           value={preferredStartTime} 
                           onChange={(e) => setPreferredStartTime(e.target.value)} 
-                          className={`w-full p-2 rounded-lg border ${isDark ? "bg-gray-600 text-white border-gray-500" : "bg-white text-gray-900 border-gray-300"}`} 
+                          className={`w-full p-2.5 rounded-xl text-xs sm:text-sm border ${isDark ? "bg-gray-700 text-white border-gray-600" : "bg-white text-gray-900 border-gray-300"}`} 
                         />
                       </div>
                       <div className="flex-1">
@@ -1836,7 +1845,7 @@ export default function StudentDashboard() {
                           type="time" 
                           value={preferredEndTime} 
                           onChange={(e) => setPreferredEndTime(e.target.value)} 
-                          className={`w-full p-2 rounded-lg border ${isDark ? "bg-gray-600 text-white border-gray-500" : "bg-white text-gray-900 border-gray-300"}`} 
+                          className={`w-full p-2.5 rounded-xl text-xs sm:text-sm border ${isDark ? "bg-gray-700 text-white border-gray-600" : "bg-white text-gray-900 border-gray-300"}`} 
                         />
                       </div>
                     </div>
@@ -1845,14 +1854,14 @@ export default function StudentDashboard() {
               </div>
 
               {/* Acknowledgement */}
-              <div className={`p-4 rounded-lg ${isDark ? "bg-gray-700" : "bg-gray-50"}`}>
-                <h4 className={`font-medium mb-3 ${isDark ? "text-white" : "text-gray-900"}`}>5. Student Confirmation</h4>
-                <div className="flex items-start gap-2"><input type="checkbox" id="acknowledge" checked={acknowledged} onChange={(e) => setAcknowledged(e.target.checked)} className="mt-1" /><label htmlFor="acknowledge" className={`text-sm ${isDark ? "text-gray-300" : "text-gray-700"}`}>I confirm that the information provided is accurate and subject to approval. *</label></div>
+              <div className={`p-4 rounded-xl ${isDark ? "bg-gray-800/80" : "bg-gray-50"}`}>
+                <h4 className={`text-xs sm:text-sm font-bold uppercase tracking-wider mb-3 ${isDark ? "text-slate-300" : "text-gray-900"}`}>5. Student Confirmation</h4>
+                <div className="flex items-start gap-2.5"><input type="checkbox" id="acknowledge" checked={acknowledged} onChange={(e) => setAcknowledged(e.target.checked)} className="mt-1 rounded" /><label htmlFor="acknowledge" className={`text-xs sm:text-sm leading-snug ${isDark ? "text-gray-300" : "text-gray-700"}`}>I confirm that the information provided is accurate and subject to approval. *</label></div>
               </div>
 
-              <div className="flex justify-end gap-4">
-                <button type="button" onClick={() => setIsModalOpen(false)} className={`px-4 py-2 rounded-lg ${isDark ? "bg-gray-600 text-white hover:bg-gray-500" : "bg-gray-300 text-gray-900 hover:bg-gray-400"}`}>Cancel</button>
-                <button type="submit" disabled={loadingRequest || !acknowledged || !detailedExplanation.trim()} className={`px-6 py-2 rounded-lg font-medium transition ${loadingRequest ? "bg-gray-400 cursor-not-allowed" : isDark ? "bg-blue-600 hover:bg-blue-700 text-white" : "bg-blue-500 hover:bg-blue-600 text-white"}`}>{loadingRequest ? "Submitting..." : "Submit Request"}</button>
+              <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-2">
+                <button type="button" onClick={() => setIsModalOpen(false)} className={`w-full sm:w-auto px-5 py-3 rounded-xl font-bold text-xs sm:text-sm ${isDark ? "bg-gray-700 text-white hover:bg-gray-600" : "bg-gray-200 text-gray-900 hover:bg-gray-300"}`}>Cancel</button>
+                <button type="submit" disabled={loadingRequest || !acknowledged || !detailedExplanation.trim()} className={`w-full sm:w-auto px-6 py-3 rounded-xl font-bold text-xs sm:text-sm transition shadow-md ${loadingRequest ? "bg-gray-400 cursor-not-allowed" : isDark ? "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-900/40" : "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/25"}`}>{loadingRequest ? "Submitting..." : "Submit Request"}</button>
               </div>
             </form>
           </div>

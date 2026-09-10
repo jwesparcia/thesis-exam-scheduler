@@ -126,8 +126,8 @@ export default function DistributionRulesManager({ isGenerating }) {
                     </span>
                 </div>
 
-                <div className="overflow-x-auto rounded-xl border dark:border-slate-700">
-                    <table className="w-full text-center text-xs border-collapse">
+                <div className="overflow-x-auto custom-scrollbar rounded-xl border dark:border-slate-700">
+                    <table className="w-full min-w-[640px] text-center text-xs border-collapse">
                         <thead>
                             <tr className={`${isDark ? "bg-amber-500/20 text-amber-300 border-b border-slate-700" : "bg-amber-300 text-slate-900 font-bold border-b border-amber-400"}`}>
                                 <th className="px-3 py-2.5 font-bold uppercase border-r dark:border-slate-700">TIME BLOCK</th>
@@ -210,12 +210,12 @@ export default function DistributionRulesManager({ isGenerating }) {
                 </div>
             </div>
 
-            <div className="flex justify-between items-center pt-2">
-                <h3 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>Distribution Rules</h3>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
+                <h3 className={`text-base sm:text-lg font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>Distribution Rules</h3>
                 <button
                     onClick={() => setShowAddForm(true)}
                     disabled={isGenerating}
-                    className={`flex items-center gap-2 px-4 py-2 text-white rounded-lg transition ${
+                    className={`flex items-center justify-center gap-2 px-4 py-2.5 text-white rounded-xl text-sm font-semibold transition ${
                         isGenerating
                             ? "bg-blue-600/50 opacity-50 cursor-not-allowed"
                             : "bg-blue-600 hover:bg-blue-700"
@@ -228,13 +228,13 @@ export default function DistributionRulesManager({ isGenerating }) {
             </div>
 
             {showAddForm && (
-                <div className="p-4 border rounded-lg bg-gray-50 dark:bg-gray-800 dark:border-gray-700">
-                    <h4 className={`font-medium mb-4 ${isDark ? "text-gray-200" : "text-gray-900"}`}>New Rule Configuration</h4>
+                <div className="p-4 sm:p-5 border rounded-2xl bg-gray-50 dark:bg-gray-800 dark:border-gray-700">
+                    <h4 className={`font-semibold mb-4 text-sm sm:text-base ${isDark ? "text-gray-200" : "text-gray-900"}`}>New Rule Configuration</h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label className={`block text-sm mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}>Category</label>
+                            <label className={`block text-xs sm:text-sm font-medium mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}>Category</label>
                             <select
-                                className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                className="w-full p-2.5 border rounded-xl text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                                 value={newRule.category_type}
                                 onChange={e => setNewRule({ ...newRule, category_type: e.target.value })}
                             >
@@ -244,9 +244,9 @@ export default function DistributionRulesManager({ isGenerating }) {
                         </div>
 
                         <div>
-                            <label className={`block text-sm mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}>Year Level</label>
+                            <label className={`block text-xs sm:text-sm font-medium mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}>Year Level</label>
                             <select
-                                className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                className="w-full p-2.5 border rounded-xl text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                                 value={newRule.year_level_id}
                                 onChange={e => setNewRule({ ...newRule, year_level_id: e.target.value })}
                                 disabled={newRule.category_type === "general"}
@@ -259,9 +259,9 @@ export default function DistributionRulesManager({ isGenerating }) {
                         </div>
 
                         <div>
-                            <label className={`block text-sm mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}>Allowed Session</label>
+                            <label className={`block text-xs sm:text-sm font-medium mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}>Allowed Session</label>
                             <select
-                                className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                className="w-full p-2.5 border rounded-xl text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                                 value={newRule.allowed_session}
                                 onChange={e => setNewRule({ ...newRule, allowed_session: e.target.value })}
                             >
@@ -272,16 +272,16 @@ export default function DistributionRulesManager({ isGenerating }) {
                         </div>
 
                         <div>
-                            <label className={`block text-sm mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}>Allowed Days (Indices 1-5)</label>
-                            <div className="flex gap-2">
+                            <label className={`block text-xs sm:text-sm font-medium mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}>Allowed Days (Indices 1-5)</label>
+                            <div className="flex gap-2 flex-wrap">
                                 {[1, 2, 3, 4, 5].map(day => (
                                     <button
                                         key={day}
                                         onClick={() => toggleDay(day)}
-                                        className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition
+                                        className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm font-semibold transition
                       ${newRule.allowed_days.includes(day)
-                                                ? "bg-blue-600 text-white"
-                                                : "bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300"}`}
+                                                ? "bg-blue-600 text-white shadow-sm"
+                                                : "bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-300"}`}
                                     >
                                         {day}
                                     </button>
@@ -290,20 +290,20 @@ export default function DistributionRulesManager({ isGenerating }) {
                         </div>
                     </div>
 
-                    <div className="flex justify-end gap-2 mt-4">
+                    <div className="flex flex-col-reverse sm:flex-row justify-end gap-2.5 mt-5">
                         <button
                             onClick={() => setShowAddForm(false)}
-                            className="px-4 py-2 text-gray-600 hover:bg-gray-200 rounded-lg transition"
+                            className="w-full sm:w-auto px-4 py-2.5 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-xl text-sm font-semibold transition text-center"
                         >
                             Cancel
                         </button>
                         <button
                             onClick={handleAddRule}
                             disabled={isGenerating}
-                            className={`px-4 py-2 text-white rounded-lg transition ${
+                            className={`w-full sm:w-auto px-5 py-2.5 text-white rounded-xl text-sm font-semibold transition text-center ${
                                 isGenerating
                                     ? "bg-green-600/50 opacity-50 cursor-not-allowed"
-                                    : "bg-green-600 hover:bg-green-700"
+                                    : "bg-green-600 hover:bg-green-700 shadow-sm"
                             }`}
                         >
                             Save Rule
@@ -316,8 +316,8 @@ export default function DistributionRulesManager({ isGenerating }) {
                 <div className="text-center py-4">Loading rules...</div>
             ) : (
                 <>
-                    <div className="overflow-x-auto rounded-lg border dark:border-gray-700">
-                        <table className="w-full text-left text-sm">
+                    <div className="overflow-x-auto custom-scrollbar rounded-xl border dark:border-gray-700">
+                        <table className="w-full min-w-[560px] text-left text-sm">
                             <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-700 dark:text-gray-100">
                                 <tr>
                                     <th className="px-4 py-3 font-medium">Category</th>
@@ -333,7 +333,7 @@ export default function DistributionRulesManager({ isGenerating }) {
                                         <td className="px-4 py-3 capitalize">{rule.category_type}</td>
                                         <td className="px-4 py-3">{rule.year_level_name || "All"}</td>
                                         <td className="px-4 py-3">
-                                            <div className="flex gap-1">
+                                            <div className="flex gap-1 flex-wrap">
                                                 {rule.allowed_days.map(d => (
                                                     <span key={d} className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs dark:bg-blue-900/30 dark:text-blue-300">
                                                         Day {d}
@@ -346,7 +346,7 @@ export default function DistributionRulesManager({ isGenerating }) {
                                             <button
                                                 onClick={() => handleDelete(rule.id)}
                                                 disabled={isGenerating}
-                                                className={`p-1 text-red-500 hover:bg-red-50 rounded dark:hover:bg-red-900/20 ${
+                                                className={`p-1.5 text-red-500 hover:bg-red-50 rounded-lg dark:hover:bg-red-900/20 ${
                                                     isGenerating ? "opacity-50 cursor-not-allowed" : ""
                                                 }`}
                                                 title={isGenerating ? "Cannot delete rules while schedule generation is ongoing" : "Delete Rule"}
@@ -368,28 +368,28 @@ export default function DistributionRulesManager({ isGenerating }) {
                     </div>
                     {confirmModal.isOpen && (
                         <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-50 p-4">
-                            <div className={`${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"} border rounded-2xl shadow-2xl max-w-sm w-full p-8 animate-slide-in`}>
+                            <div className={`${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"} border rounded-2xl shadow-2xl max-w-sm w-full p-5 sm:p-8 animate-slide-in`}>
                                 <div className="flex flex-col items-center text-center">
-                                    <div className="w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mb-6">
-                                        <TrashIcon className="w-8 h-8 text-red-500" />
+                                    <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mb-5 sm:mb-6">
+                                        <TrashIcon className="w-7 h-7 sm:w-8 sm:h-8 text-red-500" />
                                     </div>
-                                    <h3 className={`text-xl font-bold mb-3 ${isDark ? "text-white" : "text-gray-900"}`}>
+                                    <h3 className={`text-lg sm:text-xl font-bold mb-2 sm:mb-3 ${isDark ? "text-white" : "text-gray-900"}`}>
                                         Delete Rule?
                                     </h3>
-                                    <p className={`text-sm mb-8 ${isDark ? "text-gray-400" : "text-gray-600"} leading-relaxed`}>
+                                    <p className={`text-xs sm:text-sm mb-6 sm:mb-8 ${isDark ? "text-gray-400" : "text-gray-600"} leading-relaxed`}>
                                         Are you sure you want to delete this distribution rule? This action cannot be undone.
                                     </p>
-                                    <div className="flex gap-4 w-full">
+                                    <div className="flex flex-col-reverse sm:flex-row gap-2.5 sm:gap-4 w-full">
                                         <button
                                             onClick={() => setConfirmModal({ isOpen: false, id: null })}
-                                            className={`flex-1 px-6 py-3 rounded-xl font-semibold transition ${isDark ? "bg-gray-700 text-gray-300 hover:bg-gray-600" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
+                                            className={`w-full sm:flex-1 px-5 py-2.5 sm:py-3 rounded-xl font-semibold text-sm transition ${isDark ? "bg-gray-700 text-gray-300 hover:bg-gray-600" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
                                         >
                                             Cancel
                                         </button>
                                         <button
                                             onClick={confirmDelete}
                                             disabled={isGenerating}
-                                            className={`flex-1 px-6 py-3 rounded-xl font-semibold bg-red-600 text-white hover:bg-red-700 transition shadow-lg shadow-red-500/30 ${
+                                            className={`w-full sm:flex-1 px-5 py-2.5 sm:py-3 rounded-xl font-semibold text-sm bg-red-600 text-white hover:bg-red-700 transition shadow-lg shadow-red-500/30 ${
                                                 isGenerating ? "opacity-50 cursor-not-allowed" : ""
                                             }`}
                                         >

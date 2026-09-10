@@ -21,6 +21,7 @@ import {
   PencilIcon,
   PlusIcon,
   MagnifyingGlassIcon,
+  ChevronRightIcon,
 } from "@heroicons/react/24/outline";
 import { useTheme } from "../context/themeStore";
 import { useUser } from "../context/userStore";
@@ -44,23 +45,23 @@ function ProctorManual() {
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className={`p-6 rounded-2xl border ${isDark ? "bg-slate-800/40 border-slate-700" : "bg-gradient-to-r from-blue-500/10 to-indigo-500/10 border-blue-100"}`}>
-        <div className="flex items-center gap-4">
-          <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${isDark ? "bg-blue-500/20 text-blue-300" : "bg-blue-600 text-white shadow-md shadow-blue-500/20"}`}>
-            <BookOpenIcon className="w-6 h-6" />
+      <div className={`p-4 sm:p-6 rounded-2xl border ${isDark ? "bg-slate-800/40 border-slate-700" : "bg-gradient-to-r from-blue-500/10 to-indigo-500/10 border-blue-100"}`}>
+        <div className="flex items-center gap-3 sm:gap-4">
+          <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center shrink-0 ${isDark ? "bg-blue-500/20 text-blue-300" : "bg-blue-600 text-white shadow-md shadow-blue-500/20"}`}>
+            <BookOpenIcon className="w-5 h-5 sm:w-6 sm:h-6" />
           </div>
           <div>
-            <h2 className={`text-xl font-bold tracking-tight ${isDark ? "text-white" : "text-slate-900"}`}>
+            <h2 className={`text-lg sm:text-xl font-bold tracking-tight ${isDark ? "text-white" : "text-slate-900"}`}>
               Proctor Interactive Guide
             </h2>
-            <p className={`text-sm mt-1 ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+            <p className={`text-xs sm:text-sm mt-1 ${isDark ? "text-slate-400" : "text-slate-500"}`}>
               Understand how to track your assigned sessions, execute exam check-ins, and upload teaching hours to avoid scheduling conflicts.
             </p>
           </div>
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2 pb-2 border-b border-slate-200 dark:border-slate-700">
+      <div className="flex overflow-x-auto no-scrollbar gap-2 pb-2 border-b border-slate-200 dark:border-slate-700">
         {topics.map((t) => {
           const SubIcon = t.icon;
           const isSelected = activeSubTab === t.id;
@@ -68,7 +69,7 @@ function ProctorManual() {
             <button
               key={t.id}
               onClick={() => setActiveSubTab(t.id)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+              className={`flex items-center gap-2 px-3.5 sm:px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all whitespace-nowrap shrink-0 ${
                 isSelected
                   ? isDark 
                     ? "bg-blue-600 text-white" 
@@ -85,7 +86,7 @@ function ProctorManual() {
         })}
       </div>
 
-      <div className={`p-6 md:p-8 rounded-2xl border transition-all ${isDark ? "bg-slate-800/20 border-slate-800" : "bg-white border-slate-200/60"}`}>
+      <div className={`p-4 sm:p-6 md:p-8 rounded-2xl border transition-all ${isDark ? "bg-slate-800/20 border-slate-800" : "bg-white border-slate-200/60"}`}>
         {activeSubTab === "supervision" && (
           <div className="space-y-6">
             <div className="flex items-center gap-3">
@@ -431,9 +432,9 @@ function ProctorChatPanel() {
   };
 
   return (
-    <div className={`flex h-[600px] rounded-2xl border overflow-hidden relative ${isDark ? "bg-slate-800/20 border-slate-700/50 backdrop-blur-xl" : "bg-white border-slate-200"}`}>
+    <div className={`flex h-[520px] sm:h-[600px] rounded-2xl border overflow-hidden relative ${isDark ? "bg-slate-800/20 border-slate-700/50 backdrop-blur-xl" : "bg-white border-slate-200"}`}>
       {/* Left: conversation list */}
-      <div className={`w-72 flex flex-col border-r ${isDark ? "bg-slate-800/60 border-slate-800" : "bg-slate-50 border-slate-200"}`}>
+      <div className={`w-full md:w-72 flex flex-col border-r ${isDark ? "bg-slate-800/60 border-slate-800" : "bg-slate-50 border-slate-200"} ${activeStudentId ? "hidden md:flex" : "flex"}`}>
         <div className={`p-4 border-b flex justify-between items-center ${isDark ? "border-slate-800" : "border-slate-200"}`}>
           <div>
             <h3 className={`font-bold text-sm uppercase tracking-wide ${isDark ? "text-slate-350" : "text-slate-600"}`}>
@@ -503,19 +504,26 @@ function ProctorChatPanel() {
       </div>
 
       {/* Right: chat window */}
-      <div className={`flex-1 flex flex-col ${isDark ? "bg-slate-900" : "bg-white"}`}>
+      <div className={`flex-1 flex flex-col ${isDark ? "bg-slate-900" : "bg-white"} ${!activeStudentId ? "hidden md:flex" : "flex"}`}>
         {activeStudentId ? (
           <>
             {/* Chat header */}
-            <div className={`p-4 border-b flex items-center justify-between gap-3 ${isDark ? "border-slate-800 bg-slate-800/50" : "border-slate-200 bg-slate-50"}`}>
-              <div className="flex items-center gap-3">
-                <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm ${isDark ? "bg-blue-600/30 text-blue-300" : "bg-blue-100 text-blue-700"
+            <div className={`p-3 sm:p-4 border-b flex items-center justify-between gap-3 ${isDark ? "border-slate-800 bg-slate-800/50" : "border-slate-200 bg-slate-50"}`}>
+              <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                <button
+                  onClick={() => setActiveStudentId(null)}
+                  className="p-1.5 rounded-lg md:hidden hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 transition shrink-0"
+                  title="Back to conversations"
+                >
+                  <ChevronRightIcon className="w-5 h-5 rotate-180" />
+                </button>
+                <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${isDark ? "bg-blue-600/30 text-blue-300" : "bg-blue-100 text-blue-700"
                   }`}>
                   {(activeStudentName || "").split(" ").filter(Boolean).map(n => n[0]).join("").slice(0, 2).toUpperCase()}
                 </div>
-                <div>
-                  <h4 className={`font-bold text-sm ${isDark ? "text-white" : "text-slate-900"}`}>{activeStudentName}</h4>
-                  <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                <div className="min-w-0">
+                  <h4 className={`font-bold text-sm truncate ${isDark ? "text-white" : "text-slate-900"}`}>{activeStudentName}</h4>
+                  <p className={`text-xs truncate ${isDark ? "text-slate-400" : "text-slate-500"}`}>
                     {activeStudentType === "irregular" ? "Irregular Student" : activeStudentType === "admin" || activeStudentType === "program_head" ? "Program Head / Admin" : activeStudentType === "regular" ? "Regular Student" : "Student"}
                   </p>
                 </div>
@@ -523,11 +531,11 @@ function ProctorChatPanel() {
 
               <button
                 onClick={() => deleteConversation(activeStudentId)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-red-500 hover:bg-red-500/10 border border-transparent hover:border-red-500/25 transition-all duration-200"
+                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold text-red-500 hover:bg-red-500/10 border border-transparent hover:border-red-500/25 transition-all duration-200 shrink-0"
                 title="Delete Conversation"
               >
                 <TrashIcon className="w-4 h-4" />
-                Clear Chat
+                <span className="hidden sm:inline">Clear Chat</span>
               </button>
             </div>
 
@@ -564,7 +572,7 @@ function ProctorChatPanel() {
                       </div>
                     )}
 
-                    <div className={`max-w-[70%] px-4 py-2.5 rounded-2xl text-sm shadow-sm ${isMe
+                    <div className={`max-w-[85%] sm:max-w-[70%] px-4 py-2.5 rounded-2xl text-sm shadow-sm ${isMe
                       ? "bg-blue-600 text-white rounded-br-sm"
                       : isDark ? "bg-slate-800 text-slate-100 rounded-bl-sm border border-slate-700/50" : "bg-slate-100 text-slate-800 rounded-bl-sm"
                       }`}>
@@ -1284,7 +1292,7 @@ export default function ProctorDashboard() {
           <div className="relative z-10 max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-5 sm:pt-8 pb-4">
             {latestUnreadNotif && (
               <div className="mb-6 animate-in fade-in slide-in-from-top-4 duration-300 relative z-10">
-                <div className={`p-4 rounded-2xl border backdrop-blur-md shadow-md flex items-center justify-between gap-4 transition-all ${
+                <div className={`p-3.5 sm:p-4 rounded-2xl border backdrop-blur-md shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all ${
                   isDark 
                     ? "bg-blue-950/40 border-blue-900/60 text-blue-100" 
                     : "bg-blue-50/95 border-blue-200/80 text-blue-900"
@@ -1300,7 +1308,7 @@ export default function ProctorDashboard() {
                       <p className="text-sm font-semibold mt-0.5 leading-snug">{latestUnreadNotif.message}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
                     <button 
                       onClick={() => handleNotificationClick(latestUnreadNotif)}
                       className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
@@ -1709,30 +1717,30 @@ export default function ProctorDashboard() {
 
       {/* Delete Schedule Confirmation Modal */}
       {showDeleteScheduleModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className={`p-8 rounded-3xl shadow-2xl max-w-md w-full transform transition-all scale-100 ${isDark ? "bg-slate-800 border border-slate-700" : "bg-white border border-slate-200"}`}>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4 animate-in fade-in duration-200">
+          <div className={`p-5 sm:p-8 rounded-2xl sm:rounded-3xl shadow-2xl max-w-md w-full transform transition-all scale-100 ${isDark ? "bg-slate-800 border border-slate-700" : "bg-white border border-slate-200"}`}>
             <div className="flex flex-col items-center text-center">
-              <div className="w-16 h-16 rounded-full flex items-center justify-center mb-6 bg-red-100 dark:bg-red-900/50 shadow-lg shadow-red-200/50 dark:shadow-red-900/20">
-                <TrashIcon className="w-8 h-8 text-red-600 dark:text-red-400" />
+              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mb-4 sm:mb-6 bg-red-100 dark:bg-red-900/50 shadow-lg shadow-red-200/50 dark:shadow-red-900/20">
+                <TrashIcon className="w-7 h-7 sm:w-8 sm:h-8 text-red-600 dark:text-red-400" />
               </div>
-              <h3 className={`text-2xl font-bold mb-3 ${isDark ? "text-white" : "text-slate-900"}`}>
+              <h3 className={`text-xl sm:text-2xl font-bold mb-2 sm:mb-3 ${isDark ? "text-white" : "text-slate-900"}`}>
                 Delete My Schedule?
               </h3>
-              <p className={`mb-8 text-sm leading-relaxed ${isDark ? "text-slate-300" : "text-slate-500"}`}>
+              <p className={`mb-6 sm:mb-8 text-xs sm:text-sm leading-relaxed ${isDark ? "text-slate-300" : "text-slate-500"}`}>
                 Are you sure you want to delete your uploaded teaching schedule? Doing so will clear all blocked slots and revert to an empty schedule, notifying the administrator. This action is permanent.
               </p>
-              <div className="flex gap-4 w-full">
+              <div className="flex flex-col-reverse sm:flex-row gap-2.5 sm:gap-4 w-full">
                 <button
                   onClick={() => setShowDeleteScheduleModal(false)}
                   disabled={deletingSchedule}
-                  className={`flex-1 py-3.5 rounded-xl font-bold transition-all active:scale-95 disabled:opacity-55 ${isDark ? "bg-slate-700 hover:bg-slate-600 text-white" : "bg-slate-100 hover:bg-slate-200 text-slate-800"}`}
+                  className={`w-full py-3 sm:py-3.5 rounded-xl font-bold text-sm transition-all active:scale-95 disabled:opacity-55 ${isDark ? "bg-slate-700 hover:bg-slate-600 text-white" : "bg-slate-100 hover:bg-slate-200 text-slate-800"}`}
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleDeleteSchedule}
                   disabled={deletingSchedule}
-                  className="flex-1 py-3.5 rounded-xl font-bold bg-red-600 hover:bg-red-700 text-white transition-all shadow-lg shadow-red-600/30 active:scale-95 disabled:opacity-55 flex items-center justify-center gap-2"
+                  className="w-full py-3 sm:py-3.5 rounded-xl font-bold text-sm bg-red-600 hover:bg-red-700 text-white transition-all shadow-lg shadow-red-600/30 active:scale-95 disabled:opacity-55 flex items-center justify-center gap-2"
                 >
                   {deletingSchedule ? (
                     <>

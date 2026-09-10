@@ -116,22 +116,22 @@ export default function ProctorMonitoring() {
   // ── Render ───────────────────────────────────────────────────────────────
   return (
     <div className={`min-h-full ${isDark ? "bg-gray-900" : "bg-gray-50"} rounded-2xl`}>
-      <div className="max-w-7xl mx-auto px-2 py-8 space-y-8">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-8 space-y-6">
 
         {/* ── Page Header ── */}
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3">
-            <div className={`p-3 rounded-2xl ${isDark ? "bg-blue-600/20" : "bg-blue-50"}`}>
-              <ShieldCheckIcon className="w-7 h-7 text-blue-500" />
+            <div className={`p-2.5 sm:p-3 rounded-2xl shrink-0 ${isDark ? "bg-blue-600/20" : "bg-blue-50"}`}>
+              <ShieldCheckIcon className="w-6 h-6 sm:w-7 h-7 text-blue-500" />
             </div>
             <div>
-              <h1 className={`text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
+              <h1 className={`text-xl sm:text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
                 Proctor Attendance Monitoring
               </h1>
-              <p className={`text-sm mt-0.5 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+              <p className={`text-xs sm:text-sm mt-0.5 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
                 Live overview of proctor assignments and attendance confirmations
                 {lastRefreshed && (
-                  <span className="ml-2 opacity-70">
+                  <span className="opacity-70 block sm:inline sm:ml-2">
                     · Last updated {lastRefreshed.toLocaleTimeString()}
                   </span>
                 )}
@@ -141,7 +141,7 @@ export default function ProctorMonitoring() {
           <button
             onClick={fetchMonitoring}
             disabled={loading}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition ${
+            className={`w-full sm:w-auto justify-center flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition ${
               isDark
                 ? "bg-gray-700 text-gray-200 hover:bg-gray-600"
                 : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50"
@@ -153,43 +153,43 @@ export default function ProctorMonitoring() {
         </div>
 
         {/* ── Summary Cards ── */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
           {[
             {
               label: "Total Assignments",
               value: totalExams,
-              icon: <BookOpenIcon className="w-5 h-5 text-blue-500" />,
+              icon: <BookOpenIcon className="w-4 h-4 sm:w-5 sm:h-5 text-blue-500" />,
               color: "blue",
             },
             {
               label: "Attended",
               value: attendedCount,
-              icon: <CheckCircleIcon className="w-5 h-5 text-emerald-500" />,
+              icon: <CheckCircleIcon className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-500" />,
               color: "emerald",
             },
             {
               label: "Pending",
               value: pendingCount,
-              icon: <ExclamationCircleIcon className="w-5 h-5 text-amber-500" />,
+              icon: <ExclamationCircleIcon className="w-4 h-4 sm:w-5 sm:h-5 text-amber-500" />,
               color: "amber",
             },
             {
               label: "Completion",
               value: `${completionPct}%`,
-              icon: <CheckBadgeIcon className="w-5 h-5 text-purple-500" />,
+              icon: <CheckBadgeIcon className="w-4 h-4 sm:w-5 sm:h-5 text-purple-500" />,
               color: "purple",
             },
           ].map(({ label, value, icon, color }) => (
-            <div key={label} className={`${card} p-5`}>
-              <div className="flex items-center gap-3 mb-3">
+            <div key={label} className={`${card} p-3.5 sm:p-5`}>
+              <div className="flex items-center gap-3 mb-2 sm:mb-3">
                 <div className={`p-2 rounded-xl bg-${color}-100 dark:bg-${color}-900/20`}>
                   {icon}
                 </div>
               </div>
-              <p className={`text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
+              <p className={`text-xl sm:text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
                 {value}
               </p>
-              <p className={`text-xs mt-0.5 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+              <p className={`text-[11px] sm:text-xs mt-0.5 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
                 {label}
               </p>
             </div>
@@ -197,38 +197,38 @@ export default function ProctorMonitoring() {
         </div>
 
         {/* ── Progress Bar ── */}
-        <div className={`${card} p-5`}>
+        <div className={`${card} p-4 sm:p-5`}>
           <div className="flex items-center justify-between mb-2">
-            <span className={`text-sm font-semibold ${isDark ? "text-gray-200" : "text-gray-700"}`}>
+            <span className={`text-xs sm:text-sm font-semibold ${isDark ? "text-gray-200" : "text-gray-700"}`}>
               Overall Attendance Completion
             </span>
-            <span className={`text-sm font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
+            <span className={`text-xs sm:text-sm font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
               {attendedCount} / {totalExams}
             </span>
           </div>
-          <div className={`w-full h-3 rounded-full overflow-hidden ${isDark ? "bg-gray-700" : "bg-gray-200"}`}>
+          <div className={`w-full h-2.5 sm:h-3 rounded-full overflow-hidden ${isDark ? "bg-gray-700" : "bg-gray-200"}`}>
             <div
               className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-700"
               style={{ width: `${completionPct}%` }}
             />
           </div>
-          <p className={`text-xs mt-1.5 ${isDark ? "text-gray-400" : "text-gray-400"}`}>
+          <p className={`text-[11px] sm:text-xs mt-1.5 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
             {completionPct}% of proctors have confirmed their attendance
           </p>
         </div>
 
         {/* ── Filters ── */}
-        <div className={`${card} px-5 py-4`}>
-          <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+        <div className={`${card} p-3.5 sm:px-5 sm:py-4`}>
+          <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
             <div className="flex items-center gap-2">
-              <FunnelIcon className={`w-4 h-4 ${isDark ? "text-gray-400" : "text-gray-500"}`} />
-              <span className={`text-sm font-semibold ${isDark ? "text-gray-300" : "text-gray-700"}`}>
-                Filters
+              <FunnelIcon className={`w-4 h-4 shrink-0 ${isDark ? "text-gray-400" : "text-gray-500"}`} />
+              <span className={`text-xs sm:text-sm font-semibold ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+                Filters:
               </span>
             </div>
 
             {/* Status filter */}
-            <div className="flex gap-2">
+            <div className="flex gap-2 shrink-0">
               {[
                 { value: "all", label: "All" },
                 { value: "pending", label: "Pending" },
@@ -256,7 +256,7 @@ export default function ProctorMonitoring() {
               placeholder="Search proctor, subject, section…"
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
-              className={`${inputCls} flex-1 min-w-[200px]`}
+              className={`${inputCls} w-full sm:flex-1 sm:min-w-[200px]`}
             />
           </div>
         </div>
@@ -275,13 +275,13 @@ export default function ProctorMonitoring() {
           </div>
         ) : filteredGroups.length === 0 ? (
           <div
-            className={`text-center py-20 rounded-2xl border-2 border-dashed ${
+            className={`text-center py-16 sm:py-20 rounded-2xl border-2 border-dashed p-4 ${
               isDark ? "border-gray-700 text-gray-500" : "border-gray-200 text-gray-400"
             }`}
           >
             <UsersIcon className="w-12 h-12 mx-auto mb-4 opacity-40" />
-            <p className="text-lg font-semibold mb-1">No Assignments Found</p>
-            <p className="text-sm">
+            <p className="text-base sm:text-lg font-semibold mb-1">No Assignments Found</p>
+            <p className="text-xs sm:text-sm max-w-sm mx-auto">
               {totalExams === 0
                 ? "No posted exams with proctor assignments yet. Post exams first."
                 : "No results match your current filters."}
@@ -289,7 +289,7 @@ export default function ProctorMonitoring() {
           </div>
         ) : (
           /* ── Course Groups ── */
-          <div className="space-y-8">
+          <div className="space-y-6 sm:space-y-8">
             {filteredGroups.map(({ course_name, exams }) => {
               const courseAttended = exams.filter((e) => e.attendance_status === "attended").length;
               const coursePct =
@@ -299,13 +299,13 @@ export default function ProctorMonitoring() {
                 <div key={course_name} className={card}>
                   {/* Course Header */}
                   <div
-                    className={`flex items-center justify-between px-6 py-4 border-b ${
+                    className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 sm:px-6 py-4 border-b ${
                       isDark ? "border-gray-700 bg-gray-800/40" : "border-gray-100 bg-gray-50"
                     } rounded-t-2xl`}
                   >
                     <div className="flex items-center gap-3">
                       <div
-                        className={`p-2 rounded-xl ${
+                        className={`p-2 rounded-xl shrink-0 ${
                           isDark ? "bg-blue-600/20" : "bg-blue-50"
                         }`}
                       >
@@ -313,7 +313,7 @@ export default function ProctorMonitoring() {
                       </div>
                       <div>
                         <h2
-                          className={`font-bold text-base ${
+                          className={`font-bold text-sm sm:text-base ${
                             isDark ? "text-white" : "text-gray-900"
                           }`}
                         >
@@ -330,10 +330,10 @@ export default function ProctorMonitoring() {
                       </div>
                     </div>
                     {/* Mini progress */}
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-gray-100 dark:border-gray-700/50">
                       <div className="text-right">
                         <span
-                          className={`text-lg font-bold ${
+                          className={`text-base sm:text-lg font-bold ${
                             coursePct === 100
                               ? "text-emerald-500"
                               : isDark
@@ -345,7 +345,7 @@ export default function ProctorMonitoring() {
                         </span>
                       </div>
                       <div
-                        className={`w-24 h-2.5 rounded-full overflow-hidden ${
+                        className={`w-20 sm:w-24 h-2.5 rounded-full overflow-hidden ${
                           isDark ? "bg-gray-700" : "bg-gray-200"
                         }`}
                       >
@@ -362,8 +362,8 @@ export default function ProctorMonitoring() {
                   </div>
 
                   {/* Table */}
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
+                  <div className="overflow-x-auto custom-scrollbar">
+                    <table className="w-full min-w-[640px]">
                       <thead>
                         <tr
                           className={`border-b ${
@@ -398,8 +398,8 @@ export default function ProctorMonitoring() {
                             className={`transition-colors ${
                               exam.attendance_status === "attended"
                                 ? isDark
-                                  ? "bg-emerald-900/10 hover:bg-emerald-900/20"
-                                  : "bg-emerald-50/60 hover:bg-emerald-50"
+                                ? "bg-emerald-900/10 hover:bg-emerald-900/20"
+                                : "bg-emerald-50/60 hover:bg-emerald-50"
                                 : isDark
                                 ? "hover:bg-gray-700/40"
                                 : "hover:bg-gray-50"
@@ -409,7 +409,7 @@ export default function ProctorMonitoring() {
                             <td className={td}>
                               <div className="flex items-center gap-2.5">
                                 <div
-                                  className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
+                                  className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
                                     isDark
                                       ? "bg-blue-600/20 text-blue-400"
                                       : "bg-blue-100 text-blue-700"
@@ -422,13 +422,13 @@ export default function ProctorMonitoring() {
                                     .toUpperCase()
                                     .slice(0, 2)}
                                 </div>
-                                <span className="font-medium">{exam.proctor_name}</span>
+                                <span className="font-medium text-xs sm:text-sm">{exam.proctor_name}</span>
                               </div>
                             </td>
                             {/* Section */}
                             <td className={td}>
                               <span
-                                className={`inline-block px-2.5 py-0.5 rounded-md text-xs font-semibold ${
+                                className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${
                                   isDark
                                     ? "bg-gray-700 text-gray-300"
                                     : "bg-gray-100 text-gray-700"
@@ -439,9 +439,9 @@ export default function ProctorMonitoring() {
                             </td>
                             {/* Subject */}
                             <td className={td}>
-                              <p className="font-medium">{exam.subject_name}</p>
+                              <p className="font-medium text-xs sm:text-sm">{exam.subject_name}</p>
                               <p
-                                className={`text-[11px] mt-0.5 ${
+                                className={`text-[10px] sm:text-[11px] mt-0.5 ${
                                   isDark ? "text-gray-400" : "text-gray-400"
                                 }`}
                               >
@@ -449,7 +449,7 @@ export default function ProctorMonitoring() {
                               </p>
                             </td>
                             {/* Date */}
-                            <td className={`${td} whitespace-nowrap`}>{exam.exam_date}</td>
+                            <td className={`${td} whitespace-nowrap text-xs sm:text-sm`}>{exam.exam_date}</td>
                             {/* Time */}
                             <td className={`${td} whitespace-nowrap`}>
                               <span className="font-mono text-xs">

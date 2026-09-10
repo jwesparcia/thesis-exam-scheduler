@@ -103,11 +103,11 @@ export default function FirstTimePasswordChange({ user, onPasswordChanged, isDar
       isDark ? "bg-slate-900 text-slate-100" : "bg-slate-50 text-slate-950"
     }`}>
       {/* Settings drop menu substitute for first time change */}
-      <div className="absolute top-6 right-6 flex items-center gap-3">
+      <div className="absolute top-4 right-4 sm:top-6 sm:right-6 flex items-center gap-2 sm:gap-3">
         {onSkip && (
           <button
             onClick={onSkip}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold transition shadow-sm border ${
+            className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold transition shadow-sm border ${
               isDark 
                 ? "bg-slate-800 border-slate-700 hover:bg-slate-700 text-blue-400" 
                 : "bg-white border-slate-200 hover:bg-slate-50 text-blue-600"
@@ -118,18 +118,18 @@ export default function FirstTimePasswordChange({ user, onPasswordChanged, isDar
         )}
         <button
           onClick={onLogout}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold transition shadow-sm border ${
+          className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold transition shadow-sm border ${
             isDark 
               ? "bg-slate-800 border-slate-700 hover:bg-slate-700 text-red-400" 
               : "bg-white border-slate-200 hover:bg-slate-50 text-red-600"
           }`}
         >
-          <ArrowLeftStartOnRectangleIcon className="w-5 h-5" />
+          <ArrowLeftStartOnRectangleIcon className="w-4 h-4 sm:w-5 sm:h-5" />
           <span>Logout</span>
         </button>
       </div>
 
-      <div className={`w-full max-w-md p-8 rounded-3xl shadow-2xl border transition-all duration-300 ${
+      <div className={`w-full max-w-md p-5 sm:p-8 rounded-2xl sm:rounded-3xl shadow-2xl border transition-all duration-300 mt-12 sm:mt-0 ${
         isDark ? "bg-slate-800 border-slate-700/80" : "bg-white border-slate-200/60"
       }`}>
         {/* Header Section */}

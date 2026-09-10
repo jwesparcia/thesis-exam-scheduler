@@ -93,10 +93,10 @@ export default function ConfirmationModal({
         </div>
 
         {/* Actions */}
-        <div className="flex items-center justify-end gap-3">
+        <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2.5 sm:gap-3">
           <button
             onClick={onCancel}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold border transition ${
+            className={`w-full sm:w-auto px-4 py-2.5 rounded-xl text-xs font-bold border transition ${
               isDark
                 ? "border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-white"
                 : "border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-900"
@@ -107,7 +107,7 @@ export default function ConfirmationModal({
           <button
             onClick={onConfirm}
             disabled={!isConfirmedEnabled}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold text-white transition shadow-sm ${
+            className={`w-full sm:w-auto px-4 py-2.5 rounded-xl text-xs font-bold text-white transition shadow-sm ${
               !isConfirmedEnabled
                 ? "bg-slate-500/20 cursor-not-allowed text-slate-500"
                 : isDanger

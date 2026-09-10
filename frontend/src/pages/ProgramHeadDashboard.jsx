@@ -138,10 +138,10 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
   return (
     <div className="space-y-6">
       {/* Sub-tab navigation */}
-      <div className={`flex border-b ${isDark ? "border-gray-700" : "border-gray-200"} mb-2`}>
+      <div className={`flex border-b ${isDark ? "border-gray-700" : "border-gray-200"} mb-2 overflow-x-auto no-scrollbar`}>
         <button
           onClick={() => setActiveSubTab("pending")}
-          className={`px-5 py-3 text-sm font-semibold border-b-2 transition-all ${activeSubTab === "pending"
+          className={`px-4 sm:px-5 py-3 text-sm font-semibold border-b-2 transition-all whitespace-nowrap shrink-0 ${activeSubTab === "pending"
             ? "border-blue-500 text-blue-500"
             : `border-transparent ${isDark ? "text-gray-400 hover:text-gray-200" : "text-gray-500 hover:text-gray-700"}`
             }`}
@@ -150,7 +150,7 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
         </button>
         <button
           onClick={() => setActiveSubTab("history")}
-          className={`px-5 py-3 text-sm font-semibold border-b-2 transition-all ${activeSubTab === "history"
+          className={`px-4 sm:px-5 py-3 text-sm font-semibold border-b-2 transition-all whitespace-nowrap shrink-0 ${activeSubTab === "history"
             ? "border-blue-500 text-blue-500"
             : `border-transparent ${isDark ? "text-gray-400 hover:text-gray-200" : "text-gray-500 hover:text-gray-700"}`
             }`}
@@ -176,7 +176,7 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
             {requests.map((req) => (
               <div
                 key={req.id}
-                className={`p-6 rounded-xl border shadow-sm transition-all ${isDark ? "bg-gray-800/50 border-gray-700" : "bg-white border-gray-200 hover:shadow-md"}`}
+                className={`p-4 sm:p-6 rounded-xl border shadow-sm transition-all ${isDark ? "bg-gray-800/50 border-gray-700" : "bg-white border-gray-200 hover:shadow-md"}`}
               >
                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-5 gap-4">
                   <div>
@@ -191,11 +191,11 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
                       {req.student_name} &bull; Section: {req.section_name}
                     </p>
                   </div>
-                  <div className="flex gap-2 shrink-0">
+                  <div className="flex flex-wrap gap-2 shrink-0 w-full sm:w-auto">
                     <button
                       onClick={() => handleReview(req.id, "approved")}
                       disabled={isGenerating}
-                      className={`px-4 py-2 rounded-lg font-semibold text-sm transition bg-green-500 ${isGenerating ? "bg-green-600 text-green-300 cursor-not-allowed" : "bg-green-50 hover:bg-green-500/30 text-white"
+                      className={`flex-1 sm:flex-initial px-4 py-2 rounded-lg font-semibold text-sm transition bg-green-500 ${isGenerating ? "bg-green-600 text-green-300 cursor-not-allowed" : "bg-green-50 hover:bg-green-500/30 text-white"
                         }`}
                       title={isGenerating ? "Cannot approve while schedule generation is running" : ""}
                     >
@@ -208,7 +208,7 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
                         if (comments !== null) handleReview(req.id, "rejected", comments || "");
                       }}
                       disabled={isGenerating}
-                      className={`px-4 py-2 rounded-lg font-semibold text-sm transition ${isGenerating ? "bg-red-500/30 text-red-300 cursor-not-allowed" : "bg-red-500 hover:bg-red-600 text-white"
+                      className={`flex-1 sm:flex-initial px-4 py-2 rounded-lg font-semibold text-sm transition ${isGenerating ? "bg-red-500/30 text-red-300 cursor-not-allowed" : "bg-red-500 hover:bg-red-600 text-white"
                         }`}
                       title={isGenerating ? "Cannot reject while schedule generation is running" : ""}
                     >
@@ -529,9 +529,9 @@ function ChatSupportPanel() {
   };
 
   return (
-    <div className={`flex h-[620px] rounded-xl border overflow-hidden relative ${isDark ? "border-gray-700" : "border-gray-200"}`}>
+    <div className={`flex h-[520px] sm:h-[620px] rounded-xl border overflow-hidden relative ${isDark ? "border-gray-700" : "border-gray-200"}`}>
       {/* Left: conversation list */}
-      <div className={`w-72 flex flex-col border-r ${isDark ? "bg-gray-800/60 border-gray-700" : "bg-gray-50 border-gray-200"}`}>
+      <div className={`w-full md:w-72 flex flex-col border-r ${isDark ? "bg-gray-800/60 border-gray-700" : "bg-gray-50 border-gray-200"} ${activeStudentId ? "hidden md:flex" : "flex"}`}>
         <div className={`p-4 border-b flex justify-between items-center ${isDark ? "border-gray-700" : "border-gray-200"}`}>
           <div>
             <h3 className={`font-bold text-sm uppercase tracking-wide ${isDark ? "text-gray-300" : "text-gray-600"}`}>
@@ -601,19 +601,26 @@ function ChatSupportPanel() {
       </div>
 
       {/* Right: chat window */}
-      <div className={`flex-1 flex flex-col ${isDark ? "bg-gray-900" : "bg-white"}`}>
+      <div className={`flex-1 flex flex-col ${isDark ? "bg-gray-900" : "bg-white"} ${!activeStudentId ? "hidden md:flex" : "flex"}`}>
         {activeStudentId ? (
           <>
             {/* Chat header */}
-            <div className={`p-4 border-b flex items-center justify-between gap-3 ${isDark ? "border-gray-700 bg-gray-800/50" : "border-gray-200 bg-gray-50"}`}>
-              <div className="flex items-center gap-3">
-                <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm ${isDark ? "bg-blue-600/30 text-blue-300" : "bg-blue-100 text-blue-700"
+            <div className={`p-3 sm:p-4 border-b flex items-center justify-between gap-3 ${isDark ? "border-gray-700 bg-gray-800/50" : "border-gray-200 bg-gray-50"}`}>
+              <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                <button
+                  onClick={() => setActiveStudentId(null)}
+                  className="p-1.5 rounded-lg md:hidden hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 transition shrink-0"
+                  title="Back to conversations"
+                >
+                  <ChevronRightIcon className="w-5 h-5 rotate-180" />
+                </button>
+                <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${isDark ? "bg-blue-600/30 text-blue-300" : "bg-blue-100 text-blue-700"
                   }`}>
                   {activeStudentName.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
                 </div>
-                <div>
-                  <h4 className={`font-bold text-sm ${isDark ? "text-white" : "text-gray-900"}`}>{activeStudentName}</h4>
-                  <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                <div className="min-w-0">
+                  <h4 className={`font-bold text-sm truncate ${isDark ? "text-white" : "text-gray-900"}`}>{activeStudentName}</h4>
+                  <p className={`text-xs truncate ${isDark ? "text-gray-400" : "text-gray-500"}`}>
                     {activeStudentType === "irregular" ? "Irregular Student" : activeStudentType === "proctor" ? "Proctor" : "Regular Student"}
                   </p>
                 </div>
@@ -621,11 +628,11 @@ function ChatSupportPanel() {
 
               <button
                 onClick={() => deleteConversation(activeStudentId)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-red-500 hover:bg-red-500/10 border border-transparent hover:border-red-500/25 transition-all duration-200"
+                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold text-red-500 hover:bg-red-500/10 border border-transparent hover:border-red-500/25 transition-all duration-200 shrink-0"
                 title="Delete Conversation"
               >
                 <TrashIcon className="w-4 h-4" />
-                Clear Chat
+                <span className="hidden sm:inline">Clear Chat</span>
               </button>
             </div>
 
@@ -662,7 +669,7 @@ function ChatSupportPanel() {
                       </div>
                     )}
 
-                    <div className={`max-w-[70%] px-4 py-2.5 rounded-2xl text-sm shadow-sm ${isMe
+                    <div className={`max-w-[85%] sm:max-w-[70%] px-4 py-2.5 rounded-2xl text-sm shadow-sm ${isMe
                       ? "bg-blue-600 text-white rounded-br-sm"
                       : isDark ? "bg-gray-700 text-gray-100 rounded-bl-sm" : "bg-gray-100 text-gray-800 rounded-bl-sm"
                       }`}>
@@ -921,7 +928,7 @@ function ProgramHeadManual() {
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2 pb-2 border-b border-slate-200 dark:border-slate-700">
+      <div className="flex overflow-x-auto no-scrollbar gap-2 pb-2 border-b border-slate-200 dark:border-slate-700">
         {topics.map((t) => {
           const SubIcon = t.icon;
           const isSelected = activeSubTab === t.id;
@@ -929,7 +936,7 @@ function ProgramHeadManual() {
             <button
               key={t.id}
               onClick={() => setActiveSubTab(t.id)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${isSelected
+              className={`flex items-center gap-2 px-3.5 sm:px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all whitespace-nowrap shrink-0 ${isSelected
                 ? isDark
                   ? "bg-blue-600 text-white"
                   : "bg-blue-600 text-white shadow-md shadow-blue-500/25"
@@ -945,7 +952,7 @@ function ProgramHeadManual() {
         })}
       </div>
 
-      <div className={`p-6 md:p-8 rounded-2xl border transition-all ${isDark ? "bg-slate-800/20 border-slate-800" : "bg-white border-slate-200/60"}`}>
+      <div className={`p-4 sm:p-6 md:p-8 rounded-2xl border transition-all ${isDark ? "bg-slate-800/20 border-slate-800" : "bg-white border-slate-200/60"}`}>
         {activeSubTab === "generation" && (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
             <div className="flex items-center gap-3">
@@ -1544,11 +1551,11 @@ export default function ProgramHeadDashboard() {
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-6 lg:p-8">
-          <div className="max-w-7xl mx-auto space-y-6">
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-3 sm:p-6 lg:p-8">
+          <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6">
             {latestUnreadNotif && (
               <div className="animate-in fade-in slide-in-from-top-4 duration-300 relative z-10">
-                <div className={`p-4 rounded-2xl border backdrop-blur-md shadow-md flex items-center justify-between gap-4 transition-all ${
+                <div className={`p-3.5 sm:p-4 rounded-2xl border backdrop-blur-md shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all ${
                   isDark 
                     ? "bg-blue-950/40 border-blue-900/60 text-blue-100" 
                     : "bg-blue-50/95 border-blue-200/80 text-blue-900"
@@ -1564,7 +1571,7 @@ export default function ProgramHeadDashboard() {
                       <p className="text-sm font-semibold mt-0.5 leading-snug">{latestUnreadNotif.message}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
                     <button 
                       onClick={() => handleNotificationClick(latestUnreadNotif)}
                       className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
@@ -1626,7 +1633,7 @@ export default function ProgramHeadDashboard() {
             )}
 
             <div className={`rounded-2xl shadow-sm border overflow-hidden transition-colors duration-300 ${isDark ? "bg-slate-800/50 border-slate-700/50" : "bg-white border-slate-200"}`}>
-              <div className="p-6 md:p-8">
+              <div className="p-3.5 sm:p-6 md:p-8">
                 <div className={activeTab === "generate" ? "block" : "hidden"}>
                   <ExamScheduler
                     onBeforeGenerate={checkMissingSchedulesBeforeGenerate}

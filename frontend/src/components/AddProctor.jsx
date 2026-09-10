@@ -60,9 +60,9 @@ export default function AddProctor({ isGenerating }) {
   return (
     <div className={`space-y-8 ${isDark ? "bg-gray-800 text-white" : "bg-white text-gray-800"}`}>
       <div>
-        <div className="flex justify-between items-end mb-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-3 mb-4">
           <div>
-            <h3 className={`text-xl font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>Proctor Management</h3>
+            <h3 className={`text-lg sm:text-xl font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>Proctor Management</h3>
             <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>
               Monitor schedule uploads and manage proctor availability for the upcoming exams.
             </p>
@@ -70,7 +70,7 @@ export default function AddProctor({ isGenerating }) {
           <button 
             onClick={fetchProctors}
             disabled={fetching}
-            className={`p-2 rounded-lg transition ${isDark ? "hover:bg-gray-700 text-gray-400" : "hover:bg-gray-100 text-gray-600"}`}
+            className={`p-2 rounded-xl transition shrink-0 ${isDark ? "hover:bg-gray-700 text-gray-400" : "hover:bg-gray-100 text-gray-600"}`}
             title="Refresh list"
           >
             <ArrowPathIcon className={`w-5 h-5 ${fetching ? "animate-spin" : ""}`} />
@@ -80,8 +80,8 @@ export default function AddProctor({ isGenerating }) {
         {proctors.length === 0 && !fetching ? (
           <p className={isDark ? "text-gray-400" : "text-gray-600"}>No proctors added yet.</p>
         ) : (
-          <div className={`overflow-x-auto rounded-xl shadow-sm ${isDark ? "bg-gray-700 border border-gray-700" : "bg-white border border-slate-200"}`}>
-            <table className="w-full text-sm">
+          <div className={`overflow-x-auto custom-scrollbar rounded-xl shadow-sm ${isDark ? "bg-gray-700 border border-gray-700" : "bg-white border border-slate-200"}`}>
+            <table className="w-full min-w-[540px] text-sm">
               <thead className={`${isDark ? "bg-gray-600 text-gray-100" : "bg-slate-50 text-slate-600"}`}>
                 <tr>
                   <th className="py-3 px-4 text-left font-bold">Name</th>
