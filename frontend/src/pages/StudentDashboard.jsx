@@ -1533,7 +1533,7 @@ export default function StudentDashboard() {
                           <div key={sub.id} className={`p-3 sm:p-3.5 rounded-xl border ${selectedSection ? (isDark ? "border-emerald-700 bg-emerald-900/15" : "border-emerald-300 bg-emerald-50") : (isDark ? "border-gray-700" : "border-gray-200")}`}>
                             <div className={`font-semibold text-xs sm:text-sm ${isDark ? "text-gray-100" : "text-gray-900"}`}>
                               {sub.code} — {sub.name}
-                              {selectedSection && <span className={`ml-2 text-[10px] sm:text-xs font-semibold px-2 py-0.5 rounded-full ${isDark ? "bg-emerald-800 text-emerald-200" : "bg-emerald-100 text-emerald-700"}`}>✓ Added</span>}
+                              {selectedSection && <span className={`ml-2 text-[10px] sm:text-xs font-semibold px-2 py-0.5 rounded-full ${isDark ? "bg-emerald-800 text-emerald-200" : "bg-emerald-100 text-emerald-700"}`}>Added</span>}
                             </div>
                             <div className="flex flex-wrap gap-2 mt-2.5">
                               {sub.sections.map(sec => {
@@ -1552,7 +1552,7 @@ export default function StudentDashboard() {
                                           : "bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200"
                                     }`}
                                   >
-                                    {isSelectedSection ? `✓ ${sec.name}` : `+ ${sec.name}`}
+                                    {isSelectedSection ? sec.name : `+ ${sec.name}`}
                                   </button>
                                 );
                               })}
@@ -1651,7 +1651,7 @@ export default function StudentDashboard() {
                                 const isConflicting = conflictIds.has(exam.id);
                                 return (
                                   <tr key={exam.id} className={`${isDark ? "hover:bg-gray-700/30" : "hover:bg-gray-50"} transition ${isConflicting ? (isDark ? "bg-red-900/20 border-l-4 border-red-500" : "bg-red-50 border-l-4 border-red-500") : ""}`}>
-                                    <td className={`px-4 sm:px-6 py-3 sm:py-4 border-t ${isDark ? "border-gray-700" : "border-gray-200"}`}><div className={`font-bold ${isDark ? "text-white" : "text-gray-900"}`}>{exam.subject_name}</div><div className={`text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>{exam.subject_code}</div>{isConflicting && <div className="text-[10px] sm:text-xs text-red-500 font-bold mt-1">⚠ CONFLICT DETECTED</div>}</td>
+                                    <td className={`px-4 sm:px-6 py-3 sm:py-4 border-t ${isDark ? "border-gray-700" : "border-gray-200"}`}><div className={`font-bold ${isDark ? "text-white" : "text-gray-900"}`}>{exam.subject_name}</div><div className={`text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>{exam.subject_code}</div>{isConflicting && <div className="text-[10px] sm:text-xs text-red-500 font-bold mt-1">CONFLICT DETECTED</div>}</td>
                                     <td className={`px-4 sm:px-6 py-3 sm:py-4 border-t ${isDark ? "border-gray-700" : "border-gray-200"}`}><span className={`px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold ${exam.category === "major" ? (isDark ? "bg-purple-900/30 text-purple-300" : "bg-purple-100 text-purple-700") : (isDark ? "bg-blue-900/30 text-blue-300" : "bg-blue-100 text-blue-700")}`}>{exam.category ? exam.category.toUpperCase() : "-"}</span></td>
                                     <td className={`px-4 sm:px-6 py-3 sm:py-4 border-t ${isDark ? "border-gray-700" : "border-gray-200"}`}><div className={`flex items-center gap-1.5 ${isDark ? "text-gray-200" : "text-gray-800"}`}><CalendarIcon className="w-3.5 h-3.5 text-blue-500" />{formatDate(exam.exam_date)}</div><div className={`flex items-center gap-1.5 mt-1 text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}><ClockIcon className="w-3.5 h-3.5 text-purple-500" />{exam.start_time} - {exam.end_time}</div></td>
                                     <td className={`px-4 sm:px-6 py-3 sm:py-4 border-t ${isDark ? "border-gray-700" : "border-gray-200"}`}><div className="flex items-center gap-1.5"><MapPinIcon className={`w-3.5 h-3.5 ${isDark ? "text-gray-400" : "text-gray-500"}`} /><span className={`px-2 py-0.5 rounded text-xs font-medium ${isDark ? "bg-gray-700 text-gray-300" : "bg-gray-100 text-gray-700"}`}>{exam.room}</span></div><div className={`mt-1 text-[11px] ${isDark ? "text-gray-500" : "text-gray-400"}`}>{exam.course_name} • {exam.year_level}</div></td>
@@ -1780,7 +1780,7 @@ export default function StudentDashboard() {
                     return (
                       <div className={`mb-4 p-3 rounded-lg border-l-4 border-yellow-500 ${isDark ? "bg-yellow-950/30" : "bg-yellow-50"}`}>
                         <p className={`text-xs font-bold uppercase tracking-wide mb-1 ${isDark ? "text-yellow-400" : "text-yellow-700"}`}>
-                          ⚠️ No Vacant Hours Found
+                          No Vacant Hours Found
                         </p>
                         <p className={`text-sm ${isDark ? "text-gray-300" : "text-gray-700"}`}>
                           No vacant blocks of 90 minutes or more found on this day (07:00 AM - 05:30 PM). 

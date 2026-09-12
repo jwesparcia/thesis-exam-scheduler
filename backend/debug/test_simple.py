@@ -9,7 +9,7 @@ Ultra simple test - just check if we can import and run basic FastAPI
 try:
     from fastapi import FastAPI
     from fastapi.middleware.cors import CORSMiddleware
-    print("✓ FastAPI imported successfully")
+    print("[OK] FastAPI imported successfully")
 
     app = FastAPI()
     app.add_middleware(
@@ -45,11 +45,11 @@ try:
         print("Starting test server...")
         uvicorn.run(app, host="127.0.0.1", port=8000)
     else:
-        print("✓ FastAPI app created successfully")
+        print("[OK] FastAPI app created successfully")
 
 except ImportError as e:
-    print(f"❌ Import error: {e}")
+    print(f"[ERROR] Import error: {e}")
     print("Please run: pip install fastapi uvicorn")
 
 except Exception as e:
-    print(f"❌ Other error: {e}")
+    print(f"[ERROR] Other error: {e}")

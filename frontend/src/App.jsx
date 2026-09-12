@@ -22,7 +22,7 @@ class ErrorBoundary extends React.Component {
     if (this.state.hasError) {
       return (
         <div style={{ padding: 32, fontFamily: "monospace", background: "#1e1e2e", color: "#f38ba8", minHeight: "100vh" }}>
-          <h2 style={{ color: "#cba6f7" }}>⚠ Runtime Error</h2>
+          <h2 style={{ color: "#cba6f7" }}>Runtime Error</h2>
           <pre style={{ whiteSpace: "pre-wrap", wordBreak: "break-all", color: "#f38ba8" }}>
             {this.state.error?.toString()}
           </pre>

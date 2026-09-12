@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { CalendarDaysIcon, DocumentTextIcon, ArrowPathIcon, BookOpenIcon, SparklesIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { CalendarDaysIcon, DocumentTextIcon, ArrowPathIcon, BookOpenIcon, SparklesIcon, XMarkIcon, ExclamationTriangleIcon } from "@heroicons/react/24/outline";
 import { useTheme } from "../context/themeStore";
 import api from "../api";
 import { useToast } from "../context/ToastContext";
@@ -491,7 +491,7 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
                 >
                   <option value={1}>1st Semester</option>
                   <option value={2}>2nd Semester</option>
-                  <option value={3}>3rd Semester</option>
+                  {/*<option value={3}>3rd Semester</option>*/}
                 </select>
               </div>
               <div className="w-full md:w-64">
@@ -739,8 +739,8 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
                   <div className={`mb-5 flex items-start gap-3 rounded-2xl border p-4 ${
                     isDark ? "bg-amber-900/20 border-amber-700/40" : "bg-amber-50 border-amber-200"
                   }`}>
-                    <div className={`shrink-0 w-5 h-5 mt-0.5 ${isDark ? "text-amber-400" : "text-amber-600"}`}>
-                      ⚠️
+                    <div className={`shrink-0 mt-0.5 ${isDark ? "text-amber-400" : "text-amber-600"}`}>
+                      <ExclamationTriangleIcon className="w-5 h-5" />
                     </div>
                     <div>
                       <p className={`text-sm font-bold ${isDark ? "text-amber-300" : "text-amber-800"}`}>
@@ -895,7 +895,7 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
           <div className={`${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"} border rounded-2xl sm:rounded-3xl shadow-2xl max-w-md w-full p-5 sm:p-8`}>
             <div className="flex flex-col items-center text-center">
               <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center mb-4 sm:mb-5">
-                <span className="text-2xl sm:text-3xl">⚠️</span>
+                <ExclamationTriangleIcon className="w-7 h-7 sm:w-8 sm:h-8 text-amber-500" />
               </div>
               <h3 className={`text-lg sm:text-xl font-bold mb-2 ${isDark ? "text-white" : "text-gray-900"}`}>
                 Schedule Already Exists

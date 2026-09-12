@@ -17,7 +17,7 @@ class Section(SectionBase):
 # ----- Subject Schemas -----
 class SubjectBase(BaseModel):
     subject_name: str
-    teacher_name: str   # ✅ include teacher
+    teacher_name: str   # Include teacher
 
 class SubjectCreate(SubjectBase):
     section_id: int

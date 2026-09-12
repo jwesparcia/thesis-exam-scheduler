@@ -21,7 +21,7 @@ app.add_middleware(
 
 @app.get("/")
 def root():
-    return {"message": "Simple backend working", "status": "✅ Dropdowns should be populated"}
+    return {"message": "Simple backend working", "status": "Dropdowns should be populated"}
 
 @app.get("/catalog/courses")
 def get_courses():
@@ -45,6 +45,6 @@ def get_details(course_id: int = 1, year_level_id: int = 1, semester: int = 1):
 
 if __name__ == "__main__":
     import uvicorn
-    print("🚀 Starting simple backend...")
+    print("Starting simple backend...")
     print("This will populate the dropdowns!")
     uvicorn.run(app, host="127.0.0.1", port=8000)

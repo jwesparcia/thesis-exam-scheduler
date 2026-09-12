@@ -199,7 +199,7 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
                         }`}
                       title={isGenerating ? "Cannot approve while schedule generation is running" : ""}
                     >
-                      ✓ Approve
+                      Approve
                     </button>
                     <button
                       onClick={() => {
@@ -212,7 +212,7 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
                         }`}
                       title={isGenerating ? "Cannot reject while schedule generation is running" : ""}
                     >
-                      ✗ Reject
+                      Reject
                     </button>
                   </div>
                 </div>

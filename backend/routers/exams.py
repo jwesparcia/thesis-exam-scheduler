@@ -834,7 +834,7 @@ def post_exams(
     log_activity(db, current_user.id, "EXAM_POST", f"Course: {course_id}, Year: {year_level_id}, Sem: {semester}, Dept: {department}")
     # ── invalidate posted-exam caches ────────────────────────────────
     cache.invalidate_exam_schedules()
-    return {"message": f"✅ Successfully posted {len(latest_drafts)} exams."}
+    return {"message": f"Successfully posted {len(latest_drafts)} exams."}
 
 @router.post("/save")
 def save_exams(
@@ -879,7 +879,7 @@ def save_exams(
     log_activity(db, current_user.id, "EXAM_SAVE", f"Course: {course_id}, Year: {year_level_id}, Sem: {semester}, Dept: {department}, Term: {term}")
     # ── invalidate exam count cache (draft count changed) ─────────────
     cache.delete_pattern("exam_count:*")
-    return {"message": f"✅ Successfully saved {len(latest_drafts)} exams."}
+    return {"message": f"Successfully saved {len(latest_drafts)} exams."}
 
 @router.get("/download")
 def download_exam_schedule(
@@ -1090,4 +1090,4 @@ def clear_exams(
     log_activity(db, current_user.id, "EXAM_CLEAR", f"Deleted {count} exams (dept={department}, sem={semester})")
     # ── invalidate all schedule + count caches ───────────────────────
     cache.invalidate_exam_schedules()
-    return {"message": f"🧹 Deleted {count} exams."}
+    return {"message": f"Deleted {count} exams."}

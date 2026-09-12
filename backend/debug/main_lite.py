@@ -140,7 +140,7 @@ def seed_data():
         db.add_all(years)
 
         db.commit()
-        print("✓ Initial data seeded")
+        print("Initial data seeded")
 
     except Exception as e:
         print(f"Error seeding data: {e}")

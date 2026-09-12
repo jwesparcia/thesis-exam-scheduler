@@ -44,7 +44,7 @@ export default function ProctorScheduleStatus() {
                 <button onClick={fetchMissing} className="px-3 py-1.5 text-sm rounded-lg bg-blue-600 text-white">Refresh</button>
             </div>
             {loading ? <div className="text-center py-8">Loading...</div> : missing.length === 0 ? (
-                <div className={`p-8 text-center rounded-xl ${isDark ? "bg-gray-800" : "bg-gray-100"}`}>✅ All proctors have uploaded schedules or are excluded.</div>
+                <div className={`p-8 text-center rounded-xl ${isDark ? "bg-gray-800" : "bg-gray-100"}`}>All proctors have uploaded schedules or are excluded.</div>
             ) : (
                 <div className="overflow-x-auto custom-scrollbar rounded-xl border dark:border-gray-700">
                     <table className="w-full min-w-[480px] text-sm">

@@ -1,6 +1,6 @@
 // src/components/Header.jsx
 import React from "react";
-import { MagnifyingGlassIcon } from "@heroicons/react/24/outline";
+import { MagnifyingGlassIcon, BellIcon, UserIcon } from "@heroicons/react/24/outline";
 import ThemeToggle from "./ThemeToggle";
 
 /*
@@ -25,8 +25,12 @@ export default function Header({ title = "Dashboard" }) {
         <div className="flex items-center gap-4">
           <ThemeToggle />
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-slate-100 dark:bg-gray-700 rounded-full flex items-center justify-center">🔔</div>
-            <div className="w-9 h-9 bg-slate-100 dark:bg-gray-700 rounded-full flex items-center justify-center">👤</div>
+            <div className="w-9 h-9 bg-slate-100 dark:bg-gray-700 rounded-full flex items-center justify-center text-slate-600 dark:text-gray-300">
+              <BellIcon className="w-5 h-5" />
+            </div>
+            <div className="w-9 h-9 bg-slate-100 dark:bg-gray-700 rounded-full flex items-center justify-center text-slate-600 dark:text-gray-300">
+              <UserIcon className="w-5 h-5" />
+            </div>
           </div>
         </div>
       </div>

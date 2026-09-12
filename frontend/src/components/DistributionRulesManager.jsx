@@ -122,7 +122,7 @@ export default function DistributionRulesManager({ isGenerating }) {
                     <span className={`self-start sm:self-auto px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
                         isDark ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" : "bg-emerald-50 text-emerald-700 border border-emerald-200"
                     }`}>
-                        ✓ Template Enforced
+                        Template Enforced
                     </span>
                 </div>
 
