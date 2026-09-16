@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, ForeignKey, Date, Time, Enum, Boolean, DateTime, JSON
+from sqlalchemy import Column, Integer, String, Text, ForeignKey, Date, Time, Enum, Boolean, DateTime, JSON, Index, text, UniqueConstraint
 from passlib.context import CryptContext
 from datetime import datetime, timezone
 from sqlalchemy.orm import relationship
@@ -40,6 +40,7 @@ class Section(Base):
     year_level_id = Column(Integer, ForeignKey("year_levels.id"))
     preferred_room_id = Column(Integer, ForeignKey("rooms.id"), nullable=True)
     semester = Column(Integer, nullable=True)  # 1 or 2 for college sections; None for SHS
+    student_count = Column(Integer, default=35, nullable=True)
     
     course = relationship("Course", back_populates="sections")
     year_level = relationship("YearLevel", back_populates="sections")
@@ -127,6 +128,15 @@ class Timeslot(Base):
 
 class Exam(Base):
     __tablename__ = "exams"
+    __table_args__ = (
+        Index(
+            "uq_exam_room_timeslot",
+            "room_id",
+            "timeslot_id",
+            unique=True,
+            postgresql_where=text("room_id IS NOT NULL AND timeslot_id IS NOT NULL"),
+        ),
+    )
     id = Column(Integer, primary_key=True, index=True)
     subject_id = Column(Integer, ForeignKey("subjects.id"))
     section_id = Column(Integer, ForeignKey("sections.id"))

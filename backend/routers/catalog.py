@@ -58,9 +58,9 @@ def safe_clear_catalog_data(db: Session, exclude_program_head: bool = True):
         db.query(User).filter(User.id.in_(user_ids)).delete(synchronize_session=False)
 
     # Null out course_id on student accounts before deleting courses to avoid FK violations.
-    # Students are kept but their curriculum references are cleared since the data is gone.
+    # Preserve User.section_name so student section assignments are not destroyed.
     db.query(User).filter(User.role == "student").update(
-        {User.course_id: None, User.section_name: None},
+        {User.course_id: None},
         synchronize_session=False
     )
 
@@ -122,7 +122,7 @@ def classify_subject(name: str):
     return exam_type, category
 
 @router.get("/courses")
-def get_courses(db: Session = Depends(get_db)):
+def get_courses(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     cached = cache.get(_KEY_COURSES)
     if cached is not None:
         return cached
@@ -132,7 +132,7 @@ def get_courses(db: Session = Depends(get_db)):
     return result
 
 @router.get("/year-levels")
-def get_year_levels(db: Session = Depends(get_db)):
+def get_year_levels(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     cached = cache.get(_KEY_YEAR_LEVELS)
     if cached is not None:
         return cached
@@ -146,7 +146,8 @@ def get_details(
     course_id: int = Query(...),
     year_level_id: int = Query(...),
     semester: int = Query(...),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     key = _details_key(course_id, year_level_id, semester)
     cached = cache.get(key)
@@ -594,6 +595,12 @@ def upload_catalog_excel(
                     stats["teaching_assignments"] += 1
 
     try:
+        # Re-link existing students whose section_name matches newly imported sections
+        sections_with_course = db.query(Section.name, Section.course_id).filter(Section.course_id.isnot(None)).all()
+        for s_name, c_id in sections_with_course:
+            db.query(User).filter(User.role == "student", User.section_name == s_name).update(
+                {User.course_id: c_id}, synchronize_session=False
+            )
         db.commit()
         log_activity(db, current_user.id, "CURRICULUM_UPLOAD", f"Uploaded curriculum Excel. Imported details: {str(stats)}")
     except Exception as e:
@@ -701,7 +708,7 @@ def upload_students_excel(
                 student_type = "irregular"
 
         sec_name = None
-        if student_type == "regular" and section_name and section_name.lower() not in ["nan", "none", "n/a"]:
+        if section_name and section_name.lower() not in ["nan", "none", "n/a", "irregular", ""]:
             sec_obj = sections_cache.get(section_name.upper())
             if not sec_obj:
                 # Create section if not found
@@ -715,9 +722,6 @@ def upload_students_excel(
                 # Ensure course ID matches the section's course
                 if not course_id:
                     course_id = sec_obj.course_id
-        else:
-            # Irregular students might not have a section
-            sec_name = None
 
         # Check if student exists (using pre-cached dict, not per-row DB query)
         existing_student = existing_users_cache.get(email)

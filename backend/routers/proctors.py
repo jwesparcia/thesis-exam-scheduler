@@ -6,7 +6,7 @@ from model import models
 import pandas as pd
 import io
 from datetime import datetime, date
-from sqlalchemy import text
+from sqlalchemy import text, func
 from .auth import get_current_user, require_role
 from utils.logging import log_activity
 from .exams import is_generation_ongoing
@@ -42,13 +42,17 @@ def get_proctors(db: Session = Depends(get_db), current_user: models.User = Depe
         return cached
 
     proctors = db.query(models.Proctor).all()
+    counts = dict(
+        db.query(models.TeacherSchedule.teacher_id, func.count(models.TeacherSchedule.id))
+        .filter(models.TeacherSchedule.teacher_id.isnot(None))
+        .group_by(models.TeacherSchedule.teacher_id)
+        .all()
+    )
     result = []
     for p in proctors:
         has_schedule = False
         if p.teacher_id:
-            sched_count = db.query(models.TeacherSchedule).filter(
-                models.TeacherSchedule.teacher_id == p.teacher_id
-            ).count()
+            sched_count = counts.get(p.teacher_id, 0)
             has_schedule = sched_count > 0
 
         result.append({
@@ -370,14 +374,22 @@ async def upload_my_schedule(proctor_id: int, file: UploadFile = File(...), db: 
         raise HTTPException(status_code=500, detail=f"Error processing file: {error_msg}")
 
 @router.get("/{proctor_id}/translated-schedule")
-def get_translated_schedule(proctor_id: int, db: Session = Depends(get_db)):
+def get_translated_schedule(
+    proctor_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
     proctor = db.query(models.Proctor).get(proctor_id)
     if not proctor:
         raise HTTPException(status_code=404, detail="Proctor not found")
     return {"translated_schedule": proctor.translated_schedule}
 
 @router.get("/schedules")
-def get_schedules(published_only: bool = False, db: Session = Depends(get_db)):
+def get_schedules(
+    published_only: bool = False,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
     cache_key = "proctors:schedules"
     cached = cache.get(cache_key)
     if cached is not None:
@@ -403,7 +415,10 @@ def get_schedules(published_only: bool = False, db: Session = Depends(get_db)):
     return result
 
 @router.post("/publish-schedules")
-def publish_schedules(db: Session = Depends(get_db)):
+def publish_schedules(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(require_role(["admin"]))
+):
     if is_generation_ongoing():
         raise HTTPException(status_code=400, detail="Cannot publish schedules while schedule generation is ongoing")
     db.execute(text("UPDATE teacher_schedules SET is_published = TRUE"))
@@ -413,7 +428,19 @@ def publish_schedules(db: Session = Depends(get_db)):
     return {"message": "All schedules have been published."}
 
 @router.post("/{proctor_id}/confirm-attendance/{exam_id}")
-def confirm_attendance(proctor_id: int, exam_id: int, db: Session = Depends(get_db)):
+def confirm_attendance(
+    proctor_id: int,
+    exam_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    is_admin = current_user.role in ["admin", "program_head"]
+    is_assigned = (current_user.proctor_id == proctor_id)
+    if not is_admin and not is_assigned:
+        proctor = db.query(models.Proctor).get(proctor_id)
+        if not proctor or current_user.teacher_id != proctor.teacher_id:
+            raise HTTPException(status_code=403, detail="Not authorized to confirm attendance for this proctor")
+
     exam = db.query(models.Exam).filter(models.Exam.id == exam_id, models.Exam.proctor_id == proctor_id).first()
     if not exam:
         raise HTTPException(status_code=404, detail="Exam assignment not found for this proctor")
@@ -438,7 +465,10 @@ def confirm_attendance(proctor_id: int, exam_id: int, db: Session = Depends(get_
     return {"message": "Attendance confirmed and program head notified"}
 
 @router.get("/monitoring")
-def get_proctor_monitoring(db: Session = Depends(get_db)):
+def get_proctor_monitoring(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(require_role(["admin"]))
+):
     cached = cache.get("proctors:monitoring")
     if cached is not None:
         return cached
@@ -501,18 +531,25 @@ def get_proctor_monitoring(db: Session = Depends(get_db)):
 
 # ----- NEW ENDPOINTS for missing schedules, exclude, remind -----
 @router.get("/missing-schedules")
-def get_missing_schedules(db: Session = Depends(get_db)):
+def get_missing_schedules(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(require_role(["admin"]))
+):
     cached = cache.get("proctors:missing_schedules")
     if cached is not None:
         return cached
 
     proctors = db.query(models.Proctor).all()
+    counts = dict(
+        db.query(models.TeacherSchedule.teacher_id, func.count(models.TeacherSchedule.id))
+        .filter(models.TeacherSchedule.teacher_id.isnot(None))
+        .group_by(models.TeacherSchedule.teacher_id)
+        .all()
+    )
     result = []
     for p in proctors:
         if p.teacher_id:
-            sched_count = db.query(models.TeacherSchedule).filter(
-                models.TeacherSchedule.teacher_id == p.teacher_id
-            ).count()
+            sched_count = counts.get(p.teacher_id, 0)
             if sched_count == 0:
                 result.append({"id": p.id, "name": p.name, "teacher_id": p.teacher_id, "excluded": p.exclude_from_scheduling})
     cache.set("proctors:missing_schedules", result, TTL_PROCTORS)

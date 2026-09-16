@@ -3,18 +3,21 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, joinedload
 from core import get_db, cache
 from core.cache import TTL_ROOMS, TTL_EXAM_COUNT
-from model import Exam, Subject, Section, Room, Timeslot, Course, YearLevel, Teacher, User, Notification
+from model import Exam, Subject, Section, Room, Timeslot, Course, YearLevel, Teacher, User, Notification, Proctor
 from room_data import AVAILABLE_EXAM_ROOMS, get_room_names_for_department
 from utils.scheduler import generate_exam_schedule
 from datetime import datetime
 from threading import Lock
 from typing import Optional
+from pydantic import BaseModel
 from .auth import get_current_user, require_role
 from utils.logging import log_activity
 import io
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
+
+from starlette.concurrency import run_in_threadpool
 
 router = APIRouter(prefix="/exams", tags=["Exams"])
 
@@ -32,17 +35,26 @@ def _progress_key(current_user: User, job_id: str | None = None):
 
 
 def _set_generation_progress(key, status, percent, phase, detail=""):
+    data = {
+        "status": status,
+        "percent": max(0, min(100, int(percent))),
+        "phase": phase,
+        "detail": detail,
+        "updated_at": datetime.utcnow().isoformat() + "Z",
+    }
     with _generation_progress_lock:
-        _generation_progress[key] = {
-            "status": status,
-            "percent": max(0, min(100, int(percent))),
-            "phase": phase,
-            "detail": detail,
-            "updated_at": datetime.utcnow().isoformat() + "Z",
-        }
+        _generation_progress[key] = data
+    cache.set(f"generation_progress:{key}", data, ttl=3600)
+    if status == "running":
+        cache.set("generation:active_job", {"job_id": key, "started_at": datetime.utcnow().isoformat() + "Z"}, ttl=3600)
+    elif status in ["completed", "failed", "cancelled"]:
+        cache.delete("generation:active_job")
 
 
 def _get_generation_progress(key):
+    cached = cache.get(f"generation_progress:{key}")
+    if cached and isinstance(cached, dict):
+        return cached
     with _generation_progress_lock:
         return _generation_progress.get(key, {
             "status": "idle",
@@ -54,6 +66,9 @@ def _get_generation_progress(key):
 
 
 def is_generation_ongoing() -> bool:
+    active = cache.get("generation:active_job")
+    if active:
+        return True
     with _generation_progress_lock:
         return any(job.get("status") == "running" for job in _generation_progress.values())
 
@@ -120,24 +135,52 @@ def get_exams(
         joinedload(Exam.proctor),
     )
 
-    if status:
-        query = query.filter(Exam.status == status)
-    
-    if section_name:
-        # Use has() to filter by relationship without creating duplicates
-        query = query.filter(Exam.section.has(name=section_name))
+    user_role = current_user.role
+    if user_role == "student":
+        # Students can only view posted exams
+        query = query.filter(Exam.status == "posted")
+        if current_user.student_type == "regular":
+            if current_user.section_name:
+                query = query.filter(Exam.section.has(name=current_user.section_name))
+            else:
+                return []
+        elif current_user.student_type == "irregular":
+            from model import IrregularSelection
+            sel_subject_ids = [s.subject_id for s in db.query(IrregularSelection.subject_id).filter(IrregularSelection.user_id == current_user.id).all()]
+            if sel_subject_ids:
+                query = query.filter(Exam.subject_id.in_(sel_subject_ids))
+            else:
+                return []
+    elif user_role in ["proctor", "teacher"]:
+        # Proctors can only view posted exams for their assigned duties
+        query = query.filter(Exam.status == "posted")
+        if current_user.proctor_id:
+            query = query.filter(Exam.proctor_id == current_user.proctor_id)
+        elif current_user.teacher_id:
+            proc = db.query(Proctor).filter(Proctor.teacher_id == current_user.teacher_id).first()
+            if proc:
+                query = query.filter(Exam.proctor_id == proc.id)
+            else:
+                return []
+        else:
+            return []
+    elif user_role in ["admin", "program_head"]:
+        # Program head has full access to drafts and all filters
+        if status:
+            query = query.filter(Exam.status == status)
+        if section_name:
+            query = query.filter(Exam.section.has(name=section_name))
+        if course_id:
+            query = query.filter(Exam.course_id == course_id)
+        if year_level_id:
+            query = query.filter(Exam.year_level_id == year_level_id)
+        if proctor_id:
+            query = query.filter(Exam.proctor_id == proctor_id)
+    else:
+        raise HTTPException(status_code=403, detail="Unauthorized role")
 
-    if course_id:
-        query = query.filter(Exam.course_id == course_id)
-    
-    if year_level_id:
-        query = query.filter(Exam.year_level_id == year_level_id)
-        
     if semester:
         query = query.filter(Exam.semester == semester)
-
-    if proctor_id:
-        query = query.filter(Exam.proctor_id == proctor_id)
 
     if term:
         query = query.filter(Exam.term == term)
@@ -187,6 +230,9 @@ def get_exams(
             "start_time": timeslot.start_time.strftime("%I:%M %p") if timeslot else "-",
             "end_time": timeslot.end_time.strftime("%I:%M %p") if timeslot else "-",
             "room": room.name if room else "-",
+            "room_id": e.room_id,
+            "timeslot_id": e.timeslot_id,
+            "proctor_id": e.proctor_id,
             "proctor": proctor_name,
             "proctor_name": proctor_name,
             "proctor_attendance": e.proctor_attendance or "pending",
@@ -307,6 +353,77 @@ def create_room(
             "building": new_room.building,
             "capacity": new_room.capacity,
             "department": new_room.department
+        }
+    }
+
+
+class UpdateRoomRequest(BaseModel):
+    capacity: Optional[int] = None
+    name: Optional[str] = None
+    building: Optional[str] = None
+
+@router.put("/rooms/{room_id}")
+def update_room(
+    room_id: int,
+    payload: UpdateRoomRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(["admin"]))
+):
+    """
+    Update a room's capacity (seats), name, or building.
+    """
+    if is_generation_ongoing():
+        raise HTTPException(status_code=400, detail="Cannot update rooms while schedule generation is ongoing")
+
+    room = db.query(Room).filter(Room.id == room_id).first()
+    if not room:
+        raise HTTPException(status_code=404, detail="Room not found")
+
+    if payload.capacity is not None:
+        try:
+            capacity_int = int(payload.capacity)
+            if capacity_int <= 0:
+                raise ValueError()
+            room.capacity = capacity_int
+        except (ValueError, TypeError):
+            raise HTTPException(status_code=400, detail="Capacity must be a positive integer")
+
+    if payload.name is not None and payload.name.strip():
+        new_name = payload.name.strip()
+        existing = db.query(Room).filter(Room.name == new_name, Room.id != room_id).first()
+        if existing:
+            raise HTTPException(status_code=400, detail=f"Room name '{new_name}' is already taken")
+        room.name = new_name
+
+    if payload.building is not None and payload.building.strip():
+        b_upper = payload.building.strip().upper()
+        if b_upper not in ["B", "C"]:
+            raise HTTPException(status_code=400, detail="Building must be B or C")
+        room.building = b_upper
+        room.department = "College" if b_upper == "B" else "SHS"
+
+    db.commit()
+    db.refresh(room)
+
+    try:
+        log_activity(
+            db,
+            user_id=current_user.id,
+            action="UPDATE_ROOM",
+            details=f"Updated room {room.name} (ID: {room.id}, Capacity: {room.capacity}, Building: {room.building})"
+        )
+    except Exception as e:
+        print(f"Error logging room update: {e}")
+
+    cache.invalidate_rooms()
+    return {
+        "message": f"Room '{room.name}' capacity updated to {room.capacity} seats successfully!",
+        "room": {
+            "id": room.id,
+            "name": room.name,
+            "building": room.building,
+            "capacity": room.capacity,
+            "department": room.department
         }
     }
 
@@ -566,12 +683,14 @@ def cancel_schedule_generation(
     current_user: User = Depends(require_role(["admin"]))
 ):
     key = _progress_key(current_user, job_id)
+    cache.delete("generation:active_job")
     with _generation_progress_lock:
         current = _generation_progress.get(key)
         if current and current.get("status") == "running":
             _generation_progress[key]["status"] = "cancelled"
             _generation_progress[key]["phase"] = "Cancelling..."
             _generation_progress[key]["detail"] = "Cancellation requested by user."
+            cache.set(f"generation_progress:{key}", _generation_progress[key], ttl=3600)
             return {"message": "Generation cancellation requested."}
         else:
             # Try to cancel any running job
@@ -581,13 +700,14 @@ def cancel_schedule_generation(
                     v["status"] = "cancelled"
                     v["phase"] = "Cancelling..."
                     v["detail"] = "Cancellation requested by user."
+                    cache.set(f"generation_progress:{k}", v, ttl=3600)
                     cancelled_any = True
             if cancelled_any:
                 return {"message": "Generation cancellation requested."}
             return {"message": "No active schedule generation job to cancel."}
 
 @router.post("/generate")
-def generate_schedule(
+async def generate_schedule(
     payload: dict = Body(default={}),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(["admin"]))
@@ -596,6 +716,12 @@ def generate_schedule(
     Trigger the automatic scheduling for ALL courses based on distribution rules.
     Optionally accepts start_date (YYYY-MM-DD), end_date, department, semester, and excluded_subjects in the body.
     """
+    if is_generation_ongoing():
+        raise HTTPException(
+            status_code=409,
+            detail="Schedule generation is already running. Please wait for the current job to complete."
+        )
+
     # --- Rate Limiting: 1 request per 60 seconds per user ---
     now = datetime.utcnow()
     with _generate_rate_limit_lock:
@@ -691,7 +817,8 @@ def generate_schedule(
                 progress.get("detail", "")
             )
 
-        result = generate_exam_schedule(
+        result = await run_in_threadpool(
+            generate_exam_schedule,
             db, 
             start_date=start_date, 
             end_date=end_date, 
@@ -747,6 +874,118 @@ def generate_schedule(
             raise e
         raise HTTPException(status_code=500, detail=str(e))
         
+class UpdateExamRequest(BaseModel):
+    room_id: Optional[int] = None
+    timeslot_id: Optional[int] = None
+    proctor_id: Optional[int] = None
+
+@router.get("/timeslots")
+def get_timeslots(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Return all available timeslots sorted chronologically"""
+    slots = db.query(Timeslot).order_by(Timeslot.date, Timeslot.start_time).all()
+    return [
+        {
+            "id": s.id,
+            "date": s.date.strftime("%Y-%m-%d"),
+            "formatted_date": s.date.strftime("%A, %B %d, %Y"),
+            "start_time": s.start_time.strftime("%I:%M %p"),
+            "end_time": s.end_time.strftime("%I:%M %p"),
+            "label": f"{s.date.strftime('%A, %b %d, %Y')} ({s.start_time.strftime('%I:%M %p')} - {s.end_time.strftime('%I:%M %p')})"
+        }
+        for s in slots
+    ]
+
+@router.put("/{exam_id}")
+def update_exam(
+    exam_id: int,
+    body: UpdateExamRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(["admin"]))
+):
+    """
+    Allow program head/admin to modify a specific exam's room, timeslot, or proctor with full conflict detection.
+    """
+    if is_generation_ongoing():
+        raise HTTPException(status_code=400, detail="Cannot edit exams while schedule generation is ongoing")
+
+    exam = db.query(Exam).filter(Exam.id == exam_id).first()
+    if not exam:
+        raise HTTPException(status_code=404, detail="Exam not found")
+
+    payload = body.model_dump(exclude_unset=True) if hasattr(body, "model_dump") else body.dict(exclude_unset=True)
+    target_timeslot_id = payload["timeslot_id"] if "timeslot_id" in payload else exam.timeslot_id
+    target_room_id = payload["room_id"] if "room_id" in payload else exam.room_id
+    target_proctor_id = payload["proctor_id"] if "proctor_id" in payload else exam.proctor_id
+
+    # 1. Check room conflict: Room must not be occupied by another exam at target timeslot
+    if target_room_id is not None and target_timeslot_id is not None:
+        conflict_exam = db.query(Exam).filter(
+            Exam.id != exam_id,
+            Exam.room_id == target_room_id,
+            Exam.timeslot_id == target_timeslot_id
+        ).first()
+        if conflict_exam:
+            sub_name = conflict_exam.subject.name if conflict_exam.subject else "another subject"
+            sec_name = conflict_exam.section.name if conflict_exam.section else "another section"
+            raise HTTPException(
+                status_code=409,
+                detail=f"Room conflict: Selected room is already assigned to {sub_name} ({sec_name}) at this timeslot."
+            )
+
+    # 2. Check proctor conflict: Proctor must not be assigned to another exam at target timeslot
+    if target_proctor_id is not None and target_timeslot_id is not None:
+        conflict_proc = db.query(Exam).filter(
+            Exam.id != exam_id,
+            Exam.proctor_id == target_proctor_id,
+            Exam.timeslot_id == target_timeslot_id
+        ).first()
+        if conflict_proc:
+            sub_name = conflict_proc.subject.name if conflict_proc.subject else "another subject"
+            sec_name = conflict_proc.section.name if conflict_proc.section else "another section"
+            raise HTTPException(
+                status_code=409,
+                detail=f"Proctor conflict: Selected proctor is already assigned to {sub_name} ({sec_name}) at this timeslot."
+            )
+
+    # 3. Check section conflict: Section must not have another exam at target timeslot
+    if target_timeslot_id is not None and target_timeslot_id != exam.timeslot_id:
+        conflict_sec = db.query(Exam).filter(
+            Exam.id != exam_id,
+            Exam.section_id == exam.section_id,
+            Exam.timeslot_id == target_timeslot_id
+        ).first()
+        if conflict_sec:
+            sub_name = conflict_sec.subject.name if conflict_sec.subject else "another subject"
+            raise HTTPException(
+                status_code=409,
+                detail=f"Section schedule conflict: Section already has an exam for {sub_name} scheduled at this timeslot."
+            )
+
+    # Apply updates
+    if "room_id" in payload:
+        exam.room_id = payload["room_id"]
+    if "timeslot_id" in payload:
+        exam.timeslot_id = payload["timeslot_id"]
+    if "proctor_id" in payload:
+        exam.proctor_id = payload["proctor_id"]
+
+    db.commit()
+    db.refresh(exam)
+
+    cache.invalidate_exam_schedules()
+    log_activity(db, current_user.id, "EXAM_EDIT", f"Updated exam {exam.id}: room={exam.room_id}, slot={exam.timeslot_id}, proctor={exam.proctor_id}")
+
+    return {
+        "message": "Exam updated successfully",
+        "id": exam.id,
+        "room_id": exam.room_id,
+        "timeslot_id": exam.timeslot_id,
+        "proctor_id": exam.proctor_id
+    }
+
 @router.post("/post")
 def post_exams(
     course_id: Optional[int] = Query(None, description="Course ID to post exams for"),

@@ -24,7 +24,9 @@ MAX_LOGIN_ATTEMPTS = 5
 LOGIN_ATTEMPT_WINDOW = 60  # seconds
 
 # JWT Constants
-SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-for-development-only-change-in-production")
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY or SECRET_KEY == "your-secret-key-for-development-only-change-in-production":
+    raise RuntimeError("A secure SECRET_KEY must be set in the .env file. Running with a missing or default secret is forbidden.")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 480 # 8 hours
 
@@ -105,6 +107,11 @@ def login(request: Request, login_data: LoginRequest, db: Session = Depends(get_
     # Rate Limiting
     current_time = time.time()
     login_attempts[ip_address] = [t for t in login_attempts[ip_address] if current_time - t < LOGIN_ATTEMPT_WINDOW]
+    
+    # Prune expired IP keys to prevent unbounded memory growth
+    expired_ips = [ip for ip, timestamps in list(login_attempts.items()) if not [t for t in timestamps if current_time - t < LOGIN_ATTEMPT_WINDOW]]
+    for exp_ip in expired_ips:
+        login_attempts.pop(exp_ip, None)
     
     if len(login_attempts[ip_address]) >= MAX_LOGIN_ATTEMPTS:
         raise HTTPException(

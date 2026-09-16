@@ -6,6 +6,8 @@ from typing import List
 from datetime import datetime, timezone
 from model import Notification, User
 
+from .auth import get_current_user
+
 router = APIRouter(prefix="/notifications", tags=["Notifications"])
 
 class NotificationSchema(BaseModel):
@@ -27,7 +29,12 @@ class NotificationSchema(BaseModel):
         orm_mode = True
 
 @router.get("/{recipient_type}/{recipient_id}", response_model=List[NotificationSchema])
-def get_notifications(recipient_type: str, recipient_id: str, db: Session = Depends(get_db)):
+def get_notifications(
+    recipient_type: str,
+    recipient_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     # Map recipient_type and recipient_id to a user_id
     if recipient_type == "program_head" and recipient_id == "admin":
         admin_user = db.query(User).filter(User.role == "program_head").first()
@@ -41,22 +48,40 @@ def get_notifications(recipient_type: str, recipient_id: str, db: Session = Depe
     if resolved_user_id is None:
         return []
 
+    # Ownership check: users can only view their own notifications unless admin
+    is_admin = current_user.role in ["admin", "program_head"]
+    if current_user.id != resolved_user_id and not is_admin:
+        raise HTTPException(status_code=403, detail="Not authorized to access notifications of another user")
+
     return db.query(Notification).filter(
         Notification.user_id == resolved_user_id
     ).order_by(Notification.id.desc()).all()
 
 @router.put("/{notification_id}/read")
-def mark_notification_read(notification_id: int, db: Session = Depends(get_db)):
+def mark_notification_read(
+    notification_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     notification = db.query(Notification).filter(Notification.id == notification_id).first()
     if not notification:
         raise HTTPException(status_code=404, detail="Notification not found")
     
+    is_admin = current_user.role in ["admin", "program_head"]
+    if notification.user_id != current_user.id and not is_admin:
+        raise HTTPException(status_code=403, detail="Not authorized to modify this notification")
+
     notification.is_read = True
     db.commit()
     return {"message": "Notification marked as read"}
 
 @router.delete("/clear/{recipient_type}/{recipient_id}")
-def clear_all_notifications(recipient_type: str, recipient_id: str, db: Session = Depends(get_db)):
+def clear_all_notifications(
+    recipient_type: str,
+    recipient_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     if recipient_type == "program_head" and recipient_id == "admin":
         admin_user = db.query(User).filter(User.role == "program_head").first()
         resolved_user_id = admin_user.id if admin_user else None
@@ -69,15 +94,27 @@ def clear_all_notifications(recipient_type: str, recipient_id: str, db: Session 
     if resolved_user_id is None:
         return {"message": "No notifications to clear"}
 
+    is_admin = current_user.role in ["admin", "program_head"]
+    if current_user.id != resolved_user_id and not is_admin:
+        raise HTTPException(status_code=403, detail="Not authorized to clear notifications of another user")
+
     db.query(Notification).filter(Notification.user_id == resolved_user_id).delete(synchronize_session=False)
     db.commit()
     return {"message": "All notifications cleared"}
 
 @router.delete("/{notification_id}")
-def delete_notification(notification_id: int, db: Session = Depends(get_db)):
+def delete_notification(
+    notification_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     notification = db.query(Notification).filter(Notification.id == notification_id).first()
     if not notification:
         raise HTTPException(status_code=404, detail="Notification not found")
+
+    is_admin = current_user.role in ["admin", "program_head"]
+    if notification.user_id != current_user.id and not is_admin:
+        raise HTTPException(status_code=403, detail="Not authorized to delete this notification")
 
     db.delete(notification)
     db.commit()

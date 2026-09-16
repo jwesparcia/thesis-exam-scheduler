@@ -124,3 +124,40 @@ with engine.connect() as conn:
     else:
         print("Column 'is_first_login' already exists in table 'users'. No migration needed.")
 
+    # Check if sections table has student_count column
+    result_student_count = conn.execute(text("""
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name='sections' AND column_name='student_count';
+    """)).fetchone()
+    
+    if not result_student_count:
+        print("Column 'student_count' not found in table 'sections'. Adding column...")
+        conn.execute(text("""
+            ALTER TABLE sections 
+            ADD COLUMN student_count INTEGER DEFAULT 35;
+        """))
+        conn.commit()
+        print("Migration successful! Column 'student_count' added to table 'sections'.")
+    else:
+        print("Column 'student_count' already exists in table 'sections'. No migration needed.")
+
+    # Check if unique index uq_exam_room_timeslot exists on exams table
+    result_idx = conn.execute(text("""
+        SELECT indexname 
+        FROM pg_indexes 
+        WHERE tablename = 'exams' AND indexname = 'uq_exam_room_timeslot';
+    """)).fetchone()
+
+    if not result_idx:
+        print("Index 'uq_exam_room_timeslot' not found on table 'exams'. Creating unique index...")
+        conn.execute(text("""
+            CREATE UNIQUE INDEX IF NOT EXISTS uq_exam_room_timeslot 
+            ON exams (room_id, timeslot_id) 
+            WHERE room_id IS NOT NULL AND timeslot_id IS NOT NULL;
+        """))
+        conn.commit()
+        print("Migration successful! Unique index 'uq_exam_room_timeslot' created on table 'exams'.")
+    else:
+        print("Unique index 'uq_exam_room_timeslot' already exists on table 'exams'. No migration needed.")
+

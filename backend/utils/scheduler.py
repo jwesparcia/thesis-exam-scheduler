@@ -192,6 +192,7 @@ def generate_exam_schedule(db: Session, start_date: date, end_date: date = None,
     room_name_by_id = {r.id: r.name for r in rooms}
     room_floor_by_id = {r.id: _room_floor(r.name) for r in rooms}
     room_building_by_id = {r.id: (r.building or _room_building_and_floor(r.name)[0]) for r in rooms}
+    room_capacity_by_id = {r.id: (r.capacity or 40) for r in rooms}
     if not room_ids:
         raise ValueError(f"No available exam rooms found for {department}. Sync or seed the Exam-Rooms.xlsx room list first.")
     rules = db.query(DistributionRule).all()
@@ -232,18 +233,37 @@ def generate_exam_schedule(db: Session, start_date: date, end_date: date = None,
     # Proctor data: only those with TeacherSchedule (availability)
     report_progress(24, "Loading proctors", "Reading uploaded proctor schedules")
     all_proctors = db.query(Proctor).filter(Proctor.exclude_from_scheduling == False).all()
+    proctor_teacher_ids = [p.teacher_id for p in all_proctors if p.teacher_id]
+
+    all_schedules = (
+        db.query(TeacherSchedule).filter(TeacherSchedule.teacher_id.in_(proctor_teacher_ids)).all()
+        if proctor_teacher_ids else []
+    )
+    all_teachings = (
+        db.query(TeacherTeaching).filter(TeacherTeaching.teacher_id.in_(proctor_teacher_ids)).all()
+        if proctor_teacher_ids else []
+    )
+
+    schedules_by_teacher = {}
+    for sched in all_schedules:
+        schedules_by_teacher.setdefault(sched.teacher_id, []).append(sched)
+
+    teachings_by_teacher = {}
+    for tt in all_teachings:
+        teachings_by_teacher.setdefault(tt.teacher_id, []).append(tt)
+
     proctor_data = {}
     for proctor in all_proctors:
         if not proctor.teacher_id:
             continue
-        schedules = db.query(TeacherSchedule).filter(TeacherSchedule.teacher_id == proctor.teacher_id).all()
+        schedules = schedules_by_teacher.get(proctor.teacher_id, [])
         if not schedules:
             continue
         availability = {}
         for sched in schedules:
             availability.setdefault(sched.day_of_week, []).append((sched.start_time, sched.end_time))
         # Teaching assignments (empty if none)
-        teachings = db.query(TeacherTeaching).filter(TeacherTeaching.teacher_id == proctor.teacher_id).all()
+        teachings = teachings_by_teacher.get(proctor.teacher_id, [])
         forbidden = {(tt.subject_id, tt.section_id) for tt in teachings}
         max_assignments = len(forbidden) if forbidden else 8   # default limit 8
         proctor_data[proctor.id] = {
@@ -434,6 +454,7 @@ def generate_exam_schedule(db: Session, start_date: date, end_date: date = None,
     room_floors = [room_floor_by_id[r_id] for r_id in room_ids]
     room_buildings = [room_building_by_id[r_id] for r_id in room_ids]
     room_names = [room_name_by_id[r_id] for r_id in room_ids]
+    room_capacities = [room_capacity_by_id[r_id] for r_id in room_ids]
 
     floor_counts = {}
     for r_idx in range(num_rooms):
@@ -465,6 +486,7 @@ def generate_exam_schedule(db: Session, start_date: date, end_date: date = None,
                 "semester": sub.semester,
                 "subjects_per_section": subjects_per_section.get(sec.id, 0),
                 "preferred_room_id": sec.preferred_room_id,
+                "student_count": getattr(sec, "student_count", 35) or 35,
                 "idx_in_g": idx_in_g
             })
             section_ids_set.add(sec.id)
@@ -1686,17 +1708,18 @@ def generate_exam_schedule(db: Session, start_date: date, end_date: date = None,
                 ),
             )
 
-        def assign_room_idx(slot_idx, preferred_room_id=None):
+        def assign_room_idx(slot_idx, preferred_room_id=None, section_size=None):
             # Try to honour the section's preferred room first
             if preferred_room_id and preferred_room_id in room_id_to_idx:
                 pref_idx = room_id_to_idx[preferred_room_id]
                 if (pref_idx, slot_idx) not in room_slots_set:
-                    room_slots_set.add((pref_idx, slot_idx))
-                    room_loads[pref_idx] += 1
-                    return room_ids[pref_idx]
+                    if section_size is None or room_capacities[pref_idx] >= section_size:
+                        room_slots_set.add((pref_idx, slot_idx))
+                        room_loads[pref_idx] += 1
+                        return room_ids[pref_idx]
 
             best_room_idx = -1
-            best_val = (99, 99, 99999, 99999, "")
+            best_val = (99, 99, 99, 99999, 99999, "")
             for r_idx in range(num_rooms):
                 if (r_idx, slot_idx) in room_slots_set:
                     continue
@@ -1704,13 +1727,14 @@ def generate_exam_schedule(db: Session, start_date: date, end_date: date = None,
                 floor = room_floors[r_idx]
                 bldg = room_buildings[r_idx]
                 bldg_prio = 0 if bldg == "B" else 1
+                cap_fit = 0 if (section_size is None or room_capacities[r_idx] >= section_size) else 1
                 if floor >= HIGH_FLOOR_MIN and load < ROOM_BOOKING_TARGET:
                     prio = 0
                 elif load < ROOM_BOOKING_TARGET:
                     prio = 1
                 else:
                     prio = 2
-                val = (bldg_prio, prio, load, -floor, room_names[r_idx])
+                val = (cap_fit, bldg_prio, prio, load, -floor, room_names[r_idx])
                 if val < best_val:
                     best_val = val
                     best_room_idx = r_idx
@@ -1720,13 +1744,7 @@ def generate_exam_schedule(db: Session, start_date: date, end_date: date = None,
                 room_loads[best_room_idx] += 1
                 return room_ids[best_room_idx]
 
-            # Fallback: if all rooms are booked in this timeslot, pick the room with lowest total load
-            if num_rooms > 0:
-                fallback_idx = min(range(num_rooms), key=lambda r_idx: room_loads[r_idx])
-                room_slots_set.add((fallback_idx, slot_idx))
-                room_loads[fallback_idx] += 1
-                return room_ids[fallback_idx]
-
+            # Do not double-book an already occupied room in this timeslot
             return None
 
         group_order = sorted(
@@ -1860,7 +1878,7 @@ def generate_exam_schedule(db: Session, start_date: date, end_date: date = None,
 
                 # Overflow: no room left in this slot for this section
                 exam_slot_idx = pick_exam_slot(slot_idx, sec_id)
-                r_id = assign_room_idx(exam_slot_idx, prep_sec.get("preferred_room_id"))
+                r_id = assign_room_idx(exam_slot_idx, prep_sec.get("preferred_room_id"), prep_sec.get("student_count", 35))
 
                 if not r_id:
                     subject_name = prep_sec.get("sub_name") or f"Subject {prep_sec['sub_id']}"

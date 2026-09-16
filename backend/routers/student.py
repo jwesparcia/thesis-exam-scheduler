@@ -131,10 +131,11 @@ def get_student_conflicts(
         for sub in all_matching_subjects:
             subject_name_to_ids.setdefault(sub.name, []).append(sub.id)
         
+        sel_subject_map = {sub.id: sub for sub in selected_subjects}
         from sqlalchemy import or_
         conditions = []
         for sel in selections:
-            subject = db.query(Subject).get(sel.subject_id)
+            subject = sel_subject_map.get(sel.subject_id)
             if subject and subject.name in subject_name_to_ids:
                 matching_ids = subject_name_to_ids[subject.name]
                 conditions.append(

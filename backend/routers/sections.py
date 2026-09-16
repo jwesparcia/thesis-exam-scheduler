@@ -1,12 +1,12 @@
-# routers/sections.py
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from core import get_db
 from services import crud
-from model import Section, Room
+from model import Section, Room, User
 from pydantic import BaseModel
 from typing import Optional
 from .exams import is_generation_ongoing
+from .auth import get_current_user, require_role
 
 router = APIRouter(prefix="/sections", tags=["Sections"])
 
@@ -14,7 +14,12 @@ class PreferredRoomRequest(BaseModel):
     preferred_room_id: Optional[int] = None
 
 @router.put("/{section_id}/preferred-room")
-def update_preferred_room(section_id: int, body: PreferredRoomRequest, db: Session = Depends(get_db)):
+def update_preferred_room(
+    section_id: int,
+    body: PreferredRoomRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(["admin"]))
+):
     if is_generation_ongoing():
         raise HTTPException(status_code=400, detail="Cannot update preferred room while schedule generation is ongoing")
     section = db.query(Section).filter(Section.id == section_id).first()
@@ -30,7 +35,11 @@ def update_preferred_room(section_id: int, body: PreferredRoomRequest, db: Sessi
 
 
 @router.get("/{year_name}")
-def get_sections(year_name: str, db: Session = Depends(get_db)):
+def get_sections(
+    year_name: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     """
     Get all sections in a year level (e.g., BSIT-3),
     with their subjects and professor names.

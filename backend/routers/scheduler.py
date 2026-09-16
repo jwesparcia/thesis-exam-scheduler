@@ -126,10 +126,18 @@ def generate_exam_schedule(payload: dict = Body(...), db: Session = Depends(get_
     # --- Create exams for each section ---
     created_exams = []
     for section in sections:
-        for exam_info in exam_days:
             subject = exam_info["subject"]
             timeslot = exam_info["timeslot"]
-            room = random.choice(rooms)
+            
+            # Ensure unique room assignment per timeslot
+            used_room_ids = {e.room_id for e in created_exams if e.timeslot_id == timeslot.id}
+            available_rooms = [r for r in rooms if r.id not in used_room_ids]
+            if not available_rooms:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"No available room remaining in timeslot {timeslot.date} {timeslot.start_time}."
+                )
+            room = random.choice(available_rooms)
 
             # Assign a real proctor (not the subject's own teacher, not busy at this timeslot)
             chosen_proctor = None
