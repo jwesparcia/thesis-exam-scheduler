@@ -385,7 +385,18 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
     }
 
     // Guard: block if existing schedule already exists — must overwrite or delete first
-    if (existingExamCount > 0) {
+    let currentExamCount = existingExamCount;
+    try {
+      const countRes = await api.get("/exams/count", {
+        params: { department: selectedDept, semester }
+      });
+      currentExamCount = countRes.data.count || 0;
+      setExistingExamCount(currentExamCount);
+    } catch {
+      // Fall back to state value
+    }
+
+    if (currentExamCount > 0) {
       setOverwriteModal({ isOpen: true });
       return;
     }

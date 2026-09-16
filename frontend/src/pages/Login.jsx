@@ -11,9 +11,6 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const { showSuccess, showError } = useToast();
-  // ... existing states
-  const [role, setRole] = useState("program_head");
-
   const [loading, setLoading] = useState(false);
   const { theme, toggleTheme } = useTheme();
   const isDark = theme === "dark";
@@ -32,20 +29,7 @@ export default function Login() {
       });
 
       const { access_token, user: backendUser } = response.data;
-
-      // Map roles
       const backendRole = backendUser.role;
-      const selectedRole = role;
-
-      if (selectedRole !== backendRole) {
-        throw {
-          response: {
-            data: {
-              detail: `Invalid credentials for ${selectedRole === "program_head" ? "Admin" : selectedRole.charAt(0).toUpperCase() + selectedRole.slice(1)} role. This account is registered as a ${backendRole === "proctor" ? "Proctor" : backendRole}.`
-            }
-          }
-        };
-      }
 
       // Store combined object for api.js
       const loginPayload = {
@@ -178,55 +162,6 @@ export default function Login() {
               </div>
             </div>
 
-            <div>
-              <label className={`block text-sm font-medium mb-3 ${isDark ? "text-gray-300" : "text-gray-700"}`}>
-                Select Role
-              </label>
-
-              <div className="grid grid-cols-3 gap-3">
-                <button
-                  type="button"
-                  onClick={() => setRole("program_head")}
-                  className={`p-3 rounded-xl border cursor-pointer transition-all duration-200 ${role === "program_head"
-                    ? "border-blue-600 bg-blue-50 text-blue-700 shadow-sm ring-1 ring-blue-600 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-500 dark:ring-blue-500"
-                    : isDark
-                      ? "border-gray-600 bg-gray-700/50 text-gray-400 hover:bg-gray-700 hover:text-gray-200"
-                      : "border-gray-200 bg-white text-gray-500 hover:bg-gray-50 hover:text-gray-700"
-                    }`}
-                >
-                  <UserCircleIcon className="w-5 h-5 mx-auto mb-1.5" />
-                  <div className="text-xs font-semibold">Admin</div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setRole("proctor")}
-                  className={`p-3 rounded-xl border cursor-pointer transition-all duration-200 ${role === "proctor"
-                    ? "border-blue-600 bg-blue-50 text-blue-700 shadow-sm ring-1 ring-blue-600 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-500 dark:ring-blue-500"
-                    : isDark
-                      ? "border-gray-600 bg-gray-700/50 text-gray-400 hover:bg-gray-700 hover:text-gray-200"
-                      : "border-gray-200 bg-white text-gray-500 hover:bg-gray-50 hover:text-gray-700"
-                    }`}
-                >
-                  <UserCircleIcon className="w-5 h-5 mx-auto mb-1.5" />
-                  <div className="text-xs font-semibold">Proctor</div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setRole("student")}
-                  className={`p-3 rounded-xl border cursor-pointer transition-all duration-200 ${role === "student"
-                    ? "border-blue-600 bg-blue-50 text-blue-700 shadow-sm ring-1 ring-blue-600 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-500 dark:ring-blue-500"
-                    : isDark
-                      ? "border-gray-600 bg-gray-700/50 text-gray-400 hover:bg-gray-700 hover:text-gray-200"
-                      : "border-gray-200 bg-white text-gray-500 hover:bg-gray-50 hover:text-gray-700"
-                    }`}
-                >
-                  <UserCircleIcon className="w-5 h-5 mx-auto mb-1.5" />
-                  <div className="text-xs font-semibold">Student</div>
-                </button>
-              </div>
-            </div>
 
             <button
               type="submit"

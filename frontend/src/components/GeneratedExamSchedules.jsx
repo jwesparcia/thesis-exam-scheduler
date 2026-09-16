@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { CalendarDaysIcon, DocumentTextIcon, ArrowPathIcon, PaperAirplaneIcon, ArrowDownTrayIcon, TrashIcon, DocumentCheckIcon } from "@heroicons/react/24/outline";
+import { CalendarDaysIcon, DocumentTextIcon, ArrowPathIcon, PaperAirplaneIcon, ArrowDownTrayIcon, TrashIcon, DocumentCheckIcon, PencilSquareIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { useTheme } from "../context/themeStore";
 import api from "../api";
 import { useToast } from "../context/ToastContext";
@@ -24,6 +24,16 @@ export default function GeneratedExamSchedules({ isGenerating }) {
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [deleting, setDeleting] = useState(false);
     const [deleteScope, setDeleteScope] = useState("dept"); // "dept" or "all"
+
+    // Edit Exam Modal State
+    const [editingExam, setEditingExam] = useState(null);
+    const [availableRooms, setAvailableRooms] = useState([]);
+    const [availableTimeslots, setAvailableTimeslots] = useState([]);
+    const [availableProctors, setAvailableProctors] = useState([]);
+    const [editRoomId, setEditRoomId] = useState("");
+    const [editTimeslotId, setEditTimeslotId] = useState("");
+    const [editProctorId, setEditProctorId] = useState("");
+    const [editSaving, setEditSaving] = useState(false);
 
     const handleDownload = async () => {
         setDownloading(true);
@@ -129,6 +139,48 @@ export default function GeneratedExamSchedules({ isGenerating }) {
         } finally {
             setDeleting(false);
             setShowDeleteModal(false);
+        }
+    };
+
+    const handleOpenEdit = async (exam) => {
+        setEditingExam(exam);
+        setEditRoomId(exam.room_id ? String(exam.room_id) : "");
+        setEditTimeslotId(exam.timeslot_id ? String(exam.timeslot_id) : "");
+        setEditProctorId(exam.proctor_id ? String(exam.proctor_id) : "");
+
+        try {
+            const [roomsRes, timeslotsRes, proctorsRes] = await Promise.all([
+                api.get("/exams/rooms", { params: { department: selectedDept } }),
+                api.get("/exams/timeslots"),
+                api.get("/proctors/")
+            ]);
+            setAvailableRooms(roomsRes.data || []);
+            setAvailableTimeslots(timeslotsRes.data || []);
+            setAvailableProctors(proctorsRes.data || []);
+        } catch (err) {
+            console.error("Error loading edit options:", err);
+            showError("Failed to load room, timeslot, or proctor options.");
+        }
+    };
+
+    const handleSaveEdit = async (e) => {
+        e.preventDefault();
+        if (!editingExam) return;
+        setEditSaving(true);
+        try {
+            const res = await api.put(`/exams/${editingExam.id}`, {
+                room_id: editRoomId ? parseInt(editRoomId, 10) : null,
+                timeslot_id: editTimeslotId ? parseInt(editTimeslotId, 10) : null,
+                proctor_id: editProctorId ? parseInt(editProctorId, 10) : null,
+            });
+            showSuccess(res.data?.message || `Successfully updated exam for ${editingExam.subject_code}!`);
+            setEditingExam(null);
+            fetchExams();
+        } catch (err) {
+            console.error("Failed to update exam:", err);
+            showError(err.response?.data?.detail || "Failed to update exam.");
+        } finally {
+            setEditSaving(false);
         }
     };
 
@@ -482,8 +534,11 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                                         <th className="border-b border-gray-300 dark:border-gray-600 px-4 py-3 text-left font-bold">
                                                             Time Period
                                                         </th>
-                                                        <th className="border-b border-gray-300 dark:border-gray-600 px-4 py-3 text-left font-bold last:rounded-tr-xl">
+                                                        <th className="border-b border-gray-300 dark:border-gray-600 px-4 py-3 text-left font-bold">
                                                             Room
+                                                        </th>
+                                                        <th className="border-b border-gray-300 dark:border-gray-600 px-4 py-3 text-center font-bold last:rounded-tr-xl">
+                                                            Actions
                                                         </th>
                                                     </tr>
                                                 </thead>
@@ -527,6 +582,20 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                                                     }`}>
                                                                     {e.room && e.room !== "-" ? e.room : "No Room"}
                                                                 </span>
+                                                            </td>
+                                                            <td className="px-4 py-4 text-center whitespace-nowrap">
+                                                                <button
+                                                                    onClick={() => handleOpenEdit(e)}
+                                                                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition shadow-sm ${
+                                                                        isDark
+                                                                            ? "bg-blue-600 hover:bg-blue-500 text-white"
+                                                                            : "bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200"
+                                                                    }`}
+                                                                    title="Edit Room, Timeslot, or Proctor"
+                                                                >
+                                                                    <PencilSquareIcon className="w-3.5 h-3.5" />
+                                                                    <span>Edit</span>
+                                                                </button>
                                                             </td>
                                                         </tr>
                                                     ))}
@@ -751,6 +820,121 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                 </button>
                             </div>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Edit Exam Schedule Modal */}
+            {editingExam && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4 animate-in fade-in duration-200">
+                    <div className={`p-5 sm:p-6 rounded-2xl sm:rounded-3xl shadow-2xl max-w-lg w-full transform transition-all scale-100 ${isDark ? "bg-gray-800 border border-gray-700 text-white" : "bg-white text-gray-900"}`}>
+                        <div className="flex items-center justify-between pb-3 mb-4 border-b border-gray-200 dark:border-gray-700">
+                            <div className="flex items-center gap-2.5">
+                                <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400">
+                                    <PencilSquareIcon className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <h3 className="text-base sm:text-lg font-bold">Edit Scheduled Exam</h3>
+                                    <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                                        {editingExam.subject_code} - {editingExam.subject_name} ({editingExam.section_name})
+                                    </p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setEditingExam(null)}
+                                className={`p-1.5 rounded-lg transition ${isDark ? "hover:bg-gray-700 text-gray-400" : "hover:bg-gray-100 text-gray-500"}`}
+                            >
+                                <XMarkIcon className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleSaveEdit} className="space-y-4">
+                            <div>
+                                <label className={`block text-xs font-bold mb-1.5 ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+                                    Timeslot & Date
+                                </label>
+                                <select
+                                    value={editTimeslotId}
+                                    onChange={(e) => setEditTimeslotId(e.target.value)}
+                                    className={`w-full px-3 py-2.5 rounded-xl text-xs sm:text-sm border outline-none transition ${
+                                        isDark
+                                            ? "bg-gray-900/60 border-gray-600 text-white focus:border-blue-500"
+                                            : "bg-gray-50 border-gray-200 text-gray-900 focus:border-blue-600"
+                                    }`}
+                                >
+                                    <option value="">-- Keep Current Timeslot ({editingExam.exam_date} {editingExam.start_time}) --</option>
+                                    {availableTimeslots.map((ts) => (
+                                        <option key={ts.id} value={ts.id}>
+                                            {ts.label}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className={`block text-xs font-bold mb-1.5 ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+                                    Examination Room
+                                </label>
+                                <select
+                                    value={editRoomId}
+                                    onChange={(e) => setEditRoomId(e.target.value)}
+                                    className={`w-full px-3 py-2.5 rounded-xl text-xs sm:text-sm border outline-none transition ${
+                                        isDark
+                                            ? "bg-gray-900/60 border-gray-600 text-white focus:border-blue-500"
+                                            : "bg-gray-50 border-gray-200 text-gray-900 focus:border-blue-600"
+                                    }`}
+                                >
+                                    <option value="">-- Unassigned / No Room --</option>
+                                    {availableRooms.map((r) => (
+                                        <option key={r.id} value={r.id}>
+                                            {r.name} (Bldg {r.building || "-"}, Capacity: {r.capacity || 40} seats)
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className={`block text-xs font-bold mb-1.5 ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+                                    Assigned Proctor
+                                </label>
+                                <select
+                                    value={editProctorId}
+                                    onChange={(e) => setEditProctorId(e.target.value)}
+                                    className={`w-full px-3 py-2.5 rounded-xl text-xs sm:text-sm border outline-none transition ${
+                                        isDark
+                                            ? "bg-gray-900/60 border-gray-600 text-white focus:border-blue-500"
+                                            : "bg-gray-50 border-gray-200 text-gray-900 focus:border-blue-600"
+                                    }`}
+                                >
+                                    <option value="">-- Unassigned / No Proctor --</option>
+                                    {availableProctors.map((p) => (
+                                        <option key={p.id} value={p.id}>
+                                            {p.name} {p.department ? `(${p.department})` : ""}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="flex items-center justify-end gap-2.5 sm:gap-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                                <button
+                                    type="button"
+                                    onClick={() => setEditingExam(null)}
+                                    disabled={editSaving}
+                                    className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition ${
+                                        isDark ? "bg-gray-700 hover:bg-gray-600 text-gray-200" : "bg-gray-100 hover:bg-gray-200 text-gray-700"
+                                    }`}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={editSaving}
+                                    className="px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-600/20 transition disabled:opacity-50 flex items-center gap-1.5"
+                                >
+                                    {editSaving ? "Saving Changes..." : "Save Changes"}
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}
