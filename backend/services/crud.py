@@ -32,6 +32,7 @@ def get_course_year_sem_details(course_id: int, year_level_id: int, semester: in
                 "id": subj.id,
                 "code": subj.code,
                 "name": subj.name,
+                "duration_minutes": subj.duration_minutes or 75,
                 "teacher": subj.teacher.name if subj.teacher else "Unassigned"
             }
             for subj in subjects

@@ -25,8 +25,25 @@ class SubjectCreate(SubjectBase):
 class Subject(SubjectBase):
     id: int
     section_id: int
+    duration_minutes: int = 75
     class Config:
         orm_mode = True
+
+class SubjectDurationUpdate(BaseModel):
+    duration_minutes: int
+
+class SubjectBulkDurationUpdate(BaseModel):
+    subject_ids: list[int] = None
+    course_id: int = None
+    category: str = None
+    year_level_id: int = None
+    duration_minutes: int = 75
+    preset: str = None
+
+class ExamSettings(BaseModel):
+    daily_start_time: str = "07:30"
+    daily_end_time: str = "17:00"
+    default_duration: int = 75
 
 
 # ----- Rescheduling Request Schemas -----
@@ -79,6 +96,7 @@ class ReschedulingRequest(ReschedulingRequestBase):
 class ReschedulingRequestUpdate(BaseModel):
     status: str
     reviewer_comments: str = None
+    room_id: int = None
 
 
 # ----- Room Schemas -----

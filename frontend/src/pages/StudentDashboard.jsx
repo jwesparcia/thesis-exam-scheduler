@@ -43,7 +43,6 @@ function StudentManual() {
   const topics = [
     { id: "schedule", label: "My Schedule Guide", icon: CalendarIcon },
     { id: "rescheduling", label: "Reschedule Requests", icon: PencilIcon },
-    { id: "irregular", label: "Custom Schedule Builder", icon: BookOpenIcon },
   ];
 
   return (
@@ -769,7 +768,8 @@ export default function StudentDashboard() {
   const [exams, setExams] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [expandedSection, setExpandedSection] = useState(null);
+  const [collapsedSections, setCollapsedSections] = useState(new Set());
+  const [scheduleViewMode, setScheduleViewMode] = useState("bySection");
   const [myRequests, setMyRequests] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedExam, setSelectedExam] = useState(null);
@@ -784,21 +784,25 @@ export default function StudentDashboard() {
   // Irregular student state
   const [showTypeModal, setShowTypeModal] = useState(false);
   const [selectedType, setSelectedType] = useState(null);
-  const [availableSubjects, setAvailableSubjects] = useState([]);
-  const [selectedSubjects, setSelectedSubjects] = useState([]);
-  const [irregularSearchTerm, setIrregularSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("schedule");
   const [coursesList, setCoursesList] = useState([]);
   const [selectedCourseId, setSelectedCourseId] = useState("");
-  // filterCourseId: which program to browse in the subject picker (0 = all programs)
-  const [filterCourseId, setFilterCourseId] = useState(0);
-  // subjectCache: accumulates subject details as the user browses programs
-  // so the Selected list can display names even when a different program is shown
-  const [subjectCache, setSubjectCache] = useState({});
 
-  // Reschedule form states
+  const toggleSection = (sectionName) => {
+    setCollapsedSections(prev => {
+      const next = new Set(prev);
+      if (next.has(sectionName)) {
+        next.delete(sectionName);
+      } else {
+        next.add(sectionName);
+      }
+      return next;
+    });
+  };
+
+  // Reschedule form states — pre-filled from logged-in user, read-only
   const [studentName, setStudentName] = useState(user?.name || "");
-  const [studentId, setStudentId] = useState("");
+  const [studentId, setStudentId] = useState(user?.student_id || "");
   const [program, setProgram] = useState("");
   const [section, setSection] = useState(user?.section_name || "");
   const [schoolEmail, setSchoolEmail] = useState(user?.email || "");
@@ -834,24 +838,22 @@ export default function StudentDashboard() {
     fetchCourses();
   }, []);
 
-  // Check if student type is set on first load
+  // Resolve program name once coursesList is loaded
+  useEffect(() => {
+    if (user?.course_id && coursesList.length > 0) {
+      const found = coursesList.find(c => c.id === user.course_id);
+      if (found) setProgram(found.name);
+    } else if (user?.section_name) {
+      // Fallback: derive rough program from section name
+      setProgram(user.section_name);
+    }
+  }, [coursesList, user]);
+
   useEffect(() => {
     if (user && user.role === "student") {
-      if (!user.student_type || user.student_type === "") {
-        setShowTypeModal(true);
-      } else if (user.student_type === "irregular" && !user.course_id) {
-        setSelectedType("irregular");
-        setShowTypeModal(true);
-      } else if (user.student_type === "irregular") {
-        if (user.course_id) {
-          setSelectedCourseId(user.course_id.toString());
-          setFilterCourseId(user.course_id);
-        } else {
-          setFilterCourseId(0);
-        }
-        fetchAvailableSubjects(user.course_id || 0);
+      if (user.student_type === "irregular") {
         fetchCustomExams();
-      } else if (user.student_type === "regular") {
+      } else {
         fetchData();
       }
     }
@@ -888,7 +890,7 @@ export default function StudentDashboard() {
   // Pass courseId=0 to get all programs, or a positive id to filter by one program.
   const fetchAvailableSubjects = async (courseIdOverride) => {
     try {
-      const targetCourse = courseIdOverride !== undefined ? courseIdOverride : filterCourseId;
+      const targetCourse = courseIdOverride !== undefined ? courseIdOverride : 0;
       // course_id=0 → backend returns all programs (no filter)
       const params = targetCourse > 0 ? { course_id: targetCourse } : {};
       const res = await api.get("/student/available-subjects", { params });
@@ -957,14 +959,29 @@ export default function StudentDashboard() {
     }
   };
 
-  const addSubjectSelection = (subjectId, sectionId) => {
-    // Check if this subject already has a section selected
-    const alreadySelected = selectedSubjects.some(sel => sel.subject_id === subjectId);
-    if (alreadySelected) {
-      showWarning("You can only select one section per subject. Remove the existing selection first.");
-      return;
+  const toggleSubjectSelection = (subjectId, sectionId) => {
+    const existingIndex = selectedSubjects.findIndex(sel => sel.subject_id === subjectId);
+    if (existingIndex >= 0) {
+      if (selectedSubjects[existingIndex].section_id === sectionId) {
+        // Deselect if clicking the same section
+        const newList = [...selectedSubjects];
+        newList.splice(existingIndex, 1);
+        setSelectedSubjects(newList);
+        return;
+      } else {
+        // Switch to the new section directly
+        const newList = [...selectedSubjects];
+        newList[existingIndex] = { subject_id: subjectId, section_id: sectionId };
+        setSelectedSubjects(newList);
+        return;
+      }
     }
+    // Add new selection
     setSelectedSubjects([...selectedSubjects, { subject_id: subjectId, section_id: sectionId }]);
+  };
+
+  const addSubjectSelection = (subjectId, sectionId) => {
+    toggleSubjectSelection(subjectId, sectionId);
   };
 
   const removeSubjectSelection = (index) => {
@@ -996,9 +1013,7 @@ export default function StudentDashboard() {
       setShowTypeModal(false);
 
       if (selectedType === "irregular") {
-        const homeId = res.data.course_id || 0;
-        setFilterCourseId(homeId);
-        fetchAvailableSubjects(homeId);
+        fetchAvailableSubjects(0);
         fetchCustomExams();
       } else {
         fetchData();
@@ -1045,13 +1060,22 @@ export default function StudentDashboard() {
     return h * 60 + m;
   };
 
-  // Find all vacant blocks of at least 90 minutes on the same day as the conflicting exam,
+  // Find all vacant blocks of at least the required exam duration on the same day as the conflicting exam,
   // but ONLY after the conflicting exam ends (can't reschedule before your own exam finishes)
+  const getExamDurationMins = (exam) => {
+    if (!exam) return 75;
+    const s = parseTime12(exam.start_time);
+    const e = parseTime12(exam.end_time);
+    if (s !== null && e !== null && e > s) return e - s;
+    return exam.duration_minutes || 75;
+  };
+
   const getVacantHoursSuggestions = (conflictingExam) => {
     if (!conflictingExam) return [];
     
     // The conflicting exam's own end time is the minimum start for a reschedule
     const conflictEndMins = parseTime12(conflictingExam.end_time);
+    const reqDuration = getExamDurationMins(conflictingExam);
     
     // Get all other exams on the same day (excluding the conflicting exam itself)
     const otherExams = exams.filter(e => e.exam_date === conflictingExam.exam_date && e.id !== conflictingExam.id);
@@ -1087,7 +1111,7 @@ export default function StudentDashboard() {
     
     for (let interval of mergedBusy) {
       if (interval[0] > current) {
-        if (interval[0] - current >= 90) {
+        if (interval[0] - current >= reqDuration) {
           freeIntervals.push([current, interval[0]]);
         }
       }
@@ -1095,7 +1119,7 @@ export default function StudentDashboard() {
     }
     
     if (WINDOW_END > current) {
-      if (WINDOW_END - current >= 90) {
+      if (WINDOW_END - current >= reqDuration) {
         freeIntervals.push([current, WINDOW_END]);
       }
     }
@@ -1104,14 +1128,14 @@ export default function StudentDashboard() {
     return freeIntervals.filter(interval => interval[0] >= conflictEndMins);
   };
 
-  const applyVacantHoursSuggestion = (startMins) => {
+  const applyVacantHoursSuggestion = (startMins, duration = 75) => {
     const toHHMM = (mins) => {
       const h = Math.floor(mins / 60) % 24;
       const m = mins % 60;
       return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
     };
     setPreferredStartTime(toHHMM(startMins));
-    setPreferredEndTime(toHHMM(startMins + 90));
+    setPreferredEndTime(toHHMM(startMins + duration));
   };
 
   const markRead = async (id) => {
@@ -1192,8 +1216,8 @@ export default function StudentDashboard() {
     );
   }
 
-  // Filters for regular students
-  const processedExams = user?.student_type === "regular" ? exams.filter(exam => {
+  // Filters for exams
+  const processedExams = exams.filter(exam => {
     if (exam.exam_type?.toLowerCase() !== "written") return false;
     if (searchTerm && !exam.subject_name.toLowerCase().includes(searchTerm.toLowerCase()) &&
       !exam.subject_code.toLowerCase().includes(searchTerm.toLowerCase())) return false;
@@ -1205,7 +1229,7 @@ export default function StudentDashboard() {
       if (filterSession === "afternoon" && isMorning) return false;
     }
     return true;
-  }) : exams;
+  });
 
   const grouped = processedExams.reduce((acc, ex) => {
     const key = ex.section_name || "Unknown Section";
@@ -1266,51 +1290,7 @@ export default function StudentDashboard() {
           </div>
         </div>
       )}
-      {showTypeModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4 transition-opacity animate-in fade-in duration-200">
-          <div className={`p-5 sm:p-8 rounded-2xl sm:rounded-3xl max-w-md w-full shadow-2xl border relative max-h-[90dvh] overflow-y-auto custom-scrollbar ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200"}`}>
-            <button
-              onClick={() => setShowTypeModal(false)}
-              className={`absolute top-4 right-4 sm:top-5 sm:right-5 p-1.5 rounded-full transition-colors ${isDark ? "text-slate-400 hover:text-white hover:bg-slate-700" : "text-slate-500 hover:text-slate-800 hover:bg-slate-100"
-                }`}
-              title="Close"
-            >
-              <XMarkIcon className="w-5 h-5" />
-            </button>
-            <h2 className={`text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-center ${isDark ? "text-white" : "text-slate-900"}`}>Select Schedule Type</h2>
-            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-5 sm:mb-6">
-              <button onClick={() => setSelectedType("regular")} className={`w-full py-3.5 sm:py-4 px-3 rounded-xl sm:rounded-2xl text-xs sm:text-sm font-bold transition-all duration-300 ${selectedType === "regular" ? "bg-blue-600 text-white shadow-lg shadow-blue-500/40 ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-slate-800 scale-[1.02]" : isDark ? "bg-slate-700 text-slate-300 hover:bg-slate-600" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>Standard (Fixed Section)</button>
-              <button onClick={() => setSelectedType("irregular")} className={`w-full py-3.5 sm:py-4 px-3 rounded-xl sm:rounded-2xl text-xs sm:text-sm font-bold transition-all duration-300 ${selectedType === "irregular" ? "bg-blue-600 text-white shadow-lg shadow-blue-500/40 ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-slate-800 scale-[1.02]" : isDark ? "bg-slate-700 text-slate-300 hover:bg-slate-600" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>Customized (Mixed Sections)</button>
-            </div>
 
-            {selectedType === "irregular" && (
-              <div className="mb-5 sm:mb-6 animate-fadeIn">
-                <label className={`block text-xs sm:text-sm font-semibold mb-2 ${isDark ? "text-slate-300" : "text-slate-700"}`}>
-                  What is your Course?
-                </label>
-                <select
-                  value={selectedCourseId}
-                  onChange={(e) => setSelectedCourseId(e.target.value)}
-                  className={`w-full p-3 rounded-xl border text-sm outline-none font-medium transition-all ${isDark
-                    ? "bg-slate-700 border-slate-600 text-white focus:border-blue-500"
-                    : "bg-slate-50 border-slate-200 text-slate-800 focus:border-blue-500 focus:bg-white"
-                    }`}
-                  required
-                >
-                  <option value="">-- Choose your course --</option>
-                  {coursesList.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} ({c.category})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            <button onClick={saveStudentType} disabled={!selectedType || (selectedType === "irregular" && !selectedCourseId)} className={`w-full py-3.5 sm:py-4 rounded-xl sm:rounded-2xl text-sm font-bold transition-all shadow-md ${(!selectedType || (selectedType === "irregular" && !selectedCourseId)) ? "opacity-50 cursor-not-allowed bg-slate-400 text-white" : "bg-emerald-600 hover:bg-emerald-500 text-white hover:shadow-lg hover:-translate-y-0.5"}`}>Confirm Selection</button>
-          </div>
-        </div>
-      )}
 
       {/* Header */}
       <header className={`sticky top-0 z-30 backdrop-blur-2xl border-b transition-all duration-300 ${isDark ? "bg-slate-900/80 border-slate-800" : "bg-white/80 border-slate-200"}`}>
@@ -1337,7 +1317,6 @@ export default function StudentDashboard() {
 
             <div className="flex items-center gap-2 sm:gap-4 shrink-0">
               <div className={`hidden sm:block px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider shadow-sm ${isDark ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" : "bg-emerald-50 text-emerald-700 border border-emerald-200"}`}>STUDENT</div>
-              <button onClick={() => setShowTypeModal(true)} className={`px-3 sm:px-4 py-1.5 rounded-full text-xs font-bold transition-colors ${isDark ? "bg-slate-800 text-slate-300 hover:bg-slate-700" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>Change Type</button>
 
               <div className="relative">
                 <button onClick={() => setShowNotifications(!showNotifications)} className={`relative p-2 sm:p-2.5 rounded-xl transition-all duration-300 ${isDark ? "text-slate-300 hover:text-white hover:bg-slate-800" : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"}`}>
@@ -1415,7 +1394,7 @@ export default function StudentDashboard() {
             <h2 className={`text-xl sm:text-3xl font-bold tracking-tight truncate ${isDark ? "text-white" : "text-slate-900"}`}>Welcome back, {user?.name || "Student"}</h2>
             <div className="flex flex-wrap items-center gap-2 sm:gap-4 mt-2 sm:mt-3">
               <span className={`px-2.5 py-1 rounded-lg text-xs sm:text-sm font-medium border ${isDark ? "bg-slate-700/50 border-slate-600 text-slate-300" : "bg-slate-50 border-slate-200 text-slate-600"}`}>Section: <strong className={isDark ? "text-white" : "text-slate-900"}>{user?.section_name || section || "N/A"}</strong></span>
-              <span className={`px-2.5 py-1 rounded-lg text-xs sm:text-sm font-medium border ${isDark ? "bg-slate-700/50 border-slate-600 text-slate-300" : "bg-slate-50 border-slate-200 text-slate-600"}`}>Type: <strong className={`capitalize ${isDark ? "text-white" : "text-slate-900"}`}>{user?.student_type === "regular" ? "Standard (Fixed Section)" : user?.student_type === "irregular" ? "Customized (Mixed Sections)" : "not set"}</strong></span>
+              <span className={`px-2.5 py-1 rounded-lg text-xs sm:text-sm font-medium border ${isDark ? "bg-slate-700/50 border-slate-600 text-slate-300" : "bg-slate-50 border-slate-200 text-slate-600"}`}>Type: <strong className={`capitalize ${isDark ? "text-white" : "text-slate-900"}`}>{user?.student_type === "regular" ? "Regular" : user?.student_type === "irregular" ? "Irregular" : "Not set"}</strong></span>
               {user?.student_type === "irregular" && user?.course_id && (
                 <span className={`px-2.5 py-1 rounded-lg text-xs sm:text-sm font-medium border ${isDark ? "bg-slate-700/50 border-slate-600 text-slate-300" : "bg-slate-50 border-slate-200 text-slate-600"}`}>
                   Course: <strong className={isDark ? "text-white" : "text-slate-900"}>{coursesList.find(c => c.id === user.course_id)?.name || "Loaded"}</strong>
@@ -1481,149 +1460,34 @@ export default function StudentDashboard() {
         <StudentChatPanel />
       ) : activeTab === "schedule" ? (
         <>
-          {/* Irregular subject picker */}
-          {user?.student_type === "irregular" && (
-            <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-4">
-              <div className={`p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border ${isDark ? "bg-gray-800/80 border-gray-700" : "bg-white border-gray-200"}`}>
-                <h3 className={`text-base sm:text-lg font-bold mb-3 ${isDark ? "text-white" : "text-gray-900"}`}>Customize Your Exam Schedule</h3>
 
-                {/* Program filter row */}
-                <div className="flex flex-col sm:flex-row gap-2.5 mb-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 flex-1">
-                    <label className={`text-xs sm:text-sm font-semibold shrink-0 ${isDark ? "text-gray-300" : "text-gray-700"}`}>Browse Program:</label>
-                    <select
-                      value={filterCourseId}
-                      onChange={(e) => {
-                        const newCourseId = parseInt(e.target.value) || 0;
-                        setFilterCourseId(newCourseId);
-                        setIrregularSearchTerm("");
-                        fetchAvailableSubjects(newCourseId);
-                      }}
-                      className={`w-full px-3 py-2 rounded-xl border text-xs sm:text-sm font-medium outline-none transition-all ${isDark ? "bg-gray-700 border-gray-600 text-white focus:border-blue-500" : "bg-white border-gray-300 text-gray-800 focus:border-blue-500"}`}
-                    >
-                      <option value={0}>— All Programs —</option>
-                      {coursesList.map((c) => (
-                        <option key={c.id} value={c.id}>{c.name}{c.category ? ` (${c.category})` : ""}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <input
-                    type="text"
-                    placeholder="Search subject code or name…"
-                    value={irregularSearchTerm}
-                    onChange={(e) => setIrregularSearchTerm(e.target.value)}
-                    className={`flex-1 p-2.5 rounded-xl border text-xs sm:text-sm ${isDark ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400" : "bg-white border-gray-300 placeholder-gray-400"}`}
+
+
+
+          {/* Filters bar */}
+          <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2 sm:py-4">
+            <div className={`p-3.5 sm:p-4 rounded-2xl shadow-sm border ${isDark ? "bg-gray-800/80 border-gray-700" : "bg-white border-gray-200"}`}>
+              <div className="md:hidden mb-3">
+                <div className="relative">
+                  <MagnifyingGlassIcon className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 ${isDark ? "text-slate-400" : "text-slate-400"}`} />
+                  <input 
+                    type="text" 
+                    placeholder="Search exams..." 
+                    value={searchTerm} 
+                    onChange={(e) => setSearchTerm(e.target.value)} 
+                    className={`w-full pl-10 pr-4 py-2 rounded-xl border outline-none text-xs ${isDark ? "bg-slate-700 border-slate-600 text-slate-100 placeholder-slate-400 focus:border-blue-500" : "bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400 focus:border-blue-500"}`} 
                   />
                 </div>
-
-                <div className="max-h-72 overflow-y-auto mb-4 space-y-2.5 pr-1 custom-scrollbar">
-                  {availableSubjects.length === 0 ? (
-                    <p className={`text-xs sm:text-sm text-center py-8 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
-                      No subjects found for the selected program.
-                    </p>
-                  ) : (
-                    availableSubjects
-                      .filter(s =>
-                        s.name.toLowerCase().includes(irregularSearchTerm.toLowerCase()) ||
-                        s.code.toLowerCase().includes(irregularSearchTerm.toLowerCase())
-                      )
-                      .map(sub => {
-                        const selectedSection = selectedSubjects.find(sel => sel.subject_id === sub.id);
-                        return (
-                          <div key={sub.id} className={`p-3 sm:p-3.5 rounded-xl border ${selectedSection ? (isDark ? "border-emerald-700 bg-emerald-900/15" : "border-emerald-300 bg-emerald-50") : (isDark ? "border-gray-700" : "border-gray-200")}`}>
-                            <div className={`font-semibold text-xs sm:text-sm ${isDark ? "text-gray-100" : "text-gray-900"}`}>
-                              {sub.code} — {sub.name}
-                              {selectedSection && <span className={`ml-2 text-[10px] sm:text-xs font-semibold px-2 py-0.5 rounded-full ${isDark ? "bg-emerald-800 text-emerald-200" : "bg-emerald-100 text-emerald-700"}`}>Added</span>}
-                            </div>
-                            <div className="flex flex-wrap gap-2 mt-2.5">
-                              {sub.sections.map(sec => {
-                                const isSelectedSection = selectedSection?.section_id === sec.id;
-                                return (
-                                  <button
-                                    type="button"
-                                    key={sec.id}
-                                    onClick={() => addSubjectSelection(sub.id, sec.id)}
-                                    aria-pressed={isSelectedSection}
-                                    className={`px-3 py-1.5 min-h-[36px] text-xs rounded-lg font-medium transition-all ${
-                                      isSelectedSection
-                                        ? "bg-emerald-600 hover:bg-emerald-700 text-white ring-2 ring-emerald-500 ring-offset-1"
-                                        : isDark
-                                          ? "bg-blue-700/60 hover:bg-blue-600 text-blue-100 border border-blue-600"
-                                          : "bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200"
-                                    }`}
-                                  >
-                                    {isSelectedSection ? sec.name : `+ ${sec.name}`}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        );
-                      })
-                  )}
-                </div>
-                {selectedSubjects.length > 0 && (
-                  <div className="mt-4 pt-4 border-t dark:border-gray-700">
-                    <h4 className={`font-semibold text-xs sm:text-sm mb-2.5 ${isDark ? "text-white" : "text-gray-900"}`}>Selected Subjects & Sections</h4>
-                    <ul className="space-y-2">
-                      {selectedSubjects.map((sel, idx) => {
-                        const sub = subjectCache[sel.subject_id] || availableSubjects.find(s => s.id === sel.subject_id);
-                        const sec = sub?.sections.find(s => s.id === sel.section_id);
-                        return (
-                          <li key={idx} className={`flex flex-col sm:flex-row justify-between sm:items-center gap-2 text-xs sm:text-sm p-2.5 sm:p-3 rounded-xl border ${isDark ? "bg-gray-700/40 border-gray-700" : "bg-gray-50 border-gray-200"}`}>
-                            <span className={isDark ? "text-gray-200" : "text-gray-800"}>
-                              <span className="font-bold">{sub?.code || `Subject #${sel.subject_id}`}</span> — {sub?.name || "Unknown"}
-                              <span className={`ml-2 text-[11px] px-2 py-0.5 rounded-md font-semibold ${isDark ? "bg-slate-600 text-slate-200" : "bg-slate-200 text-slate-700"}`}>{sec?.name || `Section #${sel.section_id}`}</span>
-                            </span>
-                            <button onClick={() => removeSubjectSelection(idx)} className="text-red-400 hover:text-red-600 text-xs font-semibold self-end sm:self-auto shrink-0">Remove</button>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                    <div className="flex gap-2.5 mt-4 flex-wrap">
-                      <button onClick={saveIrregularSelections} className="w-full sm:w-auto px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-xl transition font-bold text-xs sm:text-sm">
-                        Save My Selections
-                      </button>
-                      <button onClick={fetchCustomExams} className="flex-1 sm:flex-none px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition font-bold text-xs sm:text-sm">
-                        Refresh Schedule
-                      </button>
-                      <button onClick={() => setSelectedSubjects([])} className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl transition font-bold text-xs sm:text-sm shadow-sm shadow-red-500/20">
-                        <TrashIcon className="w-4 h-4" />
-                        Remove All
-                      </button>
-                    </div>
-                  </div>
-                )}
+              </div>
+              <div className="flex flex-wrap gap-2.5 sm:gap-4 items-center">
+                <div className="flex items-center gap-2"><CalendarIcon className={`w-4 h-4 ${isDark ? "text-gray-400" : "text-gray-500"}`} /><span className={`text-xs sm:text-sm font-semibold ${isDark ? "text-gray-300" : "text-gray-700"}`}>Filters:</span></div>
+                <select value={filterDay} onChange={(e) => setFilterDay(e.target.value)} className={`flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs sm:text-sm border ${isDark ? "bg-gray-700 border-gray-600 text-white" : "bg-gray-50 border-gray-300"}`}><option value="all">All Days</option><option>Monday</option><option>Tuesday</option><option>Wednesday</option><option>Thursday</option><option>Friday</option><option>Saturday</option></select>
+                <select value={filterSession} onChange={(e) => setFilterSession(e.target.value)} className={`flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs sm:text-sm border ${isDark ? "bg-gray-700 border-gray-600 text-white" : "bg-gray-50 border-gray-300"}`}><option value="all">All Sessions</option><option value="morning">Morning</option><option value="afternoon">Afternoon</option></select>
+                <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} className={`flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs sm:text-sm border ${isDark ? "bg-gray-700 border-gray-600 text-white" : "bg-gray-50 border-gray-300"}`}><option value="all">All Categories</option><option value="major">Major</option><option value="general">General</option></select>
+                {(filterDay !== "all" || filterSession !== "all" || filterCategory !== "all") && <button onClick={() => { setFilterDay("all"); setFilterSession("all"); setFilterCategory("all"); }} className="text-xs sm:text-sm font-medium text-blue-500 hover:underline ml-auto">Clear Filters</button>}
               </div>
             </div>
-          )}
-
-          {/* Regular filters bar */}
-          {user?.student_type === "regular" && (
-            <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2 sm:py-4">
-              <div className={`p-3.5 sm:p-4 rounded-2xl shadow-sm border ${isDark ? "bg-gray-800/80 border-gray-700" : "bg-white border-gray-200"}`}>
-                <div className="md:hidden mb-3">
-                  <div className="relative">
-                    <MagnifyingGlassIcon className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 ${isDark ? "text-slate-400" : "text-slate-400"}`} />
-                    <input 
-                      type="text" 
-                      placeholder="Search exams..." 
-                      value={searchTerm} 
-                      onChange={(e) => setSearchTerm(e.target.value)} 
-                      className={`w-full pl-10 pr-4 py-2 rounded-xl border outline-none text-xs ${isDark ? "bg-slate-700 border-slate-600 text-slate-100 placeholder-slate-400 focus:border-blue-500" : "bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400 focus:border-blue-500"}`} 
-                    />
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-2.5 sm:gap-4 items-center">
-                  <div className="flex items-center gap-2"><CalendarIcon className={`w-4 h-4 ${isDark ? "text-gray-400" : "text-gray-500"}`} /><span className={`text-xs sm:text-sm font-semibold ${isDark ? "text-gray-300" : "text-gray-700"}`}>Filters:</span></div>
-                  <select value={filterDay} onChange={(e) => setFilterDay(e.target.value)} className={`flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs sm:text-sm border ${isDark ? "bg-gray-700 border-gray-600 text-white" : "bg-gray-50 border-gray-300"}`}><option value="all">All Days</option><option>Monday</option><option>Tuesday</option><option>Wednesday</option><option>Thursday</option><option>Friday</option><option>Saturday</option></select>
-                  <select value={filterSession} onChange={(e) => setFilterSession(e.target.value)} className={`flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs sm:text-sm border ${isDark ? "bg-gray-700 border-gray-600 text-white" : "bg-gray-50 border-gray-300"}`}><option value="all">All Sessions</option><option value="morning">Morning</option><option value="afternoon">Afternoon</option></select>
-                  <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} className={`flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs sm:text-sm border ${isDark ? "bg-gray-700 border-gray-600 text-white" : "bg-gray-50 border-gray-300"}`}><option value="all">All Categories</option><option value="major">Major</option><option value="general">General</option></select>
-                  {(filterDay !== "all" || filterSession !== "all" || filterCategory !== "all") && <button onClick={() => { setFilterDay("all"); setFilterSession("all"); setFilterCategory("all"); }} className="text-xs sm:text-sm font-medium text-blue-500 hover:underline ml-auto">Clear Filters</button>}
-                </div>
-              </div>
-            </div>
-          )}
+          </div>
 
           {/* Main Content - Exam Schedule */}
           <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6">
@@ -1635,38 +1499,176 @@ export default function StudentDashboard() {
               </div>
             ) : (
               <div className="space-y-4">
-                {filtered.map(([sectionName, sectionExams]) => (
-                  <div key={sectionName} className={`rounded-2xl overflow-hidden border shadow-sm ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
-                    <button onClick={() => setExpandedSection(expandedSection === sectionName ? null : sectionName)} className={`w-full px-4 sm:px-6 py-3.5 sm:py-4 flex items-center justify-between transition ${isDark ? "bg-gray-700/50 hover:bg-gray-700/70" : "bg-gray-50 hover:bg-gray-100"}`}>
-                      <div className="flex items-center gap-3 sm:gap-4"><div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center shrink-0 ${isDark ? "bg-blue-900/30 text-blue-300" : "bg-blue-50 text-blue-600"}`}><BookOpenIcon className="w-5 h-5" /></div><div className="text-left"><h2 className={`text-base sm:text-xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>{sectionName}</h2><p className={`text-xs sm:text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}>{sectionExams.length} scheduled exam{sectionExams.length !== 1 ? "s" : ""}</p></div></div>
-                      <ChevronRightIcon className={`w-5 h-5 transition-transform ${expandedSection === sectionName ? "rotate-90 text-blue-500" : isDark ? "text-gray-500" : "text-gray-400"}`} />
-                    </button>
-                    {expandedSection === sectionName && (
-                      <div className="animate-slideDown">
-                        <div className="overflow-x-auto custom-scrollbar">
-                          <table className="w-full text-xs sm:text-sm min-w-[640px]">
-                            <thead className={`${isDark ? "bg-gray-700/50 text-gray-300" : "bg-gray-100 text-gray-700"}`}><tr><th className="px-4 sm:px-6 py-3 sm:py-4 text-left font-bold">Subject</th><th className="px-4 sm:px-6 py-3 sm:py-4 text-left font-bold">Category</th><th className="px-4 sm:px-6 py-3 sm:py-4 text-left font-bold">Schedule</th><th className="px-4 sm:px-6 py-3 sm:py-4 text-left font-bold">Details</th><th className="px-4 sm:px-6 py-3 sm:py-4 text-left font-bold">Proctor</th><th className="px-4 sm:px-6 py-3 sm:py-4 text-left font-bold">Actions</th></tr></thead>
-                            <tbody>
-                              {sectionExams.map((exam) => {
-                                const isConflicting = conflictIds.has(exam.id);
-                                return (
-                                  <tr key={exam.id} className={`${isDark ? "hover:bg-gray-700/30" : "hover:bg-gray-50"} transition ${isConflicting ? (isDark ? "bg-red-900/20 border-l-4 border-red-500" : "bg-red-50 border-l-4 border-red-500") : ""}`}>
-                                    <td className={`px-4 sm:px-6 py-3 sm:py-4 border-t ${isDark ? "border-gray-700" : "border-gray-200"}`}><div className={`font-bold ${isDark ? "text-white" : "text-gray-900"}`}>{exam.subject_name}</div><div className={`text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>{exam.subject_code}</div>{isConflicting && <div className="text-[10px] sm:text-xs text-red-500 font-bold mt-1">CONFLICT DETECTED</div>}</td>
-                                    <td className={`px-4 sm:px-6 py-3 sm:py-4 border-t ${isDark ? "border-gray-700" : "border-gray-200"}`}><span className={`px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold ${exam.category === "major" ? (isDark ? "bg-purple-900/30 text-purple-300" : "bg-purple-100 text-purple-700") : (isDark ? "bg-blue-900/30 text-blue-300" : "bg-blue-100 text-blue-700")}`}>{exam.category ? exam.category.toUpperCase() : "-"}</span></td>
-                                    <td className={`px-4 sm:px-6 py-3 sm:py-4 border-t ${isDark ? "border-gray-700" : "border-gray-200"}`}><div className={`flex items-center gap-1.5 ${isDark ? "text-gray-200" : "text-gray-800"}`}><CalendarIcon className="w-3.5 h-3.5 text-blue-500" />{formatDate(exam.exam_date)}</div><div className={`flex items-center gap-1.5 mt-1 text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}><ClockIcon className="w-3.5 h-3.5 text-purple-500" />{exam.start_time} - {exam.end_time}</div></td>
-                                    <td className={`px-4 sm:px-6 py-3 sm:py-4 border-t ${isDark ? "border-gray-700" : "border-gray-200"}`}><div className="flex items-center gap-1.5"><MapPinIcon className={`w-3.5 h-3.5 ${isDark ? "text-gray-400" : "text-gray-500"}`} /><span className={`px-2 py-0.5 rounded text-xs font-medium ${isDark ? "bg-gray-700 text-gray-300" : "bg-gray-100 text-gray-700"}`}>{exam.room}</span></div><div className={`mt-1 text-[11px] ${isDark ? "text-gray-500" : "text-gray-400"}`}>{exam.course_name} • {exam.year_level}</div></td>
-                                    <td className={`px-4 sm:px-6 py-3 sm:py-4 border-t ${isDark ? "border-gray-700" : "border-gray-200"}`}><div className={`flex items-center gap-1.5 ${isDark ? "text-gray-300" : "text-gray-700"}`}><CheckBadgeIcon className="w-3.5 h-3.5 text-emerald-500" /><span className="text-xs sm:text-sm">{exam.proctor || "Unassigned"}</span></div></td>
-                                    <td className={`px-4 sm:px-6 py-3 sm:py-4 border-t ${isDark ? "border-gray-700" : "border-gray-200"}`}><div className="group relative"><button onClick={() => { if (!isConflicting) return; setSelectedExam(exam); setCourseCode(exam.subject_code); setCourseName(exam.subject_name); const parts = exam.exam_date.split(", "); const d = new Date(`${parts[1]}, ${parts[2]}`); setOriginalExamDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`); setOriginalStartTime(exam.start_time); setOriginalEndTime(exam.end_time); setExamType(exam.exam_type || "Midterm"); setIsModalOpen(true); }} disabled={!isConflicting} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${isConflicting ? (isDark ? "bg-red-600 hover:bg-red-700 text-white" : "bg-red-500 hover:bg-red-600 text-white shadow-sm") : (isDark ? "bg-gray-700 text-gray-500 cursor-not-allowed" : "bg-gray-200 text-gray-400 cursor-not-allowed")}`}>Request Reschedule</button>{!isConflicting && <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-gray-800 text-white text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 transition pointer-events-none z-10">Rescheduling is only available if there is a conflict.</div>}</div></td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
+                {/* View controls & Section controls */}
+                <div className="flex flex-wrap items-center justify-between gap-3 pb-1">
+                  <div className="flex items-center gap-2">
+                    <span className={`text-xs sm:text-sm font-semibold ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+                      Scheduled Exams ({processedExams.length})
+                    </span>
+                    {filtered.length > 1 && (
+                      <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${isDark ? "bg-slate-800 text-slate-300 border border-slate-700" : "bg-slate-100 text-slate-600 border border-slate-200"}`}>
+                        Across {filtered.length} Sections
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    {/* View Switcher: All in One Table vs By Section (All Open) */}
+                    <div className={`flex rounded-xl p-1 border ${isDark ? "bg-gray-800/80 border-gray-700" : "bg-gray-100 border-gray-200"}`}>
+                      <button
+                        type="button"
+                        onClick={() => setScheduleViewMode("all")}
+                        className={`px-3 py-1 rounded-lg text-xs font-semibold transition ${
+                          scheduleViewMode === "all"
+                            ? (isDark ? "bg-blue-600 text-white shadow" : "bg-white text-blue-700 shadow-sm")
+                            : (isDark ? "text-gray-400 hover:text-white" : "text-gray-600 hover:text-gray-900")
+                        }`}
+                      >
+                        All in One Table
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setScheduleViewMode("bySection")}
+                        className={`px-3 py-1 rounded-lg text-xs font-semibold transition ${
+                          scheduleViewMode === "bySection"
+                            ? (isDark ? "bg-blue-600 text-white shadow" : "bg-white text-blue-700 shadow-sm")
+                            : (isDark ? "text-gray-400 hover:text-white" : "text-gray-600 hover:text-gray-900")
+                        }`}
+                      >
+                        By Section (All Open)
+                      </button>
+                    </div>
+
+                    {scheduleViewMode === "bySection" && filtered.length > 1 && (
+                      <div className="flex items-center gap-1.5 text-xs">
+                        <button
+                          type="button"
+                          onClick={() => setCollapsedSections(new Set())}
+                          className="font-semibold text-blue-500 hover:underline"
+                        >
+                          Expand All
+                        </button>
+                        <span className="text-gray-400">/</span>
+                        <button
+                          type="button"
+                          onClick={() => setCollapsedSections(new Set(filtered.map(([name]) => name)))}
+                          className="text-gray-500 hover:underline"
+                        >
+                          Collapse All
+                        </button>
                       </div>
                     )}
                   </div>
-                ))}
+                </div>
+
+                {/* View Mode 1: Unified Single Table (Shows ALL scheduled exams at once) */}
+                {scheduleViewMode === "all" ? (
+                  <div className={`rounded-2xl overflow-hidden border shadow-sm ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
+                    <div className="overflow-x-auto custom-scrollbar">
+                      <table className="w-full text-xs sm:text-sm min-w-[700px]">
+                        <thead className={`${isDark ? "bg-gray-700/50 text-gray-300" : "bg-gray-100 text-gray-700"}`}>
+                          <tr>
+                            <th className="px-4 sm:px-6 py-3 sm:py-4 text-left font-bold">Subject</th>
+                            <th className="px-4 sm:px-6 py-3 sm:py-4 text-left font-bold">Section</th>
+                            <th className="px-4 sm:px-6 py-3 sm:py-4 text-left font-bold">Category</th>
+                            <th className="px-4 sm:px-6 py-3 sm:py-4 text-left font-bold">Schedule</th>
+                            <th className="px-4 sm:px-6 py-3 sm:py-4 text-left font-bold">Details</th>
+                            <th className="px-4 sm:px-6 py-3 sm:py-4 text-left font-bold">Proctor</th>
+                            <th className="px-4 sm:px-6 py-3 sm:py-4 text-left font-bold">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {processedExams.map((exam) => {
+                            const isConflicting = conflictIds.has(exam.id);
+                            const isIrregular = user?.student_type === "irregular";
+                            const canReschedule = isConflicting || isIrregular;
+                            return (
+                              <tr key={exam.id} className={`${isDark ? "hover:bg-gray-700/30" : "hover:bg-gray-50"} transition ${isConflicting ? (isDark ? "bg-red-900/20 border-l-4 border-red-500" : "bg-red-50 border-l-4 border-red-500") : ""}`}>
+                                <td className={`px-4 sm:px-6 py-3 sm:py-4 border-t ${isDark ? "border-gray-700" : "border-gray-200"}`}>
+                                  <div className={`font-bold ${isDark ? "text-white" : "text-gray-900"}`}>{exam.subject_name}</div>
+                                  <div className={`text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>{exam.subject_code}</div>
+                                  {isConflicting && <div className="text-[10px] sm:text-xs text-red-500 font-bold mt-1">CONFLICT DETECTED</div>}
+                                </td>
+                                <td className={`px-4 sm:px-6 py-3 sm:py-4 border-t ${isDark ? "border-gray-700" : "border-gray-200"}`}>
+                                  <span className={`px-2.5 py-1 rounded-lg text-xs font-bold ${isDark ? "bg-blue-900/40 text-blue-300 border border-blue-800" : "bg-blue-50 text-blue-700 border border-blue-200"}`}>
+                                    {exam.section_name || "-"}
+                                  </span>
+                                </td>
+                                <td className={`px-4 sm:px-6 py-3 sm:py-4 border-t ${isDark ? "border-gray-700" : "border-gray-200"}`}>
+                                  <span className={`px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold ${exam.category === "major" ? (isDark ? "bg-purple-900/30 text-purple-300" : "bg-purple-100 text-purple-700") : (isDark ? "bg-blue-900/30 text-blue-300" : "bg-blue-100 text-blue-700")}`}>{exam.category ? exam.category.toUpperCase() : "-"}</span>
+                                </td>
+                                <td className={`px-4 sm:px-6 py-3 sm:py-4 border-t ${isDark ? "border-gray-700" : "border-gray-200"}`}>
+                                  <div className={`flex items-center gap-1.5 ${isDark ? "text-gray-200" : "text-gray-800"}`}><CalendarIcon className="w-3.5 h-3.5 text-blue-500" />{formatDate(exam.exam_date)}</div>
+                                  <div className={`flex items-center gap-1.5 mt-1 text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}><ClockIcon className="w-3.5 h-3.5 text-purple-500" />{exam.start_time} - {exam.end_time}</div>
+                                </td>
+                                <td className={`px-4 sm:px-6 py-3 sm:py-4 border-t ${isDark ? "border-gray-700" : "border-gray-200"}`}>
+                                  <div className="flex items-center gap-1.5"><MapPinIcon className={`w-3.5 h-3.5 ${isDark ? "text-gray-400" : "text-gray-500"}`} /><span className={`px-2 py-0.5 rounded text-xs font-medium ${isDark ? "bg-gray-700 text-gray-300" : "bg-gray-100 text-gray-700"}`}>{exam.room}</span></div>
+                                  <div className={`mt-1 text-[11px] ${isDark ? "text-gray-500" : "text-gray-400"}`}>{exam.course_name} • {exam.year_level}</div>
+                                </td>
+                                <td className={`px-4 sm:px-6 py-3 sm:py-4 border-t ${isDark ? "border-gray-700" : "border-gray-200"}`}>
+                                  <div className={`flex items-center gap-1.5 ${isDark ? "text-gray-300" : "text-gray-700"}`}><CheckBadgeIcon className="w-3.5 h-3.5 text-emerald-500" /><span className="text-xs sm:text-sm">{exam.proctor || "Unassigned"}</span></div>
+                                </td>
+                                <td className={`px-4 sm:px-6 py-3 sm:py-4 border-t ${isDark ? "border-gray-700" : "border-gray-200"}`}>
+                                  <div className="group relative">
+                                    <button onClick={() => { if (!canReschedule) return; setSelectedExam(exam); setCourseCode(exam.subject_code); setCourseName(exam.subject_name); const parts = exam.exam_date.split(", "); const d = new Date(`${parts[1]}, ${parts[2]}`); setOriginalExamDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`); setOriginalStartTime(exam.start_time); setOriginalEndTime(exam.end_time); setExamType(exam.exam_type || "Midterm"); setIsModalOpen(true); }} disabled={!canReschedule} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${canReschedule ? (isDark ? "bg-red-600 hover:bg-red-700 text-white" : "bg-red-500 hover:bg-red-600 text-white shadow-sm") : (isDark ? "bg-gray-700 text-gray-500 cursor-not-allowed" : "bg-gray-200 text-gray-400 cursor-not-allowed")}`}>Request Reschedule</button>
+                                    {!canReschedule && <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-gray-800 text-white text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 transition pointer-events-none z-10">Rescheduling is only available if there is a conflict.</div>}
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ) : (
+                  /* View Mode 2: By Section (ALL SECTIONS OPEN SIMULTANEOUSLY BY DEFAULT) */
+                  filtered.map(([sectionName, sectionExams]) => {
+                    const isExpanded = !collapsedSections.has(sectionName);
+                    return (
+                      <div key={sectionName} className={`rounded-2xl overflow-hidden border shadow-sm ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
+                        <button onClick={() => toggleSection(sectionName)} className={`w-full px-4 sm:px-6 py-3.5 sm:py-4 flex items-center justify-between transition ${isDark ? "bg-gray-700/50 hover:bg-gray-700/70" : "bg-gray-50 hover:bg-gray-100"}`}>
+                          <div className="flex items-center gap-3 sm:gap-4">
+                            <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center shrink-0 ${isDark ? "bg-blue-900/30 text-blue-300" : "bg-blue-50 text-blue-600"}`}>
+                              <BookOpenIcon className="w-5 h-5" />
+                            </div>
+                            <div className="text-left">
+                              <h2 className={`text-base sm:text-xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>{sectionName}</h2>
+                              <p className={`text-xs sm:text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}>{sectionExams.length} scheduled exam{sectionExams.length !== 1 ? "s" : ""}</p>
+                            </div>
+                          </div>
+                          <ChevronRightIcon className={`w-5 h-5 transition-transform ${isExpanded ? "rotate-90 text-blue-500" : isDark ? "text-gray-500" : "text-gray-400"}`} />
+                        </button>
+                        {isExpanded && (
+                          <div className="animate-slideDown">
+                            <div className="overflow-x-auto custom-scrollbar">
+                              <table className="w-full text-xs sm:text-sm min-w-[640px]">
+                                <thead className={`${isDark ? "bg-gray-700/50 text-gray-300" : "bg-gray-100 text-gray-700"}`}><tr><th className="px-4 sm:px-6 py-3 sm:py-4 text-left font-bold">Subject</th><th className="px-4 sm:px-6 py-3 sm:py-4 text-left font-bold">Category</th><th className="px-4 sm:px-6 py-3 sm:py-4 text-left font-bold">Schedule</th><th className="px-4 sm:px-6 py-3 sm:py-4 text-left font-bold">Details</th><th className="px-4 sm:px-6 py-3 sm:py-4 text-left font-bold">Proctor</th><th className="px-4 sm:px-6 py-3 sm:py-4 text-left font-bold">Actions</th></tr></thead>
+                                <tbody>
+                                  {sectionExams.map((exam) => {
+                                    const isConflicting = conflictIds.has(exam.id);
+                                    const isIrregular = user?.student_type === "irregular";
+                                    const canReschedule = isConflicting || isIrregular;
+                                    return (
+                                      <tr key={exam.id} className={`${isDark ? "hover:bg-gray-700/30" : "hover:bg-gray-50"} transition ${isConflicting ? (isDark ? "bg-red-900/20 border-l-4 border-red-500" : "bg-red-50 border-l-4 border-red-500") : ""}`}>
+                                        <td className={`px-4 sm:px-6 py-3 sm:py-4 border-t ${isDark ? "border-gray-700" : "border-gray-200"}`}><div className={`font-bold ${isDark ? "text-white" : "text-gray-900"}`}>{exam.subject_name}</div><div className={`text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>{exam.subject_code}</div>{isConflicting && <div className="text-[10px] sm:text-xs text-red-500 font-bold mt-1">CONFLICT DETECTED</div>}</td>
+                                        <td className={`px-4 sm:px-6 py-3 sm:py-4 border-t ${isDark ? "border-gray-700" : "border-gray-200"}`}><span className={`px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold ${exam.category === "major" ? (isDark ? "bg-purple-900/30 text-purple-300" : "bg-purple-100 text-purple-700") : (isDark ? "bg-blue-900/30 text-blue-300" : "bg-blue-100 text-blue-700")}`}>{exam.category ? exam.category.toUpperCase() : "-"}</span></td>
+                                        <td className={`px-4 sm:px-6 py-3 sm:py-4 border-t ${isDark ? "border-gray-700" : "border-gray-200"}`}><div className={`flex items-center gap-1.5 ${isDark ? "text-gray-200" : "text-gray-800"}`}><CalendarIcon className="w-3.5 h-3.5 text-blue-500" />{formatDate(exam.exam_date)}</div><div className={`flex items-center gap-1.5 mt-1 text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}><ClockIcon className="w-3.5 h-3.5 text-purple-500" />{exam.start_time} - {exam.end_time}</div></td>
+                                        <td className={`px-4 sm:px-6 py-3 sm:py-4 border-t ${isDark ? "border-gray-700" : "border-gray-200"}`}><div className="flex items-center gap-1.5"><MapPinIcon className={`w-3.5 h-3.5 ${isDark ? "text-gray-400" : "text-gray-500"}`} /><span className={`px-2 py-0.5 rounded text-xs font-medium ${isDark ? "bg-gray-700 text-gray-300" : "bg-gray-100 text-gray-700"}`}>{exam.room}</span></div><div className={`mt-1 text-[11px] ${isDark ? "text-gray-500" : "text-gray-400"}`}>{exam.course_name} • {exam.year_level}</div></td>
+                                        <td className={`px-4 sm:px-6 py-3 sm:py-4 border-t ${isDark ? "border-gray-700" : "border-gray-200"}`}><div className={`flex items-center gap-1.5 ${isDark ? "text-gray-300" : "text-gray-700"}`}><CheckBadgeIcon className="w-3.5 h-3.5 text-emerald-500" /><span className="text-xs sm:text-sm">{exam.proctor || "Unassigned"}</span></div></td>
+                                        <td className={`px-4 sm:px-6 py-3 sm:py-4 border-t ${isDark ? "border-gray-700" : "border-gray-200"}`}><div className="group relative"><button onClick={() => { if (!canReschedule) return; setSelectedExam(exam); setCourseCode(exam.subject_code); setCourseName(exam.subject_name); const parts = exam.exam_date.split(", "); const d = new Date(`${parts[1]}, ${parts[2]}`); setOriginalExamDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`); setOriginalStartTime(exam.start_time); setOriginalEndTime(exam.end_time); setExamType(exam.exam_type || "Midterm"); setIsModalOpen(true); }} disabled={!canReschedule} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${canReschedule ? (isDark ? "bg-red-600 hover:bg-red-700 text-white" : "bg-red-500 hover:bg-red-600 text-white shadow-sm") : (isDark ? "bg-gray-700 text-gray-500 cursor-not-allowed" : "bg-gray-200 text-gray-400 cursor-not-allowed")}`}>Request Reschedule</button>{!canReschedule && <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-gray-800 text-white text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 transition pointer-events-none z-10">Rescheduling is only available if there is a conflict.</div>}</div></td>
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
               </div>
             )}
 
@@ -1741,13 +1743,31 @@ export default function StudentDashboard() {
             }} className="space-y-5 sm:space-y-6">
               {/* Student Information */}
               <div className={`p-4 rounded-xl ${isDark ? "bg-gray-800/80" : "bg-gray-50"}`}>
-                <h4 className={`text-xs sm:text-sm font-bold uppercase tracking-wider mb-3 ${isDark ? "text-slate-300" : "text-gray-900"}`}>1. Student Information</h4>
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className={`text-xs sm:text-sm font-bold uppercase tracking-wider ${isDark ? "text-slate-300" : "text-gray-900"}`}>1. Student Information</h4>
+                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${isDark ? "bg-slate-700 text-slate-400" : "bg-slate-200 text-slate-500"}`}>Auto-filled from your account</span>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-                  <div><label className={`block text-xs font-semibold mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}>Student Name *</label><input type="text" value={studentName} onChange={(e) => setStudentName(e.target.value)} className={`w-full p-2.5 rounded-xl text-xs sm:text-sm border ${isDark ? "bg-gray-700 text-white border-gray-600" : "bg-white text-gray-900 border-gray-300"}`} required /></div>
-                  <div><label className={`block text-xs font-semibold mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}>Student ID *</label><input type="text" value={studentId} onChange={(e) => setStudentId(e.target.value)} className={`w-full p-2.5 rounded-xl text-xs sm:text-sm border ${isDark ? "bg-gray-700 text-white border-gray-600" : "bg-white text-gray-900 border-gray-300"}`} required /></div>
-                  <div><label className={`block text-xs font-semibold mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}>Program *</label><input type="text" value={program} onChange={(e) => setProgram(e.target.value)} className={`w-full p-2.5 rounded-xl text-xs sm:text-sm border ${isDark ? "bg-gray-700 text-white border-gray-600" : "bg-white text-gray-900 border-gray-300"}`} required /></div>
-                  <div><label className={`block text-xs font-semibold mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}>Section *</label><input type="text" value={section} onChange={(e) => setSection(e.target.value)} className={`w-full p-2.5 rounded-xl text-xs sm:text-sm border ${isDark ? "bg-gray-700 text-white border-gray-600" : "bg-white text-gray-900 border-gray-300"}`} required /></div>
-                  <div className="md:col-span-2"><label className={`block text-xs font-semibold mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}>School Email *</label><input type="email" value={schoolEmail} onChange={(e) => setSchoolEmail(e.target.value)} className={`w-full p-2.5 rounded-xl text-xs sm:text-sm border ${isDark ? "bg-gray-700 text-white border-gray-600" : "bg-white text-gray-900 border-gray-300"}`} required /></div>
+                  <div>
+                    <label className={`block text-xs font-semibold mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}>Student Name</label>
+                    <input type="text" value={studentName} readOnly className={`w-full p-2.5 rounded-xl text-xs sm:text-sm border cursor-not-allowed ${isDark ? "bg-slate-700/50 text-slate-300 border-slate-600" : "bg-slate-100 text-slate-700 border-slate-200"}`} />
+                  </div>
+                  <div>
+                    <label className={`block text-xs font-semibold mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}>Student ID</label>
+                    <input type="text" value={studentId} readOnly className={`w-full p-2.5 rounded-xl text-xs sm:text-sm border cursor-not-allowed font-mono ${isDark ? "bg-slate-700/50 text-slate-300 border-slate-600" : "bg-slate-100 text-slate-700 border-slate-200"}`} />
+                  </div>
+                  <div>
+                    <label className={`block text-xs font-semibold mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}>Program / Course</label>
+                    <input type="text" value={program} readOnly className={`w-full p-2.5 rounded-xl text-xs sm:text-sm border cursor-not-allowed ${isDark ? "bg-slate-700/50 text-slate-300 border-slate-600" : "bg-slate-100 text-slate-700 border-slate-200"}`} />
+                  </div>
+                  <div>
+                    <label className={`block text-xs font-semibold mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}>Section</label>
+                    <input type="text" value={section} readOnly className={`w-full p-2.5 rounded-xl text-xs sm:text-sm border cursor-not-allowed ${isDark ? "bg-slate-700/50 text-slate-300 border-slate-600" : "bg-slate-100 text-slate-700 border-slate-200"}`} />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className={`block text-xs font-semibold mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}>School Email</label>
+                    <input type="email" value={schoolEmail} readOnly className={`w-full p-2.5 rounded-xl text-xs sm:text-sm border cursor-not-allowed ${isDark ? "bg-slate-700/50 text-slate-300 border-slate-600" : "bg-slate-100 text-slate-700 border-slate-200"}`} />
+                  </div>
                 </div>
               </div>
 
@@ -1775,6 +1795,13 @@ export default function StudentDashboard() {
                 <h4 className={`text-xs sm:text-sm font-bold uppercase tracking-wider mb-3 ${isDark ? "text-slate-300" : "text-gray-900"}`}>4. Preferred Reschedule Details</h4>
                 {/* Smart vacant hours suggestions */}
                 {selectedExam && (() => {
+                  const reqDur = getExamDurationMins(selectedExam);
+                  const durHours = Math.floor(reqDur / 60);
+                  const durMinsRemain = reqDur % 60;
+                  const durLabel = durHours > 0 && durMinsRemain > 0 
+                    ? `${durHours}h ${durMinsRemain}m` 
+                    : durHours > 0 ? `${durHours}h` : `${durMinsRemain}m`;
+
                   const suggestions = getVacantHoursSuggestions(selectedExam);
                   if (suggestions.length === 0) {
                     return (
@@ -1783,7 +1810,7 @@ export default function StudentDashboard() {
                           No Vacant Hours Found
                         </p>
                         <p className={`text-sm ${isDark ? "text-gray-300" : "text-gray-700"}`}>
-                          No vacant blocks of 90 minutes or more found on this day (07:00 AM - 05:30 PM). 
+                          No vacant blocks of {durLabel} or more found on this day (07:00 AM - 05:30 PM). 
                           Please coordinate with the Program Head via the <strong>Chat with Admin</strong> tab.
                         </p>
                       </div>
@@ -1792,23 +1819,23 @@ export default function StudentDashboard() {
                   return (
                     <div className={`mb-4 p-3 rounded-lg border-l-4 border-blue-500 ${isDark ? "bg-blue-950/20" : "bg-blue-50"}`}>
                       <p className={`text-xs font-bold uppercase tracking-wide mb-1.5 ${isDark ? "text-blue-400" : "text-blue-700"}`}>
-                        Suggested Vacant Slots (1h 30min each):
+                        Suggested Vacant Slots ({durLabel} each):
                       </p>
                       <div className="flex flex-wrap gap-2 mt-1">
                         {suggestions.flatMap((s, idx) => {
                           const slots = [];
                           let slotStart = s[0];
-                          while (slotStart + 90 <= s[1]) {
+                          while (slotStart + reqDur <= s[1]) {
                             slots.push(slotStart);
-                            slotStart += 90;
+                            slotStart += reqDur;
                           }
                           return slots.map((slotStartMins, slotIdx) => {
-                            const label = `${formatMinsTo12(slotStartMins)} - ${formatMinsTo12(slotStartMins + 90)}`;
+                            const label = `${formatMinsTo12(slotStartMins)} - ${formatMinsTo12(slotStartMins + reqDur)}`;
                             return (
                               <button
                                 key={`${idx}-${slotIdx}`}
                                 type="button"
-                                onClick={() => applyVacantHoursSuggestion(slotStartMins)}
+                                onClick={() => applyVacantHoursSuggestion(slotStartMins, reqDur)}
                                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold shadow-sm transition hover:-translate-y-0.5 ${
                                   isDark 
                                     ? "bg-blue-600 hover:bg-blue-500 text-white" 

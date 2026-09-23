@@ -3,10 +3,10 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, joinedload
 from core import get_db, cache
 from core.cache import TTL_ROOMS, TTL_EXAM_COUNT
-from model import Exam, Subject, Section, Room, Timeslot, Course, YearLevel, Teacher, User, Notification, Proctor
+from model import Exam, Subject, Section, Room, Timeslot, Course, YearLevel, Teacher, User, Notification, Proctor, ReschedulingRequest
 from room_data import AVAILABLE_EXAM_ROOMS, get_room_names_for_department
 from utils.scheduler import generate_exam_schedule
-from datetime import datetime
+from datetime import datetime, time
 from threading import Lock
 from typing import Optional
 from pydantic import BaseModel
@@ -73,7 +73,7 @@ def is_generation_ongoing() -> bool:
         return any(job.get("status") == "running" for job in _generation_progress.values())
 
 
-def _format_exam_for_room_status(exam: Exam):
+def _format_exam_for_room_status(exam: Exam, rescheduled_exam_ids: set = None, rescheduled_student_counts: dict = None):
     subject = exam.subject
     section = exam.section
     course = exam.course
@@ -90,6 +90,17 @@ def _format_exam_for_room_status(exam: Exam):
         start_time = "-"
         end_time = "-"
 
+    # Rescheduled: true if this exam was approved via a rescheduling request
+    is_rescheduled = (rescheduled_exam_ids is not None) and (exam.id in rescheduled_exam_ids)
+
+    # Student count:
+    # - For rescheduled exams: use the number of irregular students rescheduled to this exam
+    # - For regular exams: use the section's registered student headcount
+    if is_rescheduled and rescheduled_student_counts is not None:
+        student_count = rescheduled_student_counts.get(exam.id, 1)
+    else:
+        student_count = getattr(section, "student_count", None) or 0
+
     return {
         "id": exam.id,
         "subject_code": subject.code if subject else "-",
@@ -105,6 +116,8 @@ def _format_exam_for_room_status(exam: Exam):
         "end_time": end_time,
         "room_id": exam.room_id,
         "room": room.name if room else None,
+        "student_count": student_count,
+        "is_rescheduled": is_rescheduled,
     }
 
 @router.get("/")
@@ -240,16 +253,67 @@ def get_exams(
 
     return result
 
+@router.get("/settings")
+def get_exam_settings(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    from model import SystemSetting
+    settings_rows = db.query(SystemSetting).all()
+    settings_dict = {row.key: row.value for row in settings_rows}
+    return {
+        "daily_start_time": settings_dict.get("daily_start_time", "07:30"),
+        "daily_end_time": settings_dict.get("daily_end_time", "17:00"),
+        "default_allotted_time": int(settings_dict.get("default_allotted_time", 75))
+    }
+
+@router.put("/settings")
+def update_exam_settings(
+    payload: dict = Body(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(["admin"]))
+):
+    from model import SystemSetting
+    daily_start_time = payload.get("daily_start_time")
+    daily_end_time = payload.get("daily_end_time")
+    default_allotted_time = payload.get("default_allotted_time")
+
+    if daily_start_time:
+        row = db.query(SystemSetting).filter(SystemSetting.key == "daily_start_time").first()
+        if not row:
+            row = SystemSetting(key="daily_start_time", value=str(daily_start_time))
+            db.add(row)
+        else:
+            row.value = str(daily_start_time)
+            
+    if daily_end_time:
+        row = db.query(SystemSetting).filter(SystemSetting.key == "daily_end_time").first()
+        if not row:
+            row = SystemSetting(key="daily_end_time", value=str(daily_end_time))
+            db.add(row)
+        else:
+            row.value = str(daily_end_time)
+            
+    if default_allotted_time:
+        row = db.query(SystemSetting).filter(SystemSetting.key == "default_allotted_time").first()
+        if not row:
+            row = SystemSetting(key="default_allotted_time", value=str(default_allotted_time))
+            db.add(row)
+        else:
+            row.value = str(default_allotted_time)
+
+    db.commit()
+    log_activity(db, current_user.id, "EXAM_SETTINGS_UPDATE", f"Start: {daily_start_time}, End: {daily_end_time}")
+    return {"message": "Exam settings updated successfully."}
+
 @router.get("/subjects")
 def get_department_subjects(
     department: str = Query("College", description="Department category (e.g., College or SHS)"),
-    semester: int = Query(1, description="Semester (1 or 2)"),
+    semester: int = Query(1, description="Semester (1, 2, or 3)"),
     course_id: Optional[int] = Query(None, description="Optional: filter by specific course ID"),
+    term: Optional[str] = Query(None, description="Optional: filter by term (e.g. Midterm, Final, ST1, ST2, T1)"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """
-    Get all unique written subject names for a specific department and semester.
+    Get all unique written subject names for a specific department, semester, and term.
     Optionally filter by course_id when a specific course is selected.
     """
     query = db.query(Subject.name).join(Course).filter(
@@ -259,6 +323,8 @@ def get_department_subjects(
     )
     if course_id:
         query = query.filter(Course.id == course_id)
+    if term and term != "All":
+        query = query.filter(or_(Subject.term == term, Subject.term == "All", Subject.term.is_(None)))
     subjects = query.distinct().order_by(Subject.name).all()
     
     return [s[0] for s in subjects if s[0]]
@@ -559,6 +625,21 @@ def get_room_status(
 
     exams = exam_query.all()
 
+    # Collect exam IDs that were assigned via an approved rescheduling request,
+    # and count how many irregular students are rescheduled to each exam.
+    approved_requests = db.query(
+        ReschedulingRequest.exam_id
+    ).filter(
+        ReschedulingRequest.status == "approved",
+        ReschedulingRequest.exam_id.isnot(None),
+    ).all()
+
+    rescheduled_exam_ids = set()
+    rescheduled_student_counts: dict = {}  # exam_id -> number of irregular students
+    for row in approved_requests:
+        rescheduled_exam_ids.add(row.exam_id)
+        rescheduled_student_counts[row.exam_id] = rescheduled_student_counts.get(row.exam_id, 0) + 1
+
     room_bookings = {room.id: [] for room in rooms}
     unassigned_exams = []
     wrong_building_exams = []
@@ -592,7 +673,7 @@ def get_room_status(
             "exam_date": first_exam.timeslot.date.strftime("%A, %B %d, %Y") if first_exam.timeslot else "-",
             "start_time": first_exam.timeslot.start_time.strftime("%I:%M %p") if first_exam.timeslot else "-",
             "end_time": first_exam.timeslot.end_time.strftime("%I:%M %p") if first_exam.timeslot else "-",
-            "exams": [_format_exam_for_room_status(exam) for exam in conflict_exams],
+            "exams": [_format_exam_for_room_status(exam, rescheduled_exam_ids, rescheduled_student_counts) for exam in conflict_exams],
         })
 
     room_rows = []
@@ -609,7 +690,7 @@ def get_room_status(
             "booking_count": len(bookings),
             "draft_count": sum(1 for exam in bookings if exam.status == "draft"),
             "posted_count": sum(1 for exam in bookings if exam.status == "posted"),
-            "bookings": [_format_exam_for_room_status(exam) for exam in sorted(
+            "bookings": [_format_exam_for_room_status(exam, rescheduled_exam_ids, rescheduled_student_counts) for exam in sorted(
                 bookings,
                 key=lambda e: (
                     e.timeslot.date if e.timeslot else datetime.max.date(),
@@ -637,8 +718,8 @@ def get_room_status(
             "conflicts": len(conflicts),
         },
         "rooms": room_rows,
-        "unassigned_exams": [_format_exam_for_room_status(exam) for exam in unassigned_exams],
-        "wrong_building_exams": [_format_exam_for_room_status(exam) for exam in wrong_building_exams],
+        "unassigned_exams": [_format_exam_for_room_status(exam, rescheduled_exam_ids, rescheduled_student_counts) for exam in unassigned_exams],
+        "wrong_building_exams": [_format_exam_for_room_status(exam, rescheduled_exam_ids, rescheduled_student_counts) for exam in wrong_building_exams],
         "conflicts": conflicts,
     }
 
@@ -750,6 +831,18 @@ async def generate_schedule(
         excluded_subjects = payload_data.get("excluded_subjects", [])
         force_overwrite = payload_data.get("force_overwrite", False)
         
+        daily_start_str = payload_data.get("daily_start_time") or "07:30"
+        daily_end_str = payload_data.get("daily_end_time") or "17:00"
+        try:
+            daily_start_t = datetime.strptime(daily_start_str, "%H:%M").time()
+        except ValueError:
+            daily_start_t = time(7, 30)
+
+        try:
+            daily_end_t = datetime.strptime(daily_end_str, "%H:%M").time()
+        except ValueError:
+            daily_end_t = time(17, 0)
+
         start_date_str = payload_data.get("start_date")
         if start_date_str:
             start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
@@ -826,6 +919,8 @@ async def generate_schedule(
             semester=semester,
             excluded_subjects=excluded_subjects,
             term=term,
+            daily_start_time=daily_start_t,
+            daily_end_time=daily_end_t,
             progress_callback=_on_progress
         )
         

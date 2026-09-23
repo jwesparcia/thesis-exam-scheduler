@@ -366,7 +366,11 @@ def get_available_subjects(
     target_course_id = course_id if (course_id is not None and course_id > 0) else None
 
     # Base query for written subjects
-    query = db.query(Subject).filter(Subject.exam_type == "written")
+    query = (
+        db.query(Subject)
+        .options(joinedload(Subject.course))
+        .filter(Subject.exam_type == "written")
+    )
     if target_course_id:
         query = query.filter(Subject.course_id == target_course_id)
 
@@ -378,6 +382,8 @@ def get_available_subjects(
         "code": None,
         "name": None,
         "course_id": None,
+        "course_name": None,
+        "category": None,
         "sections": []      
     })
 
@@ -388,6 +394,8 @@ def get_available_subjects(
             subject_map[name]["code"] = sub.code
             subject_map[name]["name"] = name
             subject_map[name]["course_id"] = sub.course_id
+            subject_map[name]["course_name"] = sub.course.name if sub.course else None
+            subject_map[name]["category"] = sub.category
         
         sec_dict = {}
 
@@ -481,33 +489,44 @@ def get_custom_exams(
     selections = db.query(IrregularSelection).filter(IrregularSelection.user_id == current_user.id).all()
     if not selections:
         return []
-    
+
     selected_subject_ids = [sel.subject_id for sel in selections]
     selected_subjects = db.query(Subject).filter(Subject.id.in_(selected_subject_ids)).all()
     selected_names = [sub.name for sub in selected_subjects if sub.name]
     selected_codes = [sub.code for sub in selected_subjects if sub.code]
-    
+
+    # Fetch all subjects with matching names/codes regardless of exam_type
+    # (filtering by exam_type here caused empty matching_ids for non-written subjects,
+    #  making the fallback unreachable and silently dropping entire subjects)
     all_matching_subjects = db.query(Subject).filter(
-        (Subject.name.in_(selected_names)) | (Subject.code.in_(selected_codes)) | (Subject.id.in_(selected_subject_ids)),
-        Subject.exam_type == "written"
+        (Subject.name.in_(selected_names)) | (Subject.code.in_(selected_codes)) | (Subject.id.in_(selected_subject_ids))
     ).all()
-    
+
     subject_id_to_matching_ids = {}
     for sub in selected_subjects:
         matching_ids = [m.id for m in all_matching_subjects if m.name == sub.name or m.code == sub.code or m.id == sub.id]
+        # Always include the original subject_id as a fallback
+        if sub.id not in matching_ids:
+            matching_ids.append(sub.id)
         subject_id_to_matching_ids[sub.id] = matching_ids
-    
+
     from sqlalchemy import or_
     conditions = []
     for sel in selections:
-        matching_ids = subject_id_to_matching_ids.get(sel.subject_id, [sel.subject_id])
-        conditions.append(
-            (Exam.subject_id.in_(matching_ids)) & (Exam.section_id == sel.section_id)
-        )
-    
+        # Use the pre-built list; always non-empty because we guaranteed sub.id is in it
+        matching_ids = subject_id_to_matching_ids.get(sel.subject_id) or [sel.subject_id]
+        if sel.section_id is not None:
+            # Match exam subject AND specific section
+            conditions.append(
+                (Exam.subject_id.in_(matching_ids)) & (Exam.section_id == sel.section_id)
+            )
+        else:
+            # No section constraint — match by subject only (section_id was not resolved at import time)
+            conditions.append(Exam.subject_id.in_(matching_ids))
+
     if not conditions:
         return []
-    
+
     exams = db.query(Exam).options(
         joinedload(Exam.subject),
         joinedload(Exam.section),
@@ -520,7 +539,8 @@ def get_custom_exams(
         Exam.status == "posted",
         or_(*conditions)
     ).join(Exam.timeslot).order_by(Timeslot.date, Timeslot.start_time).all()
-    
+
     result = build_exam_response(exams)
     cache.set(cache_key, result, TTL_EXAM_SCHEDULE)
-    return result
+    return result
+

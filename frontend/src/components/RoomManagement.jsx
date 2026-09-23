@@ -7,6 +7,8 @@ import {
   ArrowPathIcon,
   MagnifyingGlassIcon,
   TrashIcon,
+  PencilSquareIcon,
+  XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { useTheme } from "../context/themeStore";
 import { useToast } from "../context/ToastContext";
@@ -17,6 +19,7 @@ const statusLabels = {
   available: "Available",
   in_use: "In Use",
   conflict: "Conflict",
+  rescheduled: "Has Rescheduled",
 };
 
 export default function RoomManagement({ isGenerating }) {
@@ -42,6 +45,12 @@ export default function RoomManagement({ isGenerating }) {
   const [newRoomCapacity, setNewRoomCapacity] = useState(40);
   const [submitting, setSubmitting] = useState(false);
 
+  // Edit room modal states
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingRoom, setEditingRoom] = useState(null);
+  const [editCapacity, setEditCapacity] = useState(40);
+  const [submittingEdit, setSubmittingEdit] = useState(false);
+
   // Delete room states
   const [deleting, setDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -49,6 +58,41 @@ export default function RoomManagement({ isGenerating }) {
   // Delete all rooms states
   const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false);
   const [deletingAll, setDeletingAll] = useState(false);
+
+  const handleOpenEdit = (room) => {
+    setEditingRoom(room);
+    setEditCapacity(room.capacity || 40);
+    setShowEditModal(true);
+  };
+
+  const handleUpdateRoom = async (e) => {
+    e.preventDefault();
+    if (!editingRoom) return;
+    if (isGenerating) {
+      showError("Cannot edit rooms while schedule generation is ongoing");
+      return;
+    }
+    const cap = parseInt(editCapacity, 10);
+    if (!cap || cap <= 0) {
+      showError("Capacity must be a positive number of seats");
+      return;
+    }
+    setSubmittingEdit(true);
+    try {
+      const res = await api.put(`/exams/rooms/${editingRoom.id}`, {
+        capacity: cap,
+      });
+      showSuccess(res.data?.message || `Room "${editingRoom.name}" capacity updated to ${cap} seats!`);
+      setShowEditModal(false);
+      setEditingRoom(null);
+      fetchRoomStatus();
+    } catch (err) {
+      console.error("Failed to update room capacity", err);
+      showError(err.response?.data?.detail || "Failed to update room capacity");
+    } finally {
+      setSubmittingEdit(false);
+    }
+  };
 
   const handleAddRoom = async (e) => {
     e.preventDefault();
@@ -372,20 +416,20 @@ export default function RoomManagement({ isGenerating }) {
                     <th className="px-5 py-3 text-left font-bold">Building</th>
                     <th className="px-5 py-3 text-left font-bold">Capacity</th>
                     <th className="px-5 py-3 text-left font-bold">For</th>
-                    <th className="px-5 py-3 text-left font-bold">Total Section</th>
                     <th className="px-5 py-3 text-left font-bold">Status</th>
+                    {isAdmin && <th className="px-5 py-3 text-center font-bold">Action</th>}
                   </tr>
                 </thead>
                 <tbody className={isDark ? "divide-y divide-gray-700" : "divide-y divide-gray-100"}>
                   {loading ? (
                     <tr>
-                      <td colSpan="6" className="px-5 py-12 text-center">
+                      <td colSpan={isAdmin ? 6 : 5} className="px-5 py-12 text-center">
                         <ArrowPathIcon className="w-8 h-8 animate-spin text-blue-500 mx-auto" />
                       </td>
                     </tr>
                   ) : filteredRooms.length === 0 ? (
                     <tr>
-                      <td colSpan="6" className={`px-5 py-12 text-center ${isDark ? "text-gray-500" : "text-gray-400"}`}>No rooms found.</td>
+                      <td colSpan={isAdmin ? 6 : 5} className={`px-5 py-12 text-center ${isDark ? "text-gray-500" : "text-gray-400"}`}>No rooms found.</td>
                     </tr>
                   ) : (
                     filteredRooms.map((room) => (
@@ -398,12 +442,39 @@ export default function RoomManagement({ isGenerating }) {
                         <td className={`px-5 py-4 ${isDark ? "text-gray-300" : "text-gray-700"}`}>Building {room.building}</td>
                         <td className={`px-5 py-4 ${isDark ? "text-gray-300" : "text-gray-700"}`}>{room.capacity} seats</td>
                         <td className={`px-5 py-4 ${isDark ? "text-gray-300" : "text-gray-700"}`}>{room.department}</td>
-                        <td className={`px-5 py-4 ${isDark ? "text-gray-300" : "text-gray-700"}`}>{room.booking_count}</td>
                         <td className="px-5 py-4">
-                          <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold ${roomStatusClass(room.status)}`}>
-                            {statusLabels[room.status] || room.status}
-                          </span>
+                          {(() => {
+                            // If any booking in this room is rescheduled, show "Has Rescheduled" status
+                            const hasRescheduled = room.bookings?.some(b => b.is_rescheduled);
+                            const effectiveStatus = hasRescheduled ? "rescheduled" : room.status;
+                            const statusStyle = effectiveStatus === "rescheduled"
+                              ? isDark ? "bg-purple-500/10 text-purple-300 border-purple-500/20" : "bg-purple-50 text-purple-700 border-purple-100"
+                              : roomStatusClass(room.status);
+                            return (
+                              <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold ${statusStyle}`}>
+                                {statusLabels[effectiveStatus] || effectiveStatus}
+                              </span>
+                            );
+                          })()}
                         </td>
+                        {isAdmin && (
+                          <td className="px-5 py-4 text-center" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEdit(room)}
+                              disabled={isGenerating}
+                              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition shadow-sm ${
+                                isDark
+                                  ? "bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 border border-blue-500/30"
+                                  : "bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200"
+                              }`}
+                              title="Edit room capacity (seats)"
+                            >
+                              <PencilSquareIcon className="w-3.5 h-3.5" />
+                              <span>Edit</span>
+                            </button>
+                          </td>
+                        )}
                       </tr>
                     ))
                   )}
@@ -420,7 +491,18 @@ export default function RoomManagement({ isGenerating }) {
                     <p className={`text-xs font-bold uppercase ${isDark ? "text-gray-500" : "text-gray-400"}`}>Selected Room</p>
                     <h2 className={`text-3xl font-black mt-1 ${isDark ? "text-white" : "text-gray-900"}`}>{selectedRoom.name}</h2>
                   </div>
-                  <span className={`rounded-full border px-3 py-1 text-xs font-bold ${roomStatusClass(selectedRoom.status)}`}>{statusLabels[selectedRoom.status]}</span>
+                  {(() => {
+                    const hasRescheduled = selectedRoom.bookings?.some(b => b.is_rescheduled);
+                    const effectiveStatus = hasRescheduled ? "rescheduled" : selectedRoom.status;
+                    const statusStyle = effectiveStatus === "rescheduled"
+                      ? isDark ? "bg-purple-500/10 text-purple-300 border-purple-500/20" : "bg-purple-50 text-purple-700 border-purple-100"
+                      : roomStatusClass(selectedRoom.status);
+                    return (
+                      <span className={`rounded-full border px-3 py-1 text-xs font-bold ${statusStyle}`}>
+                        {statusLabels[effectiveStatus] || effectiveStatus}
+                      </span>
+                    );
+                  })()}
                 </div>
 
                 <div className={`mt-5 rounded-xl border p-4 ${isDark ? "border-gray-700 bg-gray-900/40" : "border-gray-100 bg-gray-50"}`}>
@@ -441,7 +523,24 @@ export default function RoomManagement({ isGenerating }) {
                 </div>
 
                 {isAdmin && (
-                  <div className="mt-4 pt-4 border-t border-dashed border-gray-200 dark:border-gray-700">
+                  <div className="mt-4 pt-4 border-t border-dashed border-gray-200 dark:border-gray-700 space-y-2.5">
+                    <button
+                      type="button"
+                      onClick={() => handleOpenEdit(selectedRoom)}
+                      disabled={isGenerating}
+                      className={`w-full inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition shadow-sm ${
+                        isGenerating
+                          ? "bg-gray-300 text-gray-500 cursor-not-allowed dark:bg-gray-700 dark:text-gray-400"
+                          : isDark
+                          ? "bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 border border-blue-500/30"
+                          : "bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200"
+                      }`}
+                      title="Edit Room Capacity"
+                    >
+                      <PencilSquareIcon className="w-4 h-4" />
+                      Edit Room Capacity
+                    </button>
+
                     {selectedRoom.booking_count > 0 ? (
                       <div className={`w-full inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold bg-gray-300 text-gray-500 cursor-not-allowed dark:bg-gray-700 dark:text-gray-400`}>
                         <TrashIcon className="w-4 h-4" />
@@ -517,9 +616,28 @@ export default function RoomManagement({ isGenerating }) {
                         </div>
                         {day.exams.map((exam) => (
                           <div key={exam.id} className={`rounded-xl border p-4 ${isDark ? "border-gray-700 bg-gray-900/40" : "border-gray-100 bg-gray-50"}`}>
-                            <p className={`font-bold ${isDark ? "text-white" : "text-gray-900"}`}>{exam.subject_name}</p>
-                            <p className={`text-xs mt-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}>{exam.section_name}</p>
-                            <p className={`text-xs mt-1 font-semibold ${isDark ? "text-blue-300" : "text-blue-700"}`}>{exam.start_time} - {exam.end_time}</p>
+                            <div className="flex items-start justify-between gap-2 mb-1">
+                              <p className={`font-bold leading-tight ${isDark ? "text-white" : "text-gray-900"}`}>{exam.subject_name}</p>
+                              {exam.is_rescheduled && (
+                                <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${
+                                  isDark ? "bg-purple-500/20 text-purple-300 border border-purple-500/30" : "bg-purple-100 text-purple-700 border border-purple-200"
+                                }`}>Rescheduled</span>
+                              )}
+                            </div>
+                            <p className={`text-xs mt-0.5 ${isDark ? "text-gray-400" : "text-gray-500"}`}>{exam.section_name}</p>
+                            <p className={`text-xs mt-1 font-semibold ${isDark ? "text-blue-300" : "text-blue-700"}`}>{exam.start_time} – {exam.end_time}</p>
+                            <div className="flex items-center gap-2 mt-2">
+                              <span className={`text-[11px] font-bold rounded-full px-2 py-0.5 ${
+                                isDark ? "bg-emerald-500/15 text-emerald-300" : "bg-emerald-50 text-emerald-700"
+                              }`}>
+                                👤 {exam.student_count ?? "—"} student{(exam.student_count ?? 0) !== 1 ? "s" : ""}
+                              </span>
+                              <span className={`text-[11px] font-semibold rounded-full px-2 py-0.5 ${
+                                exam.status === "posted"
+                                  ? isDark ? "bg-green-500/15 text-green-300" : "bg-green-50 text-green-700"
+                                  : isDark ? "bg-yellow-500/15 text-yellow-300" : "bg-yellow-50 text-yellow-700"
+                              }`}>{exam.status}</span>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -616,6 +734,79 @@ export default function RoomManagement({ isGenerating }) {
                 >
                   {(submitting || isGenerating) && <ArrowPathIcon className="w-4 h-4 animate-spin" />}
                   Save Room
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Room Capacity Modal */}
+      {showEditModal && editingRoom && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => !submittingEdit && setShowEditModal(false)} />
+          <div className={`relative w-full max-w-md rounded-2xl sm:rounded-3xl border p-5 sm:p-6 shadow-2xl transition-all transform scale-100 duration-300 animate-scale-in ${isDark ? "bg-gray-800 border-gray-700 text-white" : "bg-white border-gray-100 text-gray-900"}`}>
+            <div className="flex items-center justify-between pb-3 mb-4 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2.5 rounded-xl bg-blue-500/10 text-blue-500">
+                  <PencilSquareIcon className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg sm:text-xl font-bold">Edit Room Capacity</h3>
+                  <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                    Room {editingRoom.name} (Building {editingRoom.building} - {editingRoom.department})
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowEditModal(false)}
+                className={`p-1.5 rounded-lg transition ${isDark ? "hover:bg-gray-700 text-gray-400" : "hover:bg-gray-100 text-gray-500"}`}
+              >
+                <XMarkIcon className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateRoom} className="space-y-4">
+              <div>
+                <label className={`block text-xs font-bold uppercase mb-1.5 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                  Capacity (Seats)
+                </label>
+                <input
+                  type="number"
+                  required
+                  min="1"
+                  max="500"
+                  value={editCapacity}
+                  onChange={(e) => setEditCapacity(e.target.value)}
+                  className={`w-full rounded-xl border p-3 text-sm font-semibold outline-none transition ${isDark ? "bg-gray-900 border-gray-700 text-white focus:border-blue-500" : "bg-gray-50 border-gray-200 text-gray-800 focus:border-blue-500"}`}
+                  placeholder="e.g. 40"
+                />
+                <p className={`text-xs mt-1.5 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                  Maximum number of student exam seats allocated for this room. Sections with more students than this capacity will not be scheduled here.
+                </p>
+              </div>
+
+              <div className="flex flex-col-reverse sm:flex-row items-center justify-end gap-2.5 sm:gap-3 pt-4 border-t border-gray-200/10">
+                <button
+                  type="button"
+                  onClick={() => setShowEditModal(false)}
+                  disabled={submittingEdit}
+                  className={`w-full sm:w-auto px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition ${isDark ? "bg-gray-700 hover:bg-gray-600 text-gray-200" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingEdit || isGenerating}
+                  className={`w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white transition shadow-md ${
+                    (submittingEdit || isGenerating)
+                      ? "bg-blue-600/50 opacity-50 cursor-not-allowed"
+                      : "bg-blue-600 hover:bg-blue-700 shadow-blue-500/20"
+                  }`}
+                >
+                  {submittingEdit && <ArrowPathIcon className="w-4 h-4 animate-spin" />}
+                  Save Capacity
                 </button>
               </div>
             </form>
