@@ -915,7 +915,8 @@ def generate_subjects(course, year, semester):
             semester=semester,
             teacher_id=random.choice(teacher_ids) if teacher_ids else None,
             exam_type=exam_type,
-            category=category
+            category=category,
+            duration_minutes=120 if (course.name == "BSA" and category == "major") else 75
         )
         subject_objs.append(subj)
     return subject_objs
@@ -1082,7 +1083,9 @@ for course in courses:
                     if sem == 2:
                         email_prefix += "_sem2"
                     
+                    sid = f"02000{random.randint(100000, 999999)}"
                     student_user = User(
+                        student_id=sid,
                         name=f"Student {course.name} ({year.name}) Sem {sem}" if sem == 2 else f"Student {course.name} ({year.name})",
                         email=f"{email_prefix}@school.edu",
                         hashed_password=hash_password("student123"),
@@ -1100,7 +1103,9 @@ for course in courses:
             
             if section:
                 email_prefix = f"student_{course.name.lower().replace(' ', '_').replace('-', '_')}_{year.name.lower().replace(' ', '_')}"
+                sid = f"02000{random.randint(100000, 999999)}"
                 student_user = User(
+                    student_id=sid,
                     name=f"Student {course.name} ({year.name})",
                     email=f"{email_prefix}@school.edu",
                     hashed_password=hash_password("student123"),

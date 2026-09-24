@@ -24,6 +24,8 @@ import {
   PlusIcon,
   MagnifyingGlassIcon,
   XMarkIcon,
+  ClockIcon,
+  UserGroupIcon,
 } from "@heroicons/react/24/outline";
 import ExamScheduler from "../components/ExamScheduler";
 import AddProctor from "../components/AddProctor";
@@ -39,6 +41,8 @@ import DataImport from "../components/DataImport";
 import StudentImport from "../components/StudentImport";
 import ConfirmationModal from "../components/ConfirmationModal";
 import FirstTimePasswordChange from "../components/FirstTimePasswordChange";
+import SubjectDurationsManager from "../components/SubjectDurationsManager";
+import SectionStudentList from "../components/SectionStudentList";
 
 import api from "../api";
 import { useToast } from "../context/ToastContext";
@@ -62,6 +66,11 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
   const [history, setHistory] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const { showSuccess, showError } = useToast();
+  // Room selection state for approve modal
+  const [approveModalReq, setApproveModalReq] = useState(null);
+  const [availableRooms, setAvailableRooms] = useState([]);
+  const [loadingRooms, setLoadingRooms] = useState(false);
+  const [selectedRoomId, setSelectedRoomId] = useState("");
 
   useEffect(() => {
     const fetchRequests = async () => {
@@ -97,7 +106,25 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
     }
   }, [activeSubTab]);
 
-  const handleReview = async (id, status, comments = "") => {
+  const handleApproveClick = async (req) => {
+    if (isGenerating) {
+      showError("Cannot review rescheduling requests while schedule generation is ongoing");
+      return;
+    }
+    setApproveModalReq(req);
+    setSelectedRoomId("");
+    setLoadingRooms(true);
+    try {
+      const res = await api.get(`/rescheduling/${req.id}/available-rooms`);
+      setAvailableRooms(res.data);
+    } catch (err) {
+      console.error("Error fetching rooms:", err);
+      setAvailableRooms([]);
+    }
+    setLoadingRooms(false);
+  };
+
+  const handleReview = async (id, status, comments = "", roomId = null) => {
     if (isGenerating) {
       showError("Cannot review rescheduling requests while schedule generation is ongoing");
       return;
@@ -106,6 +133,7 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
       const res = await api.put(`/rescheduling/${id}/review`, {
         status,
         reviewer_comments: comments,
+        room_id: roomId || null,
       });
       if (res.status === 200) {
         setRequests(prev => {
@@ -193,7 +221,7 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
                   </div>
                   <div className="flex flex-wrap gap-2 shrink-0 w-full sm:w-auto">
                     <button
-                      onClick={() => handleReview(req.id, "approved")}
+                      onClick={() => handleApproveClick(req)}
                       disabled={isGenerating}
                       className={`flex-1 sm:flex-initial px-4 py-2 rounded-lg font-semibold text-sm transition bg-green-500 ${isGenerating ? "bg-green-600 text-green-300 cursor-not-allowed" : "bg-green-50 hover:bg-green-500/30 text-white"
                         }`}
@@ -340,9 +368,82 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
           </div>
         )
       )}
+
+      {/* ── Room Selection Approval Modal ── */}
+      {approveModalReq && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className={`w-full max-w-md rounded-2xl border shadow-2xl p-6 ${isDark ? "bg-gray-900 border-gray-700" : "bg-white border-gray-200"}`}>
+            <div className="flex items-center justify-between mb-5">
+              <h3 className={`text-lg font-bold ${isDark ? "text-white" : "text-gray-900"}`}>Assign Room &amp; Approve</h3>
+              <button onClick={() => setApproveModalReq(null)} className={`p-1.5 rounded-lg ${isDark ? "hover:bg-gray-800 text-gray-400" : "hover:bg-gray-100 text-gray-500"}`}>
+                <XMarkIcon className="w-5 h-5" />
+              </button>
+            </div>
+            <p className={`text-sm mb-4 ${isDark ? "text-gray-300" : "text-gray-600"}`}>
+              Approving <strong>{approveModalReq.course_name}</strong> for <strong>{approveModalReq.student_name}</strong>.<br />
+              Select the room where an exam is already taking place during the preferred time. The irregular student's exam will be added to that session.
+            </p>
+            <div className={`mb-4 p-3 rounded-lg text-xs ${isDark ? "bg-blue-900/20 text-blue-300 border border-blue-800/40" : "bg-blue-50 text-blue-700 border border-blue-100"}`}>
+              <span className="font-bold">Requested timeslot:</span>{" "}
+              {approveModalReq.preferred_date ? `${approveModalReq.preferred_date} · ${approveModalReq.preferred_time || "TBD"}` : "Not specified"}
+            </div>
+            {loadingRooms ? (
+              <div className="flex items-center gap-2 py-4">
+                <div className="w-5 h-5 rounded-full border-4 border-t-blue-500 animate-spin" />
+                <span className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}>Loading rooms with active exams...</span>
+              </div>
+            ) : (
+              <>
+                {availableRooms.length === 0 ? (
+                  <div className={`p-3 rounded-lg text-sm mb-4 ${isDark ? "bg-yellow-900/20 text-yellow-300 border border-yellow-800/40" : "bg-yellow-50 text-yellow-700 border border-yellow-200"}`}>
+                    ⚠ No exams are scheduled during this time slot. The student cannot be assigned to a room.
+                  </div>
+                ) : (
+                  <>
+                    <p className={`text-xs mb-2 font-semibold uppercase tracking-wide ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                      Rooms with active exams at this time:
+                    </p>
+                    <select
+                      value={selectedRoomId}
+                      onChange={(e) => setSelectedRoomId(e.target.value)}
+                      className={`w-full p-3 rounded-xl border text-sm mb-4 ${isDark ? "bg-gray-800 border-gray-600 text-white" : "bg-white border-gray-300 text-gray-900"}`}
+                    >
+                      <option value="">— Select a room —</option>
+                      {availableRooms.map((r) => (
+                        <option key={r.id} value={r.id}>
+                          {r.name}{r.building ? ` — ${r.building}` : ""}{r.exam_subject ? ` · ${r.exam_subject}` : ""}{r.capacity ? ` (cap: ${r.capacity})` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </>
+                )}
+              </>
+            )}
+            <div className="flex gap-3 justify-end mt-2">
+              <button
+                onClick={() => setApproveModalReq(null)}
+                className={`px-4 py-2 rounded-xl text-sm font-semibold ${isDark ? "bg-gray-700 text-white hover:bg-gray-600" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  const roomId = selectedRoomId ? parseInt(selectedRoomId) : null;
+                  await handleReview(approveModalReq.id, "approved", "", roomId);
+                  setApproveModalReq(null);
+                }}
+                className="px-5 py-2 rounded-xl text-sm font-bold bg-green-500 hover:bg-green-600 text-white transition"
+              >
+                Confirm Approve
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
 
 function ChatSupportPanel() {
   const { theme } = useTheme();
@@ -1186,8 +1287,8 @@ function NavItem({ item, activeTab, setActiveTab, isDark, badge, onSelect }) {
 }
 
 function NavSidebar({ activeTab, setActiveTab, isDark, unreadChatCount, pendingRescheduleCount, onSelectNavItem }) {
-  const schedulingIds = ["generate", "schedules"];
-  const managementIds = ["proctors", "rooms", "monitoring", "rescheduling", "chat"];
+  const schedulingIds = ["generate", "schedules", "durations"];
+  const managementIds = ["proctors", "rooms", "monitoring", "rescheduling", "chat", "section-students"];
   const dataIds = ["import", "students", "rules"];
 
   const isSchedulingActive = schedulingIds.includes(activeTab);
@@ -1200,6 +1301,7 @@ function NavSidebar({ activeTab, setActiveTab, isDark, unreadChatCount, pendingR
       <NavGroup label="Scheduling" icon={CalendarIcon} defaultOpen={isSchedulingActive} isDark={isDark}>
         <NavItem item={{ id: "generate", icon: CalendarIcon, label: "Generate Schedule" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
         <NavItem item={{ id: "schedules", icon: CalendarDaysIcon, label: "Generated Schedules" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
+        <NavItem item={{ id: "durations", icon: ClockIcon, label: "Subject Management" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
       </NavGroup>
 
       {/* Management Group */}
@@ -1209,6 +1311,7 @@ function NavSidebar({ activeTab, setActiveTab, isDark, unreadChatCount, pendingR
         <NavItem item={{ id: "monitoring", icon: ShieldCheckIcon, label: "Proctor Monitoring" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
         <NavItem item={{ id: "rescheduling", icon: ClipboardDocumentListIcon, label: "Rescheduling" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={pendingRescheduleCount} onSelect={onSelectNavItem} />
         <NavItem item={{ id: "chat", icon: ChatBubbleLeftRightIcon, label: "Chat" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={unreadChatCount} onSelect={onSelectNavItem} />
+        <NavItem item={{ id: "section-students", icon: UserGroupIcon, label: "Section Roster" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
       </NavGroup>
 
       {/* Data & Imports Group */}
@@ -1518,15 +1621,17 @@ export default function ProgramHeadDashboard() {
                   <h1 className={`text-base sm:text-2xl font-bold tracking-tight transition-colors truncate ${isDark ? "text-white" : "text-slate-900"}`}>
                     {activeTab === "generate" ? "Exam Schedule Generator" :
                       activeTab === "schedules" ? "Generated Exam Schedules" :
-                        activeTab === "proctors" ? "Proctor Management" :
-                          activeTab === "rooms" ? "Room Management" :
-                            activeTab === "monitoring" ? "Proctor Attendance Monitoring" :
-                              activeTab === "rescheduling" ? "Rescheduling Requests" :
-                                activeTab === "chat" ? "Chat" :
-                                  activeTab === "rules" ? "Distribution Rules" :
-                                    activeTab === "import" ? "Curriculum & Catalog Import" :
-                                      activeTab === "students" ? "Student Accounts & Import" :
-                                        activeTab === "manual" ? "User Manual" : "Program Head Dashboard"}
+                        activeTab === "durations" ? "Subject Management" :
+                          activeTab === "proctors" ? "Proctor Management" :
+                            activeTab === "rooms" ? "Room Management" :
+                              activeTab === "monitoring" ? "Proctor Attendance Monitoring" :
+                                activeTab === "rescheduling" ? "Rescheduling Requests" :
+                                  activeTab === "chat" ? "Chat" :
+                                    activeTab === "rules" ? "Distribution Rules" :
+                                      activeTab === "import" ? "Curriculum & Catalog Import" :
+                                         activeTab === "students" ? "Student Accounts & Import" :
+                                           activeTab === "section-students" ? "Exam Attendance Roster" :
+                                             activeTab === "manual" ? "User Manual" : "Program Head Dashboard"}
                   </h1>
                 </div>
               </div>
@@ -1647,14 +1752,16 @@ export default function ProgramHeadDashboard() {
                   <StudentImport isGenerating={isGenerationRunning} />
                 </div>
                 {activeTab === "schedules" ? <GeneratedExamSchedules isGenerating={isGenerationRunning} /> :
-                  activeTab === "proctors" ? <AddProctor isGenerating={isGenerationRunning} /> :
-                    activeTab === "rooms" ? <RoomManagement isGenerating={isGenerationRunning} /> :
-                      activeTab === "rules" ? <DistributionRulesManager isGenerating={isGenerationRunning} /> :
-                        activeTab === "monitoring" ? <ProctorMonitoring /> :
-                          activeTab === "rescheduling" ? <ReschedulingRequests isGenerating={isGenerationRunning} onRequestsChange={handlePendingRescheduleCountChange} /> :
-                            activeTab === "chat" ? <ChatSupportPanel /> :
-                              activeTab === "manual" ? <ProgramHeadManual /> :
-                                null}
+                  activeTab === "durations" ? <SubjectDurationsManager isGenerating={isGenerationRunning} /> :
+                    activeTab === "proctors" ? <AddProctor isGenerating={isGenerationRunning} /> :
+                      activeTab === "rooms" ? <RoomManagement isGenerating={isGenerationRunning} /> :
+                        activeTab === "rules" ? <DistributionRulesManager isGenerating={isGenerationRunning} /> :
+                          activeTab === "monitoring" ? <ProctorMonitoring /> :
+                            activeTab === "rescheduling" ? <ReschedulingRequests isGenerating={isGenerationRunning} onRequestsChange={handlePendingRescheduleCountChange} /> :
+                              activeTab === "chat" ? <ChatSupportPanel /> :
+                                activeTab === "section-students" ? <SectionStudentList /> :
+                                  activeTab === "manual" ? <ProgramHeadManual /> :
+                                    null}
               </div>
             </div>
 

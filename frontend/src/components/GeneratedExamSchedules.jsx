@@ -229,10 +229,18 @@ export default function GeneratedExamSchedules({ isGenerating }) {
         selectedDept === "SHS" ? y.name.includes("Grade") : !y.name.includes("Grade")
     );
 
-    // Reset subordinate filters when dept changes
+    // Reset subordinate filters and set term/semester defaults when dept changes
     useEffect(() => {
         setCourseId("");
         setYearId("");
+        if (selectedDept === "SHS") {
+            setSelectedTerm("ST1");
+        } else {
+            setSelectedTerm("Midterm");
+            if (semester > 2) {
+                setSemester(1);
+            }
+        }
     }, [selectedDept]);
 
     const examsBySection = exams.reduce((groups, exam) => {
@@ -437,7 +445,9 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                     >
                                         <option value={1}>1st Semester</option>
                                         <option value={2}>2nd Semester</option>
-                                        <option value={3}>3rd Semester</option>
+                                        {selectedDept === "SHS" && (
+                                            <option value={3}>3rd Semester</option>
+                                        )}
                                     </select>
                                 </div>
 
@@ -456,10 +466,20 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                             : "bg-gray-50 text-gray-700 border-gray-200"
                                             }`}
                                     >
-                                        <option value="Prelim">Prelim</option>
-                                        <option value="Midterm">Midterm</option>
-                                        <option value="Pre-Final">Pre-Final</option>
-                                        <option value="Final">Final</option>
+                                        {selectedDept === "SHS" ? (
+                                            <>
+                                                <option value="ST1">Summative Test 1 (ST1)</option>
+                                                <option value="ST2">Summative Test 2 (ST2)</option>
+                                                <option value="T1">Term 1 (T1)</option>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <option value="Prelim">Prelim</option>
+                                                <option value="Midterm">Midterm</option>
+                                                <option value="Pre-Final">Pre-Final</option>
+                                                <option value="Final">Final</option>
+                                            </>
+                                        )}
                                     </select>
                                 </div>
                             </div>

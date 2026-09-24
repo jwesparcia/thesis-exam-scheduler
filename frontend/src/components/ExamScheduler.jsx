@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { CalendarDaysIcon, DocumentTextIcon, ArrowPathIcon, BookOpenIcon, SparklesIcon, XMarkIcon, ExclamationTriangleIcon } from "@heroicons/react/24/outline";
+import { CalendarDaysIcon, DocumentTextIcon, ArrowPathIcon, BookOpenIcon, SparklesIcon, XMarkIcon, ExclamationTriangleIcon, ClockIcon } from "@heroicons/react/24/outline";
 import { useTheme } from "../context/themeStore";
 import api from "../api";
 import { useToast } from "../context/ToastContext";
@@ -30,6 +30,8 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
   const activeProgressJobRef = useRef(null);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [dailyStartTime, setDailyStartTime] = useState("07:30");
+  const [dailyEndTime, setDailyEndTime] = useState("17:00");
   const [subjects, setSubjects] = useState([]);
   const [subjectsLoading, setSubjectsLoading] = useState(false);
   const [subjectsError, setSubjectsError] = useState("");
@@ -53,14 +55,25 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
     });
   }, [loading, generationProgress, onGenerationStateChange]);
 
-  // Fetch courses and year levels
+  // Fetch courses, year levels, and exam settings
   useEffect(() => {
     const fetchOptions = async () => {
       try {
-        const courseRes = await api.get("/catalog/courses");
-        const yearRes = await api.get("/catalog/year-levels");
-        setCourses(courseRes.data);
-        setYears(yearRes.data);
+        const [courseRes, yearRes, settingsRes] = await Promise.allSettled([
+          api.get("/catalog/courses"),
+          api.get("/catalog/year-levels"),
+          api.get("/exams/settings"),
+        ]);
+        if (courseRes.status === "fulfilled") setCourses(courseRes.value.data);
+        if (yearRes.status === "fulfilled") setYears(yearRes.value.data);
+        if (settingsRes.status === "fulfilled" && settingsRes.value.data) {
+          if (settingsRes.value.data.daily_start_time) {
+            setDailyStartTime(settingsRes.value.data.daily_start_time);
+          }
+          if (settingsRes.value.data.daily_end_time) {
+            setDailyEndTime(settingsRes.value.data.daily_end_time);
+          }
+        }
       } catch (err) {
         console.error("Error loading options:", err);
         showError("Failed to connect to backend API");
@@ -218,10 +231,18 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
     selectedDept === "SHS" ? y.name.includes("Grade") : !y.name.includes("Grade")
   );
 
-  // Reset subordinate filters when dept changes
+  // Reset subordinate filters and adjust term/semester when dept changes
   useEffect(() => {
     setCourseId("");
     setYearId("");
+    if (selectedDept === "SHS") {
+      setTerm("ST1");
+    } else {
+      setTerm("Midterm");
+      if (semester > 2) {
+        setSemester(1);
+      }
+    }
   }, [selectedDept]);
 
   // Check for missing schedules before generation (warning only)
@@ -307,6 +328,8 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
         excluded_subjects: Array.from(excludedSubjects),
         job_id: jobId,
         force_overwrite: forceOverwrite,
+        daily_start_time: dailyStartTime,
+        daily_end_time: dailyEndTime,
       });
       const data = res.data;
       setGenerationProgress({
@@ -502,7 +525,9 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
                 >
                   <option value={1}>1st Semester</option>
                   <option value={2}>2nd Semester</option>
-                  {/*<option value={3}>3rd Semester</option>*/}
+                  {selectedDept === "SHS" && (
+                    <option value={3}>3rd Semester</option>
+                  )}
                 </select>
               </div>
               <div className="w-full md:w-64">
@@ -518,10 +543,20 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
                     : "bg-white text-gray-700 border-gray-200"
                     } ${loading ? "opacity-60 cursor-not-allowed" : ""}`}
                 >
-                  <option value="Prelim">Prelim</option>
-                  <option value="Midterm">Midterm</option>
-                  <option value="Pre-Final">Pre-Final</option>
-                  <option value="Final">Final</option>
+                  {selectedDept === "SHS" ? (
+                    <>
+                      <option value="ST1">Summative Test 1 (ST1)</option>
+                      <option value="ST2">Summative Test 2 (ST2)</option>
+                      <option value="T1">Term 1 (T1)</option>
+                    </>
+                  ) : (
+                    <>
+                      <option value="Prelim">Prelim</option>
+                      <option value="Midterm">Midterm</option>
+                      <option value="Pre-Final">Pre-Final</option>
+                      <option value="Final">Final</option>
+                    </>
+                  )}
                 </select>
               </div>
             </div>
@@ -579,10 +614,10 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
                 </div>
               </div>
 
-              {/* Exam Range */}
-              <div className="pt-4 border-t border-gray-100 dark:border-gray-800">
-                <label className={`block text-sm font-semibold mb-4 ${isDark ? "text-gray-300" : "text-gray-700"}`}>
-                  2. Set Examination Period
+              {/* Exam Range & Daily Time Window */}
+              <div className="pt-4 border-t border-gray-100 dark:border-gray-800 space-y-5">
+                <label className={`block text-sm font-semibold ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+                  2. Set Examination Period & Daily Time Window
                 </label>
                 <div className="flex flex-col md:flex-row gap-6">
                   <div className="flex-1 space-y-2">
@@ -621,8 +656,63 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
                     />
                   </div>
                 </div>
-                <p className={`mt-3 text-xs ${isDark ? "text-gray-500" : "text-gray-400"} italic`}>
-                  Recommended: Select a 4-day range. Sundays are automatically skipped.
+
+                {/* Daily Exam Hours */}
+                <div className="flex flex-col md:flex-row gap-6">
+                  <div className="flex-1 space-y-2">
+                    <label className={`block text-xs font-medium uppercase tracking-wider flex items-center gap-1.5 ${isDark ? "text-gray-500" : "text-gray-400"}`}>
+                      <ClockIcon className="w-3.5 h-3.5 text-blue-500" />
+                      Daily Exam Start Time
+                    </label>
+                    <input
+                      type="time"
+                      value={dailyStartTime}
+                      onChange={(e) => setDailyStartTime(e.target.value)}
+                      className={`rounded-xl p-3 w-full focus:ring-2 focus:ring-blue-400 transition-all ${isDark
+                        ? "bg-gray-800 text-gray-200 border-gray-700"
+                        : "bg-gray-50 text-gray-700 border-gray-200"
+                        }`}
+                    />
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <label className={`block text-xs font-medium uppercase tracking-wider flex items-center gap-1.5 ${isDark ? "text-gray-500" : "text-gray-400"}`}>
+                      <ClockIcon className="w-3.5 h-3.5 text-blue-500" />
+                      Daily Exam End Time
+                    </label>
+                    <input
+                      type="time"
+                      value={dailyEndTime}
+                      onChange={(e) => setDailyEndTime(e.target.value)}
+                      className={`rounded-xl p-3 w-full focus:ring-2 focus:ring-blue-400 transition-all ${isDark
+                        ? "bg-gray-800 text-gray-200 border-gray-700"
+                        : "bg-gray-50 text-gray-700 border-gray-200"
+                        }`}
+                    />
+                  </div>
+                </div>
+
+                {/* Subject Allotted Time Info Banner */}
+                <div className={`p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                  isDark ? "bg-blue-950/20 border-blue-800/40 text-blue-200" : "bg-blue-50/80 border-blue-200 text-blue-900"
+                }`}>
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 rounded-lg bg-blue-500/10 text-blue-500 shrink-0 mt-0.5">
+                      <ClockIcon className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold uppercase tracking-wider">Exam Allotted Durations</h4>
+                      <p className="text-xs mt-0.5 opacity-90 leading-relaxed">
+                        School Standard: <strong>1h 15m (75 mins)</strong> &bull; BSA Major Subjects: <strong>2h 00m (120 mins)</strong>
+                      </p>
+                      <p className="text-[11px] opacity-75 mt-0.5">
+                        To customize allotted time for specific subjects or courses, open the <strong>Subject Durations</strong> tab.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <p className={`text-xs ${isDark ? "text-gray-500" : "text-gray-400"} italic`}>
+                  Recommended: 4-day period. Morning sessions typically run from {dailyStartTime} to 11:30 AM, and afternoon sessions from 01:00 PM to {dailyEndTime}.
                 </p>
               </div>
 

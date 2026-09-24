@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 from core import get_db
-from model import ReschedulingRequest, Exam, Notification, User, Timeslot
+from model import ReschedulingRequest, Exam, Notification, User, Timeslot, Room
 from schema import ReschedulingRequestCreate, ReschedulingRequest as ReschedulingRequestSchema, ReschedulingRequestUpdate
 from datetime import datetime
 from .auth import get_current_user, require_role
@@ -11,12 +11,13 @@ router = APIRouter(prefix="/rescheduling", tags=["Rescheduling Requests"])
 
 @router.post("/submit")
 def submit_rescheduling_request(request: ReschedulingRequestCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    if current_user.role == "student" and current_user.section_name != request.section_name:
+    if current_user.role == "student" and current_user.student_type != "irregular" and current_user.section_name != request.section_name:
         raise HTTPException(status_code=403, detail="Unauthorized: You can only submit requests for your own section")
     exam = db.query(Exam).filter(Exam.id == request.exam_id).first()
     if not exam:
         raise HTTPException(status_code=404, detail="Exam not found")
-    if request.section_name != exam.section.name:
+    # Only enforce section match for regular students; irregular students take exams across sections
+    if current_user.student_type != "irregular" and request.section_name and request.section_name != exam.section.name:
         raise HTTPException(status_code=403, detail="Unauthorized: Section mismatch")
     existing = db.query(ReschedulingRequest).filter(
         ReschedulingRequest.exam_id == request.exam_id,
@@ -73,8 +74,7 @@ def submit_rescheduling_request(request: ReschedulingRequestCreate, db: Session 
         preferred_date=pref_date,
         preferred_start_time=pref_start,
         preferred_end_time=pref_end,
-        acknowledged=request.acknowledged,
-        reason=request.detailed_explanation
+        acknowledged=request.acknowledged
     )
     db.add(db_request)
     db.commit()
@@ -183,6 +183,14 @@ def review_request(request_id: int, update: ReschedulingRequestUpdate, db: Sessi
                 )
                 db.add(ts)
                 db.flush()
+
+            # For irregular students being rescheduled, we intentionally allow placing
+            # them into a room that already has an exam at the same timeslot.
+            # The admin must select a room from those already active at that time.
+            if update.room_id is not None:
+                exam.room_id = update.room_id
+            else:
+                exam.room_id = None
             exam.timeslot_id = ts.id
 
     # Notify the student requesting the reschedule
@@ -199,6 +207,62 @@ def review_request(request_id: int, update: ReschedulingRequestUpdate, db: Sessi
     db.commit()
     log_activity(db, current_user.id, "RESCHEDULING_REVIEW", f"Request ID: {request_id}, Status: {update.status}")
     return {"message": f"Request {update.status}"}
+
+@router.get("/{request_id}/available-rooms")
+def get_available_rooms_for_request(
+    request_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(["admin"]))
+):
+    """Return rooms that HAVE exams scheduled during the student's preferred timeslot.
+    For irregular-student rescheduling, the admin must place the student into an
+    existing exam session, so only rooms with active exams at that time are shown.
+    """
+    request = db.query(ReschedulingRequest).filter(ReschedulingRequest.id == request_id).first()
+    if not request:
+        raise HTTPException(status_code=404, detail="Request not found")
+
+    # If no preferred timeslot specified, return empty list (admin cannot proceed without a time)
+    if not (request.preferred_date and request.preferred_start_time and request.preferred_end_time):
+        return []
+
+    # Find the timeslot matching the preferred schedule
+    ts = db.query(Timeslot).filter(
+        Timeslot.date == request.preferred_date,
+        Timeslot.start_time == request.preferred_start_time,
+        Timeslot.end_time == request.preferred_end_time
+    ).first()
+
+    if not ts:
+        # No exams exist at this timeslot yet — no rooms to show
+        return []
+
+    # Find rooms that already have an exam at this timeslot (excluding the student's own exam)
+    exams_at_timeslot = db.query(Exam).filter(
+        Exam.timeslot_id == ts.id,
+        Exam.room_id.isnot(None),
+        Exam.id != request.exam_id
+    ).all()
+
+    # Collect unique room IDs with active exams, preserving subject info for display
+    seen_room_ids = set()
+    result = []
+    for exam_entry in exams_at_timeslot:
+        if exam_entry.room_id in seen_room_ids:
+            continue
+        seen_room_ids.add(exam_entry.room_id)
+        room = db.query(Room).filter(Room.id == exam_entry.room_id).first()
+        if room:
+            result.append({
+                "id": room.id,
+                "name": room.name,
+                "building": room.building,
+                "capacity": room.capacity,
+                "exam_subject": exam_entry.subject.name if exam_entry.subject else None
+            })
+
+    return sorted(result, key=lambda r: r["name"])
+
 
 @router.get("/my-requests/{section_name}")
 def get_my_requests(section_name: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):

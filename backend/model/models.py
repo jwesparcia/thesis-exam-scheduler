@@ -57,6 +57,8 @@ class Subject(Base):
     teacher_id = Column(Integer, ForeignKey("teachers.id"))
     exam_type = Column(String, default="written")
     category = Column(String, default="major")
+    duration_minutes = Column(Integer, default=75, nullable=False)
+    term = Column(String, default="All", nullable=True)
     
     course = relationship("Course", back_populates="subjects")
     year_level = relationship("YearLevel", back_populates="subjects")
@@ -129,13 +131,10 @@ class Timeslot(Base):
 class Exam(Base):
     __tablename__ = "exams"
     __table_args__ = (
-        Index(
-            "uq_exam_room_timeslot",
-            "room_id",
-            "timeslot_id",
-            unique=True,
-            postgresql_where=text("room_id IS NOT NULL AND timeslot_id IS NOT NULL"),
-        ),
+        # NOTE: The unique constraint on (room_id, timeslot_id) was intentionally removed
+        # to allow irregular student exams to be placed in rooms that already have an exam
+        # at the same timeslot. Conflict prevention for regular exams is handled at the
+        # application level in the scheduling service.
     )
     id = Column(Integer, primary_key=True, index=True)
     subject_id = Column(Integer, ForeignKey("subjects.id"))
@@ -220,6 +219,7 @@ class User(Base):
     proctor_id = Column(Integer, ForeignKey("proctors.id"), nullable=True)
     student_type = Column(String, default="regular")  
     course_id = Column(Integer, ForeignKey("courses.id"), nullable=True)
+    student_id = Column(String, nullable=True, index=True)
     is_first_login = Column(Boolean, default=True)
 
 class IrregularSelection(Base):
@@ -261,4 +261,10 @@ class ChatMessage(Base):
 
     sender = relationship("User", foreign_keys=[sender_id])
     recipient = relationship("User", foreign_keys=[recipient_id])
+
+class SystemSetting(Base):
+    __tablename__ = "system_settings"
+    id = Column(Integer, primary_key=True, index=True)
+    key = Column(String, unique=True, index=True)
+    value = Column(String)
 
