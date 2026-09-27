@@ -343,6 +343,7 @@ def list_rooms(
         return cached
 
     query = db.query(Room)
+    query = query.filter(Room.name != "Consultation Area")
     if department:
         query = query.filter(Room.department == department)
     rooms = query.order_by(Room.name).all()
@@ -628,7 +629,8 @@ def get_room_status(
     # Collect exam IDs that were assigned via an approved rescheduling request,
     # and count how many irregular students are rescheduled to each exam.
     approved_requests = db.query(
-        ReschedulingRequest.exam_id
+        ReschedulingRequest.exam_id,
+        ReschedulingRequest.rescheduled_exam_id,
     ).filter(
         ReschedulingRequest.status == "approved",
         ReschedulingRequest.exam_id.isnot(None),
@@ -637,8 +639,9 @@ def get_room_status(
     rescheduled_exam_ids = set()
     rescheduled_student_counts: dict = {}  # exam_id -> number of irregular students
     for row in approved_requests:
-        rescheduled_exam_ids.add(row.exam_id)
-        rescheduled_student_counts[row.exam_id] = rescheduled_student_counts.get(row.exam_id, 0) + 1
+        scheduled_exam_id = row.rescheduled_exam_id or row.exam_id
+        rescheduled_exam_ids.add(scheduled_exam_id)
+        rescheduled_student_counts[scheduled_exam_id] = rescheduled_student_counts.get(scheduled_exam_id, 0) + 1
 
     room_bookings = {room.id: [] for room in rooms}
     unassigned_exams = []

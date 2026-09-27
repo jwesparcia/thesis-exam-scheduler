@@ -129,6 +129,8 @@ export default function SectionStudentList() {
   // Print a single exam roster
   const handlePrint = (exam) => {
     const students = exam.displayStudents ?? exam.students;
+    const fontSize = Math.max(4, Math.min(10, 420 / Math.max(students.length, 1)));
+    const cellPadding = Math.max(0.5, Math.min(4, 160 / Math.max(students.length, 1)));
     const rows = students
       .map(
         (s, i) => `
@@ -143,17 +145,29 @@ export default function SectionStudentList() {
       .join("");
 
     const html = `
+      <!DOCTYPE html>
       <html><head><title>Attendance Roster</title>
       <style>
-        body { font-family: Arial, sans-serif; font-size: 12px; padding: 20px; }
-        h2 { margin: 0; font-size: 16px; }
-        .meta { margin: 8px 0 16px; color: #555; }
-        table { width: 100%; border-collapse: collapse; }
-        th { background: #f0f0f0; padding: 6px 8px; text-align: left; border: 1px solid #ccc; }
-        td { padding: 6px 8px; border: 1px solid #ddd; }
-        .footer { margin-top: 24px; font-size: 11px; color: #888; }
+        @page { size: A4 landscape; margin: 5mm; }
+        @media print {
+          @page { size: A4 landscape; margin: 5mm; }
+        }
+        * { box-sizing: border-box; }
+        html, body { width: 287mm; height: 200mm; margin: 0; overflow: hidden; }
+        body { font-family: Arial, sans-serif; font-size: ${fontSize}px; line-height: 1.1; }
+        #sheet { width: 287mm; height: 200mm; overflow: hidden; }
+        #fit-content { width: 100%; transform-origin: top left; }
+        h2 { margin: 0 0 2mm; font-size: 1.5em; }
+        .meta { margin: 0 0 3mm; color: #555; }
+        table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+        th { background: #f0f0f0; text-align: left; border: 1px solid #ccc; }
+        th, td { padding: ${cellPadding}px 4px; }
+        td { border: 1px solid #ddd; }
+        .footer { margin-top: 2mm; font-size: 0.9em; color: #888; }
+        tr { break-inside: avoid; page-break-inside: avoid; }
       </style></head>
       <body>
+        <main id="sheet"><div id="fit-content">
         <h2>Exam Attendance Roster</h2>
         <div class="meta">
           <strong>${exam.subject_code} — ${exam.subject_name}</strong><br/>
@@ -171,13 +185,21 @@ export default function SectionStudentList() {
           <tbody>${rows}</tbody>
         </table>
         <div class="footer">Generated: ${new Date().toLocaleString()} — Total: ${students.length} student(s)</div>
+        </div></main>
+        <script>
+          requestAnimationFrame(() => {
+            const content = document.getElementById("fit-content");
+            const scale = Math.min(1, 756 / content.scrollHeight, 1084 / content.scrollWidth);
+            content.style.transform = \`scale(\${scale})\`;
+            window.print();
+          });
+        </script>
       </body></html>`;
 
     const win = window.open("", "_blank");
     win.document.write(html);
     win.document.close();
     win.focus();
-    win.print();
   };
 
   if (loading) {

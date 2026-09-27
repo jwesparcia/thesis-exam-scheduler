@@ -173,6 +173,7 @@ def get_exams_attendance_roster(
     # Pre-fetch all student users
     all_students = db.query(User).filter(User.role == "student").all()
     student_by_id = {s.id: s for s in all_students}
+    student_by_email = {s.email: s for s in all_students}
 
     # Build map: section_name -> list of regular students
     regular_map = {}
@@ -193,6 +194,15 @@ def get_exams_attendance_roster(
         subj_name = subject_name_by_id.get(sel.subject_id, "")
         key = (sel.section_id, subj_name.lower().strip())
         irr_map.setdefault(key, set()).add(sel.user_id)
+
+    consultation_requests = db.query(ReschedulingRequest).filter(
+        ReschedulingRequest.status == "approved",
+        ReschedulingRequest.rescheduled_exam_id.isnot(None),
+    ).all()
+    consultation_request_by_exam = {req.rescheduled_exam_id: req for req in consultation_requests}
+    consultation_emails_by_source_exam = {}
+    for req in consultation_requests:
+        consultation_emails_by_source_exam.setdefault(req.exam_id, set()).add(req.school_email)
 
     result = []
     for exam in exams:
@@ -217,42 +227,56 @@ def get_exams_attendance_roster(
             end_time = "-"
             date_iso = None
 
-        # Regular students in this section
         section_name = section.name if section else ""
-        reg_students = regular_map.get(section_name, [])
-        reg_list = [
-            {
-                "id": s.id,
-                "name": s.name,
-                "email": s.email,
-                "student_id": s.student_id or "",
-                "student_type": "regular",
-            }
-            for s in reg_students
-        ]
+        consultation_request = consultation_request_by_exam.get(exam.id)
+        if consultation_request:
+            student = student_by_email.get(consultation_request.school_email)
+            all_students_list = [{
+                "id": student.id,
+                "name": student.name,
+                "email": student.email,
+                "student_id": student.student_id or "",
+                "student_type": "irregular",
+            }] if student else []
+        else:
+            reg_students = regular_map.get(section_name, [])
+            reg_list = [
+                {
+                    "id": s.id,
+                    "name": s.name,
+                    "email": s.email,
+                    "student_id": s.student_id or "",
+                    "student_type": "regular",
+                }
+                for s in reg_students
+            ]
 
-        # Irregular students who selected this subject for this section
-        irr_list = []
-        if section and subject:
-            exam_subj_name = (subject.name or "").lower().strip()
-            key = (section.id, exam_subj_name)
-            irr_user_ids = irr_map.get(key, set())
-            for uid in irr_user_ids:
-                s = student_by_id.get(uid)
-                if s:
-                    irr_list.append({
-                        "id": s.id,
-                        "name": s.name,
-                        "email": s.email,
-                        "student_id": s.student_id or "",
-                        "student_type": "irregular",
-                    })
+            # Irregular students who selected this subject for this section
+            irr_list = []
+            if section and subject:
+                exam_subj_name = (subject.name or "").lower().strip()
+                key = (section.id, exam_subj_name)
+                irr_user_ids = irr_map.get(key, set())
+                for uid in irr_user_ids:
+                    s = student_by_id.get(uid)
+                    if s:
+                        irr_list.append({
+                            "id": s.id,
+                            "name": s.name,
+                            "email": s.email,
+                            "student_id": s.student_id or "",
+                            "student_type": "irregular",
+                        })
 
-        # Alphabetical sort by last name (last word of the full name)
-        def last_name_key(s):
-            parts = (s["name"] or "").strip().split()
-            return parts[-1].lower() if parts else ""
-        all_students_list = sorted(reg_list + irr_list, key=last_name_key)
+            rescheduled_emails = consultation_emails_by_source_exam.get(exam.id, set())
+            if rescheduled_emails:
+                irr_list = [student for student in irr_list if student["email"] not in rescheduled_emails]
+
+            # Alphabetical sort by last name (last word of the full name)
+            def last_name_key(s):
+                parts = (s["name"] or "").strip().split()
+                return parts[-1].lower() if parts else ""
+            all_students_list = sorted(reg_list + irr_list, key=last_name_key)
 
         result.append({
             "exam_id": exam.id,

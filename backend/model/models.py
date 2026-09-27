@@ -179,11 +179,13 @@ class ReschedulingRequest(Base):
     preferred_date = Column(Date, nullable=True)
     preferred_start_time = Column(Time, nullable=True)
     preferred_end_time = Column(Time, nullable=True)
+    rescheduled_exam_id = Column(Integer, ForeignKey("exams.id"), nullable=True)
     acknowledged = Column(Boolean, default=False)
     status = Column(String, default="pending")
     reviewer_comments = Column(String, nullable=True)
     
     exam = relationship("Exam", foreign_keys=[exam_id], primaryjoin="ReschedulingRequest.exam_id == Exam.id")
+    rescheduled_exam = relationship("Exam", foreign_keys=[rescheduled_exam_id])
 
 class Notification(Base):
     __tablename__ = "notifications"

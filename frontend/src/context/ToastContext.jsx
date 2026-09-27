@@ -44,6 +44,23 @@ export const ToastProvider = ({ children }) => {
 };
 
 const ToastItem = ({ message, type, onClose }) => {
+    const messageText = (() => {
+        if (typeof message === "string") return message;
+        if (Array.isArray(message)) {
+            return message.map((item) => typeof item === "string" ? item : item?.msg || JSON.stringify(item)).join("; ");
+        }
+        if (message && typeof message === "object") {
+            if (typeof message.detail === "string") return message.detail;
+            if (Array.isArray(message.detail)) {
+                return message.detail.map((item) => item?.msg || JSON.stringify(item)).join("; ");
+            }
+            if (typeof message.msg === "string") return message.msg;
+            if (typeof message.message === "string") return message.message;
+            return JSON.stringify(message);
+        }
+        return String(message ?? "");
+    })();
+
     const getStyles = () => {
         switch (type) {
             case "success":
@@ -67,7 +84,7 @@ const ToastItem = ({ message, type, onClose }) => {
         >
             <div className="flex items-center gap-3">
                 <ToastIcon type={type} />
-                <p className="text-sm font-medium">{message}</p>
+                <p className="text-sm font-medium">{messageText}</p>
             </div>
             <button onClick={onClose} className="hover:opacity-75 transition-opacity">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

@@ -1,13 +1,23 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
-from core import get_db
-from model import ReschedulingRequest, Exam, Notification, User, Timeslot, Room
+from core import get_db, cache
+from model import ReschedulingRequest, Exam, Notification, User, Timeslot, Room, Proctor
 from schema import ReschedulingRequestCreate, ReschedulingRequest as ReschedulingRequestSchema, ReschedulingRequestUpdate
-from datetime import datetime
+from datetime import datetime, time
 from .auth import get_current_user, require_role
 from utils.logging import log_activity
 
 router = APIRouter(prefix="/rescheduling", tags=["Rescheduling Requests"])
+
+
+def is_consultation_request(db: Session, request: ReschedulingRequest) -> bool:
+    student = db.query(User).filter(User.email == request.school_email).first()
+    return bool(
+        student
+        and student.student_type == "irregular"
+        and request.preferred_start_time
+        and request.preferred_start_time >= time(17, 0)
+    )
 
 @router.post("/submit")
 def submit_rescheduling_request(request: ReschedulingRequestCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
@@ -123,6 +133,7 @@ def get_pending_requests(db: Session = Depends(get_db), current_user: User = Dep
             "requested_mode": req.requested_mode,
             "preferred_date": req.preferred_date.strftime("%Y-%m-%d") if req.preferred_date else None,
             "preferred_time": f"{req.preferred_start_time.strftime('%I:%M %p')} - {req.preferred_end_time.strftime('%I:%M %p')}" if req.preferred_start_time and req.preferred_end_time else None,
+            "consultation_area": is_consultation_request(db, req),
             "acknowledged": req.acknowledged
         })
     return result
@@ -151,7 +162,9 @@ def get_rescheduling_history(db: Session = Depends(get_db), current_user: User =
             "preferred_date": req.preferred_date.strftime("%Y-%m-%d") if req.preferred_date else None,
             "preferred_time": f"{req.preferred_start_time.strftime('%I:%M %p')} - {req.preferred_end_time.strftime('%I:%M %p')}" if req.preferred_start_time and req.preferred_end_time else None,
             "status": req.status,
-            "reviewer_comments": req.reviewer_comments
+            "reviewer_comments": req.reviewer_comments,
+            "room": (req.rescheduled_exam or req.exam).room.name if (req.rescheduled_exam or req.exam) and (req.rescheduled_exam or req.exam).room else None,
+            "proctor": (req.rescheduled_exam or req.exam).proctor.name if (req.rescheduled_exam or req.exam) and (req.rescheduled_exam or req.exam).proctor else None,
         })
     return result
 
@@ -169,6 +182,16 @@ def review_request(request_id: int, update: ReschedulingRequestUpdate, db: Sessi
 
     if update.status == "approved":
         exam = request.exam
+        consultation_request = is_consultation_request(db, request)
+        if consultation_request:
+            if not (request.preferred_date and request.preferred_start_time and request.preferred_end_time):
+                raise HTTPException(status_code=400, detail="A preferred date and time are required for Consultation Area scheduling")
+            if not update.proctor_id:
+                raise HTTPException(status_code=400, detail="Assign a proctor before approving this request")
+            proctor = db.query(Proctor).filter(Proctor.id == update.proctor_id).first()
+            if not proctor:
+                raise HTTPException(status_code=404, detail="Proctor not found")
+
         if exam and request.preferred_date and request.preferred_start_time and request.preferred_end_time:
             ts = db.query(Timeslot).filter(
                 Timeslot.date == request.preferred_date,
@@ -184,14 +207,34 @@ def review_request(request_id: int, update: ReschedulingRequestUpdate, db: Sessi
                 db.add(ts)
                 db.flush()
 
-            # For irregular students being rescheduled, we intentionally allow placing
-            # them into a room that already has an exam at the same timeslot.
-            # The admin must select a room from those already active at that time.
-            if update.room_id is not None:
+            if consultation_request:
+                consultation_room = db.query(Room).filter(Room.name == "Consultation Area").first()
+                if not consultation_room:
+                    consultation_room = Room(name="Consultation Area", building="Consultation Area", capacity=1)
+                    db.add(consultation_room)
+                    db.flush()
+                assigned_exam = Exam(
+                    subject_id=exam.subject_id,
+                    section_id=exam.section_id,
+                    room_id=consultation_room.id,
+                    timeslot_id=ts.id,
+                    course_id=exam.course_id,
+                    year_level_id=exam.year_level_id,
+                    semester=exam.semester,
+                    term=exam.term,
+                    status=exam.status,
+                    proctor_id=update.proctor_id,
+                )
+                db.add(assigned_exam)
+                db.flush()
+                request.rescheduled_exam_id = assigned_exam.id
+            elif update.room_id is not None:
+                # Irregular students can join a room that already has an exam at this time.
                 exam.room_id = update.room_id
             else:
                 exam.room_id = None
-            exam.timeslot_id = ts.id
+            if not consultation_request:
+                exam.timeslot_id = ts.id
 
     # Notify the student requesting the reschedule
     student_user = db.query(User).filter(User.email == request.school_email).first()
@@ -205,6 +248,8 @@ def review_request(request_id: int, update: ReschedulingRequestUpdate, db: Sessi
     )
     db.add(notification)
     db.commit()
+    if update.status == "approved":
+        cache.invalidate_exam_schedules()
     log_activity(db, current_user.id, "RESCHEDULING_REVIEW", f"Request ID: {request_id}, Status: {update.status}")
     return {"message": f"Request {update.status}"}
 
@@ -242,7 +287,7 @@ def get_available_rooms_for_request(
         Exam.timeslot_id == ts.id,
         Exam.room_id.isnot(None),
         Exam.id != request.exam_id
-    ).all()
+    ).join(Room, Exam.room_id == Room.id).filter(Room.name != "Consultation Area").all()
 
     # Collect unique room IDs with active exams, preserving subject info for display
     seen_room_ids = set()

@@ -218,6 +218,8 @@ def get_student_requests(
             "preferred_date": r.preferred_date.strftime("%A, %B %d, %Y") if r.preferred_date else None,
             "preferred_start_time": r.preferred_start_time.strftime("%I:%M %p") if r.preferred_start_time else None,
             "preferred_end_time": r.preferred_end_time.strftime("%I:%M %p") if r.preferred_end_time else None,
+            "assigned_room": r.rescheduled_exam.room.name if r.rescheduled_exam and r.rescheduled_exam.room else None,
+            "assigned_proctor": r.rescheduled_exam.proctor.name if r.rescheduled_exam and r.rescheduled_exam.proctor else None,
         }
         for r in requests
     ]
@@ -538,9 +540,19 @@ def get_custom_exams(
     ).filter(
         Exam.status == "posted",
         or_(*conditions)
-    ).join(Exam.timeslot).order_by(Timeslot.date, Timeslot.start_time).all()
+    )
+
+    rescheduled_source_exam_ids = [row.exam_id for row in db.query(ReschedulingRequest.exam_id).filter(
+        ReschedulingRequest.school_email == current_user.email,
+        ReschedulingRequest.status == "approved",
+        ReschedulingRequest.rescheduled_exam_id.isnot(None),
+    ).all()]
+    if rescheduled_source_exam_ids:
+        exams = exams.filter(~Exam.id.in_(rescheduled_source_exam_ids))
+
+    exams = exams.join(Exam.timeslot).order_by(Timeslot.date, Timeslot.start_time).all()
 
     result = build_exam_response(exams)
     cache.set(cache_key, result, TTL_EXAM_SCHEDULE)
     return result
-
+

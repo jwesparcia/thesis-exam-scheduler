@@ -14,6 +14,21 @@ print("Connecting to DB to check migrations...")
 engine = create_engine(DATABASE_URL)
 
 with engine.connect() as conn:
+    result_rescheduled_exam = conn.execute(text("""
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_name='rescheduling_requests' AND column_name='rescheduled_exam_id';
+    """)).fetchone()
+
+    if not result_rescheduled_exam:
+        print("Column 'rescheduled_exam_id' not found in table 'rescheduling_requests'. Adding column...")
+        conn.execute(text("""
+            ALTER TABLE rescheduling_requests
+            ADD COLUMN rescheduled_exam_id INTEGER REFERENCES exams(id);
+        """))
+        conn.commit()
+        print("Migration successful! Column 'rescheduled_exam_id' added to rescheduling_requests.")
+
     # Check if sections table has preferred_room_id column
     result = conn.execute(text("""
         SELECT column_name 

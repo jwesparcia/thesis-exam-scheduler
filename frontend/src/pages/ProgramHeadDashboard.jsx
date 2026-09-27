@@ -69,8 +69,10 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
   // Room selection state for approve modal
   const [approveModalReq, setApproveModalReq] = useState(null);
   const [availableRooms, setAvailableRooms] = useState([]);
+  const [availableProctors, setAvailableProctors] = useState([]);
   const [loadingRooms, setLoadingRooms] = useState(false);
   const [selectedRoomId, setSelectedRoomId] = useState("");
+  const [selectedProctorId, setSelectedProctorId] = useState("");
 
   useEffect(() => {
     const fetchRequests = async () => {
@@ -113,18 +115,27 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
     }
     setApproveModalReq(req);
     setSelectedRoomId("");
+    setSelectedProctorId("");
     setLoadingRooms(true);
     try {
-      const res = await api.get(`/rescheduling/${req.id}/available-rooms`);
-      setAvailableRooms(res.data);
+      if (req.consultation_area) {
+        const res = await api.get("/proctors/");
+        setAvailableProctors(res.data);
+        setAvailableRooms([]);
+      } else {
+        const res = await api.get(`/rescheduling/${req.id}/available-rooms`);
+        setAvailableRooms(res.data);
+        setAvailableProctors([]);
+      }
     } catch (err) {
-      console.error("Error fetching rooms:", err);
+      console.error("Error fetching approval assignments:", err);
       setAvailableRooms([]);
+      setAvailableProctors([]);
     }
     setLoadingRooms(false);
   };
 
-  const handleReview = async (id, status, comments = "", roomId = null) => {
+  const handleReview = async (id, status, comments = "", roomId = null, proctorId = null) => {
     if (isGenerating) {
       showError("Cannot review rescheduling requests while schedule generation is ongoing");
       return;
@@ -134,6 +145,7 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
         status,
         reviewer_comments: comments,
         room_id: roomId || null,
+        proctor_id: proctorId || null,
       });
       if (res.status === 200) {
         setRequests(prev => {
@@ -374,14 +386,18 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className={`w-full max-w-md rounded-2xl border shadow-2xl p-6 ${isDark ? "bg-gray-900 border-gray-700" : "bg-white border-gray-200"}`}>
             <div className="flex items-center justify-between mb-5">
-              <h3 className={`text-lg font-bold ${isDark ? "text-white" : "text-gray-900"}`}>Assign Room &amp; Approve</h3>
+              <h3 className={`text-lg font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
+                {approveModalReq.consultation_area ? "Assign Proctor & Approve" : "Assign Room & Approve"}
+              </h3>
               <button onClick={() => setApproveModalReq(null)} className={`p-1.5 rounded-lg ${isDark ? "hover:bg-gray-800 text-gray-400" : "hover:bg-gray-100 text-gray-500"}`}>
                 <XMarkIcon className="w-5 h-5" />
               </button>
             </div>
             <p className={`text-sm mb-4 ${isDark ? "text-gray-300" : "text-gray-600"}`}>
               Approving <strong>{approveModalReq.course_name}</strong> for <strong>{approveModalReq.student_name}</strong>.<br />
-              Select the room where an exam is already taking place during the preferred time. The irregular student's exam will be added to that session.
+              {approveModalReq.consultation_area
+                ? "This late reschedule will take place in the Consultation Area. Assign a proctor to supervise the student."
+                : "Select the room where an exam is already taking place during the preferred time. The irregular student's exam will be added to that session."}
             </p>
             <div className={`mb-4 p-3 rounded-lg text-xs ${isDark ? "bg-blue-900/20 text-blue-300 border border-blue-800/40" : "bg-blue-50 text-blue-700 border border-blue-100"}`}>
               <span className="font-bold">Requested timeslot:</span>{" "}
@@ -390,8 +406,35 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
             {loadingRooms ? (
               <div className="flex items-center gap-2 py-4">
                 <div className="w-5 h-5 rounded-full border-4 border-t-blue-500 animate-spin" />
-                <span className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}>Loading rooms with active exams...</span>
+                <span className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                  {approveModalReq.consultation_area ? "Loading proctors..." : "Loading rooms with active exams..."}
+                </span>
               </div>
+            ) : approveModalReq.consultation_area ? (
+              <>
+                <div className={`mb-4 rounded-lg border p-3 text-sm ${isDark ? "border-emerald-800/50 bg-emerald-900/20 text-emerald-200" : "border-emerald-200 bg-emerald-50 text-emerald-800"}`}>
+                  Location: <strong>Consultation Area</strong>
+                </div>
+                <label className={`mb-2 block text-xs font-semibold uppercase tracking-wide ${isDark ? "text-gray-400" : "text-gray-500"}`} htmlFor="consultation-proctor">
+                  Supervising proctor
+                </label>
+                <select
+                  id="consultation-proctor"
+                  value={selectedProctorId}
+                  onChange={(e) => setSelectedProctorId(e.target.value)}
+                  className={`mb-4 w-full rounded-xl border p-3 text-sm ${isDark ? "border-gray-600 bg-gray-800 text-white" : "border-gray-300 bg-white text-gray-900"}`}
+                >
+                  <option value="">— Select a proctor —</option>
+                  {availableProctors.map((proctor) => (
+                    <option key={proctor.id} value={proctor.id}>{proctor.name}</option>
+                  ))}
+                </select>
+                {availableProctors.length === 0 && (
+                  <p className={`mb-4 text-sm ${isDark ? "text-amber-300" : "text-amber-700"}`}>
+                    No proctors are available to assign. Add a proctor before approving this request.
+                  </p>
+                )}
+              </>
             ) : (
               <>
                 {availableRooms.length === 0 ? (
@@ -429,9 +472,12 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
               <button
                 onClick={async () => {
                   const roomId = selectedRoomId ? parseInt(selectedRoomId) : null;
-                  await handleReview(approveModalReq.id, "approved", "", roomId);
+                  const proctorId = selectedProctorId ? parseInt(selectedProctorId) : null;
+                  await handleReview(approveModalReq.id, "approved", "", roomId, proctorId);
                   setApproveModalReq(null);
                 }}
+                disabled={approveModalReq.consultation_area ? !selectedProctorId : !selectedRoomId}
+                title={approveModalReq.consultation_area ? "Select a supervising proctor" : "Select a room"}
                 className="px-5 py-2 rounded-xl text-sm font-bold bg-green-500 hover:bg-green-600 text-white transition"
               >
                 Confirm Approve
