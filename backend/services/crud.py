@@ -55,7 +55,7 @@ def get_sections_with_subjects(db: Session, year_name: str):
             {
                 "id": subj.id,
                 "code": subj.code,
-                "name": subj.name,
+                "name": subj.name, 
                 "teacher": subj.teacher.name if subj.teacher else "Unassigned"
             }
             for subj in db.query(Subject).filter_by(
