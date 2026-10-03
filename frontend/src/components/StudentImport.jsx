@@ -567,7 +567,67 @@ export default function StudentImport({ isGenerating }) {
               </div>
             </div>
 
-            <div className="overflow-x-auto">
+            <div className="w-full min-w-0">
+              <div className="divide-y divide-gray-100 dark:divide-slate-800 md:hidden">
+                {directoryLoading && students.length === 0 ? (
+                  <div className="py-12 text-center text-sm text-gray-400">
+                    <ArrowPathIcon className="mx-auto mb-2 h-8 w-8 animate-spin text-blue-500" />
+                    Loading student records...
+                  </div>
+                ) : students.length === 0 ? (
+                  <div className="py-12 text-center text-sm text-gray-400">No students found matching the selected filters.</div>
+                ) : students.map((student) => {
+                  const isIrregular = student.student_type === "irregular";
+                  const enrolledCount = student.enrolled_subjects?.length || 0;
+                  return (
+                    <article key={student.id} className="space-y-3 p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <h3 className="break-words font-bold text-gray-900 dark:text-white">{student.name}</h3>
+                          <p className="mt-0.5 break-all font-mono text-xs text-gray-500">{student.email}</p>
+                          <p className={`mt-1 inline-flex rounded-md px-2 py-1 font-mono text-xs font-bold ${isDark ? "bg-slate-800 text-blue-400" : "bg-blue-50 text-blue-700"}`}>
+                            {student.student_id || "No student ID"}
+                          </p>
+                        </div>
+                        <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${isIrregular ? "bg-purple-500/10 text-purple-600 dark:text-purple-400" : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"}`}>
+                          {student.student_type}
+                        </span>
+                      </div>
+                      <dl className="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
+                        <div className="min-w-0">
+                          <dt className="text-xs font-semibold text-gray-500">Department</dt>
+                          <dd className="mt-0.5 break-words">{student.department || "-"}</dd>
+                        </div>
+                        <div className="min-w-0">
+                          <dt className="text-xs font-semibold text-gray-500">Course</dt>
+                          <dd className="mt-0.5 break-words">{student.course_name || "-"}</dd>
+                        </div>
+                        <div className="col-span-2 min-w-0">
+                          <dt className="text-xs font-semibold text-gray-500">Section</dt>
+                          <dd className="mt-0.5 break-words">
+                            {isIrregular
+                              ? `${student.assigned_sections?.length || "Multiple"} different section${student.assigned_sections?.length === 1 ? "" : "s"}`
+                              : student.section_name || "-"}
+                          </dd>
+                        </div>
+                      </dl>
+                      {isIrregular ? (
+                        <button
+                          onClick={() => setSelectedStudentForModal(student)}
+                          className="min-h-11 w-full rounded-xl border border-purple-200 bg-purple-50 px-3 text-sm font-bold text-purple-700 dark:border-purple-500/30 dark:bg-purple-600/30 dark:text-purple-300"
+                        >
+                          <BookOpenIcon className="mr-1.5 inline h-4 w-4" />
+                          View {enrolledCount} Enrolled Subject{enrolledCount === 1 ? "" : "s"}
+                          <EyeIcon className="ml-1.5 inline h-4 w-4 opacity-70" />
+                        </button>
+                      ) : (
+                        <p className="text-xs italic text-gray-500 dark:text-gray-400">Regular Section Curriculum</p>
+                      )}
+                    </article>
+                  );
+                })}
+              </div>
+              <div className="hidden overflow-x-auto md:block">
               <table className="w-full text-left border-collapse text-xs sm:text-sm">
                 <thead>
                   <tr className={`border-b text-[11px] uppercase tracking-wider font-bold ${
@@ -704,6 +764,7 @@ export default function StudentImport({ isGenerating }) {
                   )}
                 </tbody>
               </table>
+              </div>
             </div>
 
             {/* Pagination Controls */}

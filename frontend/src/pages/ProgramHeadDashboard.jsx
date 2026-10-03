@@ -397,7 +397,7 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
               Approving <strong>{approveModalReq.course_name}</strong> for <strong>{approveModalReq.student_name}</strong>.<br />
               {approveModalReq.consultation_area
                 ? "This late reschedule will take place in the Consultation Area. Assign a proctor to supervise the student."
-                : "Select the room where an exam is already taking place during the preferred time. The irregular student's exam will be added to that session."}
+                : "Select an available room. If another exam is already using it during this time, the irregular student's exam will join that session."}
             </p>
             <div className={`mb-4 p-3 rounded-lg text-xs ${isDark ? "bg-blue-900/20 text-blue-300 border border-blue-800/40" : "bg-blue-50 text-blue-700 border border-blue-100"}`}>
               <span className="font-bold">Requested timeslot:</span>{" "}
@@ -439,12 +439,12 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
               <>
                 {availableRooms.length === 0 ? (
                   <div className={`p-3 rounded-lg text-sm mb-4 ${isDark ? "bg-yellow-900/20 text-yellow-300 border border-yellow-800/40" : "bg-yellow-50 text-yellow-700 border border-yellow-200"}`}>
-                    ⚠ No exams are scheduled during this time slot. The student cannot be assigned to a room.
+                    No rooms are available for the full requested time slot.
                   </div>
                 ) : (
                   <>
                     <p className={`text-xs mb-2 font-semibold uppercase tracking-wide ${isDark ? "text-gray-400" : "text-gray-500"}`}>
-                      Rooms with active exams at this time:
+                      Available rooms for this time:
                     </p>
                     <select
                       value={selectedRoomId}
@@ -676,9 +676,9 @@ function ChatSupportPanel() {
   };
 
   return (
-    <div className={`flex h-[520px] sm:h-[620px] rounded-xl border overflow-hidden relative ${isDark ? "border-gray-700" : "border-gray-200"}`}>
+    <div className={`flex h-[min(70dvh,620px)] min-h-[360px] sm:h-[620px] min-w-0 rounded-xl border overflow-hidden relative ${isDark ? "border-gray-700" : "border-gray-200"}`}>
       {/* Left: conversation list */}
-      <div className={`w-full md:w-72 flex flex-col border-r ${isDark ? "bg-gray-800/60 border-gray-700" : "bg-gray-50 border-gray-200"} ${activeStudentId ? "hidden md:flex" : "flex"}`}>
+      <div className={`w-full min-w-0 md:w-72 md:shrink-0 flex flex-col border-r ${isDark ? "bg-gray-800/60 border-gray-700" : "bg-gray-50 border-gray-200"} ${activeStudentId ? "hidden md:flex" : "flex"}`}>
         <div className={`p-4 border-b flex justify-between items-center ${isDark ? "border-gray-700" : "border-gray-200"}`}>
           <div>
             <h3 className={`font-bold text-sm uppercase tracking-wide ${isDark ? "text-gray-300" : "text-gray-600"}`}>
@@ -698,7 +698,7 @@ function ChatSupportPanel() {
             <PlusIcon className="w-4 h-4" />
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto custom-scrollbar">
+        <div className="min-h-0 flex-1 overflow-y-auto custom-scrollbar">
           {conversations.length === 0 ? (
             <div className={`p-6 text-center text-sm ${isDark ? "text-gray-500" : "text-gray-400"}`}>
               <ChatBubbleLeftRightIcon className="w-8 h-8 mx-auto mb-2 opacity-30" />
@@ -748,7 +748,7 @@ function ChatSupportPanel() {
       </div>
 
       {/* Right: chat window */}
-      <div className={`flex-1 flex flex-col ${isDark ? "bg-gray-900" : "bg-white"} ${!activeStudentId ? "hidden md:flex" : "flex"}`}>
+      <div className={`min-w-0 flex-1 flex flex-col ${isDark ? "bg-gray-900" : "bg-white"} ${!activeStudentId ? "hidden md:flex" : "flex"}`}>
         {activeStudentId ? (
           <>
             {/* Chat header */}
@@ -784,7 +784,7 @@ function ChatSupportPanel() {
             </div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+            <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 custom-scrollbar">
               {messages.length === 0 ? (
                 <div className={`text-center py-12 text-sm ${isDark ? "text-gray-500" : "text-gray-400"}`}>
                   <ChatBubbleLeftRightIcon className="w-10 h-10 mx-auto mb-2 opacity-20" />
@@ -794,7 +794,7 @@ function ChatSupportPanel() {
                 const isMe = msg.sender_id === user?.id;
                 const isEditing = editingMessageId === msg.id;
                 return (
-                  <div key={msg.id} className={`flex ${isMe ? "justify-end" : "justify-start"} group relative items-center gap-2`}>
+                  <div key={msg.id} className={`min-w-0 flex ${isMe ? "justify-end" : "justify-start"} group relative items-start gap-2`}>
                     {isMe && !isEditing && (
                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
                         <button
@@ -816,7 +816,7 @@ function ChatSupportPanel() {
                       </div>
                     )}
 
-                    <div className={`max-w-[85%] sm:max-w-[70%] px-4 py-2.5 rounded-2xl text-sm shadow-sm ${isMe
+                    <div className={`min-w-0 max-w-[90%] sm:max-w-[70%] px-3 sm:px-4 py-2.5 rounded-2xl text-sm shadow-sm ${isMe
                       ? "bg-blue-600 text-white rounded-br-sm"
                       : isDark ? "bg-gray-700 text-gray-100 rounded-bl-sm" : "bg-gray-100 text-gray-800 rounded-bl-sm"
                       }`}>
@@ -845,7 +845,7 @@ function ChatSupportPanel() {
                         </div>
                       ) : (
                         <>
-                          <p className="leading-relaxed whitespace-pre-wrap">{msg.message}</p>
+                          <p className="leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{msg.message}</p>
                           <p className={`text-[10px] mt-1 ${isMe ? "text-blue-200" : isDark ? "text-gray-500" : "text-gray-400"}`}>
                             {new Date(msg.created_at + "Z").toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                           </p>
@@ -859,14 +859,15 @@ function ChatSupportPanel() {
             </div>
 
             {/* Input */}
-            <div className={`p-4 border-t flex gap-3 items-end ${isDark ? "border-gray-700 bg-gray-800/30" : "border-gray-200 bg-gray-50"}`}>
+            <div className={`p-2 sm:p-4 border-t flex gap-2 sm:gap-3 items-end ${isDark ? "border-gray-700 bg-gray-800/30" : "border-gray-200 bg-gray-50"}`}>
               <textarea
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Type a message... (Enter to send)"
+                placeholder="Type a message..."
                 rows={1}
-                className={`flex-1 p-3 rounded-xl border resize-none outline-none text-sm transition ${isDark
+                aria-label="Type your message"
+                className={`min-w-0 min-h-11 flex-1 p-3 rounded-xl border resize-none outline-none text-base sm:text-sm transition ${isDark
                   ? "bg-gray-700 border-gray-600 text-white placeholder-gray-500 focus:border-blue-500"
                   : "bg-white border-gray-300 text-gray-900 placeholder-gray-400 focus:border-blue-500"
                   }`}
@@ -874,7 +875,8 @@ function ChatSupportPanel() {
               <button
                 onClick={sendMessage}
                 disabled={sending || !newMessage.trim()}
-                className={`p-3 rounded-xl transition flex items-center justify-center ${sending || !newMessage.trim()
+                aria-label="Send message"
+                className={`w-11 h-11 shrink-0 rounded-xl transition flex items-center justify-center ${sending || !newMessage.trim()
                   ? isDark ? "bg-gray-700 text-gray-500" : "bg-gray-200 text-gray-400"
                   : "bg-blue-600 hover:bg-blue-700 text-white"
                   }`}

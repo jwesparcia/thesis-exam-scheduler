@@ -126,7 +126,30 @@ export default function DistributionRulesManager({ isGenerating }) {
                     </span>
                 </div>
 
-                <div className="overflow-x-auto custom-scrollbar rounded-xl border dark:border-slate-700">
+                <div className="w-full min-w-0 rounded-xl border dark:border-slate-700">
+                    <div className="space-y-3 p-3 md:hidden">
+                        {[
+                            { day: "Day 1", morning: "GE (Communication & Literature, Math, Sciences)", afternoon: "Computer Fundamentals and major exams for Year 3 & 4" },
+                            { day: "Day 2", morning: "GE (Filipino and Social Sciences, except Literature)", afternoon: "Up to 2 major exams for all year levels per section" },
+                            { day: "Day 3", morning: "Major exams for all year levels", afternoon: "Major exams for all year levels" },
+                            { day: "Day 4", morning: "Major exams for all year levels", afternoon: "Major exams for all year levels" },
+                        ].map((day) => (
+                            <article key={day.day} className={`space-y-3 rounded-xl border p-4 ${isDark ? "border-slate-700 bg-slate-900/40" : "border-slate-200 bg-white"}`}>
+                                <h4 className={`font-bold ${isDark ? "text-white" : "text-slate-900"}`}>{day.day}</h4>
+                                <div className={`space-y-3 border-t pt-3 text-sm ${isDark ? "border-slate-700" : "border-slate-100"}`}>
+                                    <div>
+                                        <p className={`text-xs font-semibold uppercase tracking-wide ${isDark ? "text-amber-300" : "text-amber-700"}`}>Morning · 7:00–11:30 AM</p>
+                                        <p className={`mt-1 break-words ${isDark ? "text-slate-300" : "text-slate-700"}`}>{day.morning}</p>
+                                    </div>
+                                    <div>
+                                        <p className={`text-xs font-semibold uppercase tracking-wide ${isDark ? "text-amber-300" : "text-amber-700"}`}>Afternoon · 11:30 AM–5:30 PM</p>
+                                        <p className={`mt-1 break-words ${isDark ? "text-slate-300" : "text-slate-700"}`}>{day.afternoon}</p>
+                                    </div>
+                                </div>
+                            </article>
+                        ))}
+                    </div>
+                    <div className="hidden overflow-x-auto custom-scrollbar md:block">
                     <table className="w-full min-w-[640px] text-center text-xs border-collapse">
                         <thead>
                             <tr className={`${isDark ? "bg-amber-500/20 text-amber-300 border-b border-slate-700" : "bg-amber-300 text-slate-900 font-bold border-b border-amber-400"}`}>
@@ -207,6 +230,7 @@ export default function DistributionRulesManager({ isGenerating }) {
                             </tr>
                         </tbody>
                     </table>
+                    </div>
                 </div>
             </div>
 
@@ -316,8 +340,37 @@ export default function DistributionRulesManager({ isGenerating }) {
                 <div className="text-center py-4">Loading rules...</div>
             ) : (
                 <>
-                    <div className="overflow-x-auto custom-scrollbar rounded-xl border dark:border-gray-700">
-                        <table className="w-full min-w-[560px] text-left text-sm">
+                    <div className="w-full min-w-0 rounded-xl border dark:border-gray-700">
+                        <div className="md:hidden divide-y divide-gray-100 dark:divide-gray-700">
+                            {rules.length === 0 ? (
+                                <p className="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">No distribution rules defined.</p>
+                            ) : rules.map((rule) => (
+                                <article key={rule.id} className="space-y-3 p-4">
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div>
+                                            <h4 className="font-semibold capitalize">{rule.category_type}</h4>
+                                            <p className={`mt-0.5 text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}>Year level: {rule.year_level_name || "All"}</p>
+                                        </div>
+                                        <button
+                                            onClick={() => handleDelete(rule.id)}
+                                            disabled={isGenerating}
+                                            className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-red-500 hover:bg-red-50 disabled:opacity-50 dark:hover:bg-red-900/20"
+                                            title="Delete Rule"
+                                            aria-label={`Delete ${rule.category_type} rule`}
+                                        >
+                                            <TrashIcon className="h-5 w-5" />
+                                        </button>
+                                    </div>
+                                    <div className="flex flex-wrap gap-2">
+                                        {rule.allowed_days.map((day) => (
+                                            <span key={day} className="rounded bg-blue-100 px-2 py-1 text-xs text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">Day {day}</span>
+                                        ))}
+                                    </div>
+                                    <p className={`text-sm capitalize ${isDark ? "text-gray-300" : "text-gray-700"}`}>Session: {rule.allowed_session}</p>
+                                </article>
+                            ))}
+                        </div>
+                        <table className="hidden w-full min-w-[640px] text-left text-sm md:table">
                             <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-700 dark:text-gray-100">
                                 <tr>
                                     <th className="px-4 py-3 font-medium">Category</th>

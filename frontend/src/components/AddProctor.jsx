@@ -80,8 +80,44 @@ export default function AddProctor({ isGenerating }) {
         {proctors.length === 0 && !fetching ? (
           <p className={isDark ? "text-gray-400" : "text-gray-600"}>No proctors added yet.</p>
         ) : (
-          <div className={`overflow-x-auto custom-scrollbar rounded-xl shadow-sm ${isDark ? "bg-gray-700 border border-gray-700" : "bg-white border border-slate-200"}`}>
-            <table className="w-full min-w-[540px] text-sm">
+          <div className={`w-full min-w-0 overflow-x-auto custom-scrollbar rounded-xl shadow-sm ${isDark ? "bg-gray-700 border border-gray-700" : "bg-white border border-slate-200"}`}>
+            <div className="md:hidden divide-y divide-slate-200 dark:divide-gray-600">
+              {proctors.map((p) => (
+                <article key={p.id} className="space-y-3 p-4">
+                  <div className="min-w-0">
+                    <h4 className="break-words font-semibold">{p.name}</h4>
+                    <p className={`mt-0.5 break-words text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>{p.department || "General"}</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2 text-xs">
+                    <span className={`rounded-full px-2.5 py-1 font-medium ${p.has_schedule ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-amber-500/10 text-amber-600 dark:text-amber-400"}`}>
+                      {p.has_schedule ? "Schedule uploaded" : "No schedule"}
+                    </span>
+                    <span className={`rounded-full px-2.5 py-1 font-medium ${p.exclude_from_scheduling ? "bg-red-500/10 text-red-600 dark:text-red-400" : "bg-blue-500/10 text-blue-600 dark:text-blue-400"}`}>
+                      {p.exclude_from_scheduling ? "Excluded" : "Active"}
+                    </span>
+                  </div>
+                  <div className="flex gap-2">
+                    {!p.has_schedule && (
+                      <button
+                        onClick={() => sendReminder(p.id, p.name)}
+                        disabled={isGenerating}
+                        className={`min-h-11 flex-1 rounded-lg border px-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${isDark ? "border-blue-800 text-blue-300 hover:bg-blue-900/30" : "border-blue-200 text-blue-700 hover:bg-blue-50"}`}
+                      >
+                        <BellIcon className="mr-1.5 inline h-4 w-4" />Send Reminder
+                      </button>
+                    )}
+                    <button
+                      onClick={() => toggleExclude(p.id, p.exclude_from_scheduling)}
+                      disabled={isGenerating}
+                      className={`min-h-11 flex-1 rounded-lg border px-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${p.exclude_from_scheduling ? "border-emerald-200 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-300" : "border-red-200 text-red-700 hover:bg-red-50 dark:border-red-800 dark:text-red-300"}`}
+                    >
+                      {p.exclude_from_scheduling ? "Include" : "Exclude"}
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </div>
+            <table className="hidden w-full min-w-[680px] text-sm md:table">
               <thead className={`${isDark ? "bg-gray-600 text-gray-100" : "bg-slate-50 text-slate-600"}`}>
                 <tr>
                   <th className="py-3 px-4 text-left font-bold">Name</th>

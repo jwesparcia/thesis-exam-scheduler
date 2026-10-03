@@ -24,6 +24,10 @@ _KEY_YEAR_LEVELS   = "year_levels:all"
 _KEY_STATS         = "catalog:stats"
 _KEY_STUDENT_STATS = "catalog:student_stats"
 
+def _invalidate_student_exam_schedules():
+    cache.delete_pattern("exam_schedule:section:*")
+    cache.delete_pattern("exam_schedule:irregular:*")
+
 def _details_key(course_id: int, year_level_id: int, semester: int) -> str:
     return f"catalog:details:{course_id}:{year_level_id}:{semester}"
 
@@ -556,6 +560,8 @@ def update_subject(
     db.refresh(subject)
 
     cache.delete_pattern("catalog:details:*")
+    if payload.duration_minutes is not None:
+        _invalidate_student_exam_schedules()
     if current_user:
         log_activity(db, current_user.id, "SUBJECT_UPDATE", f"Updated subject {subject.code} - {subject.name}")
 
@@ -624,6 +630,7 @@ def update_subject_duration(
         raise HTTPException(status_code=400, detail="Valid duration_minutes is required")
     subject.duration_minutes = int(duration)
     db.commit()
+    _invalidate_student_exam_schedules()
     log_activity(db, current_user.id, "SUBJECT_DURATION_UPDATE", f"Subject {subject.name}: {duration}m")
     return {"message": f"Updated duration for {subject.name} to {duration} minutes", "duration_minutes": subject.duration_minutes}
 
@@ -645,6 +652,7 @@ def bulk_update_subject_durations(
                 or_(Subject.category == "major", Subject.name.ilike("%accounting%"), Subject.name.ilike("%taxation%"), Subject.name.ilike("%auditing%"))
             ).update({Subject.duration_minutes: 120}, synchronize_session=False)
         db.commit()
+        _invalidate_student_exam_schedules()
         log_activity(db, current_user.id, "SUBJECT_DURATION_BULK", "Applied school defaults (75m, BSA majors 120m)")
         return {"message": "School default durations applied: 1h 15m (75m) for all subjects, 2h (120m) for BSA major subjects."}
     
@@ -658,6 +666,7 @@ def bulk_update_subject_durations(
                 or_(Subject.category == "major", Subject.name.ilike("%accounting%"), Subject.name.ilike("%taxation%"), Subject.name.ilike("%auditing%"))
             ).update({Subject.duration_minutes: 120}, synchronize_session=False)
         db.commit()
+        _invalidate_student_exam_schedules()
         log_activity(db, current_user.id, "SUBJECT_DURATION_BULK", f"Applied 2h (120m) to {updated_count} BSA major subjects")
         return {"message": f"Updated {updated_count} BSA major subjects from 1st year to 4th year to 2 hours (120 mins)."}
 
@@ -670,6 +679,7 @@ def bulk_update_subject_durations(
     if subject_ids:
         updated = db.query(Subject).filter(Subject.id.in_(subject_ids)).update({Subject.duration_minutes: duration}, synchronize_session=False)
         db.commit()
+        _invalidate_student_exam_schedules()
         log_activity(db, current_user.id, "SUBJECT_DURATION_BULK", f"Updated {updated} subjects to {duration}m")
         return {"message": f"Updated {updated} subjects to {duration} minutes."}
 
@@ -692,6 +702,7 @@ def bulk_update_subject_durations(
     for s in matching_subjects:
         s.duration_minutes = duration
     db.commit()
+    _invalidate_student_exam_schedules()
     log_activity(db, current_user.id, "SUBJECT_DURATION_BULK", f"Updated {len(matching_subjects)} filtered subjects to {duration}m")
     return {"message": f"Updated {len(matching_subjects)} matching subjects to {duration} minutes."}
 

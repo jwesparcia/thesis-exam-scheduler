@@ -408,8 +408,48 @@ export default function RoomManagement({ isGenerating }) {
               </div>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[720px] text-sm">
+            <div className="w-full min-w-0">
+              <div className="md:hidden divide-y divide-gray-100 dark:divide-gray-700">
+                {loading ? (
+                  <div className="px-5 py-12 text-center"><ArrowPathIcon className="mx-auto h-8 w-8 animate-spin text-blue-500" /></div>
+                ) : filteredRooms.length === 0 ? (
+                  <p className={`px-5 py-12 text-center ${isDark ? "text-gray-500" : "text-gray-400"}`}>No rooms found.</p>
+                ) : filteredRooms.map((room) => {
+                  const hasRescheduled = room.bookings?.some((booking) => booking.is_rescheduled);
+                  const effectiveStatus = hasRescheduled ? "rescheduled" : room.status;
+                  const statusStyle = effectiveStatus === "rescheduled"
+                    ? isDark ? "bg-purple-500/10 text-purple-300 border-purple-500/20" : "bg-purple-50 text-purple-700 border-purple-100"
+                    : roomStatusClass(room.status);
+                  return (
+                    <article
+                      key={room.id}
+                      onClick={() => setSelectedRoomId(room.id)}
+                      className={`space-y-3 p-4 ${selectedRoomId === room.id ? isDark ? "bg-blue-500/10" : "bg-blue-50" : ""}`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <h3 className={`break-words text-lg font-black ${isDark ? "text-white" : "text-gray-900"}`}>{room.name}</h3>
+                        <span className={`shrink-0 rounded-full border px-3 py-1 text-xs font-bold ${statusStyle}`}>{statusLabels[effectiveStatus] || effectiveStatus}</span>
+                      </div>
+                      <dl className={`grid grid-cols-2 gap-x-3 gap-y-2 text-sm ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+                        <div><dt className="text-xs font-semibold text-gray-500">Building</dt><dd className="break-words">{room.building}</dd></div>
+                        <div><dt className="text-xs font-semibold text-gray-500">Capacity</dt><dd>{room.capacity} seats</dd></div>
+                        <div className="col-span-2"><dt className="text-xs font-semibold text-gray-500">Department</dt><dd className="break-words">{room.department}</dd></div>
+                      </dl>
+                      {isAdmin && (
+                        <button
+                          type="button"
+                          onClick={(event) => { event.stopPropagation(); handleOpenEdit(room); }}
+                          disabled={isGenerating}
+                          className="min-h-11 w-full rounded-lg border border-blue-200 bg-blue-50 px-3 text-sm font-bold text-blue-700 hover:bg-blue-100 disabled:opacity-50 dark:border-blue-500/30 dark:bg-blue-600/20 dark:text-blue-300"
+                        >
+                          <PencilSquareIcon className="mr-1.5 inline h-4 w-4" />Edit Room
+                        </button>
+                      )}
+                    </article>
+                  );
+                })}
+              </div>
+              <table className="hidden w-full min-w-[720px] text-sm md:table">
                 <thead className={isDark ? "bg-gray-900/60 text-gray-300" : "bg-gray-50 text-gray-600"}>
                   <tr>
                     <th className="px-5 py-3 text-left font-bold">Room</th>

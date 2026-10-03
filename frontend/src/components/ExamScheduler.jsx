@@ -957,7 +957,29 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
                       </select>
                     </div>
                   </div>
-                  <div className="overflow-x-auto custom-scrollbar">
+                  <div className="md:hidden space-y-2">
+                    {section.subjects.length > 0 ? (
+                      section.subjects.map((subject) => (
+                        <article
+                          key={subject.id}
+                          className={`rounded-lg border p-3 ${isDark ? "border-gray-700 bg-gray-900/50" : "border-gray-200 bg-gray-50"}`}
+                        >
+                          <p className={`break-words text-xs font-semibold ${isDark ? "text-blue-300" : "text-blue-700"}`}>
+                            {subject.code}
+                          </p>
+                          <h4 className={`mt-1 break-words text-sm font-semibold ${isDark ? "text-gray-100" : "text-gray-900"}`}>
+                            {subject.name}
+                          </h4>
+                          <p className={`mt-2 break-words text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>
+                            <span className="font-semibold">Instructor:</span> {subject.teacher || "Unassigned"}
+                          </p>
+                        </article>
+                      ))
+                    ) : (
+                      <p className={`py-4 text-center text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}>No subjects available</p>
+                    )}
+                  </div>
+                  <div className="hidden overflow-x-auto custom-scrollbar md:block">
                     <table className="w-full text-xs sm:text-sm border-separate border-spacing-0 min-w-[500px]">
                       <thead className={`${isDark ? "bg-gray-700 text-gray-300" : "bg-gray-100 text-gray-700"}`}>
                         <tr>
@@ -1050,5 +1072,4 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
     </div>
   );
 }
-
 

@@ -588,8 +588,70 @@ export default function SubjectDurationsManager() {
             <p className="text-xs mt-1 text-slate-500">Try adjusting filters or add a new subject</p>
           </div>
         ) : (
-          <div className="overflow-x-auto max-h-[620px]">
-            <table className="w-full text-left text-xs border-collapse">
+          <div className="w-full min-w-0 max-h-[620px] overflow-y-auto">
+            <div className="space-y-3 p-3 md:hidden">
+              {filteredSubjects.map((sub) => {
+                const dDur = localDurations[sub.id] ?? sub.duration_minutes;
+                const dTerm = localTerms[sub.id] ?? sub.term ?? "All";
+                const dCat = localCategories[sub.id] ?? sub.category ?? "major";
+                const hasChanges = hasDraftChanges(sub);
+                const termOpts = sub.course_category === "SHS" ? SHS_TERMS : COLLEGE_TERMS;
+                const fieldClass = `w-full min-h-11 rounded-lg border px-3 py-2 text-sm ${isDark ? "border-slate-700 bg-slate-900 text-slate-200" : "border-slate-200 bg-white text-slate-700"}`;
+                return (
+                  <article key={sub.id} className={`space-y-3 rounded-xl border p-4 ${hasChanges
+                    ? isDark ? "border-amber-800 bg-amber-900/10" : "border-amber-200 bg-amber-50/60"
+                    : isDark ? "border-slate-700 bg-slate-800/50" : "border-slate-200 bg-white"
+                    }`}>
+                    <div>
+                      <h3 className={`break-words font-semibold ${isDark ? "text-slate-100" : "text-slate-800"}`}>{sub.name}</h3>
+                      <p className="mt-0.5 text-xs text-slate-500">{sub.code}</p>
+                    </div>
+                    <div className={`grid grid-cols-2 gap-x-3 gap-y-2 text-xs ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+                      <p className="break-words"><span className="font-semibold">Course:</span> {sub.course_name} ({sub.course_category})</p>
+                      <p><span className="font-semibold">Year:</span> {sub.year_level_name || "—"}</p>
+                      <p><span className="font-semibold">Semester:</span> {sub.semester}</p>
+                    </div>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                      <label className={`space-y-1 text-xs font-semibold ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                        Category
+                        <select value={dCat} onChange={(e) => setLocalCategories((p) => ({ ...p, [sub.id]: e.target.value }))} className={fieldClass}>
+                          <option value="major">Major</option>
+                          <option value="general">GE/Minor</option>
+                        </select>
+                      </label>
+                      <label className={`space-y-1 text-xs font-semibold ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                        Exam term
+                        <select value={dTerm} onChange={(e) => setLocalTerms((p) => ({ ...p, [sub.id]: e.target.value }))} className={fieldClass}>
+                          {termOpts.map((term) => <option key={term} value={term}>{term === "All" ? "All Terms" : term}</option>)}
+                        </select>
+                      </label>
+                      <label className={`space-y-1 text-xs font-semibold ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                        Duration
+                        <select value={dDur} onChange={(e) => setLocalDurations((p) => ({ ...p, [sub.id]: Number(e.target.value) }))} className={fieldClass}>
+                          <option value={60}>1:00 hour</option>
+                          <option value={75}>1:15 hours</option>
+                          <option value={90}>1:30 hours</option>
+                          <option value={120}>2:00 hours</option>
+                          <option value={150}>2:30 hours</option>
+                          <option value={180}>3:00 hours</option>
+                        </select>
+                      </label>
+                    </div>
+                    <div className="flex flex-wrap gap-2 border-t border-slate-200 pt-3 dark:border-slate-700">
+                      {hasChanges && (
+                        <button onClick={() => handleSaveIndividual(sub)} disabled={savingId === sub.id} className="min-h-11 flex-1 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50">
+                          {savingId === sub.id ? "Saving…" : "Save"}
+                        </button>
+                      )}
+                      <button onClick={() => setModal({ open: true, subject: sub })} className={`min-h-11 flex-1 rounded-lg border px-4 text-sm font-semibold ${isDark ? "border-slate-600 text-slate-200" : "border-slate-200 text-slate-700"}`}>Edit</button>
+                      <button onClick={() => handleDelete(sub)} disabled={deletingId === sub.id} className="min-h-11 flex-1 rounded-lg border border-red-200 px-4 text-sm font-semibold text-red-600 disabled:opacity-50 dark:border-red-900/50 dark:text-red-400">Delete</button>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+            <div className="hidden overflow-x-auto md:block">
+            <table className="w-full min-w-[900px] text-left text-xs border-collapse">
               <thead className={`sticky top-0 z-10 text-[11px] font-bold uppercase tracking-wider border-b ${
                 isDark ? "bg-slate-800/90 text-slate-400 border-slate-700 backdrop-blur-md" : "bg-slate-50 text-slate-500 border-slate-200"
               }`}>
@@ -615,8 +677,8 @@ export default function SubjectDurationsManager() {
 
                   return (
                     <tr key={sub.id} className={`transition-colors ${isDark ? "hover:bg-slate-700/20" : "hover:bg-slate-50/70"} ${hasChanges ? (isDark ? "bg-amber-900/10" : "bg-amber-50/60") : ""}`}>
-                      <td className="py-3 px-4 max-w-[200px]">
-                        <div className={`font-semibold truncate ${isDark ? "text-slate-100" : "text-slate-800"}`} title={sub.name}>{sub.name}</div>
+                      <td className="py-3 px-4 max-w-[240px] whitespace-normal">
+                        <div className={`font-semibold break-words ${isDark ? "text-slate-100" : "text-slate-800"}`}>{sub.name}</div>
                         <div className="text-[10px] text-slate-400">{sub.code}</div>
                       </td>
                       <td className="py-3 px-4 whitespace-nowrap">
@@ -682,6 +744,7 @@ export default function SubjectDurationsManager() {
                 })}
               </tbody>
             </table>
+            </div>
           </div>
         )}
       </div>

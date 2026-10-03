@@ -432,9 +432,9 @@ function ProctorChatPanel() {
   };
 
   return (
-    <div className={`flex h-[520px] sm:h-[600px] rounded-2xl border overflow-hidden relative ${isDark ? "bg-slate-800/20 border-slate-700/50 backdrop-blur-xl" : "bg-white border-slate-200"}`}>
+    <div className={`flex h-[min(70dvh,600px)] min-h-[360px] sm:h-[600px] min-w-0 rounded-2xl border overflow-hidden relative ${isDark ? "bg-slate-800/20 border-slate-700/50 backdrop-blur-xl" : "bg-white border-slate-200"}`}>
       {/* Left: conversation list */}
-      <div className={`w-full md:w-72 flex flex-col border-r ${isDark ? "bg-slate-800/60 border-slate-800" : "bg-slate-50 border-slate-200"} ${activeStudentId ? "hidden md:flex" : "flex"}`}>
+      <div className={`w-full min-w-0 md:w-72 md:shrink-0 flex flex-col border-r ${isDark ? "bg-slate-800/60 border-slate-800" : "bg-slate-50 border-slate-200"} ${activeStudentId ? "hidden md:flex" : "flex"}`}>
         <div className={`p-4 border-b flex justify-between items-center ${isDark ? "border-slate-800" : "border-slate-200"}`}>
           <div>
             <h3 className={`font-bold text-sm uppercase tracking-wide ${isDark ? "text-slate-350" : "text-slate-600"}`}>
@@ -454,7 +454,7 @@ function ProctorChatPanel() {
             <PlusIcon className="w-4 h-4" />
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto custom-scrollbar">
+        <div className="min-h-0 flex-1 overflow-y-auto custom-scrollbar">
           {conversations.length === 0 ? (
             <div className={`p-6 text-center text-sm ${isDark ? "text-slate-500" : "text-slate-400"}`}>
               <ChatBubbleLeftRightIcon className="w-8 h-8 mx-auto mb-2 opacity-30" />
@@ -504,7 +504,7 @@ function ProctorChatPanel() {
       </div>
 
       {/* Right: chat window */}
-      <div className={`flex-1 flex flex-col ${isDark ? "bg-slate-900" : "bg-white"} ${!activeStudentId ? "hidden md:flex" : "flex"}`}>
+      <div className={`min-w-0 flex-1 flex flex-col ${isDark ? "bg-slate-900" : "bg-white"} ${!activeStudentId ? "hidden md:flex" : "flex"}`}>
         {activeStudentId ? (
           <>
             {/* Chat header */}
@@ -540,7 +540,7 @@ function ProctorChatPanel() {
             </div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+            <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 custom-scrollbar">
               {messages.length === 0 ? (
                 <div className={`text-center py-12 text-sm ${isDark ? "text-slate-500" : "text-slate-400"}`}>
                   <ChatBubbleLeftRightIcon className="w-10 h-10 mx-auto mb-2 opacity-20" />
@@ -550,7 +550,7 @@ function ProctorChatPanel() {
                 const isMe = msg.sender_id === user?.id;
                 const isEditing = editingMessageId === msg.id;
                 return (
-                  <div key={msg.id} className={`flex ${isMe ? "justify-end" : "justify-start"} group relative items-center gap-2`}>
+                  <div key={msg.id} className={`min-w-0 flex ${isMe ? "justify-end" : "justify-start"} group relative items-start gap-2`}>
                     {isMe && !isEditing && (
                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
                         <button
@@ -572,7 +572,7 @@ function ProctorChatPanel() {
                       </div>
                     )}
 
-                    <div className={`max-w-[85%] sm:max-w-[70%] px-4 py-2.5 rounded-2xl text-sm shadow-sm ${isMe
+                    <div className={`min-w-0 max-w-[90%] sm:max-w-[70%] px-3 sm:px-4 py-2.5 rounded-2xl text-sm shadow-sm ${isMe
                       ? "bg-blue-600 text-white rounded-br-sm"
                       : isDark ? "bg-slate-800 text-slate-100 rounded-bl-sm border border-slate-700/50" : "bg-slate-100 text-slate-800 rounded-bl-sm"
                       }`}>
@@ -601,7 +601,7 @@ function ProctorChatPanel() {
                         </div>
                       ) : (
                         <>
-                          <p className="leading-relaxed whitespace-pre-wrap">{msg.message}</p>
+                          <p className="leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{msg.message}</p>
                           <p className={`text-[10px] mt-1 ${isMe ? "text-blue-200" : isDark ? "text-slate-505" : "text-slate-400"}`}>
                             {new Date(msg.created_at + "Z").toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                           </p>
@@ -615,14 +615,15 @@ function ProctorChatPanel() {
             </div>
 
             {/* Input */}
-            <div className={`p-4 border-t flex gap-3 items-end ${isDark ? "border-slate-800 bg-slate-800/30" : "border-slate-200 bg-slate-50"}`}>
+            <div className={`p-2 sm:p-4 border-t flex gap-2 sm:gap-3 items-end ${isDark ? "border-slate-800 bg-slate-800/30" : "border-slate-200 bg-slate-50"}`}>
               <textarea
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Type a message... (Enter to send)"
+                placeholder="Type a message..."
                 rows={1}
-                className={`flex-1 p-3 rounded-xl border resize-none outline-none text-sm transition ${isDark
+                aria-label="Type your message"
+                className={`min-w-0 min-h-11 flex-1 p-3 rounded-xl border resize-none outline-none text-base sm:text-sm transition ${isDark
                   ? "bg-slate-700 border-slate-600 text-white placeholder-slate-500 focus:border-blue-500"
                   : "bg-white border-slate-300 text-slate-900 placeholder-slate-400 focus:border-blue-500"
                   }`}
@@ -630,7 +631,8 @@ function ProctorChatPanel() {
               <button
                 onClick={sendMessage}
                 disabled={sending || !newMessage.trim()}
-                className={`p-3 rounded-xl transition flex items-center justify-center ${sending || !newMessage.trim()
+                aria-label="Send message"
+                className={`w-11 h-11 shrink-0 rounded-xl transition flex items-center justify-center ${sending || !newMessage.trim()
                   ? isDark ? "bg-slate-800 text-slate-500" : "bg-slate-200 text-slate-400"
                   : "bg-blue-600 hover:bg-blue-700 text-white"
                   }`}
@@ -1606,8 +1608,43 @@ export default function ProctorDashboard() {
                           )}
                         </div>
                       ) : (
-                        <div className={`overflow-x-auto rounded-2xl sm:rounded-3xl border ${isDark ? "bg-slate-800/80 border-slate-700/50 backdrop-blur-xl" : "bg-white/80 border-slate-200 backdrop-blur-xl"} shadow-sm custom-scrollbar`}>
-                          <table className="w-full text-xs text-center border-collapse min-w-[720px]">
+                        <div className={`min-w-0 rounded-2xl border shadow-sm sm:rounded-3xl ${isDark ? "border-slate-700/50 bg-slate-800/80 backdrop-blur-xl" : "border-slate-200 bg-white/80 backdrop-blur-xl"}`}>
+                          <div className="space-y-3 p-3 md:hidden">
+                            {DAYS.map((day, dayIdx) => {
+                              const daySlots = timeSlotKeys.flatMap((slotKey) => {
+                                const [start, end] = slotKey.split("|||");
+                                const subjects = lookup[`${start}|||${end}|||${dayIdx}`];
+                                return subjects?.length ? [{ start, end, subjects }] : [];
+                              });
+                              return (
+                                <section key={day} className={`rounded-xl border p-4 ${isDark ? "border-slate-700 bg-slate-900/50" : "border-slate-200 bg-white"}`}>
+                                  <h4 className={`mb-3 font-bold ${isDark ? "text-white" : "text-slate-900"}`}>{day}</h4>
+                                  {daySlots.length ? (
+                                    <div className="space-y-3">
+                                      {daySlots.map((slot) => (
+                                        <div key={`${slot.start}-${slot.end}`} className={`grid grid-cols-[minmax(0,7rem)_minmax(0,1fr)] gap-3 border-t pt-3 first:border-0 first:pt-0 ${isDark ? "border-slate-700" : "border-slate-100"}`}>
+                                          <p className={`text-xs font-semibold leading-relaxed ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                                            {slot.start}<br />{slot.end}
+                                          </p>
+                                          <div className="flex min-w-0 flex-col gap-2">
+                                            {slot.subjects.map((subject, idx) => (
+                                              <span key={`${subject}-${idx}`} className={`break-words rounded-lg px-3 py-2 text-sm font-semibold ${isDark ? "border border-blue-500/30 bg-blue-500/20 text-blue-300" : "border border-blue-200 bg-blue-50 text-blue-700"}`}>
+                                                {subject}
+                                              </span>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <p className={`text-sm ${isDark ? "text-slate-500" : "text-slate-400"}`}>No classes scheduled</p>
+                                  )}
+                                </section>
+                              );
+                            })}
+                          </div>
+                          <div className="hidden overflow-x-auto md:block">
+                          <table className="w-full min-w-[900px] text-xs text-center border-collapse">
                             <thead>
                               <tr className={isDark ? "bg-blue-900/60 text-blue-200" : "bg-blue-600 text-white"}>
                                 <th className={`px-4 py-4 font-bold uppercase tracking-wider text-left border-r ${isDark ? "border-blue-800/50" : "border-blue-500/30"} min-w-[120px]`}>Time</th>
@@ -1621,6 +1658,7 @@ export default function ProctorDashboard() {
                               </tr>);
                             })}</tbody>
                           </table>
+                          </div>
                         </div>
                       )}
                     </div>

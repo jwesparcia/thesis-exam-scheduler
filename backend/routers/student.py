@@ -5,7 +5,7 @@ from core.cache import TTL_EXAM_SCHEDULE
 from model import Exam, Timeslot, ReschedulingRequest, User, IrregularSelection, Subject, Section
 from pydantic import BaseModel
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, time, timedelta
 from .auth import get_current_user, require_role
 from utils.logging import log_activity
 
@@ -40,6 +40,7 @@ def build_exam_response(exams):
             "subject_name": subject.name if subject else "-",
             "exam_type": subject.exam_type if subject else "-",
             "category": subject.category if subject else "-",
+            "duration_minutes": subject.duration_minutes if subject else 75,
             "section_name": section.name if section else "-",
             "course_name": course.name if course else "-",
             "year_level": year.name if year else "-",
@@ -52,6 +53,58 @@ def build_exam_response(exams):
             "status": e.status,
         })
     return result
+
+
+def get_irregular_schedule_exams(
+    current_user: User,
+    db: Session,
+    include_rescheduled_sources: bool = False,
+):
+    selections = db.query(IrregularSelection).filter(
+        IrregularSelection.user_id == current_user.id
+    ).all()
+    if not selections:
+        return []
+
+    selected_subjects = db.query(Subject).filter(
+        Subject.id.in_([selection.subject_id for selection in selections])
+    ).all()
+    matching_subjects = db.query(Subject).filter(
+        Subject.name.in_([subject.name for subject in selected_subjects]),
+        Subject.exam_type == "written",
+    ).all()
+    matching_ids_by_name = {}
+    for subject in matching_subjects:
+        matching_ids_by_name.setdefault(subject.name, []).append(subject.id)
+
+    selected_subject_by_id = {subject.id: subject for subject in selected_subjects}
+    from sqlalchemy import or_
+    conditions = []
+    for selection in selections:
+        subject = selected_subject_by_id.get(selection.subject_id)
+        matching_ids = matching_ids_by_name.get(subject.name, []) if subject else []
+        if matching_ids:
+            conditions.append(
+                (Exam.subject_id.in_(matching_ids)) & (Exam.section_id == selection.section_id)
+            )
+    if not conditions:
+        return []
+
+    rescheduled_source_ids = [row.exam_id for row in db.query(ReschedulingRequest.exam_id).filter(
+        ReschedulingRequest.school_email == current_user.email,
+        ReschedulingRequest.status == "approved",
+        ReschedulingRequest.rescheduled_exam_id.isnot(None),
+    ).all()]
+    query = db.query(Exam).options(
+        joinedload(Exam.subject),
+        joinedload(Exam.timeslot),
+    ).filter(
+        Exam.status == "posted",
+        or_(*conditions),
+    )
+    if rescheduled_source_ids and not include_rescheduled_sources:
+        query = query.filter(~Exam.id.in_(rescheduled_source_ids))
+    return query.all()
 
 # Authentication
 # Authentication is now handled by auth.py
@@ -113,47 +166,7 @@ def get_student_conflicts(
     db: Session = Depends(get_db),
 ):
     if current_user.student_type == "irregular":
-        selections = db.query(IrregularSelection).filter(IrregularSelection.user_id == current_user.id).all()
-        if not selections:
-            return []
-        
-        # Get all subject names from the selected subject_ids
-        selected_subject_ids = [sel.subject_id for sel in selections]
-        selected_subjects = db.query(Subject).filter(Subject.id.in_(selected_subject_ids)).all()
-        selected_names = [sub.name for sub in selected_subjects]
-        
-        all_matching_subjects = db.query(Subject).filter(
-            Subject.name.in_(selected_names),
-            Subject.exam_type == "written"
-        ).all()
-        
-        subject_name_to_ids = {}
-        for sub in all_matching_subjects:
-            subject_name_to_ids.setdefault(sub.name, []).append(sub.id)
-        
-        sel_subject_map = {sub.id: sub for sub in selected_subjects}
-        from sqlalchemy import or_
-        conditions = []
-        for sel in selections:
-            subject = sel_subject_map.get(sel.subject_id)
-            if subject and subject.name in subject_name_to_ids:
-                matching_ids = subject_name_to_ids[subject.name]
-                conditions.append(
-                    (Exam.subject_id.in_(matching_ids)) & (Exam.section_id == sel.section_id)
-                )
-        
-        if not conditions:
-            return []
-        
-        exams = (
-            db.query(Exam)
-            .options(joinedload(Exam.timeslot))
-            .filter(
-                Exam.status == "posted",
-                or_(*conditions)
-            )
-            .all()
-        )
+        exams = get_irregular_schedule_exams(current_user, db)
     else:
         if not current_user.section_name:
             return []
@@ -258,16 +271,53 @@ def submit_reschedule_request(
         raise HTTPException(status_code=404, detail="Exam not found")
         
     if current_user.student_type == "irregular":
-        is_selected = False
-        if exam.subject and exam.section_id:
-            selections = db.query(IrregularSelection).filter(IrregularSelection.user_id == current_user.id).all()
-            for sel in selections:
-                sel_subject = db.query(Subject).filter(Subject.id == sel.subject_id).first()
-                if sel_subject and sel_subject.name == exam.subject.name and sel.section_id == exam.section_id:
-                    is_selected = True
-                    break
-        if not is_selected:
+        scheduled_exams = get_irregular_schedule_exams(
+            current_user,
+            db,
+            include_rescheduled_sources=True,
+        )
+        scheduled_ids = {scheduled_exam.id for scheduled_exam in scheduled_exams}
+        if exam.id not in scheduled_ids:
             raise HTTPException(status_code=403, detail="Unauthorized: this exam is not in your selected schedule")
+        existing_request = db.query(ReschedulingRequest).filter(
+            ReschedulingRequest.exam_id == exam.id,
+            ReschedulingRequest.school_email == current_user.email,
+            ReschedulingRequest.status.in_(["pending", "approved"]),
+        ).first()
+        if existing_request:
+            raise HTTPException(status_code=400, detail="A rescheduling request already exists for this exam")
+
+        exam_timeslot = exam.timeslot
+        if not exam_timeslot:
+            raise HTTPException(status_code=400, detail="This exam has no scheduled timeslot")
+        conflicting_exams = []
+        for scheduled_exam in scheduled_exams:
+            peer_timeslot = scheduled_exam.timeslot
+            if scheduled_exam.id == exam.id or not peer_timeslot:
+                continue
+            if (
+                peer_timeslot.date == exam_timeslot.date
+                and exam_timeslot.start_time < peer_timeslot.end_time
+                and peer_timeslot.start_time < exam_timeslot.end_time
+            ):
+                conflicting_exams.append(scheduled_exam)
+        if not conflicting_exams:
+            raise HTTPException(status_code=400, detail="Irregular students can only reschedule an exam that conflicts with their schedule")
+        conflicting_exam_ids = [peer.id for peer in conflicting_exams]
+        handled_conflict = db.query(ReschedulingRequest).filter(
+            ReschedulingRequest.school_email == current_user.email,
+            ReschedulingRequest.exam_id.in_(conflicting_exam_ids),
+            ReschedulingRequest.status.in_(["pending", "approved"]),
+        ).first()
+        if handled_conflict:
+            raise HTTPException(
+                status_code=400,
+                detail="This conflict already has a pending or approved rescheduling request. Only one exam in the conflict can be moved.",
+            )
+        if (exam.subject and exam.subject.category == "major") and any(
+            peer.subject and peer.subject.category != "major" for peer in conflicting_exams
+        ):
+            raise HTTPException(status_code=400, detail="The minor or general exam must be rescheduled when it conflicts with a major exam")
     else:
         if exam.section and exam.section.name != current_user.section_name:
             raise HTTPException(status_code=403, detail="Unauthorized: section mismatch")
@@ -307,6 +357,31 @@ def submit_reschedule_request(
         preferred_end_time=parse_time(body.preferred_end_time),
         acknowledged=body.acknowledged,
     )
+    if current_user.student_type == "irregular":
+        if not (db_req.preferred_date and db_req.preferred_start_time and db_req.preferred_end_time):
+            raise HTTPException(status_code=400, detail="Choose a replacement date and time")
+        if db_req.preferred_date != exam_timeslot.date:
+            raise HTTPException(status_code=400, detail="Irregular conflict exams must be rescheduled on the same day")
+        duration_minutes = exam.subject.duration_minutes if exam.subject and exam.subject.duration_minutes else 75
+        expected_end = (
+            datetime.combine(datetime.today().date(), db_req.preferred_start_time)
+            + timedelta(minutes=duration_minutes)
+        ).time()
+        if db_req.preferred_end_time != expected_end:
+            raise HTTPException(status_code=400, detail="Replacement time must match the configured exam duration")
+        if db_req.preferred_start_time < exam_timeslot.end_time:
+            raise HTTPException(status_code=400, detail="The replacement exam must start after the original exam ends")
+        if db_req.preferred_start_time < time(17, 0) and db_req.preferred_end_time > time(17, 0):
+            raise HTTPException(status_code=400, detail="A replacement exam cannot cross the 5:00 PM consultation cutoff")
+        for peer in scheduled_exams:
+            peer_timeslot = peer.timeslot
+            if peer.id == exam.id or not peer_timeslot or peer_timeslot.date != db_req.preferred_date:
+                continue
+            if (
+                db_req.preferred_start_time < peer_timeslot.end_time
+                and peer_timeslot.start_time < db_req.preferred_end_time
+            ):
+                raise HTTPException(status_code=400, detail="The replacement time conflicts with another scheduled exam")
     db.add(db_req)
     db.commit()
     db.refresh(db_req)

@@ -533,7 +533,61 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                                 {sectionExams.length} Exams
                                             </div>
                                         </div>
-                                        <div className="overflow-x-auto custom-scrollbar">
+                                        <div className="space-y-3 md:hidden">
+                                            {sectionExams.map((exam) => (
+                                                <article
+                                                    key={exam.id}
+                                                    className={`rounded-xl border p-4 ${isDark ? "border-gray-700 bg-gray-900/40" : "border-gray-200 bg-gray-50"}`}
+                                                >
+                                                    <div className="flex items-start justify-between gap-3">
+                                                        <div className="min-w-0">
+                                                            <p className={`break-words text-xs font-bold ${isDark ? "text-gray-400" : "text-gray-500"}`}>{exam.subject_code}</p>
+                                                            <h4 className={`mt-1 break-words font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>{exam.subject_name}</h4>
+                                                        </div>
+                                                        <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase ${
+                                                            exam.status === "posted"
+                                                                ? "border-emerald-200 bg-emerald-100 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-400"
+                                                                : exam.status === "saved"
+                                                                ? "border-indigo-200 bg-indigo-100 text-indigo-800 dark:border-indigo-900 dark:bg-indigo-950/40 dark:text-indigo-400"
+                                                                : "border-gray-200 bg-gray-100 text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400"
+                                                        }`}>
+                                                            {exam.status || "draft"}
+                                                        </span>
+                                                    </div>
+                                                    <dl className={`mt-4 grid grid-cols-1 gap-x-3 gap-y-3 border-t pt-3 text-sm sm:grid-cols-2 ${isDark ? "border-gray-700 text-gray-300" : "border-gray-200 text-gray-700"}`}>
+                                                        <div className="min-w-0">
+                                                            <dt className={`text-xs font-semibold ${isDark ? "text-gray-400" : "text-gray-500"}`}>Proctor</dt>
+                                                            <dd className="mt-1 break-words">{exam.proctor || "Unassigned"}</dd>
+                                                        </div>
+                                                        <div className="min-w-0">
+                                                            <dt className={`text-xs font-semibold ${isDark ? "text-gray-400" : "text-gray-500"}`}>Date</dt>
+                                                            <dd className="mt-1 break-words">{exam.exam_date}</dd>
+                                                        </div>
+                                                        <div className="min-w-0">
+                                                            <dt className={`text-xs font-semibold ${isDark ? "text-gray-400" : "text-gray-500"}`}>Time</dt>
+                                                            <dd className="mt-1 break-words">{exam.start_time} - {exam.end_time}</dd>
+                                                        </div>
+                                                        <div className="min-w-0">
+                                                            <dt className={`text-xs font-semibold ${isDark ? "text-gray-400" : "text-gray-500"}`}>Room</dt>
+                                                            <dd className="mt-1 break-words">{exam.room && exam.room !== "-" ? exam.room : "No Room"}</dd>
+                                                        </div>
+                                                    </dl>
+                                                    <button
+                                                        onClick={() => handleOpenEdit(exam)}
+                                                        className={`mt-4 min-h-11 w-full rounded-lg border px-4 text-sm font-semibold transition ${
+                                                            isDark
+                                                                ? "border-blue-500/30 bg-blue-600/20 text-white hover:bg-blue-600/40"
+                                                                : "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
+                                                        }`}
+                                                        title="Edit Room, Timeslot, or Proctor"
+                                                    >
+                                                        <PencilSquareIcon className="mr-1.5 inline h-4 w-4" />
+                                                        Edit Schedule
+                                                    </button>
+                                                </article>
+                                            ))}
+                                        </div>
+                                        <div className="hidden overflow-x-auto custom-scrollbar md:block">
                                             <table className="w-full text-xs sm:text-sm border-separate border-spacing-0 min-w-[640px]">
                                                 <thead
                                                     className={`${isDark

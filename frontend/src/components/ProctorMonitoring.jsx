@@ -362,8 +362,29 @@ export default function ProctorMonitoring() {
                   </div>
 
                   {/* Table */}
-                  <div className="overflow-x-auto custom-scrollbar">
-                    <table className="w-full min-w-[640px]">
+                  <div className="w-full min-w-0">
+                    <div className="md:hidden divide-y divide-gray-100 dark:divide-gray-700/50">
+                      {exams.map((exam) => (
+                        <article key={exam.exam_id} className={`space-y-3 p-4 ${exam.attendance_status === "attended" ? isDark ? "bg-emerald-900/10" : "bg-emerald-50/60" : ""}`}>
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <h4 className={`break-words font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>{exam.subject_name}</h4>
+                              <p className={`mt-0.5 text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>{exam.subject_code}</p>
+                            </div>
+                            <AttendanceBadge status={exam.attendance_status} />
+                          </div>
+                          <div className={`grid grid-cols-1 gap-x-4 gap-y-2 text-sm sm:grid-cols-2 ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+                            <p className="break-words"><span className="font-semibold">Proctor:</span> {exam.proctor_name}</p>
+                            <p className="break-words"><span className="font-semibold">Section:</span> {exam.section_name}</p>
+                            <p className="break-words"><span className="font-semibold">Date:</span> {exam.exam_date}</p>
+                            <p className="break-words"><span className="font-semibold">Time:</span> {exam.start_time} – {exam.end_time}</p>
+                            <p className="break-words"><span className="font-semibold">Room:</span> {exam.room}</p>
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                    <div className="hidden overflow-x-auto custom-scrollbar md:block">
+                    <table className="w-full min-w-[900px]">
                       <thead>
                         <tr
                           className={`border-b ${
@@ -474,6 +495,7 @@ export default function ProctorMonitoring() {
                         ))}
                       </tbody>
                     </table>
+                    </div>
                   </div>
                 </div>
               );

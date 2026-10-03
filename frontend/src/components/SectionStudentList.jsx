@@ -269,7 +269,7 @@ export default function SectionStudentList() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-3 mt-4">
+        <div className="grid grid-cols-1 gap-3 mt-4 sm:grid-cols-3">
           {[
             {
               label: "Total Exams",
@@ -641,7 +641,7 @@ export default function SectionStudentList() {
                 {/* Student Table */}
                 {isExpanded && (
                   <div
-                    className={`border-t overflow-x-auto ${
+                    className={`min-w-0 border-t ${
                       isDark ? "border-slate-700/60" : "border-slate-200"
                     }`}
                   >
@@ -654,7 +654,28 @@ export default function SectionStudentList() {
                         No students will take this exam
                       </div>
                     ) : (
-                      <table className="w-full text-sm">
+                      <>
+                      <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-700/40">
+                        {students.map((student, idx) => (
+                          <article key={student.id} className="space-y-3 p-4">
+                            <div className="flex items-start gap-3">
+                              <span className={`pt-1 text-xs font-medium ${isDark ? "text-slate-500" : "text-slate-400"}`}>{idx + 1}</span>
+                              <div className="min-w-0 flex-1">
+                                <h4 className={`break-words font-semibold ${isDark ? "text-slate-100" : "text-slate-800"}`}>{student.name}</h4>
+                                <p className={`mt-0.5 break-all font-mono text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>{student.student_id || "No student ID"}</p>
+                              </div>
+                              <span className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-semibold ${student.student_type === "irregular"
+                                ? isDark ? "border-amber-800/50 bg-amber-900/30 text-amber-300" : "border-amber-200 bg-amber-50 text-amber-700"
+                                : isDark ? "border-blue-800/50 bg-blue-900/30 text-blue-300" : "border-blue-200 bg-blue-50 text-blue-700"
+                                }`}>
+                                {student.student_type === "irregular" ? "Irregular" : "Regular"}
+                              </span>
+                            </div>
+                            <div className={`ml-6 h-8 rounded border-b ${isDark ? "border-slate-600" : "border-slate-300"}`} aria-label="Signature line" />
+                          </article>
+                        ))}
+                      </div>
+                      <table className="hidden w-full min-w-[720px] text-sm md:table">
                         <thead>
                           <tr
                             className={`text-[11px] uppercase tracking-wider font-bold ${
@@ -752,6 +773,7 @@ export default function SectionStudentList() {
                           ))}
                         </tbody>
                       </table>
+                      </>
                     )}
                   </div>
                 )}
