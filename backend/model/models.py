@@ -209,6 +209,12 @@ class DistributionRule(Base):
     
     year_level = relationship("YearLevel", foreign_keys=[year_level_id])
 
+class ExamBreakSetting(Base):
+    __tablename__ = "exam_break_settings"
+    id = Column(Integer, primary_key=True, index=True)
+    category_type = Column(String, unique=True, nullable=False)
+    break_seconds = Column(Integer, nullable=False, default=0)
+
 class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)

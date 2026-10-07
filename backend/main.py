@@ -37,6 +37,15 @@ def on_startup():
             _conn.execute(_text("ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS deleted_by_sender BOOLEAN DEFAULT FALSE"))
             _conn.execute(_text("ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS deleted_by_recipient BOOLEAN DEFAULT FALSE"))
             _conn.execute(_text("ALTER TABLE rescheduling_requests ADD COLUMN IF NOT EXISTS rescheduled_exam_id INTEGER REFERENCES exams(id)"))
+            _conn.execute(_text("ALTER TABLE distribution_rules ADD COLUMN IF NOT EXISTS break_minutes INTEGER NOT NULL DEFAULT 0"))
+            _conn.execute(_text("""
+                INSERT INTO exam_break_settings (category_type, break_seconds)
+                SELECT LOWER(category_type), MAX(COALESCE(break_minutes, 0)) * 60
+                FROM distribution_rules
+                WHERE LOWER(category_type) IN ('general', 'major')
+                GROUP BY LOWER(category_type)
+                ON CONFLICT (category_type) DO NOTHING
+            """))
             _conn.commit()
         print("Chat database soft-delete columns migration successful!")
     except Exception as e:

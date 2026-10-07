@@ -9,6 +9,11 @@ export default function DistributionRulesManager({ isGenerating }) {
     const [yearLevels, setYearLevels] = useState([]);
     const [loading, setLoading] = useState(false);
     const [showAddForm, setShowAddForm] = useState(false);
+    const [breakFields, setBreakFields] = useState({
+        general: { hours: "0", minutes: "0", seconds: "0" },
+        major: { hours: "0", minutes: "0", seconds: "0" },
+    });
+    const [breakSaving, setBreakSaving] = useState({});
 
     // New Rule State
     const [newRule, setNewRule] = useState({
@@ -29,6 +34,7 @@ export default function DistributionRulesManager({ isGenerating }) {
     useEffect(() => {
         fetchRules();
         fetchYearLevels();
+        fetchBreakSettings();
     }, []);
 
     const fetchRules = async () => {
@@ -49,6 +55,42 @@ export default function DistributionRulesManager({ isGenerating }) {
         } catch (err) {
             console.error("Error fetching year levels:", err);
         }
+    };
+
+    const fetchBreakSettings = async () => {
+        try {
+            const res = await api.get("/rules/break-settings");
+            const values = {
+                general: { hours: "0", minutes: "0", seconds: "0" },
+                major: { hours: "0", minutes: "0", seconds: "0" },
+            };
+            res.data.forEach(setting => {
+                const totalSeconds = setting.break_seconds;
+                values[setting.category_type] = {
+                    hours: String(Math.floor(totalSeconds / 3600)),
+                    minutes: String(Math.floor((totalSeconds % 3600) / 60)),
+                    seconds: String(totalSeconds % 60),
+                };
+            });
+            setBreakFields(values);
+        } catch (err) {
+            console.error("Error fetching exam break settings:", err);
+        }
+    };
+
+    const updateBreakPart = (category, part, value) => {
+        setBreakFields(current => ({
+            ...current,
+            [category]: { ...current[category], [part]: value },
+        }));
+    };
+
+    const getBreakSeconds = (category) => {
+        const values = breakFields[category];
+        const hours = Math.min(23, Math.max(0, Number(values.hours) || 0));
+        const minutes = Math.min(59, Math.max(0, Number(values.minutes) || 0));
+        const seconds = Math.min(59, Math.max(0, Number(values.seconds) || 0));
+        return Math.floor(hours) * 3600 + Math.floor(minutes) * 60 + Math.floor(seconds);
     };
 
     const handleDelete = async (id) => {
@@ -94,6 +136,29 @@ export default function DistributionRulesManager({ isGenerating }) {
         } catch (err) {
             console.error(err);
             showError("Error adding rule");
+        }
+    };
+
+    const saveBreakSetting = async (category) => {
+        if (isGenerating) return;
+        setBreakSaving(current => ({ ...current, [category]: true }));
+        try {
+            const breakSeconds = getBreakSeconds(category);
+            await api.put(`/rules/break-settings/${category}`, { break_seconds: breakSeconds });
+            setBreakFields(current => ({
+                ...current,
+                [category]: {
+                    hours: String(Math.floor(breakSeconds / 3600)),
+                    minutes: String(Math.floor((breakSeconds % 3600) / 60)),
+                    seconds: String(breakSeconds % 60),
+                },
+            }));
+            showSuccess(`${category === "general" ? "General" : "Major"} break time saved`);
+        } catch (err) {
+            console.error(err);
+            showError("Error saving break time");
+        } finally {
+            setBreakSaving(current => ({ ...current, [category]: false }));
         }
     };
 
@@ -335,6 +400,104 @@ export default function DistributionRulesManager({ isGenerating }) {
                     </div>
                 </div>
             )}
+
+            <section className={`rounded-xl border ${isDark ? "border-gray-700" : "border-gray-200"}`}>
+                <div className="border-b px-4 py-3 dark:border-gray-700">
+                    <h3 className={`font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>Break Time by Subject Category</h3>
+                </div>
+                <div className="divide-y dark:divide-gray-700 md:hidden">
+                    {["general", "major"].map(category => (
+                        <div key={category} className={`space-y-3 p-4 ${isDark ? "text-gray-200" : "text-gray-800"}`}>
+                            <div className="flex items-center justify-between gap-3">
+                                <h4 className="font-semibold capitalize">{category}</h4>
+                                <button
+                                    onClick={() => saveBreakSetting(category)}
+                                    disabled={isGenerating || breakSaving[category]}
+                                    className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                    {breakSaving[category] ? "Saving..." : "Save"}
+                                </button>
+                            </div>
+                            <div className="grid grid-cols-3 gap-2">
+                                {[
+                                    { part: "hours", label: "HRS", max: 23 },
+                                    { part: "minutes", label: "MINS", max: 59 },
+                                    { part: "seconds", label: "SECS", max: 59 },
+                                ].map(({ part, label, max }) => (
+                                    <label key={part} className="min-w-0 space-y-1 text-center text-[10px] font-semibold uppercase text-gray-500 dark:text-gray-400">
+                                        <span className="block">{label}</span>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            max={max}
+                                            step="1"
+                                            className="w-full min-w-0 rounded-lg border p-2.5 text-center text-base tabular-nums text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                            value={breakFields[category][part]}
+                                            onChange={e => updateBreakPart(category, part, e.target.value)}
+                                            disabled={isGenerating || breakSaving[category]}
+                                            aria-label={`${category} break ${part}`}
+                                        />
+                                    </label>
+                                ))}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+                <div className="hidden overflow-x-auto md:block">
+                    <table className="w-full text-left text-sm">
+                        <thead className={`${isDark ? "bg-gray-700/50 text-gray-100" : "bg-gray-50 text-gray-700"}`}>
+                            <tr>
+                                <th className="px-4 py-3 font-medium">Subject Category</th>
+                                <th className="px-4 py-3 font-medium">
+                                    <div className="grid w-52 grid-cols-3 gap-2 text-center text-[10px] uppercase tracking-wide">
+                                        <span>HRS</span><span>MINS</span><span>SECS</span>
+                                    </div>
+                                    <span className="sr-only">Break duration</span>
+                                </th>
+                                <th className="px-4 py-3 text-right font-medium">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y dark:divide-gray-700">
+                            {["general", "major"].map(category => (
+                                <tr key={category} className={isDark ? "text-gray-200" : "text-gray-800"}>
+                                    <td className="px-4 py-3 font-medium capitalize">{category}</td>
+                                    <td className="px-4 py-3">
+                                        <div className="grid w-52 grid-cols-3 gap-2">
+                                            {[
+                                                { part: "hours", max: 23 },
+                                                { part: "minutes", max: 59 },
+                                                { part: "seconds", max: 59 },
+                                            ].map(({ part, max }) => (
+                                                <input
+                                                    key={part}
+                                                    type="number"
+                                                    min="0"
+                                                    max={max}
+                                                    step="1"
+                                                    className="w-full min-w-0 rounded-lg border p-2.5 text-center text-base tabular-nums dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                                    value={breakFields[category][part]}
+                                                    onChange={e => updateBreakPart(category, part, e.target.value)}
+                                                    disabled={isGenerating || breakSaving[category]}
+                                                    aria-label={`${category} break ${part}`}
+                                                />
+                                            ))}
+                                        </div>
+                                    </td>
+                                    <td className="px-4 py-3 text-right">
+                                        <button
+                                            onClick={() => saveBreakSetting(category)}
+                                            disabled={isGenerating || breakSaving[category]}
+                                            className="rounded-lg bg-blue-600 px-4 py-2 font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                        >
+                                            {breakSaving[category] ? "Saving..." : "Save"}
+                                        </button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
 
             {loading ? (
                 <div className="text-center py-4">Loading rules...</div>

@@ -785,6 +785,7 @@ export default function StudentDashboard() {
   const navigate = useNavigate();
   const { showSuccess, showError, showWarning } = useToast();
   const [exams, setExams] = useState([]);
+  const [examBreakSeconds, setExamBreakSeconds] = useState({ general: 0, major: 0 });
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [collapsedSections, setCollapsedSections] = useState(new Set());
@@ -877,6 +878,19 @@ export default function StudentDashboard() {
       }
     }
   }, [user]);
+
+  useEffect(() => {
+    if (user?.role !== "student") return;
+    api.get("/rules/break-settings")
+      .then(({ data }) => {
+        const settings = { general: 0, major: 0 };
+        data.forEach(setting => {
+          settings[setting.category_type] = setting.break_seconds;
+        });
+        setExamBreakSeconds(settings);
+      })
+      .catch(err => console.error("Error fetching exam break settings:", err));
+  }, [user?.role]);
 
   // Regular data fetch
   const fetchData = async () => {
@@ -1069,6 +1083,31 @@ export default function StudentDashboard() {
     return h * 60 + m;
   };
 
+  const parseTime12Seconds = (value) => {
+    if (!value || value === "-") return 0;
+    const [timePart, meridiem] = value.trim().split(" ");
+    let [hours, minutes, seconds = 0] = timePart.split(":").map(Number);
+    if (meridiem === "PM" && hours !== 12) hours += 12;
+    if (meridiem === "AM" && hours === 12) hours = 0;
+    return hours * 3600 + minutes * 60 + seconds;
+  };
+
+  const formatSecondsTo12 = (totalSeconds) => {
+    const secondsInDay = 24 * 60 * 60;
+    const normalized = ((totalSeconds % secondsInDay) + secondsInDay) % secondsInDay;
+    let hours = Math.floor(normalized / 3600);
+    const minutes = Math.floor((normalized % 3600) / 60);
+    const seconds = normalized % 60;
+    const meridiem = hours >= 12 ? "PM" : "AM";
+    hours %= 12;
+    if (hours === 0) hours = 12;
+    return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")} ${meridiem}`;
+  };
+
+  const getExamBreakSeconds = (category) => (
+    examBreakSeconds[String(category || "major").toLowerCase() === "general" ? "general" : "major"] || 0
+  );
+
   // Find all vacant blocks of at least the required exam duration on the same day as the conflicting exam,
   // but ONLY after the conflicting exam ends (can't reschedule before your own exam finishes)
   const getExamDurationMins = (exam) => {
@@ -1157,25 +1196,27 @@ export default function StudentDashboard() {
 
   const getIrregularRescheduleSuggestions = (exam) => {
     if (!exam) return [];
-    const duration = getExamDurationMins(exam);
+    const duration = getExamDurationMins(exam) * 60;
     const otherExams = exams.filter((peer) => peer.exam_date === exam.exam_date && peer.id !== exam.id);
-    let nextStart = parseTime12(exam.end_time);
+    let nextStart = parseTime12Seconds(exam.end_time) + getExamBreakSeconds(exam.category);
 
-    while (nextStart + duration <= 24 * 60) {
+    while (nextStart + duration <= 24 * 60 * 60) {
       const overlaps = otherExams.filter((peer) =>
-        nextStart < parseTime12(peer.end_time) &&
-        parseTime12(peer.start_time) < nextStart + duration
+        nextStart < parseTime12Seconds(peer.end_time) &&
+        parseTime12Seconds(peer.start_time) < nextStart + duration
       );
       if (overlaps.length === 0) break;
-      nextStart = Math.max(...overlaps.map((peer) => parseTime12(peer.end_time)));
+      nextStart = Math.max(...overlaps.map(peer => (
+        parseTime12Seconds(peer.end_time) + getExamBreakSeconds(peer.category)
+      )));
     }
 
-    if (nextStart + duration > 24 * 60) return [];
-    if (nextStart < 17 * 60 && nextStart + duration <= 17 * 60) {
+    if (nextStart + duration > 24 * 60 * 60) return [];
+    if (nextStart < 17 * 60 * 60 && nextStart + duration <= 17 * 60 * 60) {
       return [{ start: nextStart, end: nextStart + duration, consultation: false }];
     }
 
-    let consultationStart = Math.max(nextStart, 17 * 60);
+    let consultationStart = Math.max(nextStart, 17 * 60 * 60);
     const dayExams = exams.filter((peer) => peer.exam_date === exam.exam_date);
     const conflictTargets = new Set();
     for (let firstIndex = 0; firstIndex < dayExams.length; firstIndex += 1) {
@@ -1198,13 +1239,15 @@ export default function StudentDashboard() {
     const optionCount = Math.max(2, conflictTargets.size);
     const suggestions = [];
 
-    for (let index = 0; index < optionCount && consultationStart + duration <= 24 * 60; index += 1) {
+    for (let index = 0; index < optionCount && consultationStart + duration <= 24 * 60 * 60; index += 1) {
       const overlaps = otherExams.filter((peer) =>
-        consultationStart < parseTime12(peer.end_time) &&
-        parseTime12(peer.start_time) < consultationStart + duration
+        consultationStart < parseTime12Seconds(peer.end_time) &&
+        parseTime12Seconds(peer.start_time) < consultationStart + duration
       );
       if (overlaps.length > 0) {
-        consultationStart = Math.max(...overlaps.map((peer) => parseTime12(peer.end_time)));
+        consultationStart = Math.max(...overlaps.map(peer => (
+          parseTime12Seconds(peer.end_time) + getExamBreakSeconds(peer.category)
+        )));
         index -= 1;
         continue;
       }
@@ -1213,7 +1256,7 @@ export default function StudentDashboard() {
         end: consultationStart + duration,
         consultation: true,
       });
-      consultationStart += duration + 15;
+      consultationStart += duration + 15 * 60;
     }
     return suggestions;
   };
@@ -1226,6 +1269,17 @@ export default function StudentDashboard() {
     };
     setPreferredStartTime(toHHMM(startMins));
     setPreferredEndTime(toHHMM(startMins + duration));
+  };
+
+  const applyIrregularSuggestion = (startSeconds, durationSeconds) => {
+    const toHHMMSS = (totalSeconds) => {
+      const hours = Math.floor(totalSeconds / 3600) % 24;
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const seconds = totalSeconds % 60;
+      return [hours, minutes, seconds].map(value => String(value).padStart(2, "0")).join(":");
+    };
+    setPreferredStartTime(toHHMMSS(startSeconds));
+    setPreferredEndTime(toHHMMSS(startSeconds + durationSeconds));
   };
 
   useEffect(() => {
@@ -2041,13 +2095,18 @@ export default function StudentDashboard() {
                       </p>
                       <div className="flex flex-wrap gap-2 mt-1">
                         {isIrregular ? suggestions.map((suggestion, idx) => {
-                          const label = `${formatMinsTo12(suggestion.start)} - ${formatMinsTo12(suggestion.end)}`;
-                          const isSelected = preferredStartTime === `${String(Math.floor(suggestion.start / 60)).padStart(2, "0")}:${String(suggestion.start % 60).padStart(2, "0")}`;
+                          const label = `${formatSecondsTo12(suggestion.start)} - ${formatSecondsTo12(suggestion.end)}`;
+                          const isSelected = preferredStartTime === (() => {
+                            const hours = Math.floor(suggestion.start / 3600) % 24;
+                            const minutes = Math.floor((suggestion.start % 3600) / 60);
+                            const seconds = suggestion.start % 60;
+                            return [hours, minutes, seconds].map(value => String(value).padStart(2, "0")).join(":");
+                          })();
                           return (
                             <button
                               key={idx}
                               type="button"
-                              onClick={() => applyVacantHoursSuggestion(suggestion.start, reqDur)}
+                              onClick={() => applyIrregularSuggestion(suggestion.start, suggestion.end - suggestion.start)}
                               aria-pressed={isSelected}
                               className={`px-3 py-1.5 rounded-lg text-xs font-semibold shadow-sm transition ${
                                 isSelected
