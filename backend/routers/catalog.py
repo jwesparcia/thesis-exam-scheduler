@@ -1482,6 +1482,7 @@ def get_students_directory(
 
     # Pre-fetch course names
     courses_map = {c.id: c for c in db.query(Course).all()}
+    sections_by_name = {sec.name: sec for sec in db.query(Section).all()}
     
     # Pre-fetch irregular selections for users on this page
     user_ids = [u.id for u in users_page]
@@ -1509,6 +1510,7 @@ def get_students_directory(
     items = []
     for u in users_page:
         c_obj = courses_map.get(u.course_id)
+        sec_info = sections_by_name.get(u.section_name) if u.section_name else None
         assigned_secs = list(dict.fromkeys([
             s["section_name"] for s in irregular_map.get(u.id, []) 
             if s.get("section_name") and s["section_name"] != "-"
@@ -1522,6 +1524,7 @@ def get_students_directory(
             "course_name": c_obj.name if c_obj else "-",
             "department": c_obj.category if c_obj else "-",
             "section_name": u.section_name or ("Irregular" if u.student_type == "irregular" else "-"),
+            "semester": sec_info.semester if sec_info else None,
             "student_type": u.student_type or "regular",
             "enrolled_subjects": irregular_map.get(u.id, []),
             "assigned_sections": assigned_secs

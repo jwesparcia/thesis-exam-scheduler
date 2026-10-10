@@ -24,8 +24,8 @@ router = APIRouter(prefix="/exams", tags=["Exams"])
 _generation_progress = {}
 _generation_progress_lock = Lock()
 
-# Rate limiter: 1 generation request per user per 60 seconds
-_GENERATE_RATE_LIMIT_SECONDS = 60
+# Rate limiter: 1 generation request per user per 5 seconds
+_GENERATE_RATE_LIMIT_SECONDS = 5
 _generate_last_request: dict = {}  # user_id -> datetime of last accepted request
 _generate_rate_limit_lock = Lock()
 
@@ -40,6 +40,7 @@ def _set_generation_progress(key, status, percent, phase, detail=""):
         "percent": max(0, min(100, int(percent))),
         "phase": phase,
         "detail": detail,
+        "job_id": str(key),
         "updated_at": datetime.utcnow().isoformat() + "Z",
     }
     with _generation_progress_lock:

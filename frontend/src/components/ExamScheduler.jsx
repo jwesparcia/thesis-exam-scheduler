@@ -40,6 +40,7 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
   const [generationProgress, setGenerationProgress] = useState(INITIAL_GENERATION_PROGRESS);
   const [existingExamCount, setExistingExamCount] = useState(0);
   const [existingExamChecking, setExistingExamChecking] = useState(false);
+  const [isPreflighting, setIsPreflighting] = useState(false);
   const [overwriteModal, setOverwriteModal] = useState({ isOpen: false });
   const { showSuccess, showError, showWarning } = useToast();
   const [confirmModal, setConfirmModal] = useState({
@@ -395,61 +396,68 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
       return;
     }
 
-    // Guard: ensure students have been uploaded before generating
+    // Show loading state immediately so the button is disabled & shows a spinner
+    setIsPreflighting(true);
+
     try {
-      const studentRes = await api.get("/catalog/student-stats");
-      if (studentRes.data.total === 0) {
-        showError("Cannot generate schedule: no student accounts have been uploaded. Please import students first.");
+      // Guard: ensure students have been uploaded before generating
+      try {
+        const studentRes = await api.get("/catalog/student-stats");
+        if (studentRes.data.total === 0) {
+          showError("Cannot generate schedule: no student accounts have been uploaded. Please import students first.");
+          return;
+        }
+      } catch (err) {
+        showError("Could not verify student accounts. Please try again.");
         return;
       }
-    } catch (err) {
-      showError("Could not verify student accounts. Please try again.");
-      return;
-    }
 
-    // Guard: block if existing schedule already exists — must overwrite or delete first
-    let currentExamCount = existingExamCount;
-    try {
-      const countRes = await api.get("/exams/count", {
-        params: { department: selectedDept, semester }
-      });
-      currentExamCount = countRes.data.count || 0;
-      setExistingExamCount(currentExamCount);
-    } catch {
-      // Fall back to state value
-    }
-
-    if (currentExamCount > 0) {
-      setOverwriteModal({ isOpen: true });
-      return;
-    }
-
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-
-    // Call external warning from parent (if any)
-    if (onBeforeGenerate) {
-      await onBeforeGenerate();
-    }
-    // Also call local warning
-    await checkMissingSchedules();
-
-    let msg = "";
-    if (diffDays < 3 || diffDays > 5) {
-      msg = `The selected range is ${diffDays} days (recommended is 4). Do you want to proceed? This will generate the schedule for ALL ${selectedDept} courses at once.`;
-    } else if (diffDays !== 4) {
-      msg = `The selected range is ${diffDays} days (exactly 4 is recommended). Proceed? This will generate the schedule for ALL ${selectedDept} courses at once.`;
-    } else {
-      msg = `This will generate the schedule for ALL ${selectedDept} courses at once, ensuring shared subjects are taken simultaneously. Continue?`;
-    }
-
-    setConfirmModal({
-      isOpen: true,
-      message: msg,
-      onConfirm: () => {
-        setConfirmModal(prev => ({ ...prev, isOpen: false }));
-        executeGeneration(false);
+      // Guard: block if existing schedule already exists — must overwrite or delete first
+      let currentExamCount = existingExamCount;
+      try {
+        const countRes = await api.get("/exams/count", {
+          params: { department: selectedDept, semester }
+        });
+        currentExamCount = countRes.data.count || 0;
+        setExistingExamCount(currentExamCount);
+      } catch {
+        // Fall back to state value
       }
-    });
+
+      if (currentExamCount > 0) {
+        setOverwriteModal({ isOpen: true });
+        return;
+      }
+
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+
+      // Call external warning from parent (if any)
+      if (onBeforeGenerate) {
+        await onBeforeGenerate();
+      }
+      // Also call local warning
+      await checkMissingSchedules();
+
+      let msg = "";
+      if (diffDays < 3 || diffDays > 5) {
+        msg = `The selected range is ${diffDays} days (recommended is 4). Do you want to proceed? This will generate the schedule for ALL ${selectedDept} courses at once.`;
+      } else if (diffDays !== 4) {
+        msg = `The selected range is ${diffDays} days (exactly 4 is recommended). Proceed? This will generate the schedule for ALL ${selectedDept} courses at once.`;
+      } else {
+        msg = `This will generate the schedule for ALL ${selectedDept} courses at once, ensuring shared subjects are taken simultaneously. Continue?`;
+      }
+
+      setConfirmModal({
+        isOpen: true,
+        message: msg,
+        onConfirm: () => {
+          setConfirmModal(prev => ({ ...prev, isOpen: false }));
+          executeGeneration(false);
+        }
+      });
+    } finally {
+      setIsPreflighting(false);
+    }
   };
 
   const generationPercent = Math.max(0, Math.min(100, Number(generationProgress.percent) || 0));
@@ -858,9 +866,9 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
                   <button
                     onClick={generate}
-                    disabled={loading || existingExamChecking}
+                    disabled={loading || existingExamChecking || isPreflighting}
                     className={`flex items-center justify-center gap-2.5 sm:gap-3 px-5 sm:px-8 py-3.5 sm:py-4 rounded-xl sm:rounded-2xl w-full sm:w-auto text-white font-bold text-sm sm:text-lg transition-all shadow-xl ${
-                      loading || existingExamChecking
+                      loading || existingExamChecking || isPreflighting
                         ? "bg-gray-400 cursor-not-allowed"
                         : existingExamCount > 0
                           ? "bg-amber-500 hover:bg-amber-600 hover:shadow-amber-500/20 active:scale-95"
@@ -871,7 +879,7 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
                       <>
                         <ArrowPathIcon className="w-5 h-5 sm:w-6 sm:h-6 animate-spin" /> Generating...
                       </>
-                    ) : existingExamChecking ? (
+                    ) : existingExamChecking || isPreflighting ? (
                       <>
                         <ArrowPathIcon className="w-5 h-5 sm:w-6 sm:h-6 animate-spin" /> Checking...
                       </>
@@ -1059,7 +1067,7 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
               <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center mb-4 sm:mb-6">
                 <CalendarDaysIcon className="w-7 h-7 sm:w-8 sm:h-8 text-blue-500" />
               </div>
-              <h3 className={`text-lg sm:text-xl font-bold mb-2 sm:mb-3 ${isDark ? "text-white" : "text-gray-900"}`}>Confirm Regeneration</h3>
+              <h3 className={`text-lg sm:text-xl font-bold mb-2 sm:mb-3 ${isDark ? "text-white" : "text-gray-900"}`}>Confirm Generation</h3>
               <p className={`text-xs sm:text-sm mb-6 sm:mb-8 ${isDark ? "text-gray-400" : "text-gray-600"} leading-relaxed`}>{confirmModal.message}</p>
               <div className="flex flex-col-reverse sm:flex-row gap-2.5 sm:gap-4 w-full">
                 <button onClick={() => setConfirmModal({ ...confirmModal, isOpen: false })} className={`w-full py-3 rounded-xl font-bold text-xs sm:text-sm transition ${isDark ? "bg-gray-700 text-gray-300 hover:bg-gray-600" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}>Cancel</button>
