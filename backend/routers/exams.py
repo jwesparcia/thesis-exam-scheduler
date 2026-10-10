@@ -94,13 +94,17 @@ def _format_exam_for_room_status(exam: Exam, rescheduled_exam_ids: set = None, r
     # Rescheduled: true if this exam was approved via a rescheduling request
     is_rescheduled = (rescheduled_exam_ids is not None) and (exam.id in rescheduled_exam_ids)
 
-    # Student count:
-    # - For rescheduled exams: use the number of irregular students rescheduled to this exam
-    # - For regular exams: use the section's registered student headcount
-    if is_rescheduled and rescheduled_student_counts is not None:
-        student_count = rescheduled_student_counts.get(exam.id, 1)
-    else:
-        student_count = getattr(section, "student_count", None) or 0
+    # Shared exams keep their section headcount and add joining irregular students.
+    regular_student_count = (
+        getattr(section, "student_count", None) or 0
+        if room and room.name != "Consultation Area"
+        else 0
+    )
+    student_count = regular_student_count + (
+        rescheduled_student_counts.get(exam.id, 0)
+        if is_rescheduled and rescheduled_student_counts is not None
+        else 0
+    )
 
     return {
         "id": exam.id,
@@ -208,6 +212,21 @@ def get_exams(
     if not exams:
         return []
 
+    rescheduled_students_by_exam = {}
+    assigned_exam_ids = [exam.id for exam in exams]
+    if assigned_exam_ids:
+        assigned_requests = db.query(ReschedulingRequest).filter(
+            ReschedulingRequest.status == "approved",
+            ReschedulingRequest.rescheduled_exam_id.in_(assigned_exam_ids),
+        ).all()
+        for request in assigned_requests:
+            rescheduled_students_by_exam.setdefault(request.rescheduled_exam_id, []).append({
+                "name": request.student_name,
+                "student_id": request.student_id,
+                "subject": request.course_name,
+                "subject_code": request.course_code,
+            })
+
     result = []
     for e in exams:
         subject = e.subject
@@ -250,6 +269,7 @@ def get_exams(
             "proctor": proctor_name,
             "proctor_name": proctor_name,
             "proctor_attendance": e.proctor_attendance or "pending",
+            "rescheduled_students": rescheduled_students_by_exam.get(e.id, []),
         })
 
     return result
@@ -630,17 +650,16 @@ def get_room_status(
     # Collect exam IDs that were assigned via an approved rescheduling request,
     # and count how many irregular students are rescheduled to each exam.
     approved_requests = db.query(
-        ReschedulingRequest.exam_id,
         ReschedulingRequest.rescheduled_exam_id,
     ).filter(
         ReschedulingRequest.status == "approved",
-        ReschedulingRequest.exam_id.isnot(None),
+        ReschedulingRequest.rescheduled_exam_id.isnot(None),
     ).all()
 
     rescheduled_exam_ids = set()
     rescheduled_student_counts: dict = {}  # exam_id -> number of irregular students
     for row in approved_requests:
-        scheduled_exam_id = row.rescheduled_exam_id or row.exam_id
+        scheduled_exam_id = row.rescheduled_exam_id
         rescheduled_exam_ids.add(scheduled_exam_id)
         rescheduled_student_counts[scheduled_exam_id] = rescheduled_student_counts.get(scheduled_exam_id, 0) + 1
 
@@ -654,7 +673,11 @@ def get_room_status(
             unassigned_exams.append(exam)
             continue
 
-        if selected_department != "All" and exam.room.name not in allowed_room_names:
+        if (
+            selected_department != "All"
+            and exam.room.name != "Consultation Area"
+            and exam.room.name not in allowed_room_names
+        ):
             wrong_building_exams.append(exam)
 
         if exam.room_id in room_bookings:

@@ -1731,6 +1731,25 @@ export default function ProctorDashboard() {
                             </div>
                           </div>
                         </div>
+
+                        {exam.rescheduled_students?.length > 0 && (
+                          <div className={`mt-5 rounded-xl border p-3 ${isDark ? "border-amber-500/30 bg-amber-500/10" : "border-amber-200 bg-amber-50"}`}>
+                            <h4 className={`mb-2 text-xs font-bold uppercase tracking-wide ${isDark ? "text-amber-300" : "text-amber-800"}`}>
+                              Irregular students joining ({exam.rescheduled_students.length})
+                            </h4>
+                            <ul className={`space-y-1.5 text-sm ${isDark ? "text-slate-200" : "text-slate-700"}`}>
+                              {exam.rescheduled_students.map((student, index) => (
+                                <li key={`${student.student_id || student.name}-${index}`}>
+                                  <span className="font-semibold">{student.name}</span>
+                                  {student.student_id ? ` (${student.student_id})` : ""}
+                                  <span className={`block text-xs ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+                                    Taking: {student.subject_code ? `${student.subject_code} · ` : ""}{student.subject}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
                         
                         {exam.proctor_attendance === "pending" ? (
                           <button onClick={() => handleConfirmAttendance(exam.id)} className="w-full mt-7 py-3 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 hover:-translate-y-0.5">

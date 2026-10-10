@@ -2,10 +2,11 @@ from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.orm import Session, joinedload
 from core import get_db, cache
 from core.cache import TTL_EXAM_SCHEDULE
-from model import Exam, Timeslot, ReschedulingRequest, User, IrregularSelection, Subject, Section
+from model import Exam, Timeslot, ReschedulingRequest, User, IrregularSelection, Subject, Section, Notification
 from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime, time, timedelta
+from types import SimpleNamespace
 from .auth import get_current_user, require_role
 from utils.logging import log_activity
 
@@ -58,7 +59,6 @@ def build_exam_response(exams):
 def get_irregular_schedule_exams(
     current_user: User,
     db: Session,
-    include_rescheduled_sources: bool = False,
 ):
     selections = db.query(IrregularSelection).filter(
         IrregularSelection.user_id == current_user.id
@@ -90,21 +90,45 @@ def get_irregular_schedule_exams(
     if not conditions:
         return []
 
-    rescheduled_source_ids = [row.exam_id for row in db.query(ReschedulingRequest.exam_id).filter(
-        ReschedulingRequest.school_email == current_user.email,
-        ReschedulingRequest.status == "approved",
-        ReschedulingRequest.rescheduled_exam_id.isnot(None),
-    ).all()]
-    query = db.query(Exam).options(
+    exams = db.query(Exam).options(
         joinedload(Exam.subject),
         joinedload(Exam.timeslot),
     ).filter(
         Exam.status == "posted",
         or_(*conditions),
-    )
-    if rescheduled_source_ids and not include_rescheduled_sources:
-        query = query.filter(~Exam.id.in_(rescheduled_source_ids))
-    return query.all()
+    ).join(Exam.timeslot).order_by(Timeslot.date, Timeslot.start_time).all()
+    exam_ids = {exam.id for exam in exams}
+    approved_reschedules = db.query(ReschedulingRequest).options(
+        joinedload(ReschedulingRequest.exam).joinedload(Exam.subject),
+        joinedload(ReschedulingRequest.exam).joinedload(Exam.section),
+        joinedload(ReschedulingRequest.rescheduled_exam).joinedload(Exam.timeslot),
+    ).filter(
+        ReschedulingRequest.school_email == current_user.email,
+        ReschedulingRequest.status == "approved",
+        ReschedulingRequest.rescheduled_exam_id.isnot(None),
+    ).all()
+    rescheduled_source_ids = set()
+    rescheduled_exams = []
+    for request in approved_reschedules:
+        source_exam = request.exam
+        target_exam = request.rescheduled_exam
+        if (
+            not source_exam
+            or source_exam.id not in exam_ids
+            or not target_exam
+            or not target_exam.timeslot
+        ):
+            continue
+        rescheduled_source_ids.add(source_exam.id)
+        rescheduled_exams.append(SimpleNamespace(
+            id=source_exam.id,
+            subject=source_exam.subject,
+            section=source_exam.section,
+            timeslot=target_exam.timeslot,
+        ))
+    return [
+        exam for exam in exams if exam.id not in rescheduled_source_ids
+    ] + rescheduled_exams
 
 # Authentication
 # Authentication is now handled by auth.py
@@ -274,7 +298,6 @@ def submit_reschedule_request(
         scheduled_exams = get_irregular_schedule_exams(
             current_user,
             db,
-            include_rescheduled_sources=True,
         )
         scheduled_ids = {scheduled_exam.id for scheduled_exam in scheduled_exams}
         if exam.id not in scheduled_ids:
@@ -383,6 +406,30 @@ def submit_reschedule_request(
             ):
                 raise HTTPException(status_code=400, detail="The replacement time conflicts with another scheduled exam")
     db.add(db_req)
+    db.flush()
+    if current_user.student_type == "irregular":
+        same_time_pending = db.query(ReschedulingRequest).join(
+            User, User.email == ReschedulingRequest.school_email
+        ).filter(
+            ReschedulingRequest.id != db_req.id,
+            ReschedulingRequest.status == "pending",
+            ReschedulingRequest.preferred_date == db_req.preferred_date,
+            ReschedulingRequest.preferred_start_time == db_req.preferred_start_time,
+            ReschedulingRequest.preferred_end_time == db_req.preferred_end_time,
+            User.student_type == "irregular",
+        ).count()
+        admin_users = db.query(User).filter(User.role.in_(["admin", "program_head"])).all()
+        message = (
+            f"{same_time_pending + 1} irregular rescheduling request(s) are pending for "
+            f"{db_req.preferred_date} at {db_req.preferred_start_time.strftime('%I:%M %p')}."
+        )
+        for admin_user in admin_users:
+            db.add(Notification(
+                user_id=admin_user.id,
+                message=message,
+                type="info",
+                related_id=db_req.id,
+            ))
     db.commit()
     db.refresh(db_req)
     log_activity(db, current_user.id, "STUDENT_RESCHED_SUBMIT", f"Exam ID: {body.exam_id}")
@@ -628,6 +675,46 @@ def get_custom_exams(
     exams = exams.join(Exam.timeslot).order_by(Timeslot.date, Timeslot.start_time).all()
 
     result = build_exam_response(exams)
+    result_by_exam_id = {item["id"]: item for item in result}
+    approved_reschedules = db.query(ReschedulingRequest).options(
+        joinedload(ReschedulingRequest.exam).joinedload(Exam.subject),
+        joinedload(ReschedulingRequest.rescheduled_exam).joinedload(Exam.subject),
+        joinedload(ReschedulingRequest.rescheduled_exam).joinedload(Exam.section),
+        joinedload(ReschedulingRequest.rescheduled_exam).joinedload(Exam.room),
+        joinedload(ReschedulingRequest.rescheduled_exam).joinedload(Exam.timeslot),
+        joinedload(ReschedulingRequest.rescheduled_exam).joinedload(Exam.course),
+        joinedload(ReschedulingRequest.rescheduled_exam).joinedload(Exam.year_level),
+        joinedload(ReschedulingRequest.rescheduled_exam).joinedload(Exam.proctor),
+    ).filter(
+        ReschedulingRequest.school_email == current_user.email,
+        ReschedulingRequest.status == "approved",
+        ReschedulingRequest.rescheduled_exam_id.isnot(None),
+    ).all()
+    for approved_request in approved_reschedules:
+        scheduled_exam = approved_request.rescheduled_exam
+        source_subject = approved_request.exam.subject if approved_request.exam else None
+        if not scheduled_exam or not source_subject:
+            continue
+        scheduled = result_by_exam_id.get(scheduled_exam.id)
+        if scheduled is None:
+            scheduled = build_exam_response([scheduled_exam])[0]
+            scheduled["id"] = approved_request.exam_id
+            result.append(scheduled)
+            result_by_exam_id[scheduled_exam.id] = scheduled
+        source_exam = approved_request.exam
+        scheduled.update({
+            "subject_code": source_subject.code or "-",
+            "subject_name": source_subject.name or approved_request.course_name,
+            "exam_type": source_subject.exam_type or approved_request.exam_type,
+            "course_name": source_exam.course.name if source_exam and source_exam.course else approved_request.program,
+            "year_level": source_exam.year_level.name if source_exam and source_exam.year_level else scheduled["year_level"],
+            "semester": source_exam.semester if source_exam else scheduled["semester"],
+            "term": source_exam.term if source_exam else scheduled["term"],
+            "section_name": approved_request.section_name or scheduled["section_name"],
+        })
+    result.sort(key=lambda item: datetime.strptime(
+        f'{item["exam_date"]} {item["start_time"]}',
+        "%A, %B %d, %Y %I:%M %p",
+    ) if item["exam_date"] != "-" and item["start_time"] != "-" else datetime.max)
     cache.set(cache_key, result, TTL_EXAM_SCHEDULE)
     return result
-

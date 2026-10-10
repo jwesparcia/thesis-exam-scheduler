@@ -1,6 +1,6 @@
 #schemas.py
-from pydantic import BaseModel
-from typing import Optional
+from pydantic import BaseModel, Field
+from typing import List, Optional
 
 # ----- Section Schemas -----
 class SectionBase(BaseModel):
@@ -99,6 +99,8 @@ class ReschedulingRequestUpdate(BaseModel):
     reviewer_comments: str = None
     room_id: Optional[int] = None
     proctor_id: Optional[int] = None
+    target_exam_id: Optional[int] = None
+    batch_request_ids: List[int] = Field(default_factory=list)
 
 
 # ----- Room Schemas -----

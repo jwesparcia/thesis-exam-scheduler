@@ -70,9 +70,17 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
   const [approveModalReq, setApproveModalReq] = useState(null);
   const [availableRooms, setAvailableRooms] = useState([]);
   const [availableProctors, setAvailableProctors] = useState([]);
+  const [assignmentOptions, setAssignmentOptions] = useState({
+    ongoing_exams: [],
+    free_rooms: [],
+    free_proctors: [],
+    peer_requests: [],
+  });
   const [loadingRooms, setLoadingRooms] = useState(false);
   const [selectedRoomId, setSelectedRoomId] = useState("");
   const [selectedProctorId, setSelectedProctorId] = useState("");
+  const [selectedTargetExamId, setSelectedTargetExamId] = useState("");
+  const [selectedBatchRequestIds, setSelectedBatchRequestIds] = useState([]);
 
   useEffect(() => {
     const fetchRequests = async () => {
@@ -116,12 +124,25 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
     setApproveModalReq(req);
     setSelectedRoomId("");
     setSelectedProctorId("");
+    setSelectedTargetExamId("");
+    setSelectedBatchRequestIds([]);
+    setAssignmentOptions({
+      ongoing_exams: [],
+      free_rooms: [],
+      free_proctors: [],
+      peer_requests: [],
+    });
     setLoadingRooms(true);
     try {
       if (req.consultation_area) {
         const res = await api.get("/proctors/");
         setAvailableProctors(res.data);
         setAvailableRooms([]);
+      } else if (req.is_irregular) {
+        const res = await api.get(`/rescheduling/${req.id}/available-rooms`);
+        setAssignmentOptions(res.data);
+        setAvailableRooms([]);
+        setAvailableProctors([]);
       } else {
         const res = await api.get(`/rescheduling/${req.id}/available-rooms`);
         setAvailableRooms(res.data);
@@ -131,14 +152,20 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
       console.error("Error fetching approval assignments:", err);
       setAvailableRooms([]);
       setAvailableProctors([]);
+      setAssignmentOptions({
+        ongoing_exams: [],
+        free_rooms: [],
+        free_proctors: [],
+        peer_requests: [],
+      });
     }
     setLoadingRooms(false);
   };
 
-  const handleReview = async (id, status, comments = "", roomId = null, proctorId = null) => {
+  const handleReview = async (id, status, comments = "", roomId = null, proctorId = null, targetExamId = null, batchRequestIds = []) => {
     if (isGenerating) {
       showError("Cannot review rescheduling requests while schedule generation is ongoing");
-      return;
+      return false;
     }
     try {
       const res = await api.put(`/rescheduling/${id}/review`, {
@@ -146,22 +173,87 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
         reviewer_comments: comments,
         room_id: roomId || null,
         proctor_id: proctorId || null,
+        target_exam_id: targetExamId || null,
+        batch_request_ids: batchRequestIds,
       });
       if (res.status === 200) {
         setRequests(prev => {
-          const updated = prev.filter(req => req.id !== id);
+          const processedIds = new Set([id, ...batchRequestIds]);
+          const updated = prev.filter(req => !processedIds.has(req.id));
           if (onRequestsChange) {
             onRequestsChange(updated.length);
           }
           return updated;
         });
         showSuccess(`Request ${status} successfully`);
+        return true;
       } else {
         showError("Failed to update request");
+        return false;
       }
     } catch (err) {
       console.error(err);
       showError(err.response?.data?.detail || "Error updating request");
+      return false;
+    }
+  };
+
+  const handlePrintRoster = async (requestId) => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      showError("Allow pop-ups to print the signature roster");
+      return;
+    }
+    printWindow.opener = null;
+    const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (character) => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;",
+    })[character]);
+    try {
+      const { data } = await api.get(`/rescheduling/${requestId}/roster`);
+      const rows = data.students.map((student) => `
+        <tr>
+          <td>${escapeHtml(student.name)}</td>
+          <td>${escapeHtml(student.student_id || "")}</td>
+          <td>${escapeHtml(student.subject_code)} ${escapeHtml(student.subject)}</td>
+          <td class="signature"></td>
+        </tr>
+      `).join("");
+      printWindow.document.write(`
+        <!doctype html>
+        <html><head><title>Irregular Student Signature Roster</title>
+        <style>
+          body{font:14px Arial,sans-serif;margin:32px;color:#111}
+          h1{font-size:20px;margin-bottom:8px}
+          .details{margin-bottom:20px;line-height:1.6}
+          table{border-collapse:collapse;width:100%}
+          th,td{border:1px solid #333;padding:9px;text-align:left}
+          th{background:#eee}
+          .signature{min-width:180px;height:38px}
+          @media print{body{margin:14mm}th{background:#eee!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+        </style></head><body>
+          <h1>Irregular Student Signature Roster</h1>
+          <div class="details">
+            <strong>Session:</strong> ${escapeHtml(data.exam.subject)}<br>
+            <strong>Date:</strong> ${escapeHtml(data.exam.date)} &nbsp;
+            <strong>Time:</strong> ${escapeHtml(data.exam.start_time)} – ${escapeHtml(data.exam.end_time)}<br>
+            <strong>Room:</strong> ${escapeHtml(data.exam.room)} &nbsp;
+            <strong>Proctor:</strong> ${escapeHtml(data.exam.proctor)}
+          </div>
+          <table><thead><tr><th>Student</th><th>Student ID</th><th>Subject to take</th><th>Signature</th></tr></thead>
+          <tbody>${rows}</tbody></table>
+        </body></html>
+      `);
+      printWindow.document.close();
+      printWindow.focus();
+      printWindow.print();
+    } catch (err) {
+      printWindow.close();
+      console.error("Error loading rescheduled exam roster:", err);
+      showError(err.response?.data?.detail || "Could not load the signature roster");
     }
   };
 
@@ -328,6 +420,14 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
                       {req.student_name} &bull; Section: {req.section_name}
                     </p>
                   </div>
+                  {req.has_irregular_roster && (
+                    <button
+                      onClick={() => handlePrintRoster(req.id)}
+                      className="shrink-0 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
+                    >
+                      Print signature roster
+                    </button>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -397,7 +497,9 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
               Approving <strong>{approveModalReq.course_name}</strong> for <strong>{approveModalReq.student_name}</strong>.<br />
               {approveModalReq.consultation_area
                 ? "This late reschedule will take place in the Consultation Area. Assign a proctor to supervise the student."
-                : "Select an available room. If another exam is already using it during this time, the irregular student's exam will join that session."}
+                : approveModalReq.is_irregular
+                  ? "Join an exam covering the full requested timeslot. If no exam is running then, select a free room and proctor."
+                  : "Select the room for this rescheduled exam."}
             </p>
             <div className={`mb-4 p-3 rounded-lg text-xs ${isDark ? "bg-blue-900/20 text-blue-300 border border-blue-800/40" : "bg-blue-50 text-blue-700 border border-blue-100"}`}>
               <span className="font-bold">Requested timeslot:</span>{" "}
@@ -433,6 +535,102 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
                   <p className={`mb-4 text-sm ${isDark ? "text-amber-300" : "text-amber-700"}`}>
                     No proctors are available to assign. Add a proctor before approving this request.
                   </p>
+                )}
+              </>
+            ) : approveModalReq.is_irregular ? (
+              <>
+                {assignmentOptions.ongoing_exams.length ? (
+                  <>
+                    <label className={`mb-2 block text-xs font-semibold uppercase tracking-wide ${isDark ? "text-gray-400" : "text-gray-500"}`} htmlFor="target-exam">
+                      Ongoing exams covering this time
+                    </label>
+                    <select
+                      id="target-exam"
+                      value={selectedTargetExamId}
+                      onChange={(e) => setSelectedTargetExamId(e.target.value)}
+                      className={`mb-4 w-full rounded-xl border p-3 text-sm ${isDark ? "border-gray-600 bg-gray-800 text-white" : "border-gray-300 bg-white text-gray-900"}`}
+                    >
+                      <option value="">— Select an exam session —</option>
+                      {assignmentOptions.ongoing_exams.map((exam) => (
+                        <option key={exam.id} value={exam.id}>
+                          {exam.subject} · {exam.section} · {exam.room} · Proctor: {exam.proctor}
+                        </option>
+                      ))}
+                    </select>
+                  </>
+                ) : (
+                  <>
+                    <div className={`mb-3 rounded-lg border p-3 text-sm ${isDark ? "border-amber-800/50 bg-amber-900/20 text-amber-200" : "border-amber-200 bg-amber-50 text-amber-800"}`}>
+                      No ongoing exam covers this requested timeslot. Choose a free room and an available proctor.
+                    </div>
+                    <label className={`mb-2 block text-xs font-semibold uppercase tracking-wide ${isDark ? "text-gray-400" : "text-gray-500"}`} htmlFor="free-room">
+                      Free room
+                    </label>
+                    <select
+                      id="free-room"
+                      value={selectedRoomId}
+                      onChange={(e) => setSelectedRoomId(e.target.value)}
+                      className={`mb-4 w-full rounded-xl border p-3 text-sm ${isDark ? "border-gray-600 bg-gray-800 text-white" : "border-gray-300 bg-white text-gray-900"}`}
+                    >
+                      <option value="">— Select a room —</option>
+                      {assignmentOptions.free_rooms.map((room) => (
+                        <option key={room.id} value={room.id}>
+                          {room.name}{room.building ? ` — ${room.building}` : ""}{room.capacity ? ` (cap: ${room.capacity})` : ""}
+                        </option>
+                      ))}
+                    </select>
+                    <label className={`mb-2 block text-xs font-semibold uppercase tracking-wide ${isDark ? "text-gray-400" : "text-gray-500"}`} htmlFor="free-proctor">
+                      Available proctor
+                    </label>
+                    <select
+                      id="free-proctor"
+                      value={selectedProctorId}
+                      onChange={(e) => setSelectedProctorId(e.target.value)}
+                      className={`mb-4 w-full rounded-xl border p-3 text-sm ${isDark ? "border-gray-600 bg-gray-800 text-white" : "border-gray-300 bg-white text-gray-900"}`}
+                    >
+                      <option value="">— Select a proctor —</option>
+                      {assignmentOptions.free_proctors.map((proctor) => (
+                        <option key={proctor.id} value={proctor.id}>{proctor.name}</option>
+                      ))}
+                    </select>
+                    {!assignmentOptions.free_rooms.length && (
+                      <p className={`mb-3 text-sm ${isDark ? "text-amber-300" : "text-amber-700"}`}>
+                        No free rooms are available at this time.
+                      </p>
+                    )}
+                    {!assignmentOptions.free_proctors.length && (
+                      <p className={`mb-3 text-sm ${isDark ? "text-amber-300" : "text-amber-700"}`}>
+                        No proctors are available at this time.
+                      </p>
+                    )}
+                  </>
+                )}
+                {!!assignmentOptions.peer_requests.length && (
+                  <fieldset className={`mb-4 rounded-lg border p-3 ${isDark ? "border-gray-700" : "border-gray-200"}`}>
+                    <legend className={`px-1 text-xs font-semibold uppercase tracking-wide ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                      Same-time irregular requests
+                    </legend>
+                    <p className={`mb-2 text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>
+                      Select students to add to this same exam session and proctor.
+                    </p>
+                    <div className="max-h-32 space-y-2 overflow-y-auto">
+                      {assignmentOptions.peer_requests.map((peer) => (
+                        <label key={peer.id} className={`flex items-start gap-2 text-sm ${isDark ? "text-gray-200" : "text-gray-700"}`}>
+                          <input
+                            type="checkbox"
+                            checked={selectedBatchRequestIds.includes(peer.id)}
+                            onChange={(e) => setSelectedBatchRequestIds((current) =>
+                              e.target.checked
+                                ? [...current, peer.id]
+                                : current.filter((id) => id !== peer.id)
+                            )}
+                            className="mt-1"
+                          />
+                          <span>{peer.student_name} · {peer.student_id || "No ID"} · {peer.course_name}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </fieldset>
                 )}
               </>
             ) : (
@@ -473,11 +671,28 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
                 onClick={async () => {
                   const roomId = selectedRoomId ? parseInt(selectedRoomId) : null;
                   const proctorId = selectedProctorId ? parseInt(selectedProctorId) : null;
-                  await handleReview(approveModalReq.id, "approved", "", roomId, proctorId);
-                  setApproveModalReq(null);
+                  const targetExamId = selectedTargetExamId ? parseInt(selectedTargetExamId) : null;
+                  const approved = await handleReview(
+                    approveModalReq.id,
+                    "approved",
+                    "",
+                    roomId,
+                    proctorId,
+                    targetExamId,
+                    selectedBatchRequestIds
+                  );
+                  if (approved) setApproveModalReq(null);
                 }}
-                disabled={approveModalReq.consultation_area ? !selectedProctorId : !selectedRoomId}
-                title={approveModalReq.consultation_area ? "Select a supervising proctor" : "Select a room"}
+                disabled={
+                  approveModalReq.consultation_area
+                    ? !selectedProctorId
+                    : approveModalReq.is_irregular
+                      ? assignmentOptions.ongoing_exams.length
+                        ? !selectedTargetExamId
+                        : !selectedRoomId || !selectedProctorId
+                      : !selectedRoomId
+                }
+                title={approveModalReq.consultation_area ? "Select a supervising proctor" : "Complete the assignment selection"}
                 className="px-5 py-2 rounded-xl text-sm font-bold bg-green-500 hover:bg-green-600 text-white transition"
               >
                 Confirm Approve
