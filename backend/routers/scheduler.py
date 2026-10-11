@@ -62,7 +62,7 @@ def generate_exam_schedule(payload: dict = Body(...), db: Session = Depends(get_
 
     # --- Remove old draft exams for this specific course/year/semester ---
     # First delete any rescheduling requests referencing these exams (FK constraint)
-    from model import ReschedulingRequest
+    from services.crud import delete_rescheduling_requests_for_exams
     draft_exam_ids = [
         row[0] for row in db.query(Exam.id).filter(
             Exam.course_id == course_id,
@@ -72,9 +72,7 @@ def generate_exam_schedule(payload: dict = Body(...), db: Session = Depends(get_
         ).all()
     ]
     if draft_exam_ids:
-        db.query(ReschedulingRequest).filter(
-            ReschedulingRequest.exam_id.in_(draft_exam_ids)
-        ).delete(synchronize_session=False)
+        delete_rescheduling_requests_for_exams(db, draft_exam_ids)
     db.query(Exam).filter(
         Exam.course_id == course_id,
         Exam.year_level_id == year_level_id,

@@ -908,10 +908,8 @@ async def generate_schedule(
             )
             exams_to_delete_ids = [e.id for e in exams_to_delete]
             if exams_to_delete_ids:
-                from model import ReschedulingRequest
-                db.query(ReschedulingRequest).filter(
-                    ReschedulingRequest.exam_id.in_(exams_to_delete_ids)
-                ).delete(synchronize_session=False)
+                from services.crud import delete_rescheduling_requests_for_exams
+                delete_rescheduling_requests_for_exams(db, exams_to_delete_ids)
             for e in exams_to_delete:
                 db.delete(e)
             db.flush()
@@ -1442,8 +1440,8 @@ def clear_exams(
     count = len(exams_to_delete)
     exam_ids = [exam.id for exam in exams_to_delete]
     if exam_ids:
-        from model import ReschedulingRequest
-        db.query(ReschedulingRequest).filter(ReschedulingRequest.exam_id.in_(exam_ids)).delete(synchronize_session=False)
+        from services.crud import delete_rescheduling_requests_for_exams
+        delete_rescheduling_requests_for_exams(db, exam_ids)
     for exam in exams_to_delete:
         db.delete(exam)
     db.commit()

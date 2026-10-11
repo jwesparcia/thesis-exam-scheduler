@@ -1,6 +1,20 @@
 # crud.py
 from sqlalchemy.orm import Session
-from model import Course, YearLevel, Section, Subject
+from model import Course, YearLevel, Section, Subject, ReschedulingRequest
+
+
+def delete_rescheduling_requests_for_exams(db: Session, exam_ids: list[int]) -> int:
+    if not exam_ids:
+        return 0
+
+    from sqlalchemy import or_
+
+    return db.query(ReschedulingRequest).filter(
+        or_(
+            ReschedulingRequest.exam_id.in_(exam_ids),
+            ReschedulingRequest.rescheduled_exam_id.in_(exam_ids),
+        )
+    ).delete(synchronize_session=False)
 
 # --- List Courses ---
 def list_courses(db: Session):
@@ -65,4 +79,3 @@ def get_sections_with_subjects(db: Session, year_name: str):
         ]
         result.append({"id": sec.id, "name": sec.name, "subjects": subjects})
     return {"sections": result}
-

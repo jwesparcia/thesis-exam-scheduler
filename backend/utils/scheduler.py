@@ -205,11 +205,8 @@ def generate_exam_schedule(
     ).all()
     draft_ids = [draft.id for draft in drafts_to_delete]
     if draft_ids:
-        # Delete rescheduling requests first to avoid FK violation
-        from model import ReschedulingRequest
-        db.query(ReschedulingRequest).filter(
-            ReschedulingRequest.exam_id.in_(draft_ids)
-        ).delete(synchronize_session=False)
+        from services.crud import delete_rescheduling_requests_for_exams
+        delete_rescheduling_requests_for_exams(db, draft_ids)
     for draft in drafts_to_delete:
         db.delete(draft)
     db.commit()

@@ -1,13 +1,29 @@
+from typing import Optional, Tuple
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 from core import get_db, cache
 from model import ReschedulingRequest, Exam, Notification, User, Timeslot, Room, Proctor, TeacherSchedule, ProctorAvailability
 from schema import ReschedulingRequestCreate, ReschedulingRequest as ReschedulingRequestSchema, ReschedulingRequestUpdate
-from datetime import datetime, time, timedelta
+from datetime import date, datetime, time, timedelta
 from .auth import get_current_user, require_role
 from utils.logging import log_activity
 
 router = APIRouter(prefix="/rescheduling", tags=["Rescheduling Requests"])
+
+
+def _daily_end_time(db: Session) -> time:
+    from model import SystemSetting
+
+    setting = db.query(SystemSetting).filter(
+        SystemSetting.key == "daily_end_time"
+    ).first()
+    try:
+        return time.fromisoformat(setting.value) if setting and setting.value else time(17, 0)
+    except ValueError as error:
+        raise HTTPException(
+            status_code=500,
+            detail="The configured daily exam end time is invalid",
+        ) from error
 
 
 def is_consultation_request(db: Session, request: ReschedulingRequest) -> bool:
@@ -16,7 +32,7 @@ def is_consultation_request(db: Session, request: ReschedulingRequest) -> bool:
         student
         and student.student_type == "irregular"
         and request.preferred_start_time
-        and request.preferred_start_time >= time(17, 0)
+        and request.preferred_start_time >= _daily_end_time(db)
     )
 
 
@@ -137,6 +153,230 @@ def _available_daytime_assignments(db: Session, request: ReschedulingRequest):
     }
 
 
+def _later_regular_reschedule_slot(
+    db: Session,
+    exam: Exam,
+    request: ReschedulingRequest,
+    room_id: Optional[int] = None,
+) -> Tuple[Optional[Timeslot], bool]:
+    if not exam.section_id or not (
+        request.preferred_date
+        and request.preferred_start_time
+        and request.preferred_end_time
+    ):
+        return None, False
+
+    section_exams = db.query(Exam).join(Timeslot).filter(
+        Exam.section_id == exam.section_id,
+        Exam.status == "posted",
+        Exam.id != exam.id,
+    ).all()
+    original_date = request.original_exam_date or (
+        exam.timeslot.date if exam.timeslot else None
+    )
+    original_end = request.original_end_time or (
+        exam.timeslot.end_time if exam.timeslot else None
+    )
+    later_exams = [
+        other for other in section_exams
+        if other.timeslot
+        and original_date
+        and original_end
+        and (
+            other.timeslot.date > original_date
+            or (
+                other.timeslot.date == original_date
+                and other.timeslot.start_time >= original_end
+            )
+        )
+    ]
+    target_conflicts = [
+        other for other in later_exams
+        if other.timeslot.date == request.preferred_date
+        and other.timeslot.start_time < request.preferred_end_time
+        and other.timeslot.end_time > request.preferred_start_time
+    ]
+    if not target_conflicts:
+        return None, False
+
+    first_available_start = max(
+        other.timeslot.end_time for other in target_conflicts
+    )
+    requested_duration = (
+        datetime.combine(request.preferred_date, request.preferred_end_time)
+        - datetime.combine(request.preferred_date, request.preferred_start_time)
+    )
+    proctor_id = exam.proctor_id
+    selected_room_id = room_id if room_id is not None else exam.room_id
+    from sqlalchemy import or_
+
+    candidate_slots = db.query(Timeslot).filter(
+        Timeslot.date >= request.preferred_date,
+        Timeslot.end_time <= _daily_end_time(db),
+    ).order_by(Timeslot.date, Timeslot.start_time, Timeslot.end_time).all()
+    for candidate in candidate_slots:
+        if candidate.date == request.preferred_date:
+            if candidate.start_time < first_available_start:
+                continue
+        if (
+            datetime.combine(candidate.date, candidate.end_time)
+            - datetime.combine(candidate.date, candidate.start_time)
+        ) != requested_duration:
+            continue
+
+        if any(
+            other.timeslot
+            and other.timeslot.date == candidate.date
+            and other.timeslot.start_time < candidate.end_time
+            and other.timeslot.end_time > candidate.start_time
+            for other in section_exams
+        ):
+            continue
+
+        resource_conflicts = []
+        if selected_room_id is not None:
+            resource_conflicts.append(Exam.room_id == selected_room_id)
+        if proctor_id is not None:
+            resource_conflicts.append(Exam.proctor_id == proctor_id)
+        if resource_conflicts and db.query(Exam.id).join(Timeslot).filter(
+            Exam.id != exam.id,
+            Timeslot.date == candidate.date,
+            Timeslot.start_time < candidate.end_time,
+            Timeslot.end_time > candidate.start_time,
+            or_(*resource_conflicts),
+        ).first():
+            continue
+
+        proctor = exam.proctor
+        if proctor and proctor.teacher_id and db.query(TeacherSchedule.id).filter(
+            TeacherSchedule.teacher_id == proctor.teacher_id,
+            TeacherSchedule.day_of_week == candidate.date.weekday(),
+            TeacherSchedule.start_time < candidate.end_time,
+            TeacherSchedule.end_time > candidate.start_time,
+        ).first():
+            continue
+        if proctor:
+            availability_rows = db.query(ProctorAvailability).filter(
+                ProctorAvailability.proctor_id == proctor.id,
+            ).all()
+            if availability_rows and not any(
+                row.day_of_week == candidate.date.weekday()
+                and row.start_time <= candidate.start_time
+                and row.end_time >= candidate.end_time
+                for row in availability_rows
+            ):
+                continue
+        return candidate
+
+    return None, True
+
+
+def _consultation_fallback_times(
+    db: Session,
+    exam: Exam,
+    request: ReschedulingRequest,
+) -> Tuple[time, time]:
+    start = _daily_end_time(db)
+    if exam.section_id and request.preferred_date:
+        same_day_section_exams = db.query(Exam).join(Timeslot).filter(
+            Exam.section_id == exam.section_id,
+            Exam.status == "posted",
+            Exam.id != exam.id,
+            Timeslot.date == request.preferred_date,
+        ).all()
+        later_ends = [
+            other.timeslot.end_time
+            for other in same_day_section_exams
+            if other.timeslot
+            and (
+                not request.original_exam_date
+                or other.timeslot.date > request.original_exam_date
+                or (
+                    other.timeslot.date == request.original_exam_date
+                    and (
+                        not request.original_end_time
+                        or other.timeslot.start_time >= request.original_end_time
+                    )
+                )
+            )
+        ]
+        if later_ends:
+            start = max(start, max(later_ends))
+
+    duration_minutes = (
+        exam.subject.duration_minutes
+        if exam.subject and exam.subject.duration_minutes
+        else 75
+    )
+    end_datetime = datetime.combine(request.preferred_date, start) + timedelta(
+        minutes=duration_minutes
+    )
+    if end_datetime.date() != request.preferred_date:
+        raise HTTPException(
+            status_code=400,
+            detail="No Consultation Area time remains on the rescheduling date",
+        )
+    return start, end_datetime.time()
+
+
+def _validate_consultation_proctor(
+    db: Session,
+    proctor_id: Optional[int],
+    exam_date: date,
+    start_time: time,
+    end_time: time,
+    exclude_exam_id: Optional[int] = None,
+) -> Proctor:
+    if not proctor_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Assign a proctor for the Consultation Area fallback before approving",
+        )
+    proctor = db.query(Proctor).filter(Proctor.id == proctor_id).first()
+    if not proctor:
+        raise HTTPException(status_code=404, detail="Proctor not found")
+
+    proctor_conflicts = db.query(Exam.id).join(Timeslot).filter(
+        Exam.proctor_id == proctor.id,
+        Exam.status == "posted",
+        Timeslot.date == exam_date,
+        Timeslot.start_time < end_time,
+        Timeslot.end_time > start_time,
+    )
+    if exclude_exam_id is not None:
+        proctor_conflicts = proctor_conflicts.filter(Exam.id != exclude_exam_id)
+    overlapping_exams = proctor_conflicts.first()
+    if overlapping_exams:
+        raise HTTPException(
+            status_code=400,
+            detail="Select a proctor who is free for the Consultation Area timeslot",
+        )
+    if proctor.teacher_id and db.query(TeacherSchedule.id).filter(
+        TeacherSchedule.teacher_id == proctor.teacher_id,
+        TeacherSchedule.day_of_week == exam_date.weekday(),
+        TeacherSchedule.start_time < end_time,
+        TeacherSchedule.end_time > start_time,
+    ).first():
+        raise HTTPException(
+            status_code=400,
+            detail="Select a proctor who is free for the Consultation Area timeslot",
+        )
+    availability_rows = db.query(ProctorAvailability).filter(
+        ProctorAvailability.proctor_id == proctor.id,
+    ).all()
+    if availability_rows and not any(
+        row.day_of_week == exam_date.weekday()
+        and row.start_time <= start_time
+        and row.end_time >= end_time
+        for row in availability_rows
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Select a proctor who is available for the Consultation Area timeslot",
+        )
+    return proctor
+
+
 @router.post("/submit")
 def submit_rescheduling_request(request: ReschedulingRequestCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     if current_user.role == "student" and current_user.student_type != "irregular" and current_user.section_name != request.section_name:
@@ -237,6 +477,12 @@ def get_pending_requests(db: Session = Depends(get_db), current_user: User = Dep
     result = []
     for req in requests:
         student = db.query(User).filter(User.email == req.school_email).first()
+        is_irregular = bool(student and student.student_type == "irregular")
+        _, has_later_exam_conflict = (
+            _later_regular_reschedule_slot(db, req.exam, req)
+            if not is_irregular and req.exam
+            else (None, False)
+        )
         result.append({
             "id": req.id,
             "exam_id": req.exam_id,
@@ -253,7 +499,8 @@ def get_pending_requests(db: Session = Depends(get_db), current_user: User = Dep
             "preferred_date": req.preferred_date.strftime("%Y-%m-%d") if req.preferred_date else None,
             "preferred_time": f"{req.preferred_start_time.strftime('%I:%M %p')} - {req.preferred_end_time.strftime('%I:%M %p')}" if req.preferred_start_time and req.preferred_end_time else None,
             "consultation_area": is_consultation_request(db, req),
-            "is_irregular": bool(student and student.student_type == "irregular"),
+            "consultation_fallback": has_later_exam_conflict,
+            "is_irregular": is_irregular,
             "acknowledged": req.acknowledged
         })
     return result
@@ -332,6 +579,31 @@ def review_request(request_id: int, update: ReschedulingRequestUpdate, db: Sessi
         consultation_request = is_consultation_request(db, request)
         if not exam:
             raise HTTPException(status_code=400, detail="The original exam for this request no longer exists")
+        regular_reschedule_ts = None
+        consultation_fallback = False
+        if not irregular_request and request.preferred_date and request.preferred_start_time and request.preferred_end_time:
+            regular_reschedule_ts, has_later_exam_conflict = _later_regular_reschedule_slot(
+                db, exam, request, update.room_id
+            )
+            consultation_fallback = has_later_exam_conflict and regular_reschedule_ts is None
+            if regular_reschedule_ts:
+                request.preferred_date = regular_reschedule_ts.date
+                request.preferred_start_time = regular_reschedule_ts.start_time
+                request.preferred_end_time = regular_reschedule_ts.end_time
+            elif consultation_fallback:
+                fallback_start, fallback_end = _consultation_fallback_times(
+                    db, exam, request
+                )
+                _validate_consultation_proctor(
+                    db,
+                    update.proctor_id,
+                    request.preferred_date,
+                    fallback_start,
+                    fallback_end,
+                    exam.id,
+                )
+                request.preferred_start_time = fallback_start
+                request.preferred_end_time = fallback_end
         if irregular_request and not (
             request.preferred_date
             and request.preferred_start_time
@@ -356,8 +628,8 @@ def review_request(request_id: int, update: ReschedulingRequestUpdate, db: Sessi
         if consultation_request:
             if not (request.preferred_date and request.preferred_start_time and request.preferred_end_time):
                 raise HTTPException(status_code=400, detail="A preferred date and time are required for Consultation Area scheduling")
-            if request.preferred_start_time < time(17, 0):
-                raise HTTPException(status_code=400, detail="Consultation Area exams must start at or after 5:00 PM")
+            if request.preferred_start_time < _daily_end_time(db):
+                raise HTTPException(status_code=400, detail="Consultation Area exams must start at or after the configured daily exam end time")
             duration_minutes = exam.subject.duration_minutes if exam and exam.subject and exam.subject.duration_minutes else 75
             expected_end = (
                 datetime.combine(datetime.today().date(), request.preferred_start_time)
@@ -372,11 +644,13 @@ def review_request(request_id: int, update: ReschedulingRequestUpdate, db: Sessi
                 raise HTTPException(status_code=404, detail="Proctor not found")
 
         if request.preferred_date and request.preferred_start_time and request.preferred_end_time:
-            ts = db.query(Timeslot).filter(
-                Timeslot.date == request.preferred_date,
-                Timeslot.start_time == request.preferred_start_time,
-                Timeslot.end_time == request.preferred_end_time
-            ).first()
+            ts = regular_reschedule_ts
+            if not ts:
+                ts = db.query(Timeslot).filter(
+                    Timeslot.date == request.preferred_date,
+                    Timeslot.start_time == request.preferred_start_time,
+                    Timeslot.end_time == request.preferred_end_time
+                ).first()
             if not ts:
                 ts = Timeslot(
                     date=request.preferred_date,
@@ -386,7 +660,34 @@ def review_request(request_id: int, update: ReschedulingRequestUpdate, db: Sessi
                 db.add(ts)
                 db.flush()
 
-            if irregular_request:
+            if consultation_fallback:
+                consultation_room = db.query(Room).filter(
+                    Room.name == "Consultation Area"
+                ).first()
+                if not consultation_room:
+                    consultation_room = Room(
+                        name="Consultation Area",
+                        building="Consultation Area",
+                        capacity=1,
+                    )
+                    db.add(consultation_room)
+                    db.flush()
+                room_conflict = db.query(Exam.id).join(Timeslot).filter(
+                    Exam.room_id == consultation_room.id,
+                    Exam.id != exam.id,
+                    Exam.status == "posted",
+                    Timeslot.date == request.preferred_date,
+                    Timeslot.start_time < request.preferred_end_time,
+                    Timeslot.end_time > request.preferred_start_time,
+                ).first()
+                if room_conflict:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="The Consultation Area is occupied at the fallback timeslot",
+                    )
+                exam.room_id = consultation_room.id
+                exam.proctor_id = update.proctor_id
+            elif irregular_request:
                 if consultation_request:
                     consultation_room = db.query(Room).filter(Room.name == "Consultation Area").first()
                     if not consultation_room:
@@ -468,7 +769,7 @@ def review_request(request_id: int, update: ReschedulingRequestUpdate, db: Sessi
                     grouped_request.rescheduled_exam_id = assigned_exam.id
             elif update.room_id is not None:
                 exam.room_id = update.room_id
-            else:
+            elif request.requested_mode == "online":
                 exam.room_id = None
             if not irregular_request:
                 exam.timeslot_id = ts.id
