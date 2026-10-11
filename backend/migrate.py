@@ -157,6 +157,21 @@ with engine.connect() as conn:
     else:
         print("Column 'student_count' already exists in table 'sections'. No migration needed.")
 
+    # Always ensure sections.student_count matches actual enrolled student count in users
+    conn.execute(text("""
+        UPDATE sections s
+        SET student_count = sub.cnt
+        FROM (
+            SELECT section_name, COUNT(*) as cnt
+            FROM users
+            WHERE role = 'student' AND section_name IS NOT NULL
+            GROUP BY section_name
+        ) sub
+        WHERE s.name = sub.section_name;
+    """))
+    conn.commit()
+    print("Synced sections.student_count with enrolled student headcounts from users table.")
+
     # Drop uq_exam_room_timeslot if it exists — irregular student rescheduling requires
     # placing a student's exam into a room+timeslot that already has another exam.
     # Room conflict checks for regular scheduling are enforced at the application level.

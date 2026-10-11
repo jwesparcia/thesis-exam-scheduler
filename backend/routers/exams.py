@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import func
 from core import get_db, cache
 from core.cache import TTL_ROOMS, TTL_EXAM_COUNT
 from model import Exam, Subject, Section, Room, Timeslot, Course, YearLevel, Teacher, User, Notification, Proctor, ReschedulingRequest
@@ -74,7 +75,12 @@ def is_generation_ongoing() -> bool:
         return any(job.get("status") == "running" for job in _generation_progress.values())
 
 
-def _format_exam_for_room_status(exam: Exam, rescheduled_exam_ids: set = None, rescheduled_student_counts: dict = None):
+def _format_exam_for_room_status(
+    exam: Exam,
+    rescheduled_exam_ids: set = None,
+    rescheduled_student_counts: dict = None,
+    section_student_counts: dict = None,
+):
     subject = exam.subject
     section = exam.section
     course = exam.course
@@ -100,7 +106,10 @@ def _format_exam_for_room_status(exam: Exam, rescheduled_exam_ids: set = None, r
     if is_rescheduled and rescheduled_student_counts is not None:
         student_count = rescheduled_student_counts.get(exam.id, 1)
     else:
-        student_count = getattr(section, "student_count", None) or 0
+        student_count = getattr(section, "student_count", None)
+        if not student_count and section and section_student_counts:
+            student_count = section_student_counts.get(section.name)
+        student_count = student_count or 0
 
     return {
         "id": exam.id,
@@ -117,7 +126,9 @@ def _format_exam_for_room_status(exam: Exam, rescheduled_exam_ids: set = None, r
         "end_time": end_time,
         "room_id": exam.room_id,
         "room": room.name if room else None,
+        "room_capacity": room.capacity if room else None,
         "student_count": student_count,
+        "over_capacity": bool(room and room.capacity and student_count > room.capacity),
         "is_rescheduled": is_rescheduled,
     }
 
@@ -644,6 +655,13 @@ def get_room_status(
         rescheduled_exam_ids.add(scheduled_exam_id)
         rescheduled_student_counts[scheduled_exam_id] = rescheduled_student_counts.get(scheduled_exam_id, 0) + 1
 
+    section_student_counts = dict(
+        db.query(User.section_name, func.count(User.id))
+        .filter(User.role == "student", User.section_name.isnot(None))
+        .group_by(User.section_name)
+        .all()
+    )
+
     room_bookings = {room.id: [] for room in rooms}
     unassigned_exams = []
     wrong_building_exams = []
@@ -677,13 +695,46 @@ def get_room_status(
             "exam_date": first_exam.timeslot.date.strftime("%A, %B %d, %Y") if first_exam.timeslot else "-",
             "start_time": first_exam.timeslot.start_time.strftime("%I:%M %p") if first_exam.timeslot else "-",
             "end_time": first_exam.timeslot.end_time.strftime("%I:%M %p") if first_exam.timeslot else "-",
-            "exams": [_format_exam_for_room_status(exam, rescheduled_exam_ids, rescheduled_student_counts) for exam in conflict_exams],
+            "exams": [_format_exam_for_room_status(exam, rescheduled_exam_ids, rescheduled_student_counts, section_student_counts) for exam in conflict_exams],
         })
+
+    # Also check time-interval overlap conflicts in the same room (even across different timeslot IDs)
+    for room_id, r_exams in room_bookings.items():
+        if len(r_exams) <= 1:
+            continue
+        for i in range(len(r_exams)):
+            e1 = r_exams[i]
+            if not e1.timeslot:
+                continue
+            for j in range(i + 1, len(r_exams)):
+                e2 = r_exams[j]
+                if not e2.timeslot or e1.timeslot_id == e2.timeslot_id:
+                    continue
+                if e1.timeslot.date == e2.timeslot.date:
+                    if max(e1.timeslot.start_time, e2.timeslot.start_time) < min(e1.timeslot.end_time, e2.timeslot.end_time):
+                        conflict_exam_ids.add(e1.id)
+                        conflict_exam_ids.add(e2.id)
+                        conflicts.append({
+                            "room": e1.room.name if e1.room else "-",
+                            "exam_date": e1.timeslot.date.strftime("%A, %B %d, %Y"),
+                            "start_time": f"{e1.timeslot.start_time.strftime('%I:%M %p')} / {e2.timeslot.start_time.strftime('%I:%M %p')}",
+                            "end_time": f"{e1.timeslot.end_time.strftime('%I:%M %p')} / {e2.timeslot.end_time.strftime('%I:%M %p')}",
+                            "exams": [
+                                _format_exam_for_room_status(e1, rescheduled_exam_ids, rescheduled_student_counts, section_student_counts),
+                                _format_exam_for_room_status(e2, rescheduled_exam_ids, rescheduled_student_counts, section_student_counts),
+                            ],
+                        })
 
     room_rows = []
     for room in rooms:
         bookings = room_bookings.get(room.id, [])
         has_conflict = any(exam.id in conflict_exam_ids for exam in bookings)
+        unique_sections = {
+            exam.section.name if exam.section and exam.section.name else f"Section-{exam.section_id}"
+            for exam in bookings
+            if exam.section_id or (exam.section and exam.section.name)
+        }
+        section_count = len(unique_sections)
         room_rows.append({
             "id": room.id,
             "name": room.name,
@@ -692,9 +743,10 @@ def get_room_status(
             "capacity": room.capacity or 40,
             "status": "conflict" if has_conflict else "in_use" if bookings else "available",
             "booking_count": len(bookings),
+            "section_count": section_count,
             "draft_count": sum(1 for exam in bookings if exam.status == "draft"),
             "posted_count": sum(1 for exam in bookings if exam.status == "posted"),
-            "bookings": [_format_exam_for_room_status(exam, rescheduled_exam_ids, rescheduled_student_counts) for exam in sorted(
+            "bookings": [_format_exam_for_room_status(exam, rescheduled_exam_ids, rescheduled_student_counts, section_student_counts) for exam in sorted(
                 bookings,
                 key=lambda e: (
                     e.timeslot.date if e.timeslot else datetime.max.date(),
@@ -722,8 +774,8 @@ def get_room_status(
             "conflicts": len(conflicts),
         },
         "rooms": room_rows,
-        "unassigned_exams": [_format_exam_for_room_status(exam, rescheduled_exam_ids, rescheduled_student_counts) for exam in unassigned_exams],
-        "wrong_building_exams": [_format_exam_for_room_status(exam, rescheduled_exam_ids, rescheduled_student_counts) for exam in wrong_building_exams],
+        "unassigned_exams": [_format_exam_for_room_status(exam, rescheduled_exam_ids, rescheduled_student_counts, section_student_counts) for exam in unassigned_exams],
+        "wrong_building_exams": [_format_exam_for_room_status(exam, rescheduled_exam_ids, rescheduled_student_counts, section_student_counts) for exam in wrong_building_exams],
         "conflicts": conflicts,
     }
 

@@ -433,7 +433,13 @@ export default function RoomManagement({ isGenerating }) {
                       <dl className={`grid grid-cols-2 gap-x-3 gap-y-2 text-sm ${isDark ? "text-gray-300" : "text-gray-700"}`}>
                         <div><dt className="text-xs font-semibold text-gray-500">Building</dt><dd className="break-words">{room.building}</dd></div>
                         <div><dt className="text-xs font-semibold text-gray-500">Capacity</dt><dd>{room.capacity} seats</dd></div>
-                        <div className="col-span-2"><dt className="text-xs font-semibold text-gray-500">Department</dt><dd className="break-words">{room.department}</dd></div>
+                        <div>
+                          <dt className="text-xs font-semibold text-gray-500">Sections</dt>
+                          <dd className="font-bold text-blue-600 dark:text-blue-400">
+                            {room.section_count ?? new Set(room.bookings?.map(b => b.section_name || b.section_id).filter(Boolean)).size ?? 0}
+                          </dd>
+                        </div>
+                        <div><dt className="text-xs font-semibold text-gray-500">Department</dt><dd className="break-words">{room.department}</dd></div>
                       </dl>
                       {isAdmin && (
                         <button
@@ -455,6 +461,7 @@ export default function RoomManagement({ isGenerating }) {
                     <th className="px-5 py-3 text-left font-bold">Room</th>
                     <th className="px-5 py-3 text-left font-bold">Building</th>
                     <th className="px-5 py-3 text-left font-bold">Capacity</th>
+                    <th className="px-5 py-3 text-left font-bold">Sections</th>
                     <th className="px-5 py-3 text-left font-bold">For</th>
                     <th className="px-5 py-3 text-left font-bold">Status</th>
                     {isAdmin && <th className="px-5 py-3 text-center font-bold">Action</th>}
@@ -463,13 +470,13 @@ export default function RoomManagement({ isGenerating }) {
                 <tbody className={isDark ? "divide-y divide-gray-700" : "divide-y divide-gray-100"}>
                   {loading ? (
                     <tr>
-                      <td colSpan={isAdmin ? 6 : 5} className="px-5 py-12 text-center">
+                      <td colSpan={isAdmin ? 7 : 6} className="px-5 py-12 text-center">
                         <ArrowPathIcon className="w-8 h-8 animate-spin text-blue-500 mx-auto" />
                       </td>
                     </tr>
                   ) : filteredRooms.length === 0 ? (
                     <tr>
-                      <td colSpan={isAdmin ? 6 : 5} className={`px-5 py-12 text-center ${isDark ? "text-gray-500" : "text-gray-400"}`}>No rooms found.</td>
+                      <td colSpan={isAdmin ? 7 : 6} className={`px-5 py-12 text-center ${isDark ? "text-gray-500" : "text-gray-400"}`}>No rooms found.</td>
                     </tr>
                   ) : (
                     filteredRooms.map((room) => (
@@ -481,6 +488,14 @@ export default function RoomManagement({ isGenerating }) {
                         <td className={`px-5 py-4 font-black ${isDark ? "text-white" : "text-gray-900"}`}>{room.name}</td>
                         <td className={`px-5 py-4 ${isDark ? "text-gray-300" : "text-gray-700"}`}>Building {room.building}</td>
                         <td className={`px-5 py-4 ${isDark ? "text-gray-300" : "text-gray-700"}`}>{room.capacity} seats</td>
+                        <td className={`px-5 py-4 ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+                          <span className="font-bold text-blue-600 dark:text-blue-400">
+                            {room.section_count ?? new Set(room.bookings?.map(b => b.section_name || b.section_id).filter(Boolean)).size ?? 0}
+                          </span>
+                          <span className="text-xs opacity-70 ml-1">
+                            section{(room.section_count ?? new Set(room.bookings?.map(b => b.section_name || b.section_id).filter(Boolean)).size) === 1 ? "" : "s"}
+                          </span>
+                        </td>
                         <td className={`px-5 py-4 ${isDark ? "text-gray-300" : "text-gray-700"}`}>{room.department}</td>
                         <td className="px-5 py-4">
                           {(() => {
@@ -546,7 +561,7 @@ export default function RoomManagement({ isGenerating }) {
                 </div>
 
                 <div className={`mt-5 rounded-xl border p-4 ${isDark ? "border-gray-700 bg-gray-900/40" : "border-gray-100 bg-gray-50"}`}>
-                  <div className="grid grid-cols-3 gap-4 text-sm">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
                     <div>
                       <p className={isDark ? "text-gray-500" : "text-gray-400"}>Building</p>
                       <p className={`font-bold ${isDark ? "text-gray-100" : "text-gray-800"}`}>{selectedRoom.building}</p>
@@ -556,7 +571,13 @@ export default function RoomManagement({ isGenerating }) {
                       <p className={`font-bold ${isDark ? "text-gray-100" : "text-gray-800"}`}>{selectedRoom.capacity} seats</p>
                     </div>
                     <div>
-                      <p className={isDark ? "text-gray-500" : "text-gray-400"}>Total Section</p>
+                      <p className={isDark ? "text-gray-500" : "text-gray-400"}>Total Sections</p>
+                      <p className={`font-bold text-blue-600 dark:text-blue-400`}>
+                        {selectedRoom.section_count ?? new Set(selectedRoom.bookings?.map(b => b.section_name || b.section_id).filter(Boolean)).size ?? 0}
+                      </p>
+                    </div>
+                    <div>
+                      <p className={isDark ? "text-gray-500" : "text-gray-400"}>Total Exams</p>
                       <p className={`font-bold ${isDark ? "text-gray-100" : "text-gray-800"}`}>{selectedRoom.booking_count}</p>
                     </div>
                   </div>
@@ -667,11 +688,19 @@ export default function RoomManagement({ isGenerating }) {
                             <p className={`text-xs mt-0.5 ${isDark ? "text-gray-400" : "text-gray-500"}`}>{exam.section_name}</p>
                             <p className={`text-xs mt-1 font-semibold ${isDark ? "text-blue-300" : "text-blue-700"}`}>{exam.start_time} – {exam.end_time}</p>
                             <div className="flex items-center gap-2 mt-2">
-                              <span className={`text-[11px] font-bold rounded-full px-2 py-0.5 ${
-                                isDark ? "bg-emerald-500/15 text-emerald-300" : "bg-emerald-50 text-emerald-700"
-                              }`}>
-                                👤 {exam.student_count ?? "—"} student{(exam.student_count ?? 0) !== 1 ? "s" : ""}
-                              </span>
+                              {selectedRoom?.capacity && exam.student_count > selectedRoom.capacity ? (
+                                <span className={`text-[11px] font-bold rounded-full px-2 py-0.5 ${
+                                  isDark ? "bg-rose-500/20 text-rose-300 border border-rose-500/30" : "bg-rose-50 text-rose-700 border border-rose-200"
+                                }`} title={`Over capacity: ${exam.student_count} students in a ${selectedRoom.capacity}-seat room`}>
+                                  ⚠️ {exam.student_count} / {selectedRoom.capacity} seats
+                                </span>
+                              ) : (
+                                <span className={`text-[11px] font-bold rounded-full px-2 py-0.5 ${
+                                  isDark ? "bg-emerald-500/15 text-emerald-300" : "bg-emerald-50 text-emerald-700"
+                                }`} title={`${exam.student_count ?? "—"} students scheduled (${(selectedRoom?.capacity || 0) - (exam.student_count || 0)} excess seats)`}>
+                                  👤 {exam.student_count ?? "—"} / {selectedRoom?.capacity ?? "—"} seats
+                                </span>
+                              )}
                               <span className={`text-[11px] font-semibold rounded-full px-2 py-0.5 ${
                                 exam.status === "posted"
                                   ? isDark ? "bg-green-500/15 text-green-300" : "bg-green-50 text-green-700"

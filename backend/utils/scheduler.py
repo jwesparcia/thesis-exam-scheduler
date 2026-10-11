@@ -333,6 +333,22 @@ def generate_exam_schedule(
     for sec in sections:
         sec_yl = _get_section_year_level_id(sec)
         subjects_per_section[sec.id] = sum(1 for sub in subjects if sub.course_id == sec.course_id and sub.year_level_id == sec_yl)
+
+    # Fetch accurate student headcounts per section from User table
+    from model import User, IrregularSelection
+    from sqlalchemy import func
+    section_user_counts = dict(
+        db.query(User.section_name, func.count(User.id))
+        .filter(User.role == "student", User.section_name.isnot(None))
+        .group_by(User.section_name)
+        .all()
+    )
+    for sec in sections:
+        cnt = section_user_counts.get(sec.name)
+        if cnt and sec.student_count != cnt:
+            sec.student_count = cnt
+    db.flush()
+
     date_map = {d: i + 1 for i, d in enumerate(exam_days)}
     posted_exams = db.query(Exam).filter(Exam.status == "posted").all()
     for e in posted_exams:
@@ -598,22 +614,9 @@ def generate_exam_schedule(
         sections_by_dur[d] = sections_by_dur.get(d, 0) + len(g["sections"])
     
     total_sec_count = sum(sections_by_dur.values()) or 1
-    rooms_for_dur = {}
-    curr_room_start = 0
-    sorted_durs = sorted(distinct_durations)
-    for idx_d, d in enumerate(sorted_durs):
-        if idx_d == len(sorted_durs) - 1:
-            dur_rooms = room_ids[curr_room_start:]
-        else:
-            share = sections_by_dur.get(d, 0) / total_sec_count
-            count = max(4, min(num_rooms - 4, round(num_rooms * share)))
-            if d == 120 and num_rooms >= 16:
-                count = max(8, count)
-            dur_rooms = room_ids[curr_room_start:curr_room_start + count]
-            curr_room_start += count
-        rooms_for_dur[d] = dur_rooms
-
-    room_indices_for_dur = {d: [room_id_to_idx[rid] for rid in rooms_for_dur[d]] for d in distinct_durations}
+    # All department rooms are available for all exam durations; time overlaps are protected via slot_overlaps
+    rooms_for_dur = {d: list(room_ids) for d in distinct_durations}
+    room_indices_for_dur = {d: list(range(num_rooms)) for d in distinct_durations}
 
     # Proctors sequential indexing
     proctor_ids = list(proctor_data.keys())
@@ -623,11 +626,18 @@ def generate_exam_schedule(
 
     # Preprocess groups to avoid ORM access inside the GA loops
     report_progress(40, "Preparing optimizer", "Precomputing valid slots and proctor candidates")
+    irr_rows = db.query(
+        IrregularSelection.section_id, IrregularSelection.subject_id, func.count(IrregularSelection.id)
+    ).group_by(IrregularSelection.section_id, IrregularSelection.subject_id).all()
+    irr_counts = {(row[0], row[1]): row[2] for row in irr_rows}
+
     preprocessed_groups = []
     for g in groups:
         prep_sections = []
         section_ids_set = set()
         for idx_in_g, (sec, sub) in enumerate(g["sections"]):
+            sec_cnt = section_user_counts.get(sec.name, getattr(sec, "student_count", 35) or 35)
+            irr_cnt = irr_counts.get((sec.id, sub.id), 0)
             prep_sections.append({
                 "sec_id": sec.id,
                 "sec_name": sec.name,
@@ -638,7 +648,8 @@ def generate_exam_schedule(
                 "semester": sub.semester,
                 "subjects_per_section": subjects_per_section.get(sec.id, 0),
                 "preferred_room_id": sec.preferred_room_id,
-                "student_count": getattr(sec, "student_count", 35) or 35,
+                "student_count": sec_cnt,
+                "total_students": sec_cnt + irr_cnt,
                 "break_seconds": g["break_seconds_by_section"].get(sec.id, 0),
                 "idx_in_g": idx_in_g
             })
@@ -780,7 +791,9 @@ def generate_exam_schedule(
         for group_idx, slot_idx in enumerate(individual):
             if group_idx == exclude_group_idx or slot_idx is None:
                 continue
-            demand_by_slot[slot_idx] += group_room_demands[group_idx]
+            demand = group_room_demands[group_idx]
+            for ov_idx in slot_overlaps[slot_idx]:
+                demand_by_slot[ov_idx] += demand
         return demand_by_slot
 
     def get_capacity_safe_slots(group_idx, candidate_slots, current_individual=None):
@@ -788,7 +801,7 @@ def generate_exam_schedule(
         group_demand = group_room_demands[group_idx]
         return [
             slot_idx for slot_idx in candidate_slots
-            if slot_room_capacity[slot_idx] - demand_by_slot[slot_idx] >= group_demand
+            if all(slot_room_capacity[ov] - demand_by_slot[ov] >= group_demand for ov in slot_overlaps[slot_idx])
         ]
 
     def choose_capacity_balanced_slot(group_idx, candidate_slots, current_individual=None):
@@ -916,9 +929,9 @@ def generate_exam_schedule(
             if group_has_section_conflict(individual, group_idx, slot_idx):
                 continue
 
-            remaining_capacity = slot_room_capacity[slot_idx] - demand_by_slot[slot_idx]
-            if remaining_capacity < demand:
+            if not all(slot_room_capacity[ov] - demand_by_slot[ov] >= demand for ov in slot_overlaps[slot_idx]):
                 continue
+            min_rem = min(slot_room_capacity[ov] - demand_by_slot[ov] for ov in slot_overlaps[slot_idx])
 
             has_gap_viol = group_slot_creates_gap_violation(group_idx, slot_idx, individual, exclude_group_idx=group_idx)
 
@@ -927,7 +940,7 @@ def generate_exam_schedule(
             candidates.append((
                 1 if has_gap_viol else 0,
                 0 if target_info["date"] == current_info["date"] else 1,
-                -remaining_capacity,
+                -min_rem,
                 target_info["date"],
                 target_info["start_time"],
                 slot_idx,
@@ -1187,6 +1200,13 @@ def generate_exam_schedule(
                         prio = 2
                     return (prio, load, -floor, room_names[r_idx])
 
+                sec_caps = sorted([s["student_count"] for s in sections_in_group], reverse=True)
+                def can_fit_caps(r_list):
+                    if len(r_list) < N:
+                        return False
+                    top_r = sorted([room_capacities[r] for r in r_list], reverse=True)[:N]
+                    return all(r >= s for r, s in zip(top_r, sec_caps))
+
                 sub_chosen = []
                 # Check for preferred room first
                 pref_found = False
@@ -1201,7 +1221,7 @@ def generate_exam_schedule(
                                 r for r in available_r_indices
                                 if room_buildings[r] == pref_b and room_floors[r] == pref_f
                             ]
-                            if len(floor_rooms) >= N:
+                            if len(floor_rooms) >= N and can_fit_caps(floor_rooms):
                                 remaining = [r for r in floor_rooms if r != pref_r_idx]
                                 remaining.sort(key=room_key)
                                 sub_chosen = [pref_r_idx] + remaining[:N-1]
@@ -1218,7 +1238,7 @@ def generate_exam_schedule(
                     valid_floors = {
                         fl_key: fl_rooms
                         for fl_key, fl_rooms in available_by_floor.items()
-                        if len(fl_rooms) >= N
+                        if len(fl_rooms) >= N and can_fit_caps(fl_rooms)
                     }
 
                     if valid_floors:
@@ -1258,8 +1278,8 @@ def generate_exam_schedule(
                         room_slots_set.add((r_idx, ov_idx))
                     room_loads[r_idx] += 1
 
-                if len(sub_chosen) < N:
-                    score -= (N - len(sub_chosen)) * 1000000
+                if len(sub_chosen) < N or not can_fit_caps(sub_chosen):
+                    score -= (N - len(sub_chosen) if len(sub_chosen) < N else 1) * 1000000
             
             # Flatten all section/exam requirements for this slot_idx
             slot_exams = []
@@ -1820,11 +1840,12 @@ def generate_exam_schedule(
         actual_section_slots = set()
         actual_section_breaks = {}
 
-        def available_room_count(slot_idx, req_dur=75):
+        def available_room_count(slot_idx, req_dur=75, min_capacity=0):
             allowed_r_indices = room_indices_for_dur.get(req_dur, list(range(num_rooms)))
             return sum(
                 1 for r_idx in allowed_r_indices
                 if (r_idx, slot_idx) not in room_slots_set
+                and room_capacities[r_idx] >= min_capacity
             )
 
         def target_high_floor_count(slot_idx):
@@ -1842,6 +1863,16 @@ def generate_exam_schedule(
                 (sec_id, slot_idx) in section_slots_set
                 for sec_id in group["section_ids_set"]
             )
+
+        def can_slot_fit_group(slot_idx, grp):
+            req_d = grp.get("duration", 75)
+            allowed_r = room_indices_for_dur.get(req_d, list(range(num_rooms)))
+            avail_r = [r for r in allowed_r if (r, slot_idx) not in room_slots_set]
+            if len(avail_r) < len(grp["sections"]):
+                return False
+            sec_caps = sorted([s["student_count"] for s in grp["sections"]], reverse=True)
+            r_caps = sorted([room_capacities[r] for r in avail_r], reverse=True)[:len(sec_caps)]
+            return all(r >= s for r, s in zip(r_caps, sec_caps))
 
         def pick_group_slot(group_idx, preferred_slot_idx):
             group = preprocessed_groups[group_idx]
@@ -1870,6 +1901,7 @@ def generate_exam_schedule(
                 room_safe_slots = [
                     slot_idx for slot_idx in candidate_slots
                     if available_room_count(slot_idx, req_dur) >= demand
+                    and can_slot_fit_group(slot_idx, group)
                     and (
                         not require_no_section_conflict
                         or not group_has_final_section_conflict(group, slot_idx)
@@ -1911,7 +1943,7 @@ def generate_exam_schedule(
                 ),
             )
 
-        def pick_exam_slot(preferred_slot_idx, section_id, req_dur=75, break_seconds=0):
+        def pick_exam_slot(preferred_slot_idx, section_id, req_dur=75, break_seconds=0, min_capacity=0):
             all_cands = [preferred_slot_idx] + sorted(generated_timeslot_indices)
             candidate_slots = [
                 s for s in dict.fromkeys(all_cands)
@@ -1919,13 +1951,13 @@ def generate_exam_schedule(
             ]
             room_safe_slots = [
                 slot_idx for slot_idx in candidate_slots
-                if available_room_count(slot_idx, req_dur) > 0
+                if available_room_count(slot_idx, req_dur, min_capacity) > 0
                 and (section_id, slot_idx) not in section_slots_set
             ]
             if not room_safe_slots:
                 room_safe_slots = [
                     slot_idx for slot_idx in candidate_slots
-                    if available_room_count(slot_idx, req_dur) > 0
+                    if available_room_count(slot_idx, req_dur, min_capacity) > 0
                 ]
             if not room_safe_slots:
                 return preferred_slot_idx
@@ -1960,7 +1992,7 @@ def generate_exam_schedule(
             if not gap_safe_room_slots:
                 gap_safe_room_slots = [
                     s for s in candidate_slots
-                    if available_room_count(s, req_dur) > 0 and exam_slot_gap_safe(s)
+                    if available_room_count(s, req_dur, min_capacity) > 0 and exam_slot_gap_safe(s)
                 ]
             ranked_room_slots = gap_safe_room_slots if gap_safe_room_slots else room_safe_slots
             return max(
@@ -1969,7 +2001,7 @@ def generate_exam_schedule(
                     1 if exam_slot_gap_safe(slot_idx) else 0,
                     1 if slot_idx == preferred_slot_idx else 0,
                     target_high_floor_count(slot_idx),
-                    available_room_count(slot_idx, req_dur),
+                    available_room_count(slot_idx, req_dur, min_capacity),
                 ),
             )
 
@@ -1986,22 +2018,25 @@ def generate_exam_schedule(
                         return room_ids[pref_idx]
 
             best_room_idx = -1
-            best_val = (99, 99, 99, 99999, 99999, "")
+            best_val = (99, 99999, 99, 99999, 99999, "")
             for r_idx in allowed_r_indices:
                 if (r_idx, slot_idx) in room_slots_set:
+                    continue
+                # Strict capacity requirement: room capacity must be >= section_size
+                if section_size is not None and room_capacities[r_idx] < section_size:
                     continue
                 load = room_loads[r_idx]
                 floor = room_floors[r_idx]
                 bldg = room_buildings[r_idx]
                 bldg_prio = 0 if bldg == "B" else 1
-                cap_fit = 0 if (section_size is None or room_capacities[r_idx] >= section_size) else 1
+                cap_diff = (room_capacities[r_idx] - section_size) if section_size is not None else 0
                 if floor >= HIGH_FLOOR_MIN and load < ROOM_BOOKING_TARGET:
                     prio = 0
                 elif load < ROOM_BOOKING_TARGET:
                     prio = 1
                 else:
                     prio = 2
-                val = (cap_fit, bldg_prio, prio, load, -floor, room_names[r_idx])
+                val = (bldg_prio, cap_diff, prio, load, -floor, room_names[r_idx])
                 if val < best_val:
                     best_val = val
                     best_room_idx = r_idx
@@ -2012,14 +2047,29 @@ def generate_exam_schedule(
                 room_loads[best_room_idx] += 1
                 return room_ids[best_room_idx]
 
-            # Fallback within allowed_r_indices
-            if allowed_r_indices:
-                fallback_idx = min(allowed_r_indices, key=lambda r_idx: room_loads[r_idx])
-                for ov_idx in slot_overlaps[slot_idx]:
-                    room_slots_set.add((fallback_idx, ov_idx))
-                room_loads[fallback_idx] += 1
-                return room_ids[fallback_idx]
+            # If no room in allowed_r_indices, check ANY available room across the entire room pool (strict capacity)
+            for r_idx in range(num_rooms):
+                if (r_idx, slot_idx) in room_slots_set:
+                    continue
+                if section_size is not None and room_capacities[r_idx] < section_size:
+                    continue
+                load = room_loads[r_idx]
+                floor = room_floors[r_idx]
+                bldg = room_buildings[r_idx]
+                bldg_prio = 0 if bldg == "B" else 1
+                cap_diff = (room_capacities[r_idx] - section_size) if section_size is not None else 0
+                val = (bldg_prio, cap_diff, 2, load, -floor, room_names[r_idx])
+                if val < best_val:
+                    best_val = val
+                    best_room_idx = r_idx
 
+            if best_room_idx != -1:
+                for ov_idx in slot_overlaps[slot_idx]:
+                    room_slots_set.add((best_room_idx, ov_idx))
+                room_loads[best_room_idx] += 1
+                return room_ids[best_room_idx]
+
+            # Return None if no room with adequate capacity is available
             return None
 
         group_order = sorted(
@@ -2062,6 +2112,56 @@ def generate_exam_schedule(
                 else:
                     prio = 2
                 return (prio, load, -floor, room_names[r_idx])
+
+            def match_sections_to_rooms(sections_list, candidate_room_indices):
+                """
+                Matches a list of section dicts to available rooms from candidate_room_indices.
+                Strictly enforces: room.capacity >= section["student_count"].
+                Uses Best-Fit: minimizes wasted seats (capacity - student_count >= 0).
+                Honors preferred_room_id when it has sufficient capacity and is available.
+                Returns:
+                    (assigned_map, used_indices) if all sections matched, else (None, None).
+                """
+                if not sections_list:
+                    return {}, []
+                available_pool = set(candidate_room_indices)
+                assigned_map = {}
+                used_indices = []
+                remaining_secs = []
+
+                # First pass: try preferred room if available and room capacity >= student_count
+                for s in sections_list:
+                    pref_id = s.get("preferred_room_id")
+                    needed = s.get("student_count", 35)
+                    matched_pref = False
+                    if pref_id and pref_id in room_id_to_idx:
+                        pref_r_idx = room_id_to_idx[pref_id]
+                        if pref_r_idx in available_pool and room_capacities[pref_r_idx] >= needed:
+                            assigned_map[s["sec_id"]] = room_ids[pref_r_idx]
+                            used_indices.append(pref_r_idx)
+                            available_pool.remove(pref_r_idx)
+                            matched_pref = True
+                    if not matched_pref:
+                        remaining_secs.append(s)
+
+                # Sort remaining sections descending by student_count (largest sections first)
+                remaining_secs.sort(key=lambda s: -s.get("student_count", 35))
+
+                for s in remaining_secs:
+                    needed = s.get("student_count", 35)
+                    eligible = [r for r in available_pool if room_capacities[r] >= needed]
+                    if not eligible:
+                        return None, None
+                    # Best-Fit: minimize (room_capacity - needed), then tie-break by room_key
+                    best_r_idx = min(
+                        eligible,
+                        key=lambda r: (room_capacities[r] - needed, room_key(r))
+                    )
+                    assigned_map[s["sec_id"]] = room_ids[best_r_idx]
+                    used_indices.append(best_r_idx)
+                    available_pool.remove(best_r_idx)
+
+                return assigned_map, used_indices
 
             assigned_rooms = {}  # sec_id -> room_id
             assigned_slots = {}  # sec_id -> exam_slot_idx
@@ -2107,19 +2207,14 @@ def generate_exam_schedule(
                                 if room_buildings[r] == pref_b and room_floors[r] == pref_f
                             ]
                             if len(floor_rooms) >= N:
-                                remaining = [r for r in floor_rooms if r != pref_r_idx]
-                                remaining.sort(key=room_key)
-                                sub_chosen = [pref_r_idx] + remaining[:N-1]
-                                pref_found = True
-                                
-                                # Assign rooms directly here
-                                assigned_rooms[ps["sec_id"]] = room_ids[pref_r_idx]
-                                assigned_slots[ps["sec_id"]] = slot_idx
-                                other_secs = [s for s in gap_safe_slot_exams if s["sec_id"] != ps["sec_id"]]
-                                for idx, os_sec in enumerate(other_secs):
-                                    assigned_rooms[os_sec["sec_id"]] = room_ids[remaining[idx]]
-                                    assigned_slots[os_sec["sec_id"]] = slot_idx
-                                break
+                                matched_map, matched_used = match_sections_to_rooms(gap_safe_slot_exams, floor_rooms)
+                                if matched_map is not None:
+                                    assigned_rooms.update(matched_map)
+                                    for s_sec in gap_safe_slot_exams:
+                                        assigned_slots[s_sec["sec_id"]] = slot_idx
+                                    sub_chosen = matched_used
+                                    pref_found = True
+                                    break
 
                 if not pref_found:
                     available_by_floor = {}
@@ -2134,36 +2229,34 @@ def generate_exam_schedule(
                         if len(fl_rooms) >= N
                     }
 
-                    if valid_floors:
-                        def floor_sort_key(fl_key, _N=N):
-                            fl_rooms = valid_floors[fl_key]
-                            sorted_r_keys = sorted([room_key(r) for r in fl_rooms])
-                            return sorted_r_keys[:_N]
+                    floor_candidates = []
+                    for fl_key, fl_rooms in valid_floors.items():
+                        matched_map, matched_used = match_sections_to_rooms(gap_safe_slot_exams, fl_rooms)
+                        if matched_map is not None:
+                            avg_prio = sum(room_key(r)[0] for r in matched_used) / N
+                            total_diff = sum(
+                                room_capacities[r] - s["student_count"]
+                                for s in gap_safe_slot_exams
+                                for r in matched_used
+                                if room_ids[r] == matched_map[s["sec_id"]]
+                            )
+                            floor_candidates.append(((avg_prio, total_diff), matched_map, matched_used))
 
-                        best_fl_key = min(valid_floors.keys(), key=floor_sort_key)
-                        best_fl_rooms = valid_floors[best_fl_key]
-                        best_fl_rooms.sort(key=room_key)
-                        sub_chosen = best_fl_rooms[:N]
+                    if floor_candidates:
+                        floor_candidates.sort(key=lambda item: item[0])
+                        _, matched_map, matched_used = floor_candidates[0]
+                        assigned_rooms.update(matched_map)
+                        for s_sec in gap_safe_slot_exams:
+                            assigned_slots[s_sec["sec_id"]] = slot_idx
+                        sub_chosen = matched_used
                     else:
-                        floor_groups = {}
-                        for r_idx in available_r_indices:
-                            b = room_buildings[r_idx]
-                            f = room_floors[r_idx]
-                            floor_groups.setdefault((b, f), []).append(r_idx)
-                        
-                        sorted_floors = sorted(floor_groups.values(), key=lambda r_list: -len(r_list))
-                        sub_chosen = []
-                        for fl_rooms in sorted_floors:
-                            fl_rooms_sorted = sorted(fl_rooms, key=room_key)
-                            needed = N - len(sub_chosen)
-                            sub_chosen.extend(fl_rooms_sorted[:needed])
-                            if len(sub_chosen) == N:
-                                break
-
-                    for idx, s in enumerate(gap_safe_slot_exams):
-                        if idx < len(sub_chosen):
-                            assigned_rooms[s["sec_id"]] = room_ids[sub_chosen[idx]]
-                            assigned_slots[s["sec_id"]] = slot_idx
+                        sorted_avail = sorted(available_r_indices, key=room_key)
+                        matched_map, matched_used = match_sections_to_rooms(gap_safe_slot_exams, sorted_avail)
+                        if matched_map is not None:
+                            assigned_rooms.update(matched_map)
+                            for s_sec in gap_safe_slot_exams:
+                                assigned_slots[s_sec["sec_id"]] = slot_idx
+                            sub_chosen = matched_used
 
                 # Mark all chosen rooms as used
                 for r_idx in sub_chosen:
@@ -2177,21 +2270,51 @@ def generate_exam_schedule(
                 if sec_id in assigned_rooms:
                     continue
 
-                # Assign a slot that is strictly gap-safe for this specific section
                 exam_slot_idx = pick_exam_slot(
                     slot_idx,
                     sec_id,
                     group.get("duration", 75),
                     prep_sec.get("break_seconds", 0),
+                    min_capacity=prep_sec.get("student_count", 0),
                 )
-                r_id = assign_room_idx(exam_slot_idx, prep_sec.get("preferred_room_id"), prep_sec.get("student_count", 35), group.get("duration", 75))
+                r_id = assign_room_idx(
+                    exam_slot_idx,
+                    prep_sec.get("preferred_room_id"),
+                    prep_sec.get("student_count", 35),
+                    group.get("duration", 75)
+                )
+
+                if not r_id:
+                    sec_used_slots = {
+                        s_idx for (s_id, s_idx) in actual_section_slots if s_id == sec_id
+                    } | {
+                        s_idx for s_idx in range(num_timeslots) if (sec_id, s_idx) in posted_section_slots_set
+                    }
+                    candidate_emergency_slots = [
+                        s for s in sorted(generated_timeslot_indices)
+                        if s not in sec_used_slots and available_room_count(s, group.get("duration", 75), min_capacity=prep_sec.get("student_count", 0)) > 0
+                    ]
+                    if candidate_emergency_slots:
+                        candidate_emergency_slots.sort(
+                            key=lambda s: -available_room_count(s, group.get("duration", 75), min_capacity=prep_sec.get("student_count", 0))
+                        )
+                        for em_slot in candidate_emergency_slots:
+                            r_id = assign_room_idx(
+                                em_slot,
+                                prep_sec.get("preferred_room_id"),
+                                prep_sec.get("student_count", 35),
+                                group.get("duration", 75)
+                            )
+                            if r_id:
+                                exam_slot_idx = em_slot
+                                break
 
                 if not r_id:
                     subject_name = prep_sec.get("sub_name") or f"Subject {prep_sec['sub_id']}"
                     section_name = prep_sec.get("sec_name") or f"Section {sec_id}"
                     slot = timeslot_info_list[exam_slot_idx]["timeslot_obj"]
                     raise ValueError(
-                        f"No available room for {subject_name} ({section_name}) on "
+                        f"No available room with capacity >= {prep_sec.get('student_count')} for {subject_name} ({section_name}) on "
                         f"{slot.date.strftime('%A, %B %d, %Y')} "
                         f"{slot.start_time.strftime('%I:%M %p')} - {slot.end_time.strftime('%I:%M %p')}. "
                         "Add more exam rooms or widen the exam date range."
