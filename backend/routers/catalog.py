@@ -1371,18 +1371,43 @@ def upload_students_excel(
                 # ────────────────────────────────────────────────────────────────
 
                 if matched_sub:
+                    # The scheduler only creates an exam for a subject in a section when both
+                    # share the same course, year level, and semester. Resolve to such a pair,
+                    # otherwise the irregular student would never see an exam for it.
+                    def section_fits(sub, sec):
+                        return (
+                            sec.course_id == sub.course_id
+                            and sec.year_level_id == sub.year_level_id
+                            and (sec.semester is None or sec.semester == sub.semester)
+                        )
+
+                    same_name_subs = [
+                        s for s in subjects_list_by_name.get(matched_sub.name.lower(), [])
+                        if course_category_map.get(s.course_id, "College") == student_dept
+                        and (s.category != "major" or s.course_id == course_id)
+                    ] or [matched_sub]
+
                     chosen_sec = None
                     if target_sec_name and target_sec_name.upper() in sections_cache:
                         cand_sec = sections_cache[target_sec_name.upper()]
                         # Only accept the pinned section if it belongs to same dept
                         sec_dept = course_category_map.get(cand_sec.course_id, "College")
                         if sec_dept == student_dept:
-                            chosen_sec = cand_sec
+                            # Prefer the same-named subject that this section actually takes
+                            fitting_sub = next((s for s in same_name_subs if section_fits(s, cand_sec)), None)
+                            if fitting_sub:
+                                matched_sub = fitting_sub
+                                chosen_sec = cand_sec
 
                     if not chosen_sec:
-                        # Pick the best section for this subject (no exclusion of already-used sections —
-                        # an irregular student can legitimately have multiple subjects in the same section)
-                        offering_secs = sections_by_course.get(matched_sub.course_id, [])
+                        # Pick a section that actually takes this subject (same course/year/semester).
+                        # An irregular student can legitimately have multiple subjects in the same section.
+                        offering_secs = [
+                            s for s in sections_by_course.get(matched_sub.course_id, [])
+                            if section_fits(matched_sub, s)
+                        ]
+                        if not offering_secs:
+                            offering_secs = sections_by_course.get(matched_sub.course_id, [])
                         if not offering_secs:
                             offering_secs = [
                                 s for s in all_sections

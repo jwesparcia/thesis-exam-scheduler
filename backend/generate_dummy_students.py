@@ -134,48 +134,66 @@ def generate_students():
             student_course = random_sec.course
             course_name = student_course.name
             student_dept = student_course.category  # "College" or "SHS"
+            student_sem = random.choice([1, 2])  # Irregular students belong strictly to one semester
 
             # ── Subject selection rules ──────────────────────────────────────
-            # RULE 1: Major subjects MUST be strictly from their own course.
-            #         Irregular students take major subjects across low or high year levels of their own course.
+            # RULE 1: Major subjects MUST be strictly from their own course AND semester.
             own_majors = [
                 s for s in db_subjects 
-                if s.course_id == student_course.id and s.category == "major"
+                if s.course_id == student_course.id and s.category == "major" and s.semester == student_sem
             ]
             
-            # RULE 2: Minor/General subjects can be from their own course OR other courses,
-            #         BUT strictly within the same department (College for College, SHS for SHS).
+            # RULE 2: Minor/General subjects strictly from same department AND semester.
             same_dept_minors = [
                 s for s in db_subjects 
-                if s.category == "general" and s.course and s.course.category == student_dept
+                if s.category == "general" and s.course and s.course.category == student_dept and s.semester == student_sem
             ]
 
             # Pick 2-4 major subjects from their own course
             n_majors = min(random.randint(2, 4), len(own_majors))
             picked_majors = random.sample(own_majors, n_majors) if own_majors else []
 
-            # Pick 1-3 minor/general subjects from the same department
+            # Pick 1-3 minor/general subjects from the same department in the same semester
             n_minors = min(random.randint(1, 3), len(same_dept_minors))
             picked_minors = random.sample(same_dept_minors, n_minors) if same_dept_minors else []
 
-            picked_subs = picked_majors + picked_minors
+            picked_subs = []
+            picked_names = set()
+            for s in picked_majors + picked_minors:
+                if s.name not in picked_names:
+                    picked_subs.append(s)
+                    picked_names.add(s.name)
 
             # Fallback if needed to have at least 4 subjects
             if len(picked_subs) < 4:
-                own_remaining = [s for s in db_subjects if s.course_id == student_course.id and s not in picked_subs]
+                own_remaining = [
+                    s for s in db_subjects 
+                    if s.course_id == student_course.id and s.semester == student_sem and s.name not in picked_names
+                ]
                 if own_remaining:
-                    picked_subs.extend(random.sample(own_remaining, min(4 - len(picked_subs), len(own_remaining))))
+                    for s in random.sample(own_remaining, min(4 - len(picked_subs), len(own_remaining))):
+                        picked_subs.append(s)
+                        picked_names.add(s.name)
 
-            # Assign each subject to a DIFFERENT section that actually offers that subject/course
+            # Assign each subject to a DIFFERENT section that actually offers that subject in that semester
             student_used_sections = set()
             paired_subjects_sections = []
             
             for sub in picked_subs:
-                valid_secs = subject_sections_map.get(sub.id, [])
+                valid_secs = [
+                    sec for sec in subject_sections_map.get(sub.id, [])
+                    if sec.semester == student_sem or sec.semester is None
+                ]
                 if not valid_secs:
-                    valid_secs = [sec for sec in db_sections if sec.course_id == sub.course_id]
+                    valid_secs = [
+                        sec for sec in db_sections 
+                        if sec.course_id == sub.course_id and (sec.semester == student_sem or sec.semester is None)
+                    ]
                 if not valid_secs:
-                    valid_secs = [sec for sec in db_sections if sec.course and sec.course.category == student_dept]
+                    valid_secs = [
+                        sec for sec in db_sections 
+                        if sec.course and sec.course.category == student_dept and (sec.semester == student_sem or sec.semester is None)
+                    ]
                 
                 # Filter for unused sections to ensure subjects are in different sections
                 unused_secs = [s for s in valid_secs if s.name not in student_used_sections]

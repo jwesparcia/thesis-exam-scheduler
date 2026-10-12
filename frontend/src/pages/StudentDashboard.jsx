@@ -821,8 +821,16 @@ export default function StudentDashboard() {
   };
 
   // Reschedule form states — pre-filled from logged-in user, read-only
+  const getFallbackStudentId = (u) => {
+    if (u?.student_id) return u.student_id;
+    if (u?.role === "student" && u?.id) {
+      return `02000${String((u.id * 123457) % 900000 + 100000)}`;
+    }
+    return "";
+  };
+
   const [studentName, setStudentName] = useState(user?.name || "");
-  const [studentId, setStudentId] = useState(user?.student_id || "");
+  const [studentId, setStudentId] = useState(getFallbackStudentId(user));
   const [program, setProgram] = useState("");
   const [section, setSection] = useState(user?.section_name || "");
   const [schoolEmail, setSchoolEmail] = useState(user?.email || "");
@@ -857,6 +865,31 @@ export default function StudentDashboard() {
   useEffect(() => {
     fetchCourses();
   }, []);
+
+  // Sync student info from user
+  useEffect(() => {
+    if (user) {
+      if (user.name) setStudentName(user.name);
+      const sid = getFallbackStudentId(user);
+      if (sid) setStudentId(sid);
+      if (user.email) setSchoolEmail(user.email);
+      if (user.section_name) setSection(user.section_name);
+    }
+  }, [user]);
+
+  // If student lacks student_id in current session, refresh via /auth/me
+  useEffect(() => {
+    if (user?.role === "student" && !user?.student_id) {
+      api.get("/auth/me")
+        .then((res) => {
+          if (res.data?.student_id) {
+            login({ ...user, ...res.data });
+            setStudentId(res.data.student_id);
+          }
+        })
+        .catch((err) => console.error("Error refreshing student profile:", err));
+    }
+  }, [user?.role, user?.student_id]);
 
   // Resolve program name once coursesList is loaded
   useEffect(() => {
@@ -1283,10 +1316,13 @@ export default function StudentDashboard() {
   };
 
   useEffect(() => {
-    if (!isModalOpen || !selectedExam) return;
-    setPreferredStartTime("");
-    setPreferredEndTime("");
-  }, [isModalOpen, selectedExam]);
+    if (!isModalOpen) {
+      setPreferredStartTime("");
+      setPreferredEndTime("");
+      setDetailedExplanation("");
+      setAcknowledged(false);
+    }
+  }, [isModalOpen]);
 
   const markRead = async (id) => {
     try {
@@ -1392,15 +1428,41 @@ export default function StudentDashboard() {
   const unreadCount = notifications.filter(n => !n.is_read).length;
   const latestUnreadNotif = notifications.find(n => !n.is_read);
   const openRescheduleRequest = (exam) => {
+    if (!exam) return;
     setSelectedExam(exam);
-    setCourseCode(exam.subject_code);
-    setCourseName(exam.subject_name);
-    const parts = exam.exam_date.split(", ");
-    const date = new Date(`${parts[1]}, ${parts[2]}`);
-    setOriginalExamDate(`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`);
-    setOriginalStartTime(exam.start_time);
-    setOriginalEndTime(exam.end_time);
+    setCourseCode(exam.subject_code || "");
+    setCourseName(exam.subject_name || "");
+
+    const resolvedSid = getFallbackStudentId(user) || studentId || "";
+    setStudentId(resolvedSid);
+    setStudentName(user?.name || studentName || "");
+    setSchoolEmail(user?.email || schoolEmail || "");
+    setSection(exam.section_name || user?.section_name || "");
+    setProgram(exam.course_name || program || user?.section_name || "");
+
+    let dateStr = "";
+    if (exam.exam_date) {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(exam.exam_date)) {
+        dateStr = exam.exam_date;
+      } else {
+        const parts = exam.exam_date.split(", ");
+        const d = parts.length >= 3 ? new Date(`${parts[1]}, ${parts[2]}`) : new Date(exam.exam_date);
+        if (!isNaN(d.getTime())) {
+          dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+        }
+      }
+    }
+    setOriginalExamDate(dateStr);
+    setOriginalStartTime(exam.start_time || "");
+    setOriginalEndTime(exam.end_time || "");
     setExamType(exam.exam_type || "Midterm");
+    setReasonType("exam conflict");
+    setDetailedExplanation("");
+    setAcknowledged(false);
+
+    setPreferredStartTime("");
+    setPreferredEndTime("");
+
     setIsModalOpen(true);
   };
   const renderMobileExamCards = (examList, showSection = false) => (
@@ -1877,7 +1939,7 @@ export default function StudentDashboard() {
                                 </td>
                                 <td className={`px-4 sm:px-6 py-3 sm:py-4 border-t ${isDark ? "border-gray-700" : "border-gray-200"}`}>
                                   <div className="group relative">
-                                    <button onClick={() => { if (!canReschedule) return; setSelectedExam(exam); setCourseCode(exam.subject_code); setCourseName(exam.subject_name); const parts = exam.exam_date.split(", "); const d = new Date(`${parts[1]}, ${parts[2]}`); setOriginalExamDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`); setOriginalStartTime(exam.start_time); setOriginalEndTime(exam.end_time); setExamType(exam.exam_type || "Midterm"); setIsModalOpen(true); }} disabled={!canReschedule} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${canReschedule ? (isDark ? "bg-red-600 hover:bg-red-700 text-white" : "bg-red-500 hover:bg-red-600 text-white shadow-sm") : (isDark ? "bg-gray-700 text-gray-500 cursor-not-allowed" : "bg-gray-200 text-gray-400 cursor-not-allowed")}`}>Request Reschedule</button>
+                                    <button onClick={() => { if (!canReschedule) return; openRescheduleRequest(exam); }} disabled={!canReschedule} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${canReschedule ? (isDark ? "bg-red-600 hover:bg-red-700 text-white" : "bg-red-500 hover:bg-red-600 text-white shadow-sm") : (isDark ? "bg-gray-700 text-gray-500 cursor-not-allowed" : "bg-gray-200 text-gray-400 cursor-not-allowed")}`}>Request Reschedule</button>
                                     {!canReschedule && <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-gray-800 text-white text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 transition pointer-events-none z-10">Rescheduling is only available for eligible exam conflicts.</div>}
                                   </div>
                                 </td>
@@ -1925,7 +1987,7 @@ export default function StudentDashboard() {
                                         <td className={`px-4 sm:px-6 py-3 sm:py-4 border-t ${isDark ? "border-gray-700" : "border-gray-200"}`}><div className={`flex items-center gap-1.5 ${isDark ? "text-gray-200" : "text-gray-800"}`}><CalendarIcon className="w-3.5 h-3.5 text-blue-500" />{formatDate(exam.exam_date)}</div><div className={`flex items-center gap-1.5 mt-1 text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}><ClockIcon className="w-3.5 h-3.5 text-purple-500" />{exam.start_time} - {exam.end_time}</div></td>
                                         <td className={`px-4 sm:px-6 py-3 sm:py-4 border-t ${isDark ? "border-gray-700" : "border-gray-200"}`}><div className="flex items-center gap-1.5"><MapPinIcon className={`w-3.5 h-3.5 ${isDark ? "text-gray-400" : "text-gray-500"}`} /><span className={`px-2 py-0.5 rounded text-xs font-medium ${isDark ? "bg-gray-700 text-gray-300" : "bg-gray-100 text-gray-700"}`}>{exam.room}</span></div><div className={`mt-1 text-[11px] ${isDark ? "text-gray-500" : "text-gray-400"}`}>{exam.course_name} • {exam.year_level}</div></td>
                                         <td className={`px-4 sm:px-6 py-3 sm:py-4 border-t ${isDark ? "border-gray-700" : "border-gray-200"}`}><div className={`flex items-center gap-1.5 ${isDark ? "text-gray-300" : "text-gray-700"}`}><CheckBadgeIcon className="w-3.5 h-3.5 text-emerald-500" /><span className="text-xs sm:text-sm">{exam.proctor || "Unassigned"}</span></div></td>
-                                        <td className={`px-4 sm:px-6 py-3 sm:py-4 border-t ${isDark ? "border-gray-700" : "border-gray-200"}`}><div className="group relative"><button onClick={() => { if (!canReschedule) return; setSelectedExam(exam); setCourseCode(exam.subject_code); setCourseName(exam.subject_name); const parts = exam.exam_date.split(", "); const d = new Date(`${parts[1]}, ${parts[2]}`); setOriginalExamDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`); setOriginalStartTime(exam.start_time); setOriginalEndTime(exam.end_time); setExamType(exam.exam_type || "Midterm"); setIsModalOpen(true); }} disabled={!canReschedule} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${canReschedule ? (isDark ? "bg-red-600 hover:bg-red-700 text-white" : "bg-red-500 hover:bg-red-600 text-white shadow-sm") : (isDark ? "bg-gray-700 text-gray-500 cursor-not-allowed" : "bg-gray-200 text-gray-400 cursor-not-allowed")}`}>Request Reschedule</button>{!canReschedule && <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-gray-800 text-white text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 transition pointer-events-none z-10">Rescheduling is only available for eligible exam conflicts.</div>}</div></td>
+                                        <td className={`px-4 sm:px-6 py-3 sm:py-4 border-t ${isDark ? "border-gray-700" : "border-gray-200"}`}><div className="group relative"><button onClick={() => { if (!canReschedule) return; openRescheduleRequest(exam); }} disabled={!canReschedule} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${canReschedule ? (isDark ? "bg-red-600 hover:bg-red-700 text-white" : "bg-red-500 hover:bg-red-600 text-white shadow-sm") : (isDark ? "bg-gray-700 text-gray-500 cursor-not-allowed" : "bg-gray-200 text-gray-400 cursor-not-allowed")}`}>Request Reschedule</button>{!canReschedule && <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-gray-800 text-white text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 transition pointer-events-none z-10">Rescheduling is only available for eligible exam conflicts.</div>}</div></td>
                                       </tr>
                                     );
                                   })}
@@ -1945,7 +2007,7 @@ export default function StudentDashboard() {
             {/* My Requests */}
             <div id="my-rescheduling-requests-section" className={`mt-6 sm:mt-8 rounded-2xl overflow-hidden border shadow-sm ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
               <div className={`px-4 sm:px-6 py-3.5 sm:py-4 border-b ${isDark ? "border-gray-700 bg-gray-700/50" : "border-gray-200 bg-gray-50"}`}><h3 className={`text-base sm:text-xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>My Rescheduling Requests</h3></div>
-              <div className="p-4 sm:p-6">{myRequests.length === 0 ? <p className={`text-xs sm:text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}>No rescheduling requests yet.</p> : <div className="space-y-3 sm:space-y-4">{myRequests.map((req) => (<div key={req.id} className={`p-3.5 sm:p-4 rounded-xl border ${isDark ? "bg-gray-700/50 border-gray-600" : "bg-gray-50 border-gray-300"}`}><div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3"><div><p className={`font-bold text-xs sm:text-sm ${isDark ? "text-white" : "text-gray-900"}`}>Exam ID: {req.exam_id}</p><p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>Requested Mode: {req.requested_mode}</p>{req.preferred_date && <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>Rescheduled: {req.preferred_date} {req.preferred_start_time || ""}{req.preferred_end_time ? ` - ${req.preferred_end_time}` : ""}</p>}{req.status === "approved" && req.assigned_room && <p className={`text-xs font-semibold ${isDark ? "text-emerald-300" : "text-emerald-700"}`}>Location: {req.assigned_room}</p>}{req.status === "approved" && req.assigned_proctor && <p className={`text-xs ${isDark ? "text-gray-300" : "text-gray-700"}`}>Supervising proctor: {req.assigned_proctor}</p>}<p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>Reason: {req.reason}</p></div><span className={`px-3 py-1 rounded-full text-xs font-semibold self-start sm:self-auto ${req.status === "approved" ? "bg-green-100 text-green-800" : req.status === "rejected" ? "bg-red-100 text-red-800" : "bg-yellow-100 text-yellow-800"}`}>{req.status}</span></div></div>))}</div>}</div>
+              <div className="p-4 sm:p-6">{myRequests.length === 0 ? <p className={`text-xs sm:text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}>No rescheduling requests yet.</p> : <div className="space-y-3 sm:space-y-4">{myRequests.map((req) => (<div key={req.id} className={`p-3.5 sm:p-4 rounded-xl border ${isDark ? "bg-gray-700/50 border-gray-600" : "bg-gray-50 border-gray-300"}`}><div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3"><div><p className={`font-bold text-xs sm:text-sm ${isDark ? "text-white" : "text-gray-900"}`}>Exam ID: {req.exam_id}</p><p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>Requested Mode: {req.requested_mode}</p>{req.preferred_date && <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>Rescheduled: {req.preferred_date} {req.preferred_start_time || ""}{req.preferred_end_time ? ` - ${req.preferred_end_time}` : ""}</p>}{req.status === "approved" && req.assigned_room && <p className={`text-xs font-semibold ${isDark ? "text-emerald-300" : "text-emerald-700"}`}>Location: Room {req.assigned_room}{req.assigned_room_capacity ? ` (Capacity: ${req.assigned_room_capacity})` : ""}{req.assigned_student_count !== null && req.assigned_student_count !== undefined ? ` · ${req.assigned_student_count} student(s) scheduled` : ""}</p>}{req.status === "approved" && req.assigned_proctor && <p className={`text-xs ${isDark ? "text-gray-300" : "text-gray-700"}`}>Supervising proctor: {req.assigned_proctor}</p>}<p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>Reason: {req.reason}</p></div><span className={`px-3 py-1 rounded-full text-xs font-semibold self-start sm:self-auto ${req.status === "approved" ? "bg-green-100 text-green-800" : req.status === "rejected" ? "bg-red-100 text-red-800" : "bg-yellow-100 text-yellow-800"}`}>{req.status}</span></div></div>))}</div>}</div>
             </div>
           </div>
         </>
@@ -1968,37 +2030,47 @@ export default function StudentDashboard() {
 
             <form onSubmit={async (e) => {
               e.preventDefault();
-              if (!acknowledged || !detailedExplanation.trim() || (user?.student_type === "irregular" && (!preferredStartTime || !preferredEndTime))) {
-                showWarning("Please choose the consultation time, acknowledge, and provide a detailed explanation");
+              if (loadingRequest) return;
+              if (!reasonType) {
+                showWarning("Please select a reason for rescheduling.");
                 return;
               }
+              if (!detailedExplanation.trim()) {
+                showWarning("Please provide a detailed explanation for your request.");
+                return;
+              }
+              if (!acknowledged) {
+                showWarning("Please check the confirmation box to confirm that the information provided is accurate.");
+                return;
+              }
+
               setLoadingRequest(true);
               try {
                 const requestData = {
                   exam_id: selectedExam.id,
-                  section_name: section,
-                  student_name: studentName,
-                  student_id: studentId,
-                  program: program,
-                  school_email: schoolEmail,
-                  course_code: courseCode,
-                  course_name: courseName,
+                  section_name: section || selectedExam.section_name || "",
+                  student_name: studentName || user?.name || "",
+                  student_id: studentId || getFallbackStudentId(user) || "",
+                  program: program || selectedExam.course_name || "",
+                  school_email: schoolEmail || user?.email || "",
+                  course_code: courseCode || selectedExam.subject_code || "",
+                  course_name: courseName || selectedExam.subject_name || "",
                   original_exam_date: originalExamDate,
                   original_start_time: originalStartTime,
                   original_end_time: originalEndTime,
-                  exam_type: "Midterm",
+                  exam_type: examType || selectedExam.exam_type || "Midterm",
                   reason_type: reasonType,
-                  detailed_explanation: detailedExplanation,
+                  detailed_explanation: detailedExplanation.trim(),
                   supporting_file: null,
                   requested_mode: "offline",
                   preferred_date: originalExamDate,
-                  preferred_start_time: preferredStartTime || null,
-                  preferred_end_time: preferredEndTime || null,
+                  preferred_start_time: user?.student_type === "irregular" ? null : (preferredStartTime || null),
+                  preferred_end_time: user?.student_type === "irregular" ? null : (preferredEndTime || null),
                   acknowledged: acknowledged,
                 };
                 const res = await api.post("/student/reschedule-request", requestData);
                 if (res.status === 200 || res.status === 201) {
-                  showSuccess("Request submitted successfully!");
+                  showSuccess("Reschedule request submitted successfully!");
                   setIsModalOpen(false);
                   const requestsRes = await api.get("/student/requests");
                   setMyRequests(requestsRes.data);
@@ -2008,8 +2080,9 @@ export default function StudentDashboard() {
               } catch (err) {
                 console.error("Submission error:", err);
                 showError(err.response?.data?.detail || "Error submitting request");
+              } finally {
+                setLoadingRequest(false);
               }
-              setLoadingRequest(false);
             }} className="space-y-5 sm:space-y-6">
               {/* Student Information */}
               <div className={`p-4 rounded-xl ${isDark ? "bg-gray-800/80" : "bg-gray-50"}`}>
@@ -2056,101 +2129,125 @@ export default function StudentDashboard() {
                 <h4 className={`text-xs sm:text-sm font-bold uppercase tracking-wider mb-3 ${isDark ? "text-slate-300" : "text-gray-900"}`}>3. Reason for Rescheduling</h4>
                 <div className="space-y-3 sm:space-y-4">
                   <div><label className={`block text-xs font-semibold mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}>Reason for Request *</label><select value={reasonType} onChange={(e) => setReasonType(e.target.value)} className={`w-full p-2.5 rounded-xl text-xs sm:text-sm border ${isDark ? "bg-gray-700 text-white border-gray-600" : "bg-white text-gray-900 border-gray-300"}`} required><option value="">Select a reason</option><option value="exam conflict">Exam schedule conflict</option><option value="medical">Medical reason</option><option value="emergency">Emergency</option><option value="other">Other</option></select></div>
-                  <div><label className={`block text-xs font-semibold mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}>Detailed Explanation *</label><textarea value={detailedExplanation} onChange={(e) => setDetailedExplanation(e.target.value)} rows={4} className={`w-full p-2.5 rounded-xl text-xs sm:text-sm border ${isDark ? "bg-gray-700 text-white border-gray-600" : "bg-white text-gray-900 border-gray-300"}`} required /></div>
+                  <div><label className={`block text-xs font-semibold mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}>Detailed Explanation *</label><textarea value={detailedExplanation} onChange={(e) => setDetailedExplanation(e.target.value)} rows={4} placeholder="Please explain the reason for your request..." className={`w-full p-2.5 rounded-xl text-xs sm:text-sm border ${isDark ? "bg-gray-700 text-white border-gray-600" : "bg-white text-gray-900 border-gray-300"}`} required /></div>
                 </div>
               </div>
 
-              {/* Preferred Reschedule */}
-              <div className={`p-4 rounded-xl ${isDark ? "bg-gray-800/80" : "bg-gray-50"}`}>
-                <h4 className={`text-xs sm:text-sm font-bold uppercase tracking-wider mb-3 ${isDark ? "text-slate-300" : "text-gray-900"}`}>4. Preferred Reschedule Details</h4>
-                {/* Smart vacant hours suggestions */}
-                {selectedExam && (() => {
-                  const reqDur = getExamDurationMins(selectedExam);
-                  const durHours = Math.floor(reqDur / 60);
-                  const durMinsRemain = reqDur % 60;
-                  const durLabel = durHours > 0 && durMinsRemain > 0 
-                    ? `${durHours}h ${durMinsRemain}m` 
-                    : durHours > 0 ? `${durHours}h` : `${durMinsRemain}m`;
+              {/* Reschedule Details */}
+              {user?.student_type === "irregular" ? (
+                <div className={`p-4 rounded-xl ${isDark ? "bg-gray-800/80" : "bg-gray-50"}`}>
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className={`text-xs sm:text-sm font-bold uppercase tracking-wider ${isDark ? "text-slate-300" : "text-gray-900"}`}>
+                      4. Examination Reschedule Assignment
+                    </h4>
+                    <span className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full ${isDark ? "bg-emerald-900/40 text-emerald-300 border border-emerald-700/50" : "bg-emerald-100 text-emerald-800"}`}>
+                      System Automated
+                    </span>
+                  </div>
 
-                  const isIrregular = user?.student_type === "irregular";
-                  const suggestions = isIrregular
-                    ? getIrregularRescheduleSuggestions(selectedExam)
-                    : getVacantHoursSuggestions(selectedExam);
-                  if (suggestions.length === 0) {
-                    return (
-                      <div className={`mb-4 p-3 rounded-lg border-l-4 border-yellow-500 ${isDark ? "bg-yellow-950/30" : "bg-yellow-50"}`}>
-                        <p className={`text-xs font-bold uppercase tracking-wide mb-1 ${isDark ? "text-yellow-400" : "text-yellow-700"}`}>
-                          No Replacement Times Found
-                        </p>
-                        <p className={`text-sm ${isDark ? "text-gray-300" : "text-gray-700"}`}>
-                          No available same-day time fits this exam's {durLabel} duration. Please contact the Program Head.
-                        </p>
+                  <div className={`p-4 rounded-xl border ${isDark ? "bg-emerald-950/20 border-emerald-800/50" : "bg-emerald-50/80 border-emerald-200"}`}>
+                    <div className="flex items-start gap-3">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${isDark ? "bg-emerald-900/60 text-emerald-400" : "bg-emerald-100 text-emerald-700"}`}>
+                        <CheckBadgeIcon className="w-5 h-5" />
                       </div>
-                    );
-                  }
-                  return (
-                    <div className={`mb-4 p-3 rounded-lg border-l-4 border-blue-500 ${isDark ? "bg-blue-950/20" : "bg-blue-50"}`}>
-                      <p className={`text-xs font-bold uppercase tracking-wide mb-1.5 ${isDark ? "text-blue-400" : "text-blue-700"}`}>
-                        Suggested Times ({durLabel} each):
-                      </p>
-                      <div className="flex flex-wrap gap-2 mt-1">
-                        {isIrregular ? suggestions.map((suggestion, idx) => {
-                          const label = `${formatSecondsTo12(suggestion.start)} - ${formatSecondsTo12(suggestion.end)}`;
-                          const isSelected = preferredStartTime === (() => {
-                            const hours = Math.floor(suggestion.start / 3600) % 24;
-                            const minutes = Math.floor((suggestion.start % 3600) / 60);
-                            const seconds = suggestion.start % 60;
-                            return [hours, minutes, seconds].map(value => String(value).padStart(2, "0")).join(":");
-                          })();
-                          return (
-                            <button
-                              key={idx}
-                              type="button"
-                              onClick={() => applyIrregularSuggestion(suggestion.start, suggestion.end - suggestion.start)}
-                              aria-pressed={isSelected}
-                              className={`px-3 py-1.5 rounded-lg text-xs font-semibold shadow-sm transition ${
-                                isSelected
-                                  ? "bg-emerald-600 text-white"
-                                  : isDark ? "bg-blue-600 hover:bg-blue-500 text-white" : "bg-blue-500 hover:bg-blue-600 text-white"
-                              }`}
-                            >
-                              {label}{suggestion.consultation ? " · Consultation Area" : ""}
-                            </button>
-                          );
-                        }) : suggestions.flatMap((s, idx) => {
-                          const slots = [];
-                          let slotStart = s[0];
-                          while (slotStart + reqDur <= s[1]) {
-                            slots.push(slotStart);
-                            slotStart += reqDur;
-                          }
-                          return slots.map((slotStartMins, slotIdx) => {
-                            const label = `${formatMinsTo12(slotStartMins)} - ${formatMinsTo12(slotStartMins + reqDur)}`;
-                            return (
-                              <button
-                                key={`${idx}-${slotIdx}`}
-                                type="button"
-                                onClick={() => applyVacantHoursSuggestion(slotStartMins, reqDur)}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-semibold shadow-sm transition hover:-translate-y-0.5 ${
-                                  isDark 
-                                    ? "bg-blue-600 hover:bg-blue-500 text-white" 
-                                    : "bg-blue-500 hover:bg-blue-600 text-white"
-                                }`}
-                              >
-                                {label}
-                              </button>
-                            );
-                          });
-                        })}
+                      <div className="flex-1">
+                        <h5 className={`text-xs font-bold uppercase tracking-wide ${isDark ? "text-emerald-400" : "text-emerald-800"}`}>
+                          Automatic Time & Room Assignment
+                        </h5>
+                        <p className={`text-xs mt-1 leading-relaxed ${isDark ? "text-emerald-300/90" : "text-emerald-700"}`}>
+                          As an irregular student, you do not need to manually select an examination time. The system will automatically calculate the earliest valid, conflict-free time slot on your scheduled exam date, ensuring the mandatory 15-minute break between exams, school operating hours, and optimal room capacity with load balancing.
+                        </p>
                       </div>
                     </div>
-                  );
-                })()}
-                {user?.student_type === "irregular" ? (
-                  <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>
-                    Select one suggested time above. Consultation Area options begin at 5:00 PM.
-                  </p>
-                ) : (
+
+                    <div className={`mt-3 pt-3 border-t grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs ${isDark ? "border-emerald-800/40 text-gray-300" : "border-emerald-200/80 text-gray-700"}`}>
+                      <div>
+                        <span className="font-medium text-gray-500 dark:text-gray-400">Scheduled Exam Date: </span>
+                        <strong className={isDark ? "text-white" : "text-gray-900"}>
+                          {originalExamDate ? new Date(originalExamDate).toLocaleDateString("en-US", { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : "-"}
+                        </strong>
+                      </div>
+                      <div>
+                        <span className="font-medium text-gray-500 dark:text-gray-400">Assignment Method: </span>
+                        <strong className={isDark ? "text-emerald-400" : "text-emerald-700"}>Automated Conflict-Free Search</strong>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className={`p-4 rounded-xl ${isDark ? "bg-gray-800/80" : "bg-gray-50"}`}>
+                  <h4 className={`text-xs sm:text-sm font-bold uppercase tracking-wider mb-3 ${isDark ? "text-slate-300" : "text-gray-900"}`}>
+                    4. Preferred Reschedule Details
+                  </h4>
+                  {selectedExam && (() => {
+                    const reqDur = getExamDurationMins(selectedExam);
+                    const durHours = Math.floor(reqDur / 60);
+                    const durMinsRemain = reqDur % 60;
+                    const durLabel = durHours > 0 && durMinsRemain > 0 
+                      ? `${durHours}h ${durMinsRemain}m` 
+                      : durHours > 0 ? `${durHours}h` : `${durMinsRemain}m`;
+
+                    const suggestions = getVacantHoursSuggestions(selectedExam);
+                    if (suggestions.length === 0) {
+                      return (
+                        <div className="space-y-3 mb-4">
+                          <div className={`p-3 rounded-lg border-l-4 border-yellow-500 ${isDark ? "bg-yellow-950/30" : "bg-yellow-50"}`}>
+                            <p className={`text-xs font-bold uppercase tracking-wide mb-1 ${isDark ? "text-yellow-400" : "text-yellow-700"}`}>
+                              No Replacement Times Found
+                            </p>
+                            <p className={`text-sm ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+                              No available same-day time fits this exam's {durLabel} duration. You can specify a consultation time below (starts at 5:00 PM) or contact the Program Head.
+                            </p>
+                          </div>
+                          <div className="flex gap-3 sm:gap-4">
+                            <div className="flex-1">
+                              <label className={`block text-xs mb-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}>Start Time</label>
+                              <input type="time" value={preferredStartTime} onChange={(e) => setPreferredStartTime(e.target.value)} className={`w-full p-2.5 rounded-xl text-xs sm:text-sm border ${isDark ? "bg-gray-700 text-white border-gray-600" : "bg-white text-gray-900 border-gray-300"}`} />
+                            </div>
+                            <div className="flex-1">
+                              <label className={`block text-xs mb-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}>End Time</label>
+                              <input type="time" value={preferredEndTime} onChange={(e) => setPreferredEndTime(e.target.value)} className={`w-full p-2.5 rounded-xl text-xs sm:text-sm border ${isDark ? "bg-gray-700 text-white border-gray-600" : "bg-white text-gray-900 border-gray-300"}`} />
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
+                    return (
+                      <div className={`mb-4 p-3 rounded-lg border-l-4 border-blue-500 ${isDark ? "bg-blue-950/20" : "bg-blue-50"}`}>
+                        <p className={`text-xs font-bold uppercase tracking-wide mb-1.5 ${isDark ? "text-blue-400" : "text-blue-700"}`}>
+                          Suggested Times ({durLabel} each):
+                        </p>
+                        <div className="flex flex-wrap gap-2 mt-1">
+                          {suggestions.flatMap((s, idx) => {
+                            const slots = [];
+                            let slotStart = s[0];
+                            while (slotStart + reqDur <= s[1]) {
+                              slots.push(slotStart);
+                              slotStart += reqDur;
+                            }
+                            return slots.map((slotStartMins, slotIdx) => {
+                              const label = `${formatMinsTo12(slotStartMins)} - ${formatMinsTo12(slotStartMins + reqDur)}`;
+                              return (
+                                <button
+                                  key={`${idx}-${slotIdx}`}
+                                  type="button"
+                                  onClick={() => applyVacantHoursSuggestion(slotStartMins, reqDur)}
+                                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold shadow-sm transition hover:-translate-y-0.5 cursor-pointer ${
+                                    isDark 
+                                      ? "bg-blue-600 hover:bg-blue-500 text-white" 
+                                      : "bg-blue-500 hover:bg-blue-600 text-white"
+                                  }`}
+                                >
+                                  {label}
+                                </button>
+                              );
+                            });
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
                   <div className="grid grid-cols-1 gap-4">
                     <div>
                       <label className={`block text-xs sm:text-sm mb-1.5 font-semibold ${isDark ? "text-gray-300" : "text-gray-700"}`}>
@@ -2168,18 +2265,35 @@ export default function StudentDashboard() {
                       </div>
                     </div>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
 
               {/* Acknowledgement */}
-              <div className={`p-4 rounded-xl ${isDark ? "bg-gray-800/80" : "bg-gray-50"}`}>
+              <div className={`p-4 rounded-xl border ${acknowledged ? (isDark ? "border-emerald-600/50 bg-emerald-950/20" : "border-emerald-300 bg-emerald-50/50") : (isDark ? "border-transparent bg-gray-800/80" : "border-transparent bg-gray-50")}`}>
                 <h4 className={`text-xs sm:text-sm font-bold uppercase tracking-wider mb-3 ${isDark ? "text-slate-300" : "text-gray-900"}`}>5. Student Confirmation</h4>
-                <div className="flex items-start gap-2.5"><input type="checkbox" id="acknowledge" checked={acknowledged} onChange={(e) => setAcknowledged(e.target.checked)} className="mt-1 rounded" /><label htmlFor="acknowledge" className={`text-xs sm:text-sm leading-snug ${isDark ? "text-gray-300" : "text-gray-700"}`}>I confirm that the information provided is accurate and subject to approval. *</label></div>
+                <div className="flex items-start gap-2.5">
+                  <input type="checkbox" id="acknowledge" checked={acknowledged} onChange={(e) => setAcknowledged(e.target.checked)} className="mt-1 rounded cursor-pointer w-4 h-4 text-blue-600" />
+                  <label htmlFor="acknowledge" className={`text-xs sm:text-sm leading-snug cursor-pointer select-none ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+                    I confirm that the information provided is accurate and subject to approval. *
+                  </label>
+                </div>
               </div>
 
               <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-2">
                 <button type="button" onClick={() => setIsModalOpen(false)} className={`w-full sm:w-auto px-5 py-3 rounded-xl font-bold text-xs sm:text-sm ${isDark ? "bg-gray-700 text-white hover:bg-gray-600" : "bg-gray-200 text-gray-900 hover:bg-gray-300"}`}>Cancel</button>
-                <button type="submit" disabled={loadingRequest || !acknowledged || !detailedExplanation.trim() || (user?.student_type === "irregular" && (!preferredStartTime || !preferredEndTime))} className={`w-full sm:w-auto px-6 py-3 rounded-xl font-bold text-xs sm:text-sm transition shadow-md ${loadingRequest ? "bg-gray-400 cursor-not-allowed" : isDark ? "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-900/40" : "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/25"}`}>{loadingRequest ? "Submitting..." : "Submit Request"}</button>
+                <button
+                  type="submit"
+                  disabled={loadingRequest}
+                  className={`w-full sm:w-auto px-6 py-3 rounded-xl font-bold text-xs sm:text-sm transition shadow-md flex items-center justify-center gap-2 ${
+                    loadingRequest
+                      ? "bg-gray-400 cursor-not-allowed text-white"
+                      : isDark
+                        ? "bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white shadow-blue-900/40 cursor-pointer"
+                        : "bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white shadow-blue-500/25 cursor-pointer"
+                  }`}
+                >
+                  {loadingRequest ? "Submitting..." : "Submit Request"}
+                </button>
               </div>
             </form>
           </div>

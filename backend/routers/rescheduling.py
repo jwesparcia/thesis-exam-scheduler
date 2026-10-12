@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session, joinedload
 from core import get_db, cache
 from model import ReschedulingRequest, Exam, Notification, User, Timeslot, Room, Proctor
@@ -6,6 +6,11 @@ from schema import ReschedulingRequestCreate, ReschedulingRequest as Reschedulin
 from datetime import datetime, time, timedelta
 from .auth import get_current_user, require_role
 from utils.logging import log_activity
+from services.auto_rescheduler import (
+    find_earliest_auto_schedule,
+    apply_auto_reschedule,
+    get_assigned_student_count_for_room,
+)
 
 router = APIRouter(prefix="/rescheduling", tags=["Rescheduling Requests"])
 
@@ -118,11 +123,24 @@ def get_pending_requests(db: Session = Depends(get_db), current_user: User = Dep
 
     result = []
     for req in requests:
+        student = db.query(User).filter(User.email == req.school_email).first()
+        is_irregular = bool(student and student.student_type == "irregular")
+        auto_assignment = None
+        if is_irregular and not is_consultation_request(db, req):
+            try:
+                auto_assignment = find_earliest_auto_schedule(req, db)
+            except Exception as e:
+                auto_assignment = {
+                    "success": False,
+                    "message": f"Could not determine auto-assignment: {str(e)}"
+                }
+
         result.append({
             "id": req.id,
             "exam_id": req.exam_id,
             "section_name": req.section_name,
             "student_name": req.student_name,
+            "student_type": student.student_type if student else "regular",
             "course_name": req.course_name,
             "original_exam_date": req.original_exam_date.strftime("%A, %B %d, %Y") if req.original_exam_date else "Unknown",
             "original_time": f"{req.original_start_time.strftime('%I:%M %p')} - {req.original_end_time.strftime('%I:%M %p')}" if req.original_start_time and req.original_end_time else "Unknown",
@@ -134,18 +152,33 @@ def get_pending_requests(db: Session = Depends(get_db), current_user: User = Dep
             "preferred_date": req.preferred_date.strftime("%Y-%m-%d") if req.preferred_date else None,
             "preferred_time": f"{req.preferred_start_time.strftime('%I:%M %p')} - {req.preferred_end_time.strftime('%I:%M %p')}" if req.preferred_start_time and req.preferred_end_time else None,
             "consultation_area": is_consultation_request(db, req),
-            "acknowledged": req.acknowledged
+            "acknowledged": req.acknowledged,
+            "auto_assignment": auto_assignment,
         })
     return result
 
 @router.get("/history")
 def get_rescheduling_history(db: Session = Depends(get_db), current_user: User = Depends(require_role(["admin"]))):
     requests = db.query(ReschedulingRequest).options(
-        joinedload(ReschedulingRequest.exam)
+        joinedload(ReschedulingRequest.exam),
+        joinedload(ReschedulingRequest.rescheduled_exam),
     ).filter(ReschedulingRequest.status.in_(["approved", "rejected"])).order_by(ReschedulingRequest.id.desc()).all()
 
     result = []
     for req in requests:
+        assigned_exam = req.rescheduled_exam or req.exam
+        room_name = assigned_exam.room.name if (assigned_exam and assigned_exam.room) else None
+        room_capacity = assigned_exam.room.capacity if (assigned_exam and assigned_exam.room) else None
+        assigned_student_count = None
+        if req.status == "approved" and assigned_exam and assigned_exam.room and assigned_exam.timeslot:
+            assigned_student_count = get_assigned_student_count_for_room(
+                assigned_exam.room.id,
+                assigned_exam.timeslot.date,
+                assigned_exam.timeslot.start_time,
+                assigned_exam.timeslot.end_time,
+                db,
+            )
+
         result.append({
             "id": req.id,
             "exam_id": req.exam_id,
@@ -163,10 +196,36 @@ def get_rescheduling_history(db: Session = Depends(get_db), current_user: User =
             "preferred_time": f"{req.preferred_start_time.strftime('%I:%M %p')} - {req.preferred_end_time.strftime('%I:%M %p')}" if req.preferred_start_time and req.preferred_end_time else None,
             "status": req.status,
             "reviewer_comments": req.reviewer_comments,
-            "room": (req.rescheduled_exam or req.exam).room.name if (req.rescheduled_exam or req.exam) and (req.rescheduled_exam or req.exam).room else None,
-            "proctor": (req.rescheduled_exam or req.exam).proctor.name if (req.rescheduled_exam or req.exam) and (req.rescheduled_exam or req.exam).proctor else None,
+            "room": room_name,
+            "room_capacity": room_capacity,
+            "student_count": assigned_student_count,
+            "proctor": assigned_exam.proctor.name if (assigned_exam and assigned_exam.proctor) else None,
         })
     return result
+
+@router.post("/{request_id}/auto-assign")
+def auto_assign_request(
+    request_id: int,
+    payload: dict = Body(default={}),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(["admin"]))
+):
+    from .exams import is_generation_ongoing
+    if is_generation_ongoing():
+        raise HTTPException(status_code=400, detail="Cannot review rescheduling requests while schedule generation is ongoing")
+    comments = payload.get("reviewer_comments")
+    return apply_auto_reschedule(request_id, comments, db, current_user.id)
+
+@router.get("/{request_id}/auto-assign-preview")
+def preview_auto_assign_request(
+    request_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(["admin"]))
+):
+    req = db.query(ReschedulingRequest).filter(ReschedulingRequest.id == request_id).first()
+    if not req:
+        raise HTTPException(status_code=404, detail="Request not found")
+    return find_earliest_auto_schedule(req, db)
 
 @router.put("/{request_id}/review")
 def review_request(request_id: int, update: ReschedulingRequestUpdate, db: Session = Depends(get_db), current_user: User = Depends(require_role(["admin"]))):
@@ -177,16 +236,16 @@ def review_request(request_id: int, update: ReschedulingRequestUpdate, db: Sessi
     if not request:
         raise HTTPException(status_code=404, detail="Request not found")
 
-    request.status = update.status
-    request.reviewer_comments = update.reviewer_comments
+    student = db.query(User).filter(User.email == request.school_email).first()
+    irregular_request = bool(student and student.student_type == "irregular")
+    consultation_request = is_consultation_request(db, request)
 
     if update.status == "approved":
-        exam = request.exam
-        student = db.query(User).filter(User.email == request.school_email).first()
-        irregular_request = bool(student and student.student_type == "irregular")
-        consultation_request = is_consultation_request(db, request)
+        # If irregular request and no room is manually chosen, auto-assign time and room
         if irregular_request and not consultation_request and not update.room_id:
-            raise HTTPException(status_code=400, detail="Assign a room before approving this request")
+            return apply_auto_reschedule(request_id, update.reviewer_comments, db, current_user.id)
+
+        exam = request.exam
         if consultation_request:
             if not (request.preferred_date and request.preferred_start_time and request.preferred_end_time):
                 raise HTTPException(status_code=400, detail="A preferred date and time are required for Consultation Area scheduling")
@@ -252,6 +311,9 @@ def review_request(request_id: int, update: ReschedulingRequestUpdate, db: Sessi
             if not irregular_request:
                 exam.timeslot_id = ts.id
 
+    request.status = update.status
+    request.reviewer_comments = update.reviewer_comments
+
     # Notify the student requesting the reschedule
     student_user = db.query(User).filter(User.email == request.school_email).first()
     student_user_id = student_user.id if student_user else None
@@ -268,6 +330,7 @@ def review_request(request_id: int, update: ReschedulingRequestUpdate, db: Sessi
         cache.invalidate_exam_schedules()
     log_activity(db, current_user.id, "RESCHEDULING_REVIEW", f"Request ID: {request_id}, Status: {update.status}")
     return {"message": f"Request {update.status}"}
+
 
 @router.get("/{request_id}/available-rooms")
 def get_available_rooms_for_request(

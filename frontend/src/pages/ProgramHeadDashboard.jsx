@@ -26,6 +26,8 @@ import {
   XMarkIcon,
   ClockIcon,
   UserGroupIcon,
+  CheckBadgeIcon,
+  ExclamationTriangleIcon,
 } from "@heroicons/react/24/outline";
 import ExamScheduler from "../components/ExamScheduler";
 import AddProctor from "../components/AddProctor";
@@ -165,6 +167,31 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
     }
   };
 
+  const handleAutoAssign = async (id) => {
+    if (isGenerating) {
+      showError("Cannot review rescheduling requests while schedule generation is ongoing");
+      return;
+    }
+    try {
+      const res = await api.post(`/rescheduling/${id}/auto-assign`, {});
+      if (res.status === 200) {
+        setRequests(prev => {
+          const updated = prev.filter(req => req.id !== id);
+          if (onRequestsChange) {
+            onRequestsChange(updated.length);
+          }
+          return updated;
+        });
+        showSuccess(res.data.message || "Request approved and automatically scheduled!");
+      } else {
+        showError("Failed to auto-assign request");
+      }
+    } catch (err) {
+      console.error(err);
+      showError(err.response?.data?.detail || "Error auto-assigning request");
+    }
+  };
+
   const formatPreferredDate = (dateStr) => {
     if (!dateStr) return "Flexible";
     try {
@@ -232,15 +259,46 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2 shrink-0 w-full sm:w-auto">
-                    <button
-                      onClick={() => handleApproveClick(req)}
-                      disabled={isGenerating}
-                      className={`flex-1 sm:flex-initial px-4 py-2 rounded-lg font-semibold text-sm transition bg-green-500 ${isGenerating ? "bg-green-600 text-green-300 cursor-not-allowed" : "bg-green-50 hover:bg-green-500/30 text-white"
+                    {req.auto_assignment?.success ? (
+                      <>
+                        <button
+                          onClick={() => handleAutoAssign(req.id)}
+                          disabled={isGenerating}
+                          className={`flex-1 sm:flex-initial px-4 py-2 rounded-lg font-semibold text-sm transition shadow-sm flex items-center justify-center gap-1.5 ${
+                            isGenerating
+                              ? "bg-emerald-700/50 text-emerald-300 cursor-not-allowed"
+                              : "bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-900/20"
+                          }`}
+                          title={isGenerating ? "Cannot approve while schedule generation is running" : "Approve with automatically assigned time and room"}
+                        >
+                          <CheckBadgeIcon className="w-4 h-4" />
+                          <span>Approve (Auto-Assigned)</span>
+                        </button>
+                        <button
+                          onClick={() => handleApproveClick(req)}
+                          disabled={isGenerating}
+                          className={`flex-1 sm:flex-initial px-3 py-2 rounded-lg font-medium text-xs transition border ${
+                            isDark
+                              ? "border-gray-600 bg-gray-700/50 text-gray-300 hover:bg-gray-700"
+                              : "border-gray-300 bg-gray-50 text-gray-700 hover:bg-gray-100"
+                          }`}
+                          title="Manually override time slot or room"
+                        >
+                          Manual Review
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={() => handleApproveClick(req)}
+                        disabled={isGenerating}
+                        className={`flex-1 sm:flex-initial px-4 py-2 rounded-lg font-semibold text-sm transition ${
+                          isGenerating ? "bg-green-600 text-green-300 cursor-not-allowed" : "bg-green-600 hover:bg-green-500 text-white"
                         }`}
-                      title={isGenerating ? "Cannot approve while schedule generation is running" : ""}
-                    >
-                      Approve
-                    </button>
+                        title={isGenerating ? "Cannot approve while schedule generation is running" : ""}
+                      >
+                        {req.student_type === "irregular" ? "Manual Review & Approve" : "Approve"}
+                      </button>
+                    )}
                     <button
                       onClick={() => {
                         if (isGenerating) return;
@@ -256,6 +314,53 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
                     </button>
                   </div>
                 </div>
+
+                {/* Auto-Assignment Recommendation Box */}
+                {req.auto_assignment?.success && (
+                  <div className={`p-4 rounded-xl border mb-4 shadow-sm ${isDark ? "bg-emerald-950/20 border-emerald-800/50" : "bg-emerald-50 border-emerald-200"}`}>
+                    <div className="flex items-center justify-between mb-2.5">
+                      <h5 className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${isDark ? "text-emerald-400" : "text-emerald-700"}`}>
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                        Automatically Assigned Schedule
+                      </h5>
+                      <span className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full ${isDark ? "bg-emerald-900/50 text-emerald-300 border border-emerald-700/50" : "bg-emerald-100 text-emerald-800"}`}>
+                        Conflict-Free Validated
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+                      <div className={`p-2.5 rounded-lg ${isDark ? "bg-gray-800/60" : "bg-white/80"}`}>
+                        <span className={`text-[11px] block uppercase font-medium ${isDark ? "text-gray-400" : "text-gray-500"}`}>Examination Date & Time</span>
+                        <span className={`font-bold block mt-0.5 ${isDark ? "text-white" : "text-gray-900"}`}>{req.auto_assignment.date_formatted}</span>
+                        <div className={`text-xs font-semibold mt-0.5 ${isDark ? "text-emerald-300" : "text-emerald-700"}`}>{req.auto_assignment.time_formatted}</div>
+                      </div>
+                      <div className={`p-2.5 rounded-lg ${isDark ? "bg-gray-800/60" : "bg-white/80"}`}>
+                        <span className={`text-[11px] block uppercase font-medium ${isDark ? "text-gray-400" : "text-gray-500"}`}>Assigned Room</span>
+                        <span className={`font-bold block mt-0.5 ${isDark ? "text-white" : "text-gray-900"}`}>Room {req.auto_assignment.room_name}</span>
+                        <div className={`text-xs mt-0.5 ${isDark ? "text-gray-400" : "text-gray-600"}`}>Seating Capacity: {req.auto_assignment.room_capacity} seats</div>
+                      </div>
+                      <div className={`p-2.5 rounded-lg ${isDark ? "bg-gray-800/60" : "bg-white/80"}`}>
+                        <span className={`text-[11px] block uppercase font-medium ${isDark ? "text-gray-400" : "text-gray-500"}`}>Room Load Balancing</span>
+                        <span className={`font-bold block mt-0.5 ${isDark ? "text-white" : "text-gray-900"}`}>{req.auto_assignment.assigned_student_count} student(s) scheduled</span>
+                        <div className={`text-xs font-semibold mt-0.5 ${isDark ? "text-emerald-300" : "text-emerald-700"}`}>{req.auto_assignment.remaining_capacity} seats available</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Warning when no valid slot or room could be auto-assigned */}
+                {req.student_type === "irregular" && req.auto_assignment && !req.auto_assignment.success && (
+                  <div className={`p-3.5 rounded-xl border mb-4 flex items-start gap-3 ${isDark ? "bg-amber-950/20 border-amber-800/50" : "bg-amber-50 border-amber-200"}`}>
+                    <ExclamationTriangleIcon className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                    <div>
+                      <h5 className={`text-xs font-bold uppercase tracking-wider ${isDark ? "text-amber-400" : "text-amber-800"}`}>
+                        Automatic Assignment Notice
+                      </h5>
+                      <p className={`text-xs mt-1 leading-relaxed ${isDark ? "text-amber-300/90" : "text-amber-700"}`}>
+                        {req.auto_assignment.message}
+                      </p>
+                    </div>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                   <div className={`p-4 rounded-lg border ${isDark ? "bg-gray-700/50 border-gray-600" : "bg-gray-50 border-gray-100"}`}>
@@ -352,7 +457,15 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
                     <p className={`text-sm leading-relaxed ${isDark ? "text-gray-200" : "text-gray-700"}`}>
                       <span className="font-medium">Mode:</span> {req.requested_mode}<br />
                       <span className="font-medium">Date:</span> {formatPreferredDate(req.preferred_date)}<br />
-                      <span className="font-medium">Time:</span> {req.preferred_time || "To be determined"}
+                      <span className="font-medium">Time:</span> {req.preferred_time || "To be determined"}<br />
+                      {req.room && (
+                        <>
+                          <span className="font-medium">Room:</span> Room {req.room}
+                          {req.room_capacity ? ` (Cap: ${req.room_capacity})` : ""}
+                          {req.student_count !== null && req.student_count !== undefined ? ` · ${req.student_count} student(s) assigned` : ""}<br />
+                        </>
+                      )}
+                      {req.proctor && <><span className="font-medium">Proctor:</span> {req.proctor}<br /></>}
                     </p>
                   </div>
                 </div>

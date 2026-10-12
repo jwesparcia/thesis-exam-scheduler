@@ -8,6 +8,7 @@ from typing import List, Optional
 from datetime import datetime, time, timedelta
 from .auth import get_current_user, require_role
 from utils.logging import log_activity
+from services.auto_rescheduler import get_assigned_student_count_for_room
 
 router = APIRouter(prefix="/student", tags=["Student"])
 
@@ -232,6 +233,16 @@ def get_student_requests(
             "preferred_start_time": r.preferred_start_time.strftime("%I:%M %p") if r.preferred_start_time else None,
             "preferred_end_time": r.preferred_end_time.strftime("%I:%M %p") if r.preferred_end_time else None,
             "assigned_room": r.rescheduled_exam.room.name if r.rescheduled_exam and r.rescheduled_exam.room else None,
+            "assigned_room_capacity": r.rescheduled_exam.room.capacity if r.rescheduled_exam and r.rescheduled_exam.room else None,
+            "assigned_student_count": (
+                get_assigned_student_count_for_room(
+                    r.rescheduled_exam.room_id,
+                    r.rescheduled_exam.timeslot.date,
+                    r.rescheduled_exam.timeslot.start_time,
+                    r.rescheduled_exam.timeslot.end_time,
+                    db,
+                ) if (r.status == "approved" and r.rescheduled_exam and r.rescheduled_exam.room and r.rescheduled_exam.timeslot) else None
+            ),
             "assigned_proctor": r.rescheduled_exam.proctor.name if r.rescheduled_exam and r.rescheduled_exam.proctor else None,
         }
         for r in requests
@@ -337,13 +348,13 @@ def submit_reschedule_request(
 
     db_req = ReschedulingRequest(
         exam_id=body.exam_id,
-        section_name=body.section_name,
-        student_name=body.student_name,
-        student_id=body.student_id,
-        program=body.program,
-        school_email=body.school_email,
-        course_code=body.course_code,
-        course_name=body.course_name,
+        section_name=body.section_name or (exam.section.name if exam.section else ""),
+        student_name=body.student_name or current_user.name,
+        student_id=body.student_id or current_user.student_id or (f"02000{str(current_user.id * 123457 % 900000 + 100000)}"),
+        program=body.program or (exam.course.name if exam.course else ""),
+        school_email=body.school_email or current_user.email,
+        course_code=body.course_code or (exam.subject.code if exam.subject else ""),
+        course_name=body.course_name or (exam.subject.name if exam.subject else ""),
         original_exam_date=parse_date(body.original_exam_date),
         original_start_time=parse_time(body.original_start_time),
         original_end_time=parse_time(body.original_end_time),
@@ -358,30 +369,31 @@ def submit_reschedule_request(
         acknowledged=body.acknowledged,
     )
     if current_user.student_type == "irregular":
-        if not (db_req.preferred_date and db_req.preferred_start_time and db_req.preferred_end_time):
-            raise HTTPException(status_code=400, detail="Choose a replacement date and time")
+        if not db_req.preferred_date:
+            db_req.preferred_date = exam_timeslot.date
         if db_req.preferred_date != exam_timeslot.date:
             raise HTTPException(status_code=400, detail="Irregular conflict exams must be rescheduled on the same day")
-        duration_minutes = exam.subject.duration_minutes if exam.subject and exam.subject.duration_minutes else 75
-        expected_end = (
-            datetime.combine(datetime.today().date(), db_req.preferred_start_time)
-            + timedelta(minutes=duration_minutes)
-        ).time()
-        if db_req.preferred_end_time != expected_end:
-            raise HTTPException(status_code=400, detail="Replacement time must match the configured exam duration")
-        if db_req.preferred_start_time < exam_timeslot.end_time:
-            raise HTTPException(status_code=400, detail="The replacement exam must start after the original exam ends")
-        if db_req.preferred_start_time < time(17, 0) and db_req.preferred_end_time > time(17, 0):
-            raise HTTPException(status_code=400, detail="A replacement exam cannot cross the 5:00 PM consultation cutoff")
-        for peer in scheduled_exams:
-            peer_timeslot = peer.timeslot
-            if peer.id == exam.id or not peer_timeslot or peer_timeslot.date != db_req.preferred_date:
-                continue
-            if (
-                db_req.preferred_start_time < peer_timeslot.end_time
-                and peer_timeslot.start_time < db_req.preferred_end_time
-            ):
-                raise HTTPException(status_code=400, detail="The replacement time conflicts with another scheduled exam")
+        if db_req.preferred_start_time and db_req.preferred_end_time:
+            duration_minutes = exam.subject.duration_minutes if exam.subject and exam.subject.duration_minutes else 75
+            expected_end = (
+                datetime.combine(datetime.today().date(), db_req.preferred_start_time)
+                + timedelta(minutes=duration_minutes)
+            ).time()
+            if db_req.preferred_end_time != expected_end:
+                raise HTTPException(status_code=400, detail="Replacement time must match the configured exam duration")
+            if db_req.preferred_start_time < exam_timeslot.end_time:
+                raise HTTPException(status_code=400, detail="The replacement exam must start after the original exam ends")
+            if db_req.preferred_start_time < time(17, 0) and db_req.preferred_end_time > time(17, 0):
+                raise HTTPException(status_code=400, detail="A replacement exam cannot cross the 5:00 PM consultation cutoff")
+            for peer in scheduled_exams:
+                peer_timeslot = peer.timeslot
+                if peer.id == exam.id or not peer_timeslot or peer_timeslot.date != db_req.preferred_date:
+                    continue
+                if (
+                    db_req.preferred_start_time < peer_timeslot.end_time
+                    and peer_timeslot.start_time < db_req.preferred_end_time
+                ):
+                    raise HTTPException(status_code=400, detail="The replacement time conflicts with another scheduled exam")
     db.add(db_req)
     db.commit()
     db.refresh(db_req)
@@ -407,7 +419,11 @@ def set_student_type(
         current_user.course_id = req.course_id
     db.commit()
     log_activity(db, current_user.id, "STUDENT_TYPE_CHANGE", f"New Type: {req.student_type}, Course: {req.course_id}")
-    return {"student_type": req.student_type, "course_id": current_user.course_id}
+    return {
+        "student_type": req.student_type,
+        "course_id": current_user.course_id,
+        "student_id": current_user.student_id or (f"02000{str(current_user.id * 123457 % 900000 + 100000)}" if current_user.role == "student" else None)
+    }
 
 class SetCourseRequest(BaseModel):
     course_id: int
