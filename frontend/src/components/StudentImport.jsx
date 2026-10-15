@@ -373,32 +373,34 @@ export default function StudentImport({ isGenerating }) {
       </div>
 
       {/* Primary Tab Navigation */}
-      <div className="flex border-b border-gray-200 dark:border-gray-700">
+      <div className="flex border-b border-slate-200 dark:border-slate-700">
         <button
+          type="button"
           onClick={() => setActiveTab("directory")}
           className={`pb-3 px-5 text-sm sm:text-base font-bold transition-all border-b-2 flex items-center gap-2 ${
             activeTab === "directory"
-              ? "border-blue-500 text-blue-600 dark:text-blue-400"
-              : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              ? "border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400"
+              : "border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
           }`}
         >
           <UsersIcon className="w-5 h-5" />
           Student Directory by Course & Section
-          <span className={`ml-1.5 px-2 py-0.5 text-xs rounded-full ${
+          <span className={`ml-1.5 px-2.5 py-0.5 text-xs font-semibold rounded-full border ${
             activeTab === "directory"
-              ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
-              : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
+              ? "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-800"
+              : "bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700"
           }`}>
             {totalStudents.toLocaleString()}
           </span>
         </button>
 
         <button
+          type="button"
           onClick={() => setActiveTab("upload")}
           className={`pb-3 px-5 text-sm sm:text-base font-bold transition-all border-b-2 flex items-center gap-2 ${
             activeTab === "upload"
-              ? "border-blue-500 text-blue-600 dark:text-blue-400"
-              : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              ? "border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400"
+              : "border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
           }`}
         >
           <ArrowUpTrayIcon className="w-5 h-5" />
@@ -429,14 +431,14 @@ export default function StudentImport({ isGenerating }) {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
               {/* Department Selector */}
               <div>
-                <label className={`block text-[11px] font-semibold uppercase tracking-wider mb-1.5 ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                <label className={`block text-xs font-semibold uppercase tracking-wider mb-1.5 ${isDark ? "text-slate-300" : "text-slate-700"}`}>
                   Department
                 </label>
                 <select
                   value={selectedDept}
                   onChange={(e) => handleDeptChange(e.target.value)}
-                  className={`w-full p-2.5 rounded-xl text-xs sm:text-sm font-medium border transition-colors cursor-pointer ${
-                    isDark ? "bg-slate-900 border-slate-700 text-white" : "bg-gray-50 border-gray-200 text-gray-800"
+                  className={`w-full p-2.5 rounded-xl text-xs sm:text-sm font-medium border transition-colors cursor-pointer outline-none focus:ring-2 focus:ring-blue-500/20 ${
+                    isDark ? "bg-slate-900 border-slate-700 text-slate-100 focus:border-blue-500" : "bg-white border-slate-300 text-slate-900 focus:border-blue-600"
                   }`}
                 >
                   <option value="All">All Departments</option>
@@ -447,14 +449,14 @@ export default function StudentImport({ isGenerating }) {
 
               {/* Course / Strand Selector */}
               <div>
-                <label className={`block text-[11px] font-semibold uppercase tracking-wider mb-1.5 ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                <label className={`block text-xs font-semibold uppercase tracking-wider mb-1.5 ${isDark ? "text-slate-300" : "text-slate-700"}`}>
                   {selectedDept === "SHS" ? "Strand" : "Course"}
                 </label>
                 <select
                   value={selectedCourseId}
                   onChange={handleCourseChange}
-                  className={`w-full p-2.5 rounded-xl text-xs sm:text-sm font-medium border transition-colors cursor-pointer ${
-                    isDark ? "bg-slate-900 border-slate-700 text-white" : "bg-gray-50 border-gray-200 text-gray-800"
+                  className={`w-full p-2.5 rounded-xl text-xs sm:text-sm font-medium border transition-colors cursor-pointer outline-none focus:ring-2 focus:ring-blue-500/20 ${
+                    isDark ? "bg-slate-900 border-slate-700 text-slate-100 focus:border-blue-500" : "bg-white border-slate-300 text-slate-900 focus:border-blue-600"
                   }`}
                 >
                   <option value="">All Courses / Strands</option>
@@ -468,7 +470,7 @@ export default function StudentImport({ isGenerating }) {
 
               {/* Section Selector */}
               <div>
-                <label className={`block text-[11px] font-semibold uppercase tracking-wider mb-1.5 ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                <label className={`block text-xs font-semibold uppercase tracking-wider mb-1.5 ${isDark ? "text-slate-300" : "text-slate-700"}`}>
                   Section
                 </label>
                 <select
@@ -477,8 +479,8 @@ export default function StudentImport({ isGenerating }) {
                     setSelectedSection(e.target.value);
                     setPage(1);
                   }}
-                  className={`w-full p-2.5 rounded-xl text-xs sm:text-sm font-medium border transition-colors cursor-pointer ${
-                    isDark ? "bg-slate-900 border-slate-700 text-white" : "bg-gray-50 border-gray-200 text-gray-800"
+                  className={`w-full p-2.5 rounded-xl text-xs sm:text-sm font-medium border transition-colors cursor-pointer outline-none focus:ring-2 focus:ring-blue-500/20 ${
+                    isDark ? "bg-slate-900 border-slate-700 text-slate-100 focus:border-blue-500" : "bg-white border-slate-300 text-slate-900 focus:border-blue-600"
                   }`}
                 >
                   <option value="All">All Sections</option>
@@ -493,7 +495,7 @@ export default function StudentImport({ isGenerating }) {
 
               {/* Student Type */}
               <div>
-                <label className={`block text-[11px] font-semibold uppercase tracking-wider mb-1.5 ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                <label className={`block text-xs font-semibold uppercase tracking-wider mb-1.5 ${isDark ? "text-slate-300" : "text-slate-700"}`}>
                   Student Type
                 </label>
                 <select
@@ -502,8 +504,8 @@ export default function StudentImport({ isGenerating }) {
                     setSelectedType(e.target.value);
                     setPage(1);
                   }}
-                  className={`w-full p-2.5 rounded-xl text-xs sm:text-sm font-medium border transition-colors cursor-pointer ${
-                    isDark ? "bg-slate-900 border-slate-700 text-white" : "bg-gray-50 border-gray-200 text-gray-800"
+                  className={`w-full p-2.5 rounded-xl text-xs sm:text-sm font-medium border transition-colors cursor-pointer outline-none focus:ring-2 focus:ring-blue-500/20 ${
+                    isDark ? "bg-slate-900 border-slate-700 text-slate-100 focus:border-blue-500" : "bg-white border-slate-300 text-slate-900 focus:border-blue-600"
                   }`}
                 >
                   <option value="All">All Types</option>
@@ -514,7 +516,7 @@ export default function StudentImport({ isGenerating }) {
 
               {/* Search Box */}
               <div>
-                <label className={`block text-[11px] font-semibold uppercase tracking-wider mb-1.5 ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                <label className={`block text-xs font-semibold uppercase tracking-wider mb-1.5 ${isDark ? "text-slate-300" : "text-slate-700"}`}>
                   Search Student
                 </label>
                 <div className="relative">
@@ -522,12 +524,12 @@ export default function StudentImport({ isGenerating }) {
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search ID (02000...), Name, Email..."
-                    className={`w-full pl-8 pr-3 py-2.5 rounded-xl text-xs sm:text-sm border transition-colors ${
-                      isDark ? "bg-slate-900 border-slate-700 text-white placeholder-slate-500" : "bg-gray-50 border-gray-200 text-gray-800 placeholder-gray-400"
+                    placeholder="Search ID, Name, Email..."
+                    className={`w-full pl-9 pr-3.5 py-2.5 rounded-xl text-xs sm:text-sm border transition-colors outline-none focus:ring-2 focus:ring-blue-500/20 ${
+                      isDark ? "bg-slate-900 border-slate-700 text-slate-100 placeholder-slate-500 focus:border-blue-500" : "bg-white border-slate-300 text-slate-900 placeholder-slate-400 focus:border-blue-600"
                     }`}
                   />
-                  <MagnifyingGlassIcon className="w-4 h-4 text-gray-400 absolute left-2.5 top-3" />
+                  <MagnifyingGlassIcon className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
                 </div>
               </div>
             </div>
@@ -535,16 +537,16 @@ export default function StudentImport({ isGenerating }) {
 
           {/* Directory Table */}
           <div className={`rounded-2xl border overflow-hidden shadow-sm ${isDark ? "bg-slate-800/40 border-slate-700" : "bg-white border-slate-200"}`}>
-            <div className="p-4 sm:p-5 border-b border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center gap-2">
-                <span className={`text-xs sm:text-sm font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
+                <span className={`text-xs sm:text-sm font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
                   Showing {students.length > 0 ? (page - 1) * pageSize + 1 : 0} - {Math.min(page * pageSize, totalStudents)} of {totalStudents.toLocaleString()} Students
                 </span>
                 {directoryLoading && <ArrowPathIcon className="w-4 h-4 text-blue-500 animate-spin" />}
               </div>
 
               {/* Page Size Selector */}
-              <div className="flex items-center gap-2 text-xs font-semibold text-gray-500 dark:text-gray-400">
+              <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
                 <span>Show:</span>
                 {[25, 50, 100].map((size) => (
                   <button
@@ -558,7 +560,7 @@ export default function StudentImport({ isGenerating }) {
                         ? "bg-blue-600 text-white border-blue-600 shadow-xs font-bold"
                         : isDark
                           ? "border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800"
-                          : "border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100"
+                          : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
                     }`}
                   >
                     {size}
@@ -568,14 +570,14 @@ export default function StudentImport({ isGenerating }) {
             </div>
 
             <div className="w-full min-w-0">
-              <div className="divide-y divide-gray-100 dark:divide-slate-800 md:hidden">
+              <div className="divide-y divide-slate-100 dark:divide-slate-800 md:hidden">
                 {directoryLoading && students.length === 0 ? (
-                  <div className="py-12 text-center text-sm text-gray-400">
+                  <div className="py-12 text-center text-sm text-slate-400">
                     <ArrowPathIcon className="mx-auto mb-2 h-8 w-8 animate-spin text-blue-500" />
                     Loading student records...
                   </div>
                 ) : students.length === 0 ? (
-                  <div className="py-12 text-center text-sm text-gray-400">No students found matching the selected filters.</div>
+                  <div className="py-12 text-center text-sm text-slate-400">No students found matching the selected filters.</div>
                 ) : students.map((student) => {
                   const isIrregular = student.student_type === "irregular";
                   const enrolledCount = student.enrolled_subjects?.length || 0;
@@ -583,8 +585,8 @@ export default function StudentImport({ isGenerating }) {
                     <article key={student.id} className="space-y-3 p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <h3 className="break-words font-bold text-gray-900 dark:text-white">{student.name}</h3>
-                          <p className="mt-0.5 break-all font-mono text-xs text-gray-500">{student.email}</p>
+                          <h3 className="break-words font-bold text-slate-900 dark:text-white">{student.name}</h3>
+                          <p className="mt-0.5 break-all font-mono text-xs text-slate-500">{student.email}</p>
                           <p className={`mt-1 inline-flex rounded-md px-2 py-1 font-mono text-xs font-bold ${isDark ? "bg-slate-800 text-blue-400" : "bg-blue-50 text-blue-700"}`}>
                             {student.student_id || "No student ID"}
                           </p>
@@ -595,15 +597,15 @@ export default function StudentImport({ isGenerating }) {
                       </div>
                       <dl className="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
                         <div className="min-w-0">
-                          <dt className="text-xs font-semibold text-gray-500">Department</dt>
+                          <dt className="text-xs font-semibold text-slate-500">Department</dt>
                           <dd className="mt-0.5 break-words">{student.department || "-"}</dd>
                         </div>
                         <div className="min-w-0">
-                          <dt className="text-xs font-semibold text-gray-500">Course</dt>
+                          <dt className="text-xs font-semibold text-slate-500">Course</dt>
                           <dd className="mt-0.5 break-words">{student.course_name || "-"}</dd>
                         </div>
                         <div className="col-span-2 min-w-0">
-                          <dt className="text-xs font-semibold text-gray-500">Section</dt>
+                          <dt className="text-xs font-semibold text-slate-500">Section</dt>
                           <dd className="mt-0.5 break-words">
                             {isIrregular
                               ? `${student.assigned_sections?.length || "Multiple"} different section${student.assigned_sections?.length === 1 ? "" : "s"}`
@@ -621,7 +623,7 @@ export default function StudentImport({ isGenerating }) {
                           <EyeIcon className="ml-1.5 inline h-4 w-4 opacity-70" />
                         </button>
                       ) : (
-                        <p className="text-xs italic text-gray-500 dark:text-gray-400">Regular Section Curriculum</p>
+                        <p className="text-xs italic text-slate-500 dark:text-slate-400">Regular Section Curriculum</p>
                       )}
                     </article>
                   );
@@ -630,29 +632,29 @@ export default function StudentImport({ isGenerating }) {
               <div className="hidden overflow-x-auto md:block">
               <table className="w-full text-left border-collapse text-xs sm:text-sm">
                 <thead>
-                  <tr className={`border-b text-[11px] uppercase tracking-wider font-bold ${
-                    isDark ? "bg-slate-900/60 border-slate-700 text-slate-400" : "bg-gray-50 border-gray-200 text-gray-600"
+                  <tr className={`border-b text-xs uppercase tracking-wider font-semibold ${
+                    isDark ? "bg-slate-800/80 border-slate-700 text-slate-300" : "bg-slate-100/90 border-slate-200 text-slate-700"
                   }`}>
-                    <th className="py-3.5 px-4">ID</th>
-                    <th className="py-3.5 px-4">Student Name & Email</th>
-                    <th className="py-3.5 px-4">Department & Course</th>
+                    <th className="py-3.5 px-4">Student ID</th>
+                    <th className="py-3.5 px-4">Name & Email</th>
+                    <th className="py-3.5 px-4">Academic Program</th>
                     <th className="py-3.5 px-4">Section</th>
-                    <th className="py-3.5 px-4">Type</th>
+                    <th className="py-3.5 px-4">Student Type</th>
                     <th className="py-3.5 px-4 text-center">Enrolled Subjects</th>
                   </tr>
                 </thead>
-                <tbody className={`divide-y ${isDark ? "divide-slate-800 text-slate-300" : "divide-gray-100 text-gray-700"}`}>
+                <tbody className={`divide-y ${isDark ? "divide-slate-800 text-slate-200" : "divide-slate-100 text-slate-800"}`}>
                   {directoryLoading && students.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="py-16 text-center text-gray-400">
+                      <td colSpan={6} className="py-16 text-center text-slate-400 dark:text-slate-500">
                         <ArrowPathIcon className="w-8 h-8 text-blue-500 animate-spin mx-auto mb-2" />
                         Loading student records...
                       </td>
                     </tr>
                   ) : students.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="py-16 text-center text-gray-400">
-                        <UserIcon className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                      <td colSpan={6} className="py-16 text-center text-slate-500 dark:text-slate-400">
+                        <UserIcon className="w-8 h-8 text-slate-400 mx-auto mb-2" />
                         No students found matching the selected filters.
                       </td>
                     </tr>
@@ -665,13 +667,13 @@ export default function StudentImport({ isGenerating }) {
                         <tr
                           key={student.id}
                           className={`transition-colors ${
-                            isDark ? "hover:bg-slate-700/30" : "hover:bg-blue-50/40"
+                            isDark ? "hover:bg-slate-800/40" : "hover:bg-slate-50/80"
                           }`}
                         >
                           {/* Student ID */}
                           <td className="py-3.5 px-4 whitespace-nowrap">
-                            <span className={`inline-flex items-center px-2.5 py-1 rounded-md font-mono text-xs font-bold tracking-wider ${
-                              isDark ? "bg-slate-800 text-blue-400 border border-blue-900/40" : "bg-blue-50 text-blue-700 border border-blue-200"
+                            <span className={`inline-flex items-center px-2.5 py-1 rounded-lg font-mono text-xs font-bold tracking-wider border ${
+                              isDark ? "bg-blue-950/50 text-blue-300 border-blue-800" : "bg-blue-50 text-blue-700 border-blue-200"
                             }`}>
                               {student.student_id || "N/A"}
                             </span>
@@ -679,10 +681,10 @@ export default function StudentImport({ isGenerating }) {
 
                           {/* Name & Email */}
                           <td className="py-3.5 px-4">
-                            <div className="font-bold text-gray-900 dark:text-white">
+                            <div className="font-bold text-slate-900 dark:text-white">
                               {student.name}
                             </div>
-                            <div className="text-[11px] font-mono text-gray-400 dark:text-gray-500">
+                            <div className="text-xs font-mono text-slate-500 dark:text-slate-400 font-medium">
                               {student.email}
                             </div>
                           </td>
@@ -690,14 +692,14 @@ export default function StudentImport({ isGenerating }) {
                           {/* Department & Course */}
                           <td className="py-3.5 px-4">
                             <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                              <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md border ${
                                 student.department === "SHS"
-                                  ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
-                                  : "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300"
+                                  ? "bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-800"
+                                  : "bg-indigo-50 text-indigo-800 border-indigo-200 dark:bg-indigo-950/50 dark:text-indigo-300 dark:border-indigo-800"
                               }`}>
                                 {student.department || "-"}
                               </span>
-                              <span className="font-medium text-xs">
+                              <span className="font-medium text-xs text-slate-800 dark:text-slate-200">
                                 {student.course_name || "-"}
                               </span>
                             </div>
@@ -707,19 +709,19 @@ export default function StudentImport({ isGenerating }) {
                           <td className="py-3.5 px-4 whitespace-nowrap">
                             {isIrregular ? (
                               <div className="flex flex-col gap-1">
-                                <span className="inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-semibold bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 w-fit">
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-semibold bg-purple-50 text-purple-700 border border-purple-200 dark:bg-purple-950/50 dark:text-purple-300 dark:border-purple-800 w-fit">
                                   Irregular
                                 </span>
                                 {student.assigned_sections && student.assigned_sections.length > 0 ? (
-                                  <span className="text-[11px] font-mono text-purple-600 dark:text-purple-400 font-medium">
+                                  <span className="text-xs font-mono text-purple-700 dark:text-purple-300 font-medium">
                                     {student.assigned_sections.length} different sections
                                   </span>
                                 ) : (
-                                  <span className="text-[11px] text-gray-400">Multiple sections</span>
+                                  <span className="text-xs text-slate-500 dark:text-slate-400">Multiple sections</span>
                                 )}
                               </div>
                             ) : (
-                              <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300">
+                              <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800">
                                 {student.section_name}
                               </span>
                             )}
@@ -727,12 +729,12 @@ export default function StudentImport({ isGenerating }) {
 
                           {/* Student Type */}
                           <td className="py-3.5 px-4 whitespace-nowrap">
-                            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold capitalize ${
+                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold capitalize border ${
                               isIrregular
-                                ? "bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20"
-                                : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                                ? "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/50 dark:text-purple-300 dark:border-purple-800"
+                                : "bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800"
                             }`}>
-                              <span className={`w-1.5 h-1.5 rounded-full ${isIrregular ? "bg-purple-500" : "bg-emerald-500"}`}></span>
+                              <span className={`w-1.5 h-1.5 rounded-full ${isIrregular ? "bg-purple-600 dark:bg-purple-400" : "bg-emerald-600 dark:bg-emerald-400"}`}></span>
                               {student.student_type}
                             </span>
                           </td>
@@ -741,11 +743,12 @@ export default function StudentImport({ isGenerating }) {
                           <td className="py-3.5 px-4 whitespace-nowrap text-center">
                             {isIrregular ? (
                               <button
+                                type="button"
                                 onClick={() => setSelectedStudentForModal(student)}
-                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-xs shadow-xs transition-all ${
+                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-semibold text-xs transition-all border ${
                                   isDark 
-                                    ? "bg-purple-600/30 hover:bg-purple-600/50 text-purple-300 border border-purple-500/30" 
-                                    : "bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200"
+                                    ? "bg-purple-950/50 hover:bg-purple-900/60 text-purple-300 border-purple-800" 
+                                    : "bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200 shadow-xs"
                                 }`}
                               >
                                 <BookOpenIcon className="w-4 h-4" />
@@ -753,7 +756,7 @@ export default function StudentImport({ isGenerating }) {
                                 <EyeIcon className="w-3.5 h-3.5 ml-0.5 opacity-70" />
                               </button>
                             ) : (
-                              <span className="text-[11px] text-gray-400 dark:text-gray-500 italic">
+                              <span className="text-xs text-slate-500 dark:text-slate-400 italic font-medium">
                                 Regular Section Curriculum
                               </span>
                             )}
@@ -769,8 +772,8 @@ export default function StudentImport({ isGenerating }) {
 
             {/* Pagination Controls */}
             {totalPages > 1 && (
-              <div className="p-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between gap-3">
-                <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">
+              <div className="p-4 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between gap-3">
+                <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">
                   Page {page} of {totalPages} ({totalStudents.toLocaleString()} total students)
                 </div>
 
@@ -780,10 +783,10 @@ export default function StudentImport({ isGenerating }) {
                     disabled={page === 1 || directoryLoading}
                     className={`p-2 rounded-xl border transition-all ${
                       page === 1
-                        ? "opacity-40 cursor-not-allowed border-gray-200 dark:border-gray-700 text-gray-400"
+                        ? "opacity-40 cursor-not-allowed border-slate-200 dark:border-slate-700 text-slate-400"
                         : isDark
                           ? "border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800"
-                          : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                          : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
                     }`}
                   >
                     <ChevronLeftIcon className="w-4 h-4" />
@@ -801,10 +804,10 @@ export default function StudentImport({ isGenerating }) {
                     disabled={page === totalPages || directoryLoading}
                     className={`p-2 rounded-xl border transition-all ${
                       page === totalPages
-                        ? "opacity-40 cursor-not-allowed border-gray-200 dark:border-gray-700 text-gray-400"
+                        ? "opacity-40 cursor-not-allowed border-slate-200 dark:border-slate-700 text-slate-400"
                         : isDark
                           ? "border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800"
-                          : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                          : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
                     }`}
                   >
                     <ChevronRightIcon className="w-4 h-4" />
@@ -976,67 +979,73 @@ export default function StudentImport({ isGenerating }) {
 
       {/* Irregular Student Enrolled Subjects Modal */}
       {selectedStudentForModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
+        <div 
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+        >
           <div className={`max-w-2xl w-full rounded-2xl border shadow-2xl overflow-hidden ${
-            isDark ? "bg-slate-900 border-slate-800 text-white" : "bg-white border-gray-200 text-gray-900"
+            isDark ? "bg-slate-900 border-slate-700/80 text-white" : "bg-white border-slate-200 text-slate-900"
           }`}>
-            <div className="p-5 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
+            <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center">
                   <IdentificationIcon className="w-6 h-6" />
                 </div>
                 <div>
                   <h3 className="font-bold text-base sm:text-lg">
                     {selectedStudentForModal.name}
                   </h3>
-                  <p className="text-xs font-mono text-purple-400">
+                  <p className="text-xs font-mono text-purple-600 dark:text-purple-400 font-medium">
                     ID: {selectedStudentForModal.student_id} • {selectedStudentForModal.course_name}
                   </p>
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => setSelectedStudentForModal(null)}
-                className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors"
+                aria-label="Close enrolled subjects dialog"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               >
                 <XMarkIcon className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="p-5 space-y-4 max-h-[65vh] overflow-y-auto">
-              <div className="p-3 rounded-xl bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800/40 text-xs text-purple-800 dark:text-purple-300 flex items-start gap-2">
+            <div className="p-5 space-y-4 max-h-[65vh] overflow-y-auto custom-scrollbar">
+              <div className="p-3.5 rounded-xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800/60 text-xs text-purple-900 dark:text-purple-200 flex items-start gap-2.5">
                 <CheckCircleIcon className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0 mt-0.5" />
-                <span>
-                  <strong>Auto-Enrolled from Excel Import:</strong> These subjects were specified in the admin's uploaded student spreadsheet. The student is automatically scheduled for these exams without needing to manually pick subjects from different sections.
+                <span className="leading-relaxed">
+                  <strong>Auto-Enrolled from Spreadsheet:</strong> These subjects were imported directly from the student roster. The student is scheduled into the examination slots corresponding to these subjects.
                 </span>
               </div>
 
               {selectedStudentForModal.enrolled_subjects?.length === 0 ? (
-                <div className="py-8 text-center text-gray-400 text-sm">
+                <div className="py-8 text-center text-slate-400 dark:text-slate-500 text-sm">
                   No individual subjects enrolled for this student.
                 </div>
               ) : (
                 <div className="space-y-2">
-                  <div className="text-xs font-semibold uppercase tracking-wider text-gray-400 px-1">
+                  <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 px-1">
                     Enrolled Subjects ({selectedStudentForModal.enrolled_subjects.length})
                   </div>
-                  <div className="divide-y divide-gray-100 dark:divide-slate-800 border rounded-xl overflow-hidden">
+                  <div className="divide-y divide-slate-100 dark:divide-slate-800 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
                     {selectedStudentForModal.enrolled_subjects.map((sub, idx) => (
-                      <div key={idx} className={`p-3 flex items-center justify-between gap-3 ${
-                        isDark ? "bg-slate-800/40" : "bg-gray-50"
+                      <div key={idx} className={`p-3.5 flex items-center justify-between gap-3 ${
+                        isDark ? "bg-slate-800/40" : "bg-slate-50/80"
                       }`}>
                         <div className="space-y-1">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-mono font-bold text-xs px-2 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                            <span className="font-mono font-bold text-xs px-2 py-0.5 rounded border bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-800">
                               {sub.code || `SUBJ-${idx + 1}`}
                             </span>
-                            <span className="font-bold text-xs sm:text-sm">
+                            <span className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white">
                               {sub.name}
                             </span>
                           </div>
-                          <div className="flex items-center gap-3 text-[11px] pl-1 flex-wrap">
-                            <span className="text-gray-500 capitalize">Category: {sub.category}</span>
+                          <div className="flex items-center gap-3 text-xs pl-1 flex-wrap text-slate-600 dark:text-slate-400">
+                            <span className="capitalize">Category: {sub.category}</span>
                             {sub.section_name && sub.section_name !== "-" && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 font-semibold">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 border border-purple-200 dark:bg-purple-950/50 dark:text-purple-300 dark:border-purple-800 font-semibold">
                                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
                                 {sub.section_name}
                               </span>
@@ -1044,7 +1053,7 @@ export default function StudentImport({ isGenerating }) {
                           </div>
                         </div>
                         <div className="shrink-0 text-right">
-                          <span className="text-xs font-semibold px-2 py-1 rounded-md bg-gray-200/60 dark:bg-slate-700 text-gray-700 dark:text-gray-300">
+                          <span className="text-xs font-semibold px-2.5 py-1 rounded-md bg-slate-200/80 dark:bg-slate-700 text-slate-800 dark:text-slate-200 border border-slate-300/60 dark:border-slate-600">
                             {sub.duration_minutes ? `${sub.duration_minutes} mins` : "Standard"}
                           </span>
                         </div>
@@ -1055,10 +1064,11 @@ export default function StudentImport({ isGenerating }) {
               )}
             </div>
 
-            <div className="p-4 border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-slate-900/50 flex justify-end">
+            <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50 flex justify-end">
               <button
+                type="button"
                 onClick={() => setSelectedStudentForModal(null)}
-                className="px-5 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-gray-200 hover:bg-gray-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-gray-800 dark:text-gray-200 transition-colors"
+                className="px-5 py-2.5 rounded-xl text-sm font-semibold bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 transition-colors"
               >
                 Close
               </button>

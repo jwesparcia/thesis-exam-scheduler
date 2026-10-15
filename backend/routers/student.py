@@ -50,7 +50,7 @@ def build_exam_response(exams):
             "start_time": start_time,
             "end_time": end_time,
             "room": room.name if room else "-",
-            "proctor": proctor.name if proctor else "Unassigned",
+            "proctor": proctor.name if proctor else ("To be assigned personally by admin" if (room and room.name == "Consultation Area") else "Unassigned"),
             "status": e.status,
         })
     return result
@@ -105,7 +105,27 @@ def get_irregular_schedule_exams(
     )
     if rescheduled_source_ids and not include_rescheduled_sources:
         query = query.filter(~Exam.id.in_(rescheduled_source_ids))
-    return query.all()
+    results = query.all()
+    if not include_rescheduled_sources:
+        approved_rescheduled = (
+            db.query(Exam)
+            .options(
+                joinedload(Exam.subject),
+                joinedload(Exam.timeslot),
+            )
+            .join(ReschedulingRequest, ReschedulingRequest.rescheduled_exam_id == Exam.id)
+            .filter(
+                ReschedulingRequest.school_email == current_user.email,
+                ReschedulingRequest.status == "approved",
+                ReschedulingRequest.rescheduled_exam_id.isnot(None),
+            )
+            .all()
+        )
+        seen_ids = {e.id for e in results}
+        for e in approved_rescheduled:
+            if e.id not in seen_ids:
+                results.append(e)
+    return results
 
 # Authentication
 # Authentication is now handled by auth.py
@@ -641,9 +661,36 @@ def get_custom_exams(
     if rescheduled_source_exam_ids:
         exams = exams.filter(~Exam.id.in_(rescheduled_source_exam_ids))
 
-    exams = exams.join(Exam.timeslot).order_by(Timeslot.date, Timeslot.start_time).all()
+    exams_list = exams.join(Exam.timeslot).order_by(Timeslot.date, Timeslot.start_time).all()
 
-    result = build_exam_response(exams)
+    approved_rescheduled = (
+        db.query(Exam)
+        .options(
+            joinedload(Exam.subject),
+            joinedload(Exam.section),
+            joinedload(Exam.room),
+            joinedload(Exam.timeslot),
+            joinedload(Exam.course),
+            joinedload(Exam.year_level),
+            joinedload(Exam.proctor),
+        )
+        .join(ReschedulingRequest, ReschedulingRequest.rescheduled_exam_id == Exam.id)
+        .filter(
+            ReschedulingRequest.school_email == current_user.email,
+            ReschedulingRequest.status == "approved",
+            ReschedulingRequest.rescheduled_exam_id.isnot(None),
+        )
+        .all()
+    )
+    seen_ids = {e.id for e in exams_list}
+    for e in approved_rescheduled:
+        if e.id not in seen_ids:
+            exams_list.append(e)
+
+    from datetime import date as dt_date, time as dt_time
+    exams_list.sort(key=lambda x: (x.timeslot.date if x.timeslot else dt_date.min, x.timeslot.start_time if x.timeslot else dt_time.min))
+
+    result = build_exam_response(exams_list)
     cache.set(cache_key, result, TTL_EXAM_SCHEDULE)
     return result
 

@@ -1023,41 +1023,9 @@ program_head = User(
 db.add(program_head)
 
 # --- Proctors (Users for login) ---
-proctor_names = [
-    "Kertney Balasuela", "M Besa", "J Buenafrancisca", "A Bundang", "M Cadiente",
-    "P Cali", "A Dela Peña", "P Flores", "M Garcia", "V Garcia",
-    "S Gascon", "I Giray", "D Gongora", "N Guerrero", "J Loreno",
-    "L Macaspac", "D Maraya", "R Mariano", "C Mateo", "J Nuque",
-    "J Onlagada", "E Pasco", "J Payusan", "L Piñon", "A Ramos",
-    "R Salem", "B San Juan", "R Santos", "M See", "J Sison",
-    "C Sulapas", "V Vargas", "J Villaganas", "R Villarete"
-]
+# NOTE: Proctor accounts are no longer seeded automatically.
+# They are uploaded by the administrator via the Excel file upload in Data & Imports.
 
-
-
-for name in proctor_names:
-    t = Teacher(name=name)
-    db.add(t)
-    db.flush()
-    
-    p = Proctor(name=name, teacher_id=t.id)
-    db.add(p)
-    db.flush()
-    
-    email = f"{name.lower().replace(' ', '.')}@school.edu"
-    u = User(
-        name=name,
-        email=email,
-        hashed_password=hash_password("proctor123"),
-        role="proctor",
-        teacher_id=t.id,
-        proctor_id=p.id,
-        is_first_login=True,
-    )
-    db.add(u)
-
-db.commit()
-print(f"Created {len(proctor_names)} test proctor accounts.")
 
 # --- Students (Representative account for each Course + Year Level) ---
 student_count = 1

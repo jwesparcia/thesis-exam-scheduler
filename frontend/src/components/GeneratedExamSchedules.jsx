@@ -250,50 +250,50 @@ export default function GeneratedExamSchedules({ isGenerating }) {
     }, {});
 
     return (
-        <div className={`min-h-screen ${isDark ? "bg-gray-900" : "bg-gray-50"} rounded-2xl`}>
+        <div className={`min-h-screen ${isDark ? "bg-slate-900/50" : "bg-slate-50"} rounded-2xl transition-colors`}>
             <div className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-10">
                 {/* Header */}
                 <div className="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4 mb-6 sm:mb-8">
                     <div className="flex items-center gap-2.5 sm:gap-3">
-                        <CalendarDaysIcon className="text-blue-500 w-7 h-7 sm:w-8 sm:h-8 shrink-0" />
-                        <h1 className={`text-xl sm:text-3xl font-bold ${isDark ? "text-white" : "text-gray-800"}`}>
+                        <CalendarDaysIcon className="text-blue-600 dark:text-blue-400 w-7 h-7 sm:w-8 sm:h-8 shrink-0" />
+                        <h1 className={`text-xl sm:text-3xl font-bold tracking-tight ${isDark ? "text-slate-100" : "text-slate-900"}`}>
                             Generated Exam Schedules
                         </h1>
                     </div>
                     
-                    <div className="flex flex-wrap gap-2 sm:gap-3 items-center w-full xl:w-auto">
+                    <div className="flex flex-wrap gap-2 sm:gap-2.5 items-center w-full xl:w-auto">
                         <button
-                            onClick={() => {
-                                setDeleteScope("all");
-                                setShowDeleteModal(true);
-                            }}
-                            disabled={isGenerating}
-                            className={`flex-1 sm:flex-none bg-red-600 hover:bg-red-700 text-white px-3.5 sm:px-5 py-2.5 sm:py-3 rounded-xl shadow-lg flex items-center justify-center gap-1.5 sm:gap-2 transition-all hover:scale-105 active:scale-95 font-bold text-xs sm:text-sm ${
-                                isGenerating ? "opacity-50 cursor-not-allowed" : ""
-                            }`}
-                            title={isGenerating ? "Cannot delete schedules while schedule generation is ongoing" : ""}
+                            type="button"
+                            onClick={handleDownload}
+                            disabled={downloading}
+                            className="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white px-3.5 sm:px-4 py-2.5 rounded-xl shadow-xs flex items-center justify-center gap-2 transition-all font-semibold text-xs sm:text-sm"
                         >
-                            <TrashIcon className="w-4 h-4" />
-                            Delete All Schedules
+                            {downloading ? (
+                                <ArrowPathIcon className="w-4 h-4 animate-spin" />
+                            ) : (
+                                <ArrowDownTrayIcon className="w-4 h-4" />
+                            )}
+                            {downloading ? "Downloading..." : "Export Excel"}
                         </button>
                         <button
-                            onClick={() => {
-                                setDeleteScope("dept");
-                                setShowDeleteModal(true);
-                            }}
+                            type="button"
+                            onClick={() => setShowSaveAllModal(true)}
                             disabled={isGenerating}
-                            className={`flex-1 sm:flex-none bg-red-500 hover:bg-red-600 text-white px-3.5 sm:px-5 py-2.5 sm:py-3 rounded-xl shadow-lg flex items-center justify-center gap-1.5 sm:gap-2 transition-all hover:scale-105 active:scale-95 font-bold text-xs sm:text-sm ${
-                                isGenerating ? "opacity-50 cursor-not-allowed" : ""
+                            className={`flex-1 sm:flex-none text-white px-3.5 sm:px-4 py-2.5 rounded-xl shadow-xs flex items-center justify-center gap-2 transition-all font-semibold text-xs sm:text-sm ${
+                                isGenerating
+                                    ? "bg-slate-600/50 opacity-50 cursor-not-allowed"
+                                    : "bg-slate-700 hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600"
                             }`}
-                            title={isGenerating ? "Cannot delete schedules while schedule generation is ongoing" : ""}
+                            title={isGenerating ? "Cannot save schedules while schedule generation is ongoing" : ""}
                         >
-                            <TrashIcon className="w-4 h-4" />
-                            Delete {selectedDept} Schedule
+                            <DocumentCheckIcon className="w-4 h-4" />
+                            Save All
                         </button>
                         <button
+                            type="button"
                             onClick={() => setShowPostAllModal(true)}
                             disabled={isGenerating}
-                            className={`flex-1 sm:flex-none text-white px-3.5 sm:px-5 py-2.5 sm:py-3 rounded-xl shadow-lg flex items-center justify-center gap-1.5 sm:gap-2 transition-all hover:scale-105 active:scale-95 font-bold text-xs sm:text-sm ${
+                            className={`flex-1 sm:flex-none text-white px-3.5 sm:px-4 py-2.5 rounded-xl shadow-xs flex items-center justify-center gap-2 transition-all font-semibold text-xs sm:text-sm ${
                                 isGenerating
                                     ? "bg-emerald-600/50 opacity-50 cursor-not-allowed"
                                     : "bg-emerald-600 hover:bg-emerald-700"
@@ -301,64 +301,71 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                             title={isGenerating ? "Cannot post schedules while schedule generation is ongoing" : ""}
                         >
                             <PaperAirplaneIcon className="w-4 h-4" />
-                            Post All {selectedDept} Schedules
+                            Post All {selectedDept}
                         </button>
                         <button
-                            onClick={() => setShowSaveAllModal(true)}
+                            type="button"
+                            onClick={() => {
+                                setDeleteScope("dept");
+                                setShowDeleteModal(true);
+                            }}
                             disabled={isGenerating}
-                            className={`flex-1 sm:flex-none text-white px-3.5 sm:px-5 py-2.5 sm:py-3 rounded-xl shadow-lg flex items-center justify-center gap-1.5 sm:gap-2 transition-all hover:scale-105 active:scale-95 font-bold text-xs sm:text-sm ${
-                                isGenerating
-                                    ? "bg-indigo-600/50 opacity-50 cursor-not-allowed"
-                                    : "bg-indigo-600 hover:bg-indigo-700"
+                            className={`flex-1 sm:flex-none border border-rose-300 dark:border-rose-900/60 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/30 dark:hover:bg-rose-900/40 text-rose-700 dark:text-rose-300 px-3.5 sm:px-4 py-2.5 rounded-xl shadow-xs flex items-center justify-center gap-1.5 transition-all font-semibold text-xs sm:text-sm ${
+                                isGenerating ? "opacity-50 cursor-not-allowed" : ""
                             }`}
-                            title={isGenerating ? "Cannot save schedules while schedule generation is ongoing" : ""}
+                            title={isGenerating ? "Cannot delete schedules while schedule generation is ongoing" : ""}
                         >
-                            <DocumentCheckIcon className="w-4 h-4" />
-                            Save All {selectedDept} Schedules
+                            <TrashIcon className="w-4 h-4" />
+                            Delete {selectedDept}
                         </button>
                         <button
-                            onClick={handleDownload}
-                            disabled={downloading}
-                            className="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white px-3.5 sm:px-5 py-2.5 sm:py-3 rounded-xl shadow-lg flex items-center justify-center gap-1.5 sm:gap-2 transition-all hover:scale-105 active:scale-95 font-bold text-xs sm:text-sm"
+                            type="button"
+                            onClick={() => {
+                                setDeleteScope("all");
+                                setShowDeleteModal(true);
+                            }}
+                            disabled={isGenerating}
+                            className={`flex-1 sm:flex-none bg-rose-600 hover:bg-rose-700 text-white px-3.5 sm:px-4 py-2.5 rounded-xl shadow-xs flex items-center justify-center gap-1.5 transition-all font-semibold text-xs sm:text-sm ${
+                                isGenerating ? "opacity-50 cursor-not-allowed" : ""
+                            }`}
+                            title={isGenerating ? "Cannot delete schedules while schedule generation is ongoing" : ""}
                         >
-                            {downloading ? (
-                                <ArrowPathIcon className="w-4 h-4 animate-spin" />
-                            ) : (
-                                <ArrowDownTrayIcon className="w-4 h-4" />
-                            )}
-                            {downloading ? "Downloading..." : "Download Master Schedule"}
+                            <TrashIcon className="w-4 h-4" />
+                            Delete All
                         </button>
                     </div>
                 </div>
 
                 {/* Step 1: Select Department */}
-                <div className={`rounded-2xl p-4 sm:p-6 border mb-6 sm:mb-8 transition-all duration-500 ${isDark ? "bg-gray-800 border-gray-700 shadow-xl shadow-black/20" : "bg-white border-gray-100 shadow-lg shadow-gray-200/50"}`}>
-                    <label className={`block text-xs sm:text-sm font-semibold mb-4 sm:mb-6 ${isDark ? "text-blue-300" : "text-blue-700"}`}>
+                <div className={`rounded-2xl p-4 sm:p-6 border mb-6 sm:mb-8 transition-all ${isDark ? "bg-slate-850 border-slate-750 shadow-xs" : "bg-white border-slate-200 shadow-xs"}`}>
+                    <label className={`block text-xs sm:text-sm font-semibold mb-4 sm:mb-6 ${isDark ? "text-blue-300" : "text-blue-800"}`}>
                         1. Choose Academic Level to View Schedules
                     </label>
                     <div className="flex gap-3 sm:gap-4">
                         <button
+                            type="button"
                             onClick={() => setSelectedDept("College")}
-                            className={`flex-1 max-w-[220px] py-3 sm:py-4 px-3 sm:px-6 rounded-xl sm:rounded-2xl border-2 transition-all duration-300 flex flex-col items-center gap-1.5 sm:gap-2 ${selectedDept === "College"
-                                ? "border-blue-500 bg-blue-500 text-white shadow-xl shadow-blue-500/30 scale-[1.02]"
+                            className={`flex-1 max-w-[220px] py-3 sm:py-4 px-3 sm:px-6 rounded-xl sm:rounded-2xl border-2 transition-all duration-200 flex flex-col items-center gap-1.5 sm:gap-2 ${selectedDept === "College"
+                                ? "border-blue-600 bg-blue-600 text-white shadow-md shadow-blue-600/20 font-bold"
                                 : isDark
-                                    ? "border-gray-700 bg-gray-900 text-gray-400 hover:border-gray-600 hover:bg-gray-800"
-                                    : "border-gray-100 bg-gray-50 text-gray-500 hover:border-blue-200 hover:text-blue-600"
+                                    ? "border-slate-700 bg-slate-800 text-slate-300 hover:border-slate-600 hover:bg-slate-750 font-medium"
+                                    : "border-slate-200 bg-white text-slate-700 hover:border-blue-300 hover:text-blue-600 font-medium"
                                 }`}
                         >
-                            <DocumentTextIcon className={`w-6 h-6 sm:w-8 sm:h-8 ${selectedDept === "College" ? "text-white" : "text-blue-500"}`} />
+                            <DocumentTextIcon className={`w-6 h-6 sm:w-8 sm:h-8 ${selectedDept === "College" ? "text-white" : "text-blue-600 dark:text-blue-400"}`} />
                             <span className="font-bold text-base sm:text-lg">College</span>
                         </button>
                         <button
+                            type="button"
                             onClick={() => setSelectedDept("SHS")}
-                            className={`flex-1 max-w-[220px] py-3 sm:py-4 px-3 sm:px-6 rounded-xl sm:rounded-2xl border-2 transition-all duration-300 flex flex-col items-center gap-1.5 sm:gap-2 ${selectedDept === "SHS"
-                                ? "border-blue-500 bg-blue-500 text-white shadow-xl shadow-blue-500/30 scale-[1.02]"
+                            className={`flex-1 max-w-[220px] py-3 sm:py-4 px-3 sm:px-6 rounded-xl sm:rounded-2xl border-2 transition-all duration-200 flex flex-col items-center gap-1.5 sm:gap-2 ${selectedDept === "SHS"
+                                ? "border-blue-600 bg-blue-600 text-white shadow-md shadow-blue-600/20 font-bold"
                                 : isDark
-                                    ? "border-gray-700 bg-gray-900 text-gray-400 hover:border-gray-600 hover:bg-gray-800"
-                                    : "border-gray-100 bg-gray-50 text-gray-500 hover:border-blue-200 hover:text-blue-600"
+                                    ? "border-slate-700 bg-slate-800 text-slate-300 hover:border-slate-600 hover:bg-slate-750 font-medium"
+                                    : "border-slate-200 bg-white text-slate-700 hover:border-blue-300 hover:text-blue-600 font-medium"
                                 }`}
                         >
-                            <CalendarDaysIcon className={`w-6 h-6 sm:w-8 sm:h-8 ${selectedDept === "SHS" ? "text-white" : "text-blue-500"}`} />
+                            <CalendarDaysIcon className={`w-6 h-6 sm:w-8 sm:h-8 ${selectedDept === "SHS" ? "text-white" : "text-blue-600 dark:text-blue-400"}`} />
                             <span className="font-bold text-base sm:text-lg">Senior High</span>
                         </button>
                     </div>
@@ -369,30 +376,30 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                     <div className="space-y-6 sm:space-y-10 animate-in fade-in slide-in-from-top-4 duration-500">
                         {/* Filters Card */}
                         <div
-                            className={`rounded-2xl p-4 sm:p-6 border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"
-                                } shadow-sm`}
+                            className={`rounded-2xl p-4 sm:p-6 border ${isDark ? "bg-slate-850 border-slate-750" : "bg-white border-slate-200"
+                                } shadow-xs`}
                         >
                             <h2
-                                className={`text-lg sm:text-xl font-bold ${isDark ? "text-gray-200" : "text-gray-700"
+                                className={`text-lg sm:text-xl font-bold ${isDark ? "text-slate-100" : "text-slate-900"
                                     } mb-4 sm:mb-6 flex items-center gap-2`}
                             >
-                                <DocumentTextIcon className="w-5 h-5 text-blue-500" /> 2. Refine Results ({selectedDept})
+                                <DocumentTextIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" /> 2. Refine Results ({selectedDept})
                             </h2>
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
                                 {/* Select Course / Strand */}
                                 <div className="space-y-2">
                                     <label
-                                        className={`block text-xs font-medium uppercase tracking-wider ${isDark ? "text-gray-500" : "text-gray-400"}`}
+                                        className={`block text-xs font-semibold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-600"}`}
                                     >
                                         {selectedDept === "SHS" ? "Strand" : "Course"}
                                     </label>
                                     <select
                                         value={courseId}
                                         onChange={(e) => setCourseId(Number(e.target.value))}
-                                        className={`border rounded-xl cursor-pointer p-3 w-full focus:ring-2 focus:ring-blue-400 transition-all ${isDark
-                                            ? "bg-gray-900 text-white border-gray-700"
-                                            : "bg-gray-50 text-gray-700 border-gray-200"
+                                        className={`border rounded-xl cursor-pointer p-3 w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all ${isDark
+                                            ? "bg-slate-800 text-slate-100 border-slate-700"
+                                            : "bg-slate-50 text-slate-800 border-slate-200"
                                             }`}
                                     >
                                         <option value="">{selectedDept === "SHS" ? "Choose a strand" : "Choose a course"}</option>
@@ -407,16 +414,16 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                 {/* Select Year / Grade */}
                                 <div className="space-y-2">
                                     <label
-                                        className={`block text-xs font-medium uppercase tracking-wider ${isDark ? "text-gray-500" : "text-gray-400"}`}
+                                        className={`block text-xs font-semibold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-600"}`}
                                     >
                                         {selectedDept === "SHS" ? "Grade" : "Year Level"}
                                     </label>
                                     <select
                                         value={yearId}
                                         onChange={(e) => setYearId(Number(e.target.value))}
-                                        className={`border rounded-xl p-3 w-full cursor-pointer focus:ring-2 focus:ring-blue-400 transition-all ${isDark
-                                            ? "bg-gray-900 text-white border-gray-700"
-                                            : "bg-gray-50 text-gray-700 border-gray-200"
+                                        className={`border rounded-xl p-3 w-full cursor-pointer focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all ${isDark
+                                            ? "bg-slate-800 text-slate-100 border-slate-700"
+                                            : "bg-slate-50 text-slate-800 border-slate-200"
                                             }`}
                                     >
                                         <option value="">{selectedDept === "SHS" ? "Choose a grade" : "Choose a year"}</option>
@@ -431,16 +438,16 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                 {/* Select Semester */}
                                 <div className="space-y-2">
                                     <label
-                                        className={`block text-xs font-medium uppercase tracking-wider ${isDark ? "text-gray-500" : "text-gray-400"}`}
+                                        className={`block text-xs font-semibold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-600"}`}
                                     >
                                         Semester
                                     </label>
                                     <select
                                         value={semester}
                                         onChange={(e) => setSemester(Number(e.target.value))}
-                                        className={`border rounded-xl p-3 w-full cursor-pointer focus:ring-2 focus:ring-blue-400 transition-all ${isDark
-                                            ? "bg-gray-900 text-white border-gray-700"
-                                            : "bg-gray-50 text-gray-700 border-gray-200"
+                                        className={`border rounded-xl p-3 w-full cursor-pointer focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all ${isDark
+                                            ? "bg-slate-800 text-slate-100 border-slate-700"
+                                            : "bg-slate-50 text-slate-800 border-slate-200"
                                             }`}
                                     >
                                         <option value={1}>1st Semester</option>
@@ -454,16 +461,16 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                 {/* Select Term */}
                                 <div className="space-y-2">
                                     <label
-                                        className={`block text-xs font-medium uppercase tracking-wider ${isDark ? "text-gray-500" : "text-gray-400"}`}
+                                        className={`block text-xs font-semibold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-600"}`}
                                     >
                                         Exam Term
                                     </label>
                                     <select
                                         value={selectedTerm}
                                         onChange={(e) => setSelectedTerm(e.target.value)}
-                                        className={`border rounded-xl p-3 w-full cursor-pointer focus:ring-2 focus:ring-blue-400 transition-all ${isDark
-                                            ? "bg-gray-900 text-white border-gray-700"
-                                            : "bg-gray-50 text-gray-700 border-gray-200"
+                                        className={`border rounded-xl p-3 w-full cursor-pointer focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all ${isDark
+                                            ? "bg-slate-800 text-slate-100 border-slate-700"
+                                            : "bg-slate-50 text-slate-800 border-slate-200"
                                             }`}
                                     >
                                         {selectedDept === "SHS" ? (
@@ -486,40 +493,40 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                         </div>
 
                         {/* Generated Exams Table */}
-                        <div className="pt-6 border-t border-gray-100 dark:border-gray-800">
+                        <div className="pt-6 border-t border-slate-200 dark:border-slate-800">
                             <h2
-                                className={`text-2xl font-bold ${isDark ? "text-white" : "text-gray-800"
+                                className={`text-2xl font-bold tracking-tight ${isDark ? "text-slate-100" : "text-slate-900"
                                     } mb-6 flex items-center gap-3`}
                             >
-                                <CalendarDaysIcon className="w-8 h-8 text-blue-500" /> Generated Schedule Results
+                                <CalendarDaysIcon className="w-8 h-8 text-blue-600 dark:text-blue-400" /> Generated Schedule Results
                             </h2>
 
                             {loading ? (
-                                <div className="flex flex-col items-center justify-center py-20 bg-white/50 dark:bg-gray-800/50 rounded-3xl border border-dashed border-gray-200 dark:border-gray-700">
-                                    <ArrowPathIcon className="w-12 h-12 animate-spin text-blue-500 mb-4" />
-                                    <span className={`text-lg font-medium ${isDark ? "text-gray-300" : "text-gray-600"}`}>
+                                <div className="flex flex-col items-center justify-center py-20 bg-white/50 dark:bg-slate-850/50 rounded-3xl border border-dashed border-slate-200 dark:border-slate-700">
+                                    <ArrowPathIcon className="w-12 h-12 animate-spin text-blue-600 dark:text-blue-400 mb-4" />
+                                    <span className={`text-lg font-medium ${isDark ? "text-slate-300" : "text-slate-600"}`}>
                                         Fetching your schedules...
                                     </span>
                                 </div>
                             ) : (!courseId || !yearId) ? (
-                                <div className={`p-12 text-center rounded-3xl border-2 border-dashed ${isDark ? "border-gray-800 text-gray-500 bg-gray-800/20" : "border-gray-100 text-gray-400 bg-gray-50/30"}`}>
-                                    <DocumentTextIcon className="w-16 h-16 mx-auto mb-4 opacity-10" />
-                                    <p className="text-xl font-semibold mb-2">Ready to view schedules?</p>
+                                <div className={`p-12 text-center rounded-3xl border-2 border-dashed ${isDark ? "border-slate-800 text-slate-400 bg-slate-850/20" : "border-slate-200 text-slate-500 bg-slate-50/50"}`}>
+                                    <DocumentTextIcon className="w-16 h-16 mx-auto mb-4 opacity-20 text-blue-500" />
+                                    <p className="text-xl font-bold mb-2">Ready to view schedules?</p>
                                     <p className="text-sm">Please select a {selectedDept === "SHS" ? "strand and grade" : "course and year level"} above to reveal the exam timetable.</p>
                                 </div>
                             ) : exams.length === 0 ? (
-                                <div className={`p-12 text-center rounded-3xl border-2 border-dashed ${isDark ? "border-gray-800 text-gray-500" : "border-gray-100 text-gray-400"}`}>
-                                    <CalendarDaysIcon className="w-16 h-16 mx-auto mb-4 opacity-10" />
-                                    <p className="text-xl font-semibold mb-2">No schedules found</p>
+                                <div className={`p-12 text-center rounded-3xl border-2 border-dashed ${isDark ? "border-slate-800 text-slate-400 bg-slate-850/20" : "border-slate-200 text-slate-500 bg-slate-50/50"}`}>
+                                    <CalendarDaysIcon className="w-16 h-16 mx-auto mb-4 opacity-20 text-blue-500" />
+                                    <p className="text-xl font-bold mb-2">No schedules found</p>
                                     <p className="text-sm">We couldn't find any generated exams for this selection. Try adjusting your filters or generate a new schedule in the first tab.</p>
                                 </div>
                             ) : (
                                 Object.entries(examsBySection).map(([sectionName, sectionExams]) => (
                                     <div
                                         key={sectionName}
-                                        className={`rounded-2xl p-6 mb-8 shadow-sm transition hover:shadow-md ${isDark
-                                            ? "bg-gray-800 border border-gray-700"
-                                            : "bg-white border border-gray-100"
+                                        className={`rounded-2xl p-6 mb-8 shadow-xs transition hover:shadow-sm ${isDark
+                                            ? "bg-slate-850 border border-slate-750"
+                                            : "bg-white border border-slate-200"
                                             }`}
                                     >
                                         <div className="flex items-center justify-between mb-6">
@@ -529,7 +536,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                             >
                                                 {sectionName}
                                             </h3>
-                                            <div className="px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 text-xs font-bold uppercase">
+                                            <div className="px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-900/50 text-xs font-bold uppercase">
                                                 {sectionExams.length} Exams
                                             </div>
                                         </div>
@@ -537,42 +544,43 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                             {sectionExams.map((exam) => (
                                                 <article
                                                     key={exam.id}
-                                                    className={`rounded-xl border p-4 ${isDark ? "border-gray-700 bg-gray-900/40" : "border-gray-200 bg-gray-50"}`}
+                                                    className={`rounded-xl border p-4 ${isDark ? "border-slate-700 bg-slate-900/40" : "border-slate-200 bg-slate-50"}`}
                                                 >
                                                     <div className="flex items-start justify-between gap-3">
                                                         <div className="min-w-0">
-                                                            <p className={`break-words text-xs font-bold ${isDark ? "text-gray-400" : "text-gray-500"}`}>{exam.subject_code}</p>
-                                                            <h4 className={`mt-1 break-words font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>{exam.subject_name}</h4>
+                                                            <p className={`break-words text-xs font-bold font-mono ${isDark ? "text-slate-400" : "text-slate-500"}`}>{exam.subject_code}</p>
+                                                            <h4 className={`mt-1 break-words font-semibold ${isDark ? "text-slate-100" : "text-slate-900"}`}>{exam.subject_name}</h4>
                                                         </div>
-                                                        <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase ${
+                                                        <span className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-bold uppercase ${
                                                             exam.status === "posted"
-                                                                ? "border-emerald-200 bg-emerald-100 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-400"
+                                                                ? "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-300"
                                                                 : exam.status === "saved"
-                                                                ? "border-indigo-200 bg-indigo-100 text-indigo-800 dark:border-indigo-900 dark:bg-indigo-950/40 dark:text-indigo-400"
-                                                                : "border-gray-200 bg-gray-100 text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400"
+                                                                ? "border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-900/60 dark:bg-blue-950/40 dark:text-blue-300"
+                                                                : "border-slate-200 bg-slate-100 text-slate-800 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
                                                         }`}>
                                                             {exam.status || "draft"}
                                                         </span>
                                                     </div>
-                                                    <dl className={`mt-4 grid grid-cols-1 gap-x-3 gap-y-3 border-t pt-3 text-sm sm:grid-cols-2 ${isDark ? "border-gray-700 text-gray-300" : "border-gray-200 text-gray-700"}`}>
+                                                    <dl className={`mt-4 grid grid-cols-1 gap-x-3 gap-y-3 border-t pt-3 text-sm sm:grid-cols-2 ${isDark ? "border-slate-700 text-slate-300" : "border-slate-200 text-slate-700"}`}>
                                                         <div className="min-w-0">
-                                                            <dt className={`text-xs font-semibold ${isDark ? "text-gray-400" : "text-gray-500"}`}>Proctor</dt>
-                                                            <dd className="mt-1 break-words">{exam.proctor || "Unassigned"}</dd>
+                                                            <dt className={`text-xs font-semibold ${isDark ? "text-slate-400" : "text-slate-500"}`}>Proctor</dt>
+                                                            <dd className="mt-1 break-words font-medium">{exam.proctor || "Unassigned"}</dd>
                                                         </div>
                                                         <div className="min-w-0">
-                                                            <dt className={`text-xs font-semibold ${isDark ? "text-gray-400" : "text-gray-500"}`}>Date</dt>
-                                                            <dd className="mt-1 break-words">{exam.exam_date}</dd>
+                                                            <dt className={`text-xs font-semibold ${isDark ? "text-slate-400" : "text-slate-500"}`}>Date</dt>
+                                                            <dd className="mt-1 break-words font-semibold text-blue-600 dark:text-blue-400">{exam.exam_date}</dd>
                                                         </div>
                                                         <div className="min-w-0">
-                                                            <dt className={`text-xs font-semibold ${isDark ? "text-gray-400" : "text-gray-500"}`}>Time</dt>
-                                                            <dd className="mt-1 break-words">{exam.start_time} - {exam.end_time}</dd>
+                                                            <dt className={`text-xs font-semibold ${isDark ? "text-slate-400" : "text-slate-500"}`}>Time</dt>
+                                                            <dd className="mt-1 break-words font-medium">{exam.start_time} - {exam.end_time}</dd>
                                                         </div>
                                                         <div className="min-w-0">
-                                                            <dt className={`text-xs font-semibold ${isDark ? "text-gray-400" : "text-gray-500"}`}>Room</dt>
-                                                            <dd className="mt-1 break-words">{exam.room && exam.room !== "-" ? exam.room : "No Room"}</dd>
+                                                            <dt className={`text-xs font-semibold ${isDark ? "text-slate-400" : "text-slate-500"}`}>Room</dt>
+                                                            <dd className="mt-1 break-words font-semibold">{exam.room && exam.room !== "-" ? exam.room : "No Room"}</dd>
                                                         </div>
                                                     </dl>
                                                     <button
+                                                        type="button"
                                                         onClick={() => handleOpenEdit(exam)}
                                                         className={`mt-4 min-h-11 w-full rounded-lg border px-4 text-sm font-semibold transition ${
                                                             isDark
@@ -591,83 +599,84 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                             <table className="w-full text-xs sm:text-sm border-separate border-spacing-0 min-w-[640px]">
                                                 <thead
                                                     className={`${isDark
-                                                        ? "bg-gray-700/50 text-gray-100"
-                                                        : "bg-gray-50 text-gray-700"
+                                                        ? "bg-slate-750 text-slate-200"
+                                                        : "bg-slate-100 text-slate-700"
                                                         }`}
                                                 >
                                                     <tr>
-                                                        <th className="border-b border-gray-300 dark:border-gray-600 px-4 py-3 text-left font-bold first:rounded-tl-xl">
+                                                        <th className="border-b border-slate-300 dark:border-slate-600 px-4 py-3 text-left font-bold first:rounded-tl-xl">
                                                             Subject
                                                         </th>
-                                                        <th className="border-b border-gray-300 dark:border-gray-600 px-4 py-3 text-left font-bold">
+                                                        <th className="border-b border-slate-300 dark:border-slate-600 px-4 py-3 text-left font-bold">
                                                             Proctor
                                                         </th>
-                                                        <th className="border-b border-gray-300 dark:border-gray-600 px-4 py-3 text-left font-bold">
+                                                        <th className="border-b border-slate-300 dark:border-slate-600 px-4 py-3 text-left font-bold">
                                                             Date
                                                         </th>
-                                                        <th className="border-b border-gray-300 dark:border-gray-600 px-4 py-3 text-left font-bold">
+                                                        <th className="border-b border-slate-300 dark:border-slate-600 px-4 py-3 text-left font-bold">
                                                             Time Period
                                                         </th>
-                                                        <th className="border-b border-gray-300 dark:border-gray-600 px-4 py-3 text-left font-bold">
+                                                        <th className="border-b border-slate-300 dark:border-slate-600 px-4 py-3 text-left font-bold">
                                                             Room
                                                         </th>
-                                                        <th className="border-b border-gray-300 dark:border-gray-600 px-4 py-3 text-center font-bold last:rounded-tr-xl">
+                                                        <th className="border-b border-slate-300 dark:border-slate-600 px-4 py-3 text-center font-bold last:rounded-tr-xl">
                                                             Actions
                                                         </th>
                                                     </tr>
                                                 </thead>
-                                                <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                                                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                                                     {sectionExams.map((e) => (
-                                                        <tr key={e.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition">
+                                                        <tr key={e.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
                                                             <td className="px-4 py-4">
                                                                 <div className="flex items-center gap-2 mb-1">
-                                                                    <span className={`text-xs font-bold ${isDark ? "text-gray-400" : "text-gray-500"}`}>{e.subject_code}</span>
-                                                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wide ${
+                                                                    <span className={`text-xs font-bold font-mono ${isDark ? "text-slate-400" : "text-slate-500"}`}>{e.subject_code}</span>
+                                                                    <span className={`px-2 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide ${
                                                                         e.status === "posted"
-                                                                            ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900"
+                                                                            ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900/60"
                                                                             : e.status === "saved"
-                                                                            ? "bg-indigo-100 text-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-900"
-                                                                            : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400 border border-gray-200 dark:border-gray-700"
+                                                                            ? "bg-blue-50 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200 dark:border-blue-900/60"
+                                                                            : "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
                                                                     }`}>
                                                                         {e.status || "draft"}
                                                                     </span>
                                                                 </div>
-                                                                <div className={isDark ? "text-white" : "text-gray-900"}>{e.subject_name}</div>
+                                                                <div className={`font-semibold ${isDark ? "text-slate-100" : "text-slate-900"}`}>{e.subject_name}</div>
                                                             </td>
                                                             <td className="px-4 py-4">
                                                                 <div className="flex items-center gap-2">
-                                                                    <div className={`w-2 h-2 rounded-full ${e.proctor ? "bg-green-500" : "bg-red-500"}`}></div>
-                                                                    <span className={isDark ? "text-gray-300" : "text-gray-700"}>{e.proctor || "Unassigned"}</span>
+                                                                    <div className={`w-2 h-2 rounded-full ${e.proctor ? "bg-emerald-500" : "bg-rose-500"}`}></div>
+                                                                    <span className={isDark ? "text-slate-300" : "text-slate-700"}>{e.proctor || "Unassigned"}</span>
                                                                 </div>
                                                             </td>
                                                             <td className="px-4 py-4 font-semibold text-blue-600 dark:text-blue-400">
                                                                 {e.exam_date}
                                                             </td>
-                                                            <td className={`px-4 py-4 whitespace-nowrap ${isDark ? "text-gray-200" : "text-gray-900"}`}>
-                                                                <div className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"} mb-1`}>
+                                                            <td className={`px-4 py-4 whitespace-nowrap ${isDark ? "text-slate-200" : "text-slate-900"}`}>
+                                                                <div className={`text-xs font-semibold ${isDark ? "text-slate-400" : "text-slate-500"} mb-0.5`}>
                                                                     {e.start_time && (e.start_time.includes("PM") || (parseInt(e.start_time.split(":")[0], 10) >= 12 && !e.start_time.includes("AM"))) ? "Afternoon Session" : "Morning Session"}
                                                                 </div>
-                                                                <div className="font-medium">{e.start_time} - {e.end_time}</div>
+                                                                <div className="font-medium font-mono text-xs">{e.start_time} - {e.end_time}</div>
                                                             </td>
                                                             <td className="px-4 py-4">
-                                                                <span className={`px-3 py-1 rounded-lg font-bold ${e.room && e.room !== "-"
-                                                                    ? isDark ? "bg-gray-700 text-white" : "bg-gray-100 text-gray-800"
-                                                                    : isDark ? "bg-red-500/20 text-red-200" : "bg-red-100 text-red-700"
+                                                                <span className={`px-2.5 py-1 rounded-lg font-bold text-xs border ${e.room && e.room !== "-"
+                                                                    ? isDark ? "bg-slate-750 text-slate-100 border-slate-600" : "bg-slate-100 text-slate-800 border-slate-200"
+                                                                    : isDark ? "bg-rose-950/40 text-rose-300 border-rose-900/50" : "bg-rose-50 text-rose-700 border-rose-200"
                                                                     }`}>
                                                                     {e.room && e.room !== "-" ? e.room : "No Room"}
                                                                 </span>
                                                             </td>
                                                             <td className="px-4 py-4 text-center whitespace-nowrap">
                                                                 <button
+                                                                    type="button"
                                                                     onClick={() => handleOpenEdit(e)}
-                                                                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition shadow-sm ${
+                                                                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition shadow-xs ${
                                                                         isDark
-                                                                            ? "bg-blue-600 hover:bg-blue-500 text-white"
-                                                                            : "bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200"
+                                                                            ? "bg-slate-750 hover:bg-slate-700 text-slate-100 border border-slate-600"
+                                                                            : "bg-white hover:bg-slate-50 text-slate-700 border border-slate-300"
                                                                     }`}
                                                                     title="Edit Room, Timeslot, or Proctor"
                                                                 >
-                                                                    <PencilSquareIcon className="w-3.5 h-3.5" />
+                                                                    <PencilSquareIcon className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                                                                     <span>Edit</span>
                                                                 </button>
                                                             </td>
@@ -687,6 +696,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                 {/* Save Schedule Button */}
                                 {exams.some(e => e.status === "draft") && (
                                     <button
+                                        type="button"
                                         onClick={async () => {
                                             if (isGenerating) {
                                                 showError("Cannot save schedules while schedule generation is ongoing");
@@ -712,10 +722,10 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                             }
                                         }}
                                         disabled={isGenerating || saving}
-                                        className={`text-white px-5 sm:px-8 py-3 sm:py-4 rounded-xl sm:rounded-2xl shadow-2xl flex items-center justify-center gap-2 sm:gap-3 transition-all hover:scale-105 active:scale-95 font-bold text-xs sm:text-base ${
+                                        className={`text-white px-5 sm:px-6 py-3 sm:py-3.5 rounded-xl shadow-lg flex items-center justify-center gap-2 sm:gap-2.5 transition-all font-semibold text-xs sm:text-sm ${
                                             isGenerating || saving
-                                                ? "bg-indigo-600/50 opacity-50 cursor-not-allowed"
-                                                : "bg-indigo-600 hover:bg-indigo-700"
+                                                ? "bg-slate-600/50 opacity-50 cursor-not-allowed"
+                                                : "bg-slate-750 hover:bg-slate-700 border border-slate-650"
                                         }`}
                                         title={isGenerating ? "Cannot save schedules while schedule generation is ongoing" : ""}
                                     >
@@ -731,6 +741,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                 {/* Post Schedule Button */}
                                 {exams.some(e => e.status === "draft" || e.status === "saved") && (
                                     <button
+                                        type="button"
                                         onClick={async () => {
                                             if (isGenerating) {
                                                 showError("Cannot post schedules while schedule generation is ongoing");
@@ -753,7 +764,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                             }
                                         }}
                                         disabled={isGenerating}
-                                        className={`text-white px-5 sm:px-8 py-3 sm:py-4 rounded-xl sm:rounded-2xl shadow-2xl flex items-center justify-center gap-2 sm:gap-3 transition-all hover:scale-105 active:scale-95 font-bold text-xs sm:text-base ${
+                                        className={`text-white px-5 sm:px-6 py-3 sm:py-3.5 rounded-xl shadow-lg flex items-center justify-center gap-2 sm:gap-2.5 transition-all font-semibold text-xs sm:text-sm ${
                                             isGenerating
                                                 ? "bg-emerald-600/50 opacity-50 cursor-not-allowed"
                                                 : "bg-emerald-600 hover:bg-emerald-700"
@@ -768,42 +779,44 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                         )}
                     </div>
                 ) : (
-                    <div className={`p-10 sm:p-20 text-center rounded-3xl border-2 border-dashed ${isDark ? "border-gray-800 bg-gray-800/20 text-gray-600" : "border-gray-100 bg-gray-50/50 text-gray-400"}`}>
-                        <CalendarDaysIcon className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 opacity-10" />
-                        <p className="text-lg sm:text-xl font-semibold mb-2">Welcome to Schedule Viewer</p>
-                        <p className="text-xs sm:text-sm">Select an academic level above to filter and view generated schedules.</p>
+                    <div className={`p-10 sm:p-20 text-center rounded-3xl border-2 border-dashed ${isDark ? "border-slate-800 bg-slate-850/20 text-slate-400" : "border-slate-200 bg-slate-50/50 text-slate-500"}`}>
+                        <CalendarDaysIcon className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 opacity-20 text-blue-500" />
+                        <p className="text-lg sm:text-xl font-bold mb-2 text-slate-900 dark:text-slate-100">Welcome to Schedule Viewer</p>
+                        <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">Select an academic level above to filter and view generated schedules.</p>
                     </div>
                 )}
             </div>
 
             {/* Confirmation Modal */}
             {showPostAllModal && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4 animate-in fade-in duration-200">
-                    <div className={`p-5 sm:p-8 rounded-2xl sm:rounded-3xl shadow-2xl max-w-md w-full transform transition-all scale-100 ${isDark ? "bg-gray-800 border border-gray-700" : "bg-white"}`}>
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-3 sm:p-4 animate-in fade-in duration-200">
+                    <div className={`p-5 sm:p-8 rounded-2xl sm:rounded-3xl shadow-2xl max-w-md w-full border ${isDark ? "bg-slate-900 border-slate-750" : "bg-white border-slate-200"}`}>
                         <div className="flex flex-col items-center text-center">
-                            <div className={`w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mb-4 sm:mb-6 shadow-lg ${isDark ? "bg-emerald-900/50 shadow-emerald-900/20" : "bg-emerald-100 shadow-emerald-200/50"}`}>
-                                <PaperAirplaneIcon className={`w-7 h-7 sm:w-8 sm:h-8 ${isDark ? "text-emerald-400" : "text-emerald-600"}`} />
+                            <div className={`w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mb-4 sm:mb-6 ${isDark ? "bg-emerald-950/50 text-emerald-400" : "bg-emerald-100 text-emerald-600"}`}>
+                                <PaperAirplaneIcon className="w-7 h-7 sm:w-8 sm:h-8" />
                             </div>
-                            <h3 className={`text-xl sm:text-2xl font-bold mb-2 sm:mb-3 ${isDark ? "text-white" : "text-gray-900"}`}>
+                            <h3 className={`text-xl sm:text-2xl font-bold mb-2 sm:mb-3 ${isDark ? "text-white" : "text-slate-900"}`}>
                                 Post All Schedules?
                             </h3>
-                            <p className={`mb-6 sm:mb-8 text-xs sm:text-sm leading-relaxed ${isDark ? "text-gray-300" : "text-gray-600"}`}>
-                                Are you sure you want to post ALL draft schedules for <span className="font-bold">{selectedDept}</span> (Semester {semester}) to students? This action will make them visible on their dashboards.
+                            <p className={`mb-6 sm:mb-8 text-xs sm:text-sm leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+                                Are you sure you want to post ALL draft schedules for <span className="font-bold text-slate-900 dark:text-white">{selectedDept}</span> (Semester {semester}) to students? This action will make them visible on their dashboards.
                             </p>
-                            <div className="flex flex-col-reverse sm:flex-row gap-2.5 sm:gap-4 w-full">
+                            <div className="flex flex-col-reverse sm:flex-row gap-2.5 sm:gap-3 w-full">
                                 <button
+                                    type="button"
                                     onClick={() => setShowPostAllModal(false)}
-                                    className={`w-full py-3 sm:py-3.5 rounded-xl font-bold text-xs sm:text-sm transition-all active:scale-95 ${isDark ? "bg-gray-700 hover:bg-gray-600 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-800"}`}
+                                    className={`w-full py-3 sm:py-3.5 rounded-xl font-bold text-xs sm:text-sm transition-all ${isDark ? "bg-slate-800 hover:bg-slate-700 text-slate-200" : "bg-slate-100 hover:bg-slate-200 text-slate-700"}`}
                                 >
                                     Cancel
                                 </button>
                                 <button
+                                    type="button"
                                     onClick={handlePostAll}
                                     disabled={isGenerating}
-                                    className={`w-full py-3 sm:py-3.5 rounded-xl font-bold text-xs sm:text-sm text-white transition-all shadow-lg active:scale-95 ${
+                                    className={`w-full py-3 sm:py-3.5 rounded-xl font-bold text-xs sm:text-sm text-white transition-all shadow-md ${
                                         isGenerating
                                             ? "bg-emerald-600/50 opacity-50 cursor-not-allowed"
-                                            : "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/30"
+                                            : "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20"
                                     }`}
                                 >
                                     Yes, Post All
@@ -816,33 +829,35 @@ export default function GeneratedExamSchedules({ isGenerating }) {
 
             {/* Save All Confirmation Modal */}
             {showSaveAllModal && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4 animate-in fade-in duration-200">
-                    <div className={`p-5 sm:p-8 rounded-2xl sm:rounded-3xl shadow-2xl max-w-md w-full transform transition-all scale-100 ${isDark ? "bg-gray-800 border border-gray-700" : "bg-white"}`}>
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-3 sm:p-4 animate-in fade-in duration-200">
+                    <div className={`p-5 sm:p-8 rounded-2xl sm:rounded-3xl shadow-2xl max-w-md w-full border ${isDark ? "bg-slate-900 border-slate-750" : "bg-white border-slate-200"}`}>
                         <div className="flex flex-col items-center text-center">
-                            <div className={`w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mb-4 sm:mb-6 shadow-lg ${isDark ? "bg-indigo-900/50 shadow-indigo-900/20" : "bg-indigo-100 shadow-indigo-200/50"}`}>
-                                <DocumentCheckIcon className={`w-7 h-7 sm:w-8 sm:h-8 ${isDark ? "text-indigo-400" : "text-indigo-600"}`} />
+                            <div className={`w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mb-4 sm:mb-6 ${isDark ? "bg-slate-800 text-slate-200" : "bg-slate-100 text-slate-700"}`}>
+                                <DocumentCheckIcon className="w-7 h-7 sm:w-8 sm:h-8" />
                             </div>
-                            <h3 className={`text-xl sm:text-2xl font-bold mb-2 sm:mb-3 ${isDark ? "text-white" : "text-gray-900"}`}>
+                            <h3 className={`text-xl sm:text-2xl font-bold mb-2 sm:mb-3 ${isDark ? "text-white" : "text-slate-900"}`}>
                                 Save All Schedules?
                             </h3>
-                            <p className={`mb-6 sm:mb-8 text-xs sm:text-sm leading-relaxed ${isDark ? "text-gray-300" : "text-gray-600"}`}>
-                                Are you sure you want to save all draft schedules for <span className="font-bold">{selectedDept}</span> <span className="font-bold">{selectedTerm}</span> (Semester {semester})? They will not be visible to students until posted.
+                            <p className={`mb-6 sm:mb-8 text-xs sm:text-sm leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+                                Are you sure you want to save all draft schedules for <span className="font-bold text-slate-900 dark:text-white">{selectedDept}</span> <span className="font-bold text-slate-900 dark:text-white">{selectedTerm}</span> (Semester {semester})? They will not be visible to students until posted.
                             </p>
-                            <div className="flex flex-col-reverse sm:flex-row gap-2.5 sm:gap-4 w-full">
+                            <div className="flex flex-col-reverse sm:flex-row gap-2.5 sm:gap-3 w-full">
                                 <button
+                                    type="button"
                                     onClick={() => setShowSaveAllModal(false)}
                                     disabled={saving}
-                                    className={`w-full py-3 sm:py-3.5 rounded-xl font-bold text-xs sm:text-sm transition-all active:scale-95 ${isDark ? "bg-gray-700 hover:bg-gray-600 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-800"}`}
+                                    className={`w-full py-3 sm:py-3.5 rounded-xl font-bold text-xs sm:text-sm transition-all ${isDark ? "bg-slate-800 hover:bg-slate-700 text-slate-200" : "bg-slate-100 hover:bg-slate-200 text-slate-700"}`}
                                 >
                                     Cancel
                                 </button>
                                 <button
+                                    type="button"
                                     onClick={handleSaveAll}
                                     disabled={saving || isGenerating}
-                                    className={`w-full py-3 sm:py-3.5 rounded-xl font-bold text-xs sm:text-sm text-white transition-all shadow-lg active:scale-95 ${
+                                    className={`w-full py-3 sm:py-3.5 rounded-xl font-bold text-xs sm:text-sm text-white transition-all shadow-md ${
                                         isGenerating || saving
-                                            ? "bg-indigo-600/50 opacity-50 cursor-not-allowed"
-                                            : "bg-indigo-600 hover:bg-indigo-700 shadow-indigo-600/30"
+                                            ? "bg-slate-600/50 opacity-50 cursor-not-allowed"
+                                            : "bg-slate-700 hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600 shadow-slate-700/20"
                                     }`}
                                 >
                                     {saving ? "Saving..." : "Yes, Save All"}
@@ -855,33 +870,35 @@ export default function GeneratedExamSchedules({ isGenerating }) {
 
             {/* Delete Confirmation Modal */}
             {showDeleteModal && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4 animate-in fade-in duration-200">
-                    <div className={`p-5 sm:p-8 rounded-2xl sm:rounded-3xl shadow-2xl max-w-md w-full transform transition-all scale-100 ${isDark ? "bg-gray-800 border border-gray-700" : "bg-white"}`}>
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-3 sm:p-4 animate-in fade-in duration-200">
+                    <div className={`p-5 sm:p-8 rounded-2xl sm:rounded-3xl shadow-2xl max-w-md w-full border ${isDark ? "bg-slate-900 border-slate-750" : "bg-white border-slate-200"}`}>
                         <div className="flex flex-col items-center text-center">
-                            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mb-4 sm:mb-6 bg-red-100 dark:bg-red-900/50 shadow-lg shadow-red-200/50 dark:shadow-red-900/20">
-                                <TrashIcon className="w-7 h-7 sm:w-8 sm:h-8 text-red-600 dark:text-red-400" />
+                            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mb-4 sm:mb-6 bg-rose-100 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400">
+                                <TrashIcon className="w-7 h-7 sm:w-8 sm:h-8" />
                             </div>
-                            <h3 className={`text-xl sm:text-2xl font-bold mb-2 sm:mb-3 ${isDark ? "text-white" : "text-gray-900"}`}>
+                            <h3 className={`text-xl sm:text-2xl font-bold mb-2 sm:mb-3 ${isDark ? "text-white" : "text-slate-900"}`}>
                                 {deleteScope === "all" ? "Delete All Schedules?" : `Delete ${selectedDept} Schedule?`}
                             </h3>
-                            <p className={`mb-6 sm:mb-8 text-xs sm:text-sm leading-relaxed ${isDark ? "text-gray-300" : "text-gray-600"}`}>
+                            <p className={`mb-6 sm:mb-8 text-xs sm:text-sm leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
                                 {deleteScope === "all" 
                                     ? "Are you sure you want to delete ALL generated exam schedules across the entire platform? This operation is permanent and cannot be undone."
                                     : `Are you sure you want to delete all generated exam schedules for ${selectedDept} (Semester ${semester})? This operation is permanent and cannot be undone.`
                                 }
                             </p>
-                            <div className="flex flex-col-reverse sm:flex-row gap-2.5 sm:gap-4 w-full">
+                            <div className="flex flex-col-reverse sm:flex-row gap-2.5 sm:gap-3 w-full">
                                 <button
+                                    type="button"
                                     onClick={() => setShowDeleteModal(false)}
                                     disabled={deleting}
-                                    className={`w-full py-3 sm:py-3.5 rounded-xl font-bold text-xs sm:text-sm transition-all active:scale-95 disabled:opacity-55 ${isDark ? "bg-gray-700 hover:bg-gray-600 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-800"}`}
+                                    className={`w-full py-3 sm:py-3.5 rounded-xl font-bold text-xs sm:text-sm transition-all disabled:opacity-55 ${isDark ? "bg-slate-800 hover:bg-slate-700 text-slate-200" : "bg-slate-100 hover:bg-slate-200 text-slate-700"}`}
                                 >
                                     Cancel
                                 </button>
                                 <button
+                                    type="button"
                                     onClick={handleDeleteSchedule}
                                     disabled={deleting || isGenerating}
-                                    className="w-full py-3 sm:py-3.5 rounded-xl font-bold text-xs sm:text-sm bg-red-600 hover:bg-red-700 text-white transition-all shadow-lg shadow-red-600/30 active:scale-95 disabled:opacity-55 flex items-center justify-center gap-2"
+                                    className="w-full py-3 sm:py-3.5 rounded-xl font-bold text-xs sm:text-sm bg-rose-600 hover:bg-rose-700 text-white transition-all shadow-md shadow-rose-600/20 disabled:opacity-55 flex items-center justify-center gap-2"
                                 >
                                     {deleting ? (
                                         <>
@@ -900,23 +917,24 @@ export default function GeneratedExamSchedules({ isGenerating }) {
 
             {/* Edit Exam Schedule Modal */}
             {editingExam && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4 animate-in fade-in duration-200">
-                    <div className={`p-5 sm:p-6 rounded-2xl sm:rounded-3xl shadow-2xl max-w-lg w-full transform transition-all scale-100 ${isDark ? "bg-gray-800 border border-gray-700 text-white" : "bg-white text-gray-900"}`}>
-                        <div className="flex items-center justify-between pb-3 mb-4 border-b border-gray-200 dark:border-gray-700">
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-3 sm:p-4 animate-in fade-in duration-200">
+                    <div className={`p-5 sm:p-6 rounded-2xl sm:rounded-3xl shadow-2xl max-w-lg w-full border ${isDark ? "bg-slate-900 border-slate-750 text-slate-100" : "bg-white border-slate-200 text-slate-900"}`}>
+                        <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-200 dark:border-slate-750">
                             <div className="flex items-center gap-2.5">
-                                <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400">
+                                <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-blue-100 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400">
                                     <PencilSquareIcon className="w-5 h-5" />
                                 </div>
                                 <div>
                                     <h3 className="text-base sm:text-lg font-bold">Edit Scheduled Exam</h3>
-                                    <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                                    <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
                                         {editingExam.subject_code} - {editingExam.subject_name} ({editingExam.section_name})
                                     </p>
                                 </div>
                             </div>
                             <button
+                                type="button"
                                 onClick={() => setEditingExam(null)}
-                                className={`p-1.5 rounded-lg transition ${isDark ? "hover:bg-gray-700 text-gray-400" : "hover:bg-gray-100 text-gray-500"}`}
+                                className={`p-1.5 rounded-lg transition ${isDark ? "hover:bg-slate-800 text-slate-400" : "hover:bg-slate-100 text-slate-500"}`}
                             >
                                 <XMarkIcon className="w-5 h-5" />
                             </button>
@@ -924,7 +942,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
 
                         <form onSubmit={handleSaveEdit} className="space-y-4">
                             <div>
-                                <label className={`block text-xs font-bold mb-1.5 ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+                                <label className={`block text-xs font-semibold uppercase tracking-wider mb-1.5 ${isDark ? "text-slate-300" : "text-slate-700"}`}>
                                     Timeslot & Date
                                 </label>
                                 <select
@@ -932,8 +950,8 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                     onChange={(e) => setEditTimeslotId(e.target.value)}
                                     className={`w-full px-3 py-2.5 rounded-xl text-xs sm:text-sm border outline-none transition ${
                                         isDark
-                                            ? "bg-gray-900/60 border-gray-600 text-white focus:border-blue-500"
-                                            : "bg-gray-50 border-gray-200 text-gray-900 focus:border-blue-600"
+                                            ? "bg-slate-800 border-slate-700 text-slate-100 focus:border-blue-500"
+                                            : "bg-slate-50 border-slate-200 text-slate-900 focus:border-blue-600"
                                     }`}
                                 >
                                     <option value="">-- Keep Current Timeslot ({editingExam.exam_date} {editingExam.start_time}) --</option>
@@ -946,7 +964,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                             </div>
 
                             <div>
-                                <label className={`block text-xs font-bold mb-1.5 ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+                                <label className={`block text-xs font-semibold uppercase tracking-wider mb-1.5 ${isDark ? "text-slate-300" : "text-slate-700"}`}>
                                     Examination Room
                                 </label>
                                 <select
@@ -954,8 +972,8 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                     onChange={(e) => setEditRoomId(e.target.value)}
                                     className={`w-full px-3 py-2.5 rounded-xl text-xs sm:text-sm border outline-none transition ${
                                         isDark
-                                            ? "bg-gray-900/60 border-gray-600 text-white focus:border-blue-500"
-                                            : "bg-gray-50 border-gray-200 text-gray-900 focus:border-blue-600"
+                                            ? "bg-slate-800 border-slate-700 text-slate-100 focus:border-blue-500"
+                                            : "bg-slate-50 border-slate-200 text-slate-900 focus:border-blue-600"
                                     }`}
                                 >
                                     <option value="">-- Unassigned / No Room --</option>
@@ -968,7 +986,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                             </div>
 
                             <div>
-                                <label className={`block text-xs font-bold mb-1.5 ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+                                <label className={`block text-xs font-semibold uppercase tracking-wider mb-1.5 ${isDark ? "text-slate-300" : "text-slate-700"}`}>
                                     Assigned Proctor
                                 </label>
                                 <select
@@ -976,8 +994,8 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                     onChange={(e) => setEditProctorId(e.target.value)}
                                     className={`w-full px-3 py-2.5 rounded-xl text-xs sm:text-sm border outline-none transition ${
                                         isDark
-                                            ? "bg-gray-900/60 border-gray-600 text-white focus:border-blue-500"
-                                            : "bg-gray-50 border-gray-200 text-gray-900 focus:border-blue-600"
+                                            ? "bg-slate-800 border-slate-700 text-slate-100 focus:border-blue-500"
+                                            : "bg-slate-50 border-slate-200 text-slate-900 focus:border-blue-600"
                                     }`}
                                 >
                                     <option value="">-- Unassigned / No Proctor --</option>
@@ -989,13 +1007,13 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                 </select>
                             </div>
 
-                            <div className="flex items-center justify-end gap-2.5 sm:gap-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                            <div className="flex items-center justify-end gap-2.5 sm:gap-3 pt-3 border-t border-slate-200 dark:border-slate-750">
                                 <button
                                     type="button"
                                     onClick={() => setEditingExam(null)}
                                     disabled={editSaving}
                                     className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition ${
-                                        isDark ? "bg-gray-700 hover:bg-gray-600 text-gray-200" : "bg-gray-100 hover:bg-gray-200 text-gray-700"
+                                        isDark ? "bg-slate-800 hover:bg-slate-700 text-slate-200" : "bg-slate-100 hover:bg-slate-200 text-slate-700"
                                     }`}
                                 >
                                     Cancel

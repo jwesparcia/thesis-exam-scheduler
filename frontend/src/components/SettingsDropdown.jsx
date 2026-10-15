@@ -26,59 +26,65 @@ export default function SettingsDropdown({ onLogout, isDark }) {
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`p-2 rounded-xl transition ${
+        aria-label="Settings and account menu"
+        aria-expanded={isOpen}
+        aria-haspopup="true"
+        type="button"
+        className={`p-2.5 rounded-xl transition ${
           isOpen 
-            ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20" 
-            : isDark ? "text-gray-400 hover:text-gray-100 hover:bg-gray-700" : "text-gray-600 hover:text-gray-800 hover:bg-gray-100"
+            ? "bg-blue-600 text-white shadow-md shadow-blue-500/20" 
+            : isDark ? "text-slate-300 hover:text-white hover:bg-slate-800" : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
         }`}
       >
         <Cog6ToothIcon className="w-5 h-5" />
       </button>
 
       {isOpen && (
-        <div className={`absolute right-0 mt-3 w-60 rounded-2xl shadow-2xl border z-[100] overflow-hidden animate-in fade-in zoom-in duration-200 ${
-          isDark ? "bg-gray-800 border-gray-700 shadow-black/50" : "bg-white border-gray-200"
+        <div className={`absolute right-0 mt-3 w-64 rounded-2xl shadow-2xl border z-[100] overflow-hidden animate-in fade-in zoom-in duration-200 ${
+          isDark ? "bg-slate-900 border-slate-700/80 shadow-black/50" : "bg-white border-slate-200"
         }`}>
-          <div className={`px-4 py-3 border-b ${isDark ? "border-gray-700 bg-gray-900/20" : "border-gray-100 bg-gray-50/50"}`}>
-            <p className={`text-[10px] font-bold uppercase tracking-widest ${isDark ? "text-gray-500" : "text-gray-400"}`}>Settings & Account</p>
+          <div className={`px-4 py-3 border-b ${isDark ? "border-slate-800 bg-slate-950/40" : "border-slate-100 bg-slate-50/70"}`}>
+            <p className={`text-xs font-semibold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-500"}`}>Settings & Account</p>
           </div>
           
           <div className="p-2 space-y-1">
             {/* Theme Toggle Item */}
-            <div
+            <button
               onClick={handleToggleTheme}
-              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition cursor-pointer ${
-                isDark ? "hover:bg-gray-700 text-gray-300" : "hover:bg-gray-50 text-gray-700"
+              type="button"
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition cursor-pointer text-left ${
+                isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-slate-100 text-slate-800"
               }`}
             >
               <div className="flex items-center gap-3">
-                <div className={`p-1.5 rounded-lg ${isDark ? "bg-gray-900/50" : "bg-white shadow-sm border border-gray-100"}`}>
-                  {theme === "dark" ? <SunIcon className="w-4 h-4 text-yellow-400" /> : <MoonIcon className="w-4 h-4 text-blue-500" />}
+                <div className={`p-1.5 rounded-lg ${isDark ? "bg-slate-800 text-yellow-400" : "bg-slate-100 text-blue-600 border border-slate-200"}`}>
+                  {theme === "dark" ? <SunIcon className="w-4 h-4" /> : <MoonIcon className="w-4 h-4" />}
                 </div>
-                <span className="text-sm font-semibold">{theme === "dark" ? "Light Mode" : "Dark Mode"}</span>
+                <span className="text-sm font-semibold">{theme === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"}</span>
               </div>
-              <div className={`w-10 h-5 rounded-full relative transition-colors ${theme === "dark" ? "bg-blue-600" : "bg-gray-300"}`}>
-                <div className={`absolute top-1 w-3 h-3 rounded-full bg-white shadow-sm transition-all ${theme === "dark" ? "right-1" : "left-1"}`}></div>
+              <div className={`w-9 h-5 rounded-full relative transition-colors ${theme === "dark" ? "bg-blue-600" : "bg-slate-300"}`}>
+                <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-all ${theme === "dark" ? "right-0.5" : "left-0.5"}`}></div>
               </div>
-            </div>
+            </button>
 
             {/* Logout Item */}
             <button
               onClick={() => { setIsOpen(false); onLogout(); }}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition group ${
-                isDark ? "hover:bg-red-900/30 text-red-400" : "hover:bg-red-50 text-red-600"
+              type="button"
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition group text-left ${
+                isDark ? "hover:bg-rose-950/40 text-rose-400" : "hover:bg-rose-50 text-rose-600"
               }`}
             >
-              <div className={`p-1.5 rounded-lg transition ${isDark ? "bg-red-900/20 group-hover:bg-red-900/40" : "bg-red-100/50 group-hover:bg-red-100"}`}>
+              <div className={`p-1.5 rounded-lg transition ${isDark ? "bg-rose-950/30 group-hover:bg-rose-900/50" : "bg-rose-100 group-hover:bg-rose-200/70"}`}>
                 <ArrowLeftStartOnRectangleIcon className="w-4 h-4" />
               </div>
-              <span className="text-sm font-bold">Logout Session</span>
+              <span className="text-sm font-semibold">Sign Out</span>
             </button>
           </div>
           
-          <div className={`px-4 py-2 border-t flex items-center justify-between ${isDark ? "border-gray-700 bg-gray-900/10" : "border-gray-100 bg-gray-50/30"}`}>
-            <span className={`text-[9px] font-bold uppercase tracking-tighter ${isDark ? "text-gray-600" : "text-gray-400"}`}>STI Exam Scheduler</span>
-            <span className={`text-[9px] font-mono ${isDark ? "text-gray-700" : "text-gray-300"}`}>v1.0.4</span>
+          <div className={`px-4 py-2.5 border-t flex items-center justify-between ${isDark ? "border-slate-800 bg-slate-950/40" : "border-slate-100 bg-slate-50/70"}`}>
+            <span className={`text-[11px] font-semibold ${isDark ? "text-slate-400" : "text-slate-500"}`}>STI Exam Scheduler</span>
+            <span className={`text-[11px] font-mono ${isDark ? "text-slate-400" : "text-slate-500"}`}>v1.0</span>
           </div>
         </div>
       )}

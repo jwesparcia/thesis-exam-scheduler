@@ -86,7 +86,12 @@ const ToastItem = ({ message, type, onClose }) => {
                 <ToastIcon type={type} />
                 <p className="text-sm font-medium">{messageText}</p>
             </div>
-            <button onClick={onClose} className="hover:opacity-75 transition-opacity">
+            <button 
+                type="button" 
+                onClick={onClose} 
+                aria-label="Dismiss notification" 
+                className="hover:opacity-75 transition-opacity p-1 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50"
+            >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>

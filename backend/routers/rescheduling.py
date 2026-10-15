@@ -20,8 +20,11 @@ def is_consultation_request(db: Session, request: ReschedulingRequest) -> bool:
     return bool(
         student
         and student.student_type == "irregular"
-        and request.preferred_start_time
-        and request.preferred_start_time >= time(17, 0)
+        and (
+            (request.preferred_start_time and request.preferred_start_time >= time(17, 0))
+            or (request.rescheduled_exam and request.rescheduled_exam.timeslot and request.rescheduled_exam.timeslot.start_time >= time(17, 0))
+            or (request.rescheduled_exam and request.rescheduled_exam.room and request.rescheduled_exam.room.name == "Consultation Area")
+        )
     )
 
 @router.post("/submit")
@@ -126,7 +129,7 @@ def get_pending_requests(db: Session = Depends(get_db), current_user: User = Dep
         student = db.query(User).filter(User.email == req.school_email).first()
         is_irregular = bool(student and student.student_type == "irregular")
         auto_assignment = None
-        if is_irregular and not is_consultation_request(db, req):
+        if is_irregular:
             try:
                 auto_assignment = find_earliest_auto_schedule(req, db)
             except Exception as e:
@@ -134,6 +137,8 @@ def get_pending_requests(db: Session = Depends(get_db), current_user: User = Dep
                     "success": False,
                     "message": f"Could not determine auto-assignment: {str(e)}"
                 }
+
+        is_consultation = is_consultation_request(db, req) or bool(auto_assignment and auto_assignment.get("is_consultation"))
 
         result.append({
             "id": req.id,
@@ -151,7 +156,7 @@ def get_pending_requests(db: Session = Depends(get_db), current_user: User = Dep
             "requested_mode": req.requested_mode,
             "preferred_date": req.preferred_date.strftime("%Y-%m-%d") if req.preferred_date else None,
             "preferred_time": f"{req.preferred_start_time.strftime('%I:%M %p')} - {req.preferred_end_time.strftime('%I:%M %p')}" if req.preferred_start_time and req.preferred_end_time else None,
-            "consultation_area": is_consultation_request(db, req),
+            "consultation_area": is_consultation,
             "acknowledged": req.acknowledged,
             "auto_assignment": auto_assignment,
         })
@@ -238,7 +243,9 @@ def review_request(request_id: int, update: ReschedulingRequestUpdate, db: Sessi
 
     student = db.query(User).filter(User.email == request.school_email).first()
     irregular_request = bool(student and student.student_type == "irregular")
-    consultation_request = is_consultation_request(db, request)
+    consultation_request = is_consultation_request(db, request) or bool(
+        request.preferred_start_time and request.preferred_start_time >= time(17, 0)
+    )
 
     if update.status == "approved":
         # If irregular request and no room is manually chosen, auto-assign time and room
@@ -248,7 +255,13 @@ def review_request(request_id: int, update: ReschedulingRequestUpdate, db: Sessi
         exam = request.exam
         if consultation_request:
             if not (request.preferred_date and request.preferred_start_time and request.preferred_end_time):
-                raise HTTPException(status_code=400, detail="A preferred date and time are required for Consultation Area scheduling")
+                auto_sched = find_earliest_auto_schedule(request, db)
+                if auto_sched.get("success"):
+                    request.preferred_date = auto_sched["date"]
+                    request.preferred_start_time = auto_sched["start_time"]
+                    request.preferred_end_time = auto_sched["end_time"]
+                else:
+                    raise HTTPException(status_code=400, detail="A preferred date and time are required for Consultation Area scheduling")
             if request.preferred_start_time < time(17, 0):
                 raise HTTPException(status_code=400, detail="Consultation Area exams must start at or after 5:00 PM")
             duration_minutes = exam.subject.duration_minutes if exam and exam.subject and exam.subject.duration_minutes else 75
@@ -258,11 +271,12 @@ def review_request(request_id: int, update: ReschedulingRequestUpdate, db: Sessi
             ).time()
             if request.preferred_end_time != expected_end:
                 raise HTTPException(status_code=400, detail="Consultation Area exam time must match the configured exam duration")
-            if not update.proctor_id:
-                raise HTTPException(status_code=400, detail="Assign a proctor before approving this request")
-            proctor = db.query(Proctor).filter(Proctor.id == update.proctor_id).first()
-            if not proctor:
-                raise HTTPException(status_code=404, detail="Proctor not found")
+
+            # Proctor is optional for Consultation Area (admin will assign personally)
+            if update.proctor_id:
+                proctor = db.query(Proctor).filter(Proctor.id == update.proctor_id).first()
+                if not proctor:
+                    raise HTTPException(status_code=404, detail="Proctor not found")
 
         if exam and request.preferred_date and request.preferred_start_time and request.preferred_end_time:
             ts = db.query(Timeslot).filter(
@@ -281,13 +295,20 @@ def review_request(request_id: int, update: ReschedulingRequestUpdate, db: Sessi
 
             if irregular_request:
                 assigned_room_id = update.room_id
-                if consultation_request:
+                assigned_proctor_id = update.proctor_id
+                if consultation_request or (request.preferred_start_time and request.preferred_start_time >= time(17, 0)):
                     consultation_room = db.query(Room).filter(Room.name == "Consultation Area").first()
                     if not consultation_room:
-                        consultation_room = Room(name="Consultation Area", building="Consultation Area", capacity=1)
+                        consultation_room = Room(name="Consultation Area", building="Consultation Area", capacity=50)
                         db.add(consultation_room)
                         db.flush()
                     assigned_room_id = consultation_room.id
+                    # 5:00 PM onwards in Consultation Area: without proctoring assignment
+                    assigned_proctor_id = update.proctor_id if update.proctor_id else None
+                else:
+                    if not assigned_proctor_id:
+                        assigned_proctor_id = exam.proctor_id
+
                 assigned_exam = Exam(
                     subject_id=exam.subject_id,
                     section_id=exam.section_id,
@@ -298,7 +319,7 @@ def review_request(request_id: int, update: ReschedulingRequestUpdate, db: Sessi
                     semester=exam.semester,
                     term=exam.term,
                     status=exam.status,
-                    proctor_id=update.proctor_id or exam.proctor_id,
+                    proctor_id=assigned_proctor_id,
                 )
                 db.add(assigned_exam)
                 db.flush()
@@ -341,6 +362,7 @@ def get_available_rooms_for_request(
     """Return rooms that HAVE exams scheduled during the student's preferred timeslot.
     For irregular-student rescheduling, the admin must place the student into an
     existing exam session, so only rooms with active exams at that time are shown.
+    For 5:00 PM onwards, automatically returns the Consultation Area room.
     """
     request = db.query(ReschedulingRequest).filter(ReschedulingRequest.id == request_id).first()
     if not request:
@@ -349,6 +371,20 @@ def get_available_rooms_for_request(
     # If no preferred timeslot specified, return empty list (admin cannot proceed without a time)
     if not (request.preferred_date and request.preferred_start_time and request.preferred_end_time):
         return []
+
+    if request.preferred_start_time >= time(17, 0):
+        consultation_room = db.query(Room).filter(Room.name == "Consultation Area").first()
+        if not consultation_room:
+            consultation_room = Room(name="Consultation Area", building="Consultation Area", capacity=50)
+            db.add(consultation_room)
+            db.flush()
+        return [{
+            "id": consultation_room.id,
+            "name": consultation_room.name,
+            "building": consultation_room.building,
+            "capacity": consultation_room.capacity,
+            "exam_subject": "Consultation Hours",
+        }]
 
     # Find the timeslot matching the preferred schedule
     ts = db.query(Timeslot).filter(

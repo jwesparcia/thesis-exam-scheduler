@@ -85,14 +85,15 @@ def generate_exam_schedule(payload: dict = Body(...), db: Session = Depends(get_
 
     # --- Generate schedule ---
     # Exam hours: 7:00 AM – 5:30 PM
-    # Each exam = 1h 30m | Max gap between slots = 1h 30m
+    # Each exam = 1h 30m (Continuous, no lunch break)
     TIMESLOTS = [
         ("07:00 AM", "08:30 AM"),   # Slot 1
         ("08:30 AM", "10:00 AM"),   # Slot 2 (back-to-back)
         ("10:00 AM", "11:30 AM"),   # Slot 3 (back-to-back)
-        ("01:00 PM", "02:30 PM"),   # Slot 4 (1.5hr lunch break)
-        ("02:30 PM", "04:00 PM"),   # Slot 5 (back-to-back)
-        ("04:00 PM", "05:30 PM"),   # Slot 6 (back-to-back)
+        ("11:30 AM", "01:00 PM"),   # Slot 4 (back-to-back, no lunch gap)
+        ("01:00 PM", "02:30 PM"),   # Slot 5 (back-to-back)
+        ("02:30 PM", "04:00 PM"),   # Slot 6 (back-to-back)
+        ("04:00 PM", "05:30 PM"),   # Slot 7 (back-to-back)
     ]
 
     exam_days = []

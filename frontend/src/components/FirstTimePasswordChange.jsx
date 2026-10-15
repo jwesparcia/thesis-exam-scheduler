@@ -83,7 +83,6 @@ export default function FirstTimePasswordChange({ user, onPasswordChanged, isDar
       
       showSuccess("Password changed successfully!");
       
-      // Update the user state locally and in storage to remove first login state
       const updatedUser = {
         ...user,
         is_first_login: false
@@ -98,19 +97,22 @@ export default function FirstTimePasswordChange({ user, onPasswordChanged, isDar
     }
   };
 
+  const isFormValid = verificationCode.trim().length === 6 && newPassword.length >= 6 && confirmPassword.length >= 6;
+
   return (
     <div className={`min-h-screen w-full flex items-center justify-center p-4 transition-colors duration-300 ${
-      isDark ? "bg-slate-900 text-slate-100" : "bg-slate-50 text-slate-950"
+      isDark ? "bg-slate-950 text-slate-100" : "bg-slate-50 text-slate-900"
     }`}>
-      {/* Settings drop menu substitute for first time change */}
+      {/* Top action controls */}
       <div className="absolute top-4 right-4 sm:top-6 sm:right-6 flex items-center gap-2 sm:gap-3">
         {onSkip && (
           <button
             onClick={onSkip}
-            className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold transition shadow-sm border ${
+            type="button"
+            className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition border ${
               isDark 
-                ? "bg-slate-800 border-slate-700 hover:bg-slate-700 text-blue-400" 
-                : "bg-white border-slate-200 hover:bg-slate-50 text-blue-600"
+                ? "bg-slate-900 border-slate-700 hover:bg-slate-800 text-blue-400" 
+                : "bg-white border-slate-300 hover:bg-slate-50 text-blue-700"
             }`}
           >
             <span>Change Later</span>
@@ -118,75 +120,79 @@ export default function FirstTimePasswordChange({ user, onPasswordChanged, isDar
         )}
         <button
           onClick={onLogout}
-          className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold transition shadow-sm border ${
+          type="button"
+          className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition border ${
             isDark 
-              ? "bg-slate-800 border-slate-700 hover:bg-slate-700 text-red-400" 
-              : "bg-white border-slate-200 hover:bg-slate-50 text-red-600"
+              ? "bg-slate-900 border-slate-700 hover:bg-slate-800 text-rose-400" 
+              : "bg-white border-slate-300 hover:bg-slate-50 text-rose-600"
           }`}
         >
-          <ArrowLeftStartOnRectangleIcon className="w-4 h-4 sm:w-5 sm:h-5" />
-          <span>Logout</span>
+          <ArrowLeftStartOnRectangleIcon className="w-4 h-4" />
+          <span>Sign Out</span>
         </button>
       </div>
 
-      <div className={`w-full max-w-md p-5 sm:p-8 rounded-2xl sm:rounded-3xl shadow-2xl border transition-all duration-300 mt-12 sm:mt-0 ${
-        isDark ? "bg-slate-800 border-slate-700/80" : "bg-white border-slate-200/60"
+      <div className={`w-full max-w-md p-6 sm:p-8 rounded-2xl sm:rounded-3xl shadow-xl border transition-all duration-300 mt-12 sm:mt-0 ${
+        isDark ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200"
       }`}>
         {/* Header Section */}
-        <div className="text-center mb-8">
-          <div className={`w-16 h-16 mx-auto mb-6 rounded-2xl flex items-center justify-center shadow-md ${
-            isDark ? "bg-slate-700" : "bg-blue-50"
+        <div className="text-center mb-7">
+          <div className={`w-14 h-14 mx-auto mb-5 rounded-2xl flex items-center justify-center shadow-sm border ${
+            isDark ? "bg-slate-800 border-slate-700" : "bg-blue-50 border-blue-100"
           }`}>
-            <img src="/images.png" alt="STI Logo" className="rounded-xl h-10 w-10 object-contain" />
+            <img src="/images.png" alt="STI Logo" className="rounded-xl h-9 w-9 object-contain" />
           </div>
-          <h1 className={`text-2xl font-bold tracking-tight mb-2 ${isDark ? "text-white" : "text-slate-950"}`}>
+          <h1 className={`text-xl sm:text-2xl font-bold tracking-tight mb-2 ${isDark ? "text-white" : "text-slate-900"}`}>
             Secure Your Account
           </h1>
-          <p className={`text-sm ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-            Since this is your first time logging in, you are required to change your default password.
+          <p className={`text-xs sm:text-sm leading-relaxed ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+            Since this is your first time logging in, please verify your email and set your private password.
           </p>
         </div>
 
         {/* Step 1: Request Code */}
         {!codeSent ? (
-          <div className="space-y-6 text-center animate-in fade-in zoom-in-95 duration-200">
-            <div className={`p-5 rounded-2xl border text-left ${
-              isDark ? "bg-slate-900/40 border-slate-700/60" : "bg-slate-50 border-slate-100"
+          <div className="space-y-5 text-center animate-in fade-in duration-200">
+            <div className={`p-4 rounded-xl border text-left ${
+              isDark ? "bg-slate-950/60 border-slate-800" : "bg-slate-50 border-slate-200"
             }`}>
               <div className="flex items-start gap-3">
-                <EnvelopeIcon className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
-                <div>
-                  <h3 className={`text-xs font-bold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                <EnvelopeIcon className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+                <div className="min-w-0">
+                  <h3 className={`text-xs font-semibold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-500"}`}>
                     Registered Email
                   </h3>
-                  <p className={`text-sm font-semibold mt-1 truncate ${isDark ? "text-slate-200" : "text-slate-800"}`}>
+                  <p className={`text-sm font-bold mt-0.5 truncate ${isDark ? "text-slate-200" : "text-slate-800"}`}>
                     {user?.email}
                   </p>
                 </div>
               </div>
             </div>
 
-            <p className={`text-xs leading-relaxed text-left ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-              We will send a 6-digit verification code to this email to verify your identity. Make sure you have access to it before requesting.
+            <p className={`text-xs leading-relaxed text-left ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+              We will send a 6-digit verification code to your registered email to confirm your identity.
             </p>
 
             <button
               onClick={handleSendCode}
+              type="button"
               disabled={sendingCode}
-              className={`w-full py-3.5 rounded-xl font-semibold text-white transition-all transform duration-200 shadow-md flex items-center justify-center gap-2 ${
+              className={`w-full py-3.5 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2 ${
                 sendingCode
-                  ? "bg-blue-400/50 cursor-not-allowed shadow-none"
-                  : "bg-blue-600 hover:bg-blue-700 hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0"
+                  ? isDark 
+                    ? "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed" 
+                    : "bg-slate-200 text-slate-400 border border-slate-200 cursor-not-allowed"
+                  : "bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white shadow-sm hover:shadow-md"
               }`}
             >
               {sendingCode ? (
                 <>
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                  <span>Sending Verification Code...</span>
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  <span>Sending Code...</span>
                 </>
               ) : (
                 <>
-                  <PaperAirplaneIcon className="w-5 h-5 -rotate-45" />
+                  <PaperAirplaneIcon className="w-4 h-4 -rotate-45" />
                   <span>Send Verification Code</span>
                 </>
               )}
@@ -194,24 +200,29 @@ export default function FirstTimePasswordChange({ user, onPasswordChanged, isDar
           </div>
         ) : (
           /* Step 2: Verification and Password Form */
-          <form onSubmit={handleSubmit} className="space-y-5 animate-in fade-in zoom-in-95 duration-200">
+          <form onSubmit={handleSubmit} className="space-y-4 animate-in fade-in duration-200">
             <div>
-              <label className={`block text-xs font-bold uppercase tracking-wider mb-2 ${
-                isDark ? "text-slate-400" : "text-slate-500"
-              }`}>
-                6-Digit Code sent to {user.email}
+              <label 
+                htmlFor="verification-code"
+                className={`block text-xs font-semibold uppercase tracking-wider mb-1.5 ${
+                  isDark ? "text-slate-300" : "text-slate-700"
+                }`}
+              >
+                6-Digit Verification Code
               </label>
-              <div className="relative group">
+              <div className="relative">
                 <input
+                  id="verification-code"
                   type="text"
+                  inputMode="numeric"
                   maxLength={6}
-                  placeholder="Enter 6-digit code"
+                  placeholder="000000"
                   value={verificationCode}
                   onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                  className={`w-full px-4 py-3.5 text-center font-mono tracking-[0.5em] text-lg rounded-xl border outline-none transition ${
+                  className={`w-full px-4 py-3 text-center font-mono tracking-[0.5em] text-lg font-bold rounded-xl border outline-none transition ${
                     isDark
-                      ? "bg-slate-900/50 border-slate-600 text-white focus:border-blue-500 focus:bg-slate-700/50"
-                      : "bg-slate-50 border-slate-200 text-slate-950 focus:border-blue-600 focus:bg-white"
+                      ? "bg-slate-950 border-slate-700 text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                      : "bg-slate-50 border-slate-300 text-slate-900 focus:border-blue-600 focus:bg-white focus:ring-2 focus:ring-blue-500/20"
                   }`}
                   required
                 />
@@ -220,33 +231,38 @@ export default function FirstTimePasswordChange({ user, onPasswordChanged, isDar
 
             {/* New Password Input */}
             <div>
-              <label className={`block text-xs font-bold uppercase tracking-wider mb-2 ${
-                isDark ? "text-slate-400" : "text-slate-500"
-              }`}>
+              <label 
+                htmlFor="new-password"
+                className={`block text-xs font-semibold uppercase tracking-wider mb-1.5 ${
+                  isDark ? "text-slate-300" : "text-slate-700"
+                }`}
+              >
                 New Password
               </label>
               <div className="relative group">
-                <LockClosedIcon className={`absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 transition ${
+                <LockClosedIcon className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors ${
                   isDark ? "text-slate-500 group-focus-within:text-blue-400" : "text-slate-400 group-focus-within:text-blue-600"
                 }`} />
                 <input
+                  id="new-password"
                   type={showNewPassword ? "text" : "password"}
                   placeholder="At least 6 characters"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  className={`w-full pl-10 pr-12 py-3.5 rounded-xl border outline-none transition ${
+                  className={`w-full pl-11 pr-12 py-3 rounded-xl border text-sm outline-none transition ${
                     isDark
-                      ? "bg-slate-900/50 border-slate-600 text-white focus:border-blue-500 focus:bg-slate-700/50"
-                      : "bg-slate-50 border-slate-200 text-slate-950 focus:border-blue-600 focus:bg-white"
+                      ? "bg-slate-950 border-slate-700 text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                      : "bg-slate-50 border-slate-300 text-slate-900 focus:border-blue-600 focus:bg-white focus:ring-2 focus:ring-blue-500/20"
                   }`}
                   required
                 />
                 <button
                   type="button"
                   onClick={() => setShowNewPassword(!showNewPassword)}
-                  className={`absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-lg transition ${
-                    isDark ? "text-slate-500 hover:text-slate-300 hover:bg-slate-700" : "text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+                  className={`absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-colors ${
+                    isDark ? "text-slate-400 hover:text-slate-200 hover:bg-slate-800" : "text-slate-500 hover:text-slate-700 hover:bg-slate-100"
                   }`}
+                  aria-label={showNewPassword ? "Hide password" : "Show password"}
                 >
                   {showNewPassword ? <EyeSlashIcon className="w-5 h-5" /> : <EyeIcon className="w-5 h-5" />}
                 </button>
@@ -255,33 +271,38 @@ export default function FirstTimePasswordChange({ user, onPasswordChanged, isDar
 
             {/* Confirm Password Input */}
             <div>
-              <label className={`block text-xs font-bold uppercase tracking-wider mb-2 ${
-                isDark ? "text-slate-400" : "text-slate-500"
-              }`}>
+              <label 
+                htmlFor="confirm-password"
+                className={`block text-xs font-semibold uppercase tracking-wider mb-1.5 ${
+                  isDark ? "text-slate-300" : "text-slate-700"
+                }`}
+              >
                 Confirm Password
               </label>
               <div className="relative group">
-                <LockClosedIcon className={`absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 transition ${
+                <LockClosedIcon className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors ${
                   isDark ? "text-slate-500 group-focus-within:text-blue-400" : "text-slate-400 group-focus-within:text-blue-600"
                 }`} />
                 <input
+                  id="confirm-password"
                   type={showConfirmPassword ? "text" : "password"}
                   placeholder="Re-enter new password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className={`w-full pl-10 pr-12 py-3.5 rounded-xl border outline-none transition ${
+                  className={`w-full pl-11 pr-12 py-3 rounded-xl border text-sm outline-none transition ${
                     isDark
-                      ? "bg-slate-900/50 border-slate-600 text-white focus:border-blue-500 focus:bg-slate-700/50"
-                      : "bg-slate-50 border-slate-200 text-slate-950 focus:border-blue-600 focus:bg-white"
+                      ? "bg-slate-950 border-slate-700 text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                      : "bg-slate-50 border-slate-300 text-slate-900 focus:border-blue-600 focus:bg-white focus:ring-2 focus:ring-blue-500/20"
                   }`}
                   required
                 />
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className={`absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-lg transition ${
-                    isDark ? "text-slate-500 hover:text-slate-300 hover:bg-slate-700" : "text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+                  className={`absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-colors ${
+                    isDark ? "text-slate-400 hover:text-slate-200 hover:bg-slate-800" : "text-slate-500 hover:text-slate-700 hover:bg-slate-100"
                   }`}
+                  aria-label={showConfirmPassword ? "Hide password" : "Show password"}
                 >
                   {showConfirmPassword ? <EyeSlashIcon className="w-5 h-5" /> : <EyeIcon className="w-5 h-5" />}
                 </button>
@@ -289,28 +310,30 @@ export default function FirstTimePasswordChange({ user, onPasswordChanged, isDar
             </div>
 
             {/* Actions */}
-            <div className="space-y-3 pt-2">
+            <div className="space-y-3 pt-3">
               <button
                 type="submit"
-                disabled={verifying || !verificationCode || !newPassword || !confirmPassword}
-                className={`w-full py-3.5 rounded-xl font-semibold text-white transition-all transform duration-200 shadow-md flex items-center justify-center gap-2 ${
-                  verifying || !verificationCode || !newPassword || !confirmPassword
-                    ? "bg-blue-400/50 cursor-not-allowed shadow-none"
-                    : "bg-blue-600 hover:bg-blue-700 hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0"
+                disabled={verifying || !isFormValid}
+                className={`w-full py-3.5 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2 ${
+                  verifying || !isFormValid
+                    ? isDark
+                      ? "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed"
+                      : "bg-slate-200 text-slate-400 border border-slate-200 cursor-not-allowed"
+                    : "bg-blue-600 hover:bg-blue-700 text-white shadow-sm hover:shadow-md"
                 }`}
               >
                 {verifying ? (
                   <>
-                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                    <span>Changing Password...</span>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    <span>Updating Password...</span>
                   </>
                 ) : (
-                  <span>Verify & Change Password</span>
+                  <span>Verify & Update Password</span>
                 )}
               </button>
 
               {/* Resend Code Button & Countdown */}
-              <div className="text-center mt-2">
+              <div className="text-center pt-1">
                 {resendTimer > 0 ? (
                   <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
                     Resend code in <span className="font-bold font-mono">{resendTimer}s</span>
@@ -320,7 +343,7 @@ export default function FirstTimePasswordChange({ user, onPasswordChanged, isDar
                     type="button"
                     onClick={handleSendCode}
                     disabled={sendingCode}
-                    className={`text-xs font-bold text-blue-600 hover:text-blue-700 hover:underline dark:text-blue-400 dark:hover:text-blue-300 flex items-center gap-1 mx-auto transition-all ${
+                    className={`text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline dark:text-blue-400 dark:hover:text-blue-300 inline-flex items-center gap-1 transition-all ${
                       sendingCode ? "opacity-50 cursor-not-allowed" : ""
                     }`}
                   >

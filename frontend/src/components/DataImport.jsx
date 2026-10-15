@@ -207,7 +207,7 @@ export default function DataImport({ isGenerating }) {
               }`}
             >
               <div className="space-y-0.5 sm:space-y-1">
-                <p className={`text-[10px] sm:text-xs font-semibold uppercase tracking-wider ${isDark ? "text-slate-500" : "text-slate-400"}`}>
+                <p className={`text-xs font-semibold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-600"}`}>
                   {card.label}
                 </p>
                 <p className={`text-xl sm:text-3xl font-extrabold tracking-tight ${isDark ? "text-white" : "text-slate-900"}`}>
@@ -310,7 +310,7 @@ export default function DataImport({ isGenerating }) {
                   <p className={`text-xs sm:text-sm font-bold ${isDark ? "text-white" : "text-slate-900"} break-all`}>
                     {file ? file.name : "Drag & Drop Excel File here"}
                   </p>
-                  <p className={`text-[11px] sm:text-xs mt-1 ${isDark ? "text-slate-500" : "text-slate-400"}`}>
+                  <p className={`text-xs mt-1 ${isDark ? "text-slate-400" : "text-slate-500"}`}>
                     {file ? `${(file.size / 1024).toFixed(1)} KB` : "or click to browse from files"}
                   </p>
                 </div>
@@ -344,13 +344,14 @@ export default function DataImport({ isGenerating }) {
 
           <div className="pt-5 sm:pt-6">
             <button
+              type="button"
               onClick={handleImport}
               disabled={uploading || !file || isGenerating}
-              className={`w-full py-3 sm:py-3.5 rounded-xl font-semibold text-xs sm:text-sm transition-all flex items-center justify-center gap-2 ${
+              className={`w-full py-3.5 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2 ${
                 uploading || !file || isGenerating
                   ? isDark 
-                    ? "bg-slate-700 text-slate-500 cursor-not-allowed" 
-                    : "bg-slate-100 text-slate-400 cursor-not-allowed"
+                    ? "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed" 
+                    : "bg-slate-200 text-slate-400 border border-slate-200 cursor-not-allowed"
                   : "bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/10"
               }`}
             >

@@ -447,7 +447,7 @@ function ProctorChatPanel() {
             className={`p-1.5 rounded-lg border transition-all ${
               isDark 
                 ? "bg-slate-700 border-slate-600 text-slate-200 hover:bg-slate-600" 
-                : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50 shadow-sm"
+                : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50 shadow-sm"
             }`}
             title="Start New Chat"
           >
@@ -587,7 +587,7 @@ function ProctorChatPanel() {
                           <div className="flex gap-2 justify-end">
                             <button
                               onClick={cancelEditing}
-                              className="px-2.5 py-1 text-xs bg-gray-500 hover:bg-gray-600 text-white rounded font-medium transition"
+                              className="px-2.5 py-1 text-xs bg-slate-500 hover:bg-slate-600 text-white rounded font-medium transition"
                             >
                               Cancel
                             </button>
@@ -696,7 +696,7 @@ function ProctorChatPanel() {
                   setContactSearch("");
                 }}
                 className={`p-1.5 rounded-lg transition ${
-                  isDark ? "hover:bg-slate-700 text-slate-400 hover:text-white" : "hover:bg-slate-100 text-gray-500 hover:text-gray-900"
+                  isDark ? "hover:bg-slate-700 text-slate-400 hover:text-white" : "hover:bg-slate-100 text-slate-500 hover:text-slate-900"
                 }`}
               >
                 <XMarkIcon className="w-5 h-5" />
@@ -1077,8 +1077,8 @@ export default function ProctorDashboard() {
 
   if (!user) {
     return (
-      <div className={`min-h-screen ${isDark ? "bg-gray-900" : "bg-gray-50"} flex items-center justify-center`}>
-        <p className={isDark ? "text-gray-300" : "text-gray-600"}>Redirecting to login...</p>
+      <div className={`min-h-screen ${isDark ? "bg-slate-900" : "bg-slate-50"} flex items-center justify-center`}>
+        <p className={isDark ? "text-slate-300" : "text-slate-600"}>Redirecting to login...</p>
       </div>
     );
   }
@@ -1343,7 +1343,7 @@ export default function ProctorDashboard() {
                 {(user?.name || "P").split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2)}
               </div>
               <div className="flex-1 min-w-0 relative z-10">
-                <h2 className={`text-xl sm:text-3xl font-bold tracking-tight break-words ${isDark ? "text-white" : "text-gray-900"}`}>{user?.name || "Proctor Name"}</h2>
+                <h2 className={`text-xl sm:text-3xl font-bold tracking-tight break-words ${isDark ? "text-white" : "text-slate-900"}`}>{user?.name || "Proctor Name"}</h2>
                 <div className="flex flex-wrap gap-2 sm:gap-4 mt-3">
                   <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium border ${isDark ? "bg-slate-700/50 border-slate-600 text-slate-300" : "bg-slate-50 border-slate-200 text-slate-600"}`}>
                     <CheckBadgeIcon className="w-4 h-4 text-emerald-500" />
@@ -1384,8 +1384,8 @@ export default function ProctorDashboard() {
                       <TableCellsIcon className={`w-6 h-6 ${isDark ? "text-emerald-400" : "text-emerald-500"}`} />
                     </div>
                     <div className="min-w-0">
-                      <h3 className={`text-lg sm:text-xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>Upload My Teaching Schedule</h3>
-                      <p className={`text-xs sm:text-sm mt-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}>Upload your individual schedule (Excel format) to update your availability</p>
+                      <h3 className={`text-lg sm:text-xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Upload My Teaching Schedule</h3>
+                      <p className={`text-xs sm:text-sm mt-1 ${isDark ? "text-slate-400" : "text-slate-500"}`}>Upload your individual schedule (Excel format) to update your availability</p>
                     </div>
                   </div>
                   {!selectedFile ? (
@@ -1405,12 +1405,12 @@ export default function ProctorDashboard() {
                         <div className="flex items-center gap-3 flex-1 min-w-0">
                           <CheckCircleIcon className="w-6 h-6 text-emerald-500 shrink-0" />
                           <div className="flex-1 min-w-0">
-                            <p className={`text-sm font-semibold truncate ${isDark ? "text-gray-200" : "text-gray-800"}`}>{selectedFile.name}</p>
-                            <p className={`text-xs mt-0.5 ${isDark ? "text-gray-400" : "text-gray-500"}`}>{filePreview ? `${filePreview.rows.length} data row${filePreview.rows.length !== 1 ? 's' : ''} · ${filePreview.headers.length} column${filePreview.headers.length !== 1 ? 's' : ''}` : 'Reading file…'}</p>
+                            <p className={`text-sm font-semibold truncate ${isDark ? "text-slate-200" : "text-slate-800"}`}>{selectedFile.name}</p>
+                            <p className={`text-xs mt-0.5 ${isDark ? "text-slate-400" : "text-slate-500"}`}>{filePreview ? `${filePreview.rows.length} data row${filePreview.rows.length !== 1 ? 's' : ''} · ${filePreview.headers.length} column${filePreview.headers.length !== 1 ? 's' : ''}` : 'Reading file…'}</p>
                           </div>
                         </div>
                         <div className="flex gap-3 w-full sm:w-auto shrink-0">
-                          <button onClick={() => { setSelectedFile(null); setFilePreview(null); }} className={`flex-1 sm:flex-none px-4 py-2.5 rounded-xl text-xs font-bold transition ${isDark ? "text-gray-300 hover:text-white bg-slate-700 hover:bg-slate-600" : "text-gray-600 hover:text-gray-900 bg-white border border-gray-200 hover:bg-gray-50"}`}>Cancel</button>
+                          <button onClick={() => { setSelectedFile(null); setFilePreview(null); }} className={`flex-1 sm:flex-none px-4 py-2.5 rounded-xl text-xs font-bold transition ${isDark ? "text-slate-300 hover:text-white bg-slate-700 hover:bg-slate-600" : "text-slate-600 hover:text-slate-900 bg-white border border-slate-200 hover:bg-slate-50"}`}>Cancel</button>
                           <button onClick={handleFileUpload} disabled={uploading} className="flex-1 sm:flex-none px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white rounded-xl text-xs font-bold transition shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2">
                             {uploading ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : <ArrowUpTrayIcon className="w-4 h-4" />}
                             {uploading ? "Uploading…" : "Confirm Upload"}
@@ -1425,7 +1425,7 @@ export default function ProctorDashboard() {
                           </div>
                           <div className="overflow-x-auto max-h-[60dvh] sm:max-h-80 overflow-y-auto custom-scrollbar">
                             {filePreview.headers.length === 0 ? (
-                              <p className={`text-center py-8 text-sm ${isDark ? "text-gray-500" : "text-gray-400"}`}>The file appears to be empty.</p>
+                              <p className={`text-center py-8 text-sm ${isDark ? "text-slate-500" : "text-slate-400"}`}>The file appears to be empty.</p>
                             ) : (
                               <table className="w-full text-xs border-collapse min-w-[560px]">
                                 <thead className={`sticky top-0 z-10 ${isDark ? "bg-blue-900/80 text-blue-300 backdrop-blur-md" : "bg-blue-600 text-white"}`}>

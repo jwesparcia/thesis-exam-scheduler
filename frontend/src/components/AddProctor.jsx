@@ -58,58 +58,88 @@ export default function AddProctor({ isGenerating }) {
   const isDark = theme === "dark";
 
   return (
-    <div className={`space-y-8 ${isDark ? "bg-gray-800 text-white" : "bg-white text-gray-800"}`}>
+    <div className={`space-y-6 ${isDark ? "bg-slate-800/40 text-slate-100" : "bg-white text-slate-800"}`}>
       <div>
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-3 mb-4">
-          <div>
-            <h3 className={`text-lg sm:text-xl font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>Proctor Management</h3>
-            <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>
-              Monitor schedule uploads and manage proctor availability for the upcoming exams.
-            </p>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-5">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-blue-600/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400">
+              <UsersIcon className="w-6 h-6 shrink-0" />
+            </div>
+            <div>
+              <h3 className={`text-lg sm:text-xl font-bold tracking-tight ${isDark ? "text-white" : "text-slate-900"}`}>Proctor Management</h3>
+              <p className={`text-xs sm:text-sm ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+                Monitor schedule uploads, teaching loads, and manage proctor availability for examinations.
+              </p>
+            </div>
           </div>
           <button 
+            type="button"
             onClick={fetchProctors}
             disabled={fetching}
-            className={`p-2 rounded-xl transition shrink-0 ${isDark ? "hover:bg-gray-700 text-gray-400" : "hover:bg-gray-100 text-gray-600"}`}
-            title="Refresh list"
+            className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition border ${
+              isDark 
+                ? "bg-slate-800 hover:bg-slate-750 text-slate-200 border-slate-700" 
+                : "bg-white hover:bg-slate-50 text-slate-700 border-slate-300"
+            }`}
+            title="Refresh proctors list"
           >
-            <ArrowPathIcon className={`w-5 h-5 ${fetching ? "animate-spin" : ""}`} />
+            <ArrowPathIcon className={`w-4 h-4 ${fetching ? "animate-spin text-blue-600" : "text-slate-500"}`} />
+            Refresh
           </button>
         </div>
 
         {proctors.length === 0 && !fetching ? (
-          <p className={isDark ? "text-gray-400" : "text-gray-600"}>No proctors added yet.</p>
+          <div className={`p-8 text-center rounded-2xl border border-dashed ${isDark ? "border-slate-700 text-slate-400" : "border-slate-300 text-slate-500"}`}>
+            <UsersIcon className="w-8 h-8 mx-auto mb-2 opacity-60" />
+            <p className="text-sm font-medium">No proctors registered in the system yet.</p>
+          </div>
         ) : (
-          <div className={`w-full min-w-0 overflow-x-auto custom-scrollbar rounded-xl shadow-sm ${isDark ? "bg-gray-700 border border-gray-700" : "bg-white border border-slate-200"}`}>
-            <div className="md:hidden divide-y divide-slate-200 dark:divide-gray-600">
+          <div className={`w-full min-w-0 overflow-x-auto rounded-2xl shadow-xs border ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200"}`}>
+            <div className={`md:hidden divide-y ${isDark ? "divide-slate-750" : "divide-slate-200"}`}>
               {proctors.map((p) => (
                 <article key={p.id} className="space-y-3 p-4">
                   <div className="min-w-0">
-                    <h4 className="break-words font-semibold">{p.name}</h4>
-                    <p className={`mt-0.5 break-words text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>{p.department || "General"}</p>
+                    <h4 className={`break-words font-bold text-sm sm:text-base ${isDark ? "text-white" : "text-slate-900"}`}>{p.name}</h4>
+                    <p className={`mt-0.5 break-words text-xs font-medium ${isDark ? "text-slate-400" : "text-slate-500"}`}>{p.department || "General Faculty"}</p>
                   </div>
                   <div className="flex flex-wrap gap-2 text-xs">
-                    <span className={`rounded-full px-2.5 py-1 font-medium ${p.has_schedule ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-amber-500/10 text-amber-600 dark:text-amber-400"}`}>
+                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold border ${
+                      p.has_schedule 
+                        ? isDark ? "bg-emerald-950/60 text-emerald-300 border-emerald-800" : "bg-emerald-50 text-emerald-800 border-emerald-200"
+                        : isDark ? "bg-amber-950/60 text-amber-300 border-amber-800" : "bg-amber-50 text-amber-800 border-amber-200"
+                    }`}>
                       {p.has_schedule ? "Schedule uploaded" : "No schedule"}
                     </span>
-                    <span className={`rounded-full px-2.5 py-1 font-medium ${p.exclude_from_scheduling ? "bg-red-500/10 text-red-600 dark:text-red-400" : "bg-blue-500/10 text-blue-600 dark:text-blue-400"}`}>
+                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold border ${
+                      p.exclude_from_scheduling 
+                        ? isDark ? "bg-rose-950/60 text-rose-300 border-rose-800" : "bg-rose-50 text-rose-800 border-rose-200"
+                        : isDark ? "bg-blue-950/60 text-blue-300 border-blue-800" : "bg-blue-50 text-blue-800 border-blue-200"
+                    }`}>
                       {p.exclude_from_scheduling ? "Excluded" : "Active"}
                     </span>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 pt-1">
                     {!p.has_schedule && (
                       <button
+                        type="button"
                         onClick={() => sendReminder(p.id, p.name)}
                         disabled={isGenerating}
-                        className={`min-h-11 flex-1 rounded-lg border px-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${isDark ? "border-blue-800 text-blue-300 hover:bg-blue-900/30" : "border-blue-200 text-blue-700 hover:bg-blue-50"}`}
+                        className={`min-h-10 flex-1 rounded-xl border px-3 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                          isDark ? "border-blue-800 bg-blue-950/40 text-blue-300 hover:bg-blue-900/50" : "border-blue-200 bg-blue-50 text-blue-800 hover:bg-blue-100"
+                        }`}
                       >
-                        <BellIcon className="mr-1.5 inline h-4 w-4" />Send Reminder
+                        <BellIcon className="mr-1.5 inline h-3.5 w-3.5" />Send Reminder
                       </button>
                     )}
                     <button
+                      type="button"
                       onClick={() => toggleExclude(p.id, p.exclude_from_scheduling)}
                       disabled={isGenerating}
-                      className={`min-h-11 flex-1 rounded-lg border px-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${p.exclude_from_scheduling ? "border-emerald-200 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-300" : "border-red-200 text-red-700 hover:bg-red-50 dark:border-red-800 dark:text-red-300"}`}
+                      className={`min-h-10 flex-1 rounded-xl border px-3 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                        p.exclude_from_scheduling 
+                          ? isDark ? "border-emerald-800 bg-emerald-950/40 text-emerald-300 hover:bg-emerald-900/50" : "border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
+                          : isDark ? "border-rose-800 bg-rose-950/40 text-rose-300 hover:bg-rose-900/50" : "border-rose-200 bg-rose-50 text-rose-800 hover:bg-rose-100"
+                      }`}
                     >
                       {p.exclude_from_scheduling ? "Include" : "Exclude"}
                     </button>
@@ -117,71 +147,81 @@ export default function AddProctor({ isGenerating }) {
                 </article>
               ))}
             </div>
-            <table className="hidden w-full min-w-[680px] text-sm md:table">
-              <thead className={`${isDark ? "bg-gray-600 text-gray-100" : "bg-slate-50 text-slate-600"}`}>
+            <table className="hidden w-full min-w-[680px] text-xs sm:text-sm md:table">
+              <thead className={`${isDark ? "bg-slate-850 text-slate-300 border-b border-slate-700" : "bg-slate-50 text-slate-700 border-b border-slate-200"}`}>
                 <tr>
-                  <th className="py-3 px-4 text-left font-bold">Name</th>
-                  <th className="py-3 px-4 text-left font-bold">Schedule Status</th>
-                  <th className="py-3 px-4 text-left font-bold">System Status</th>
-                  <th className="py-3 px-4 text-right font-bold">Actions</th>
+                  <th className="py-3 px-5 text-left font-bold uppercase tracking-wider text-[11px]">Proctor Name</th>
+                  <th className="py-3 px-5 text-left font-bold uppercase tracking-wider text-[11px]">Schedule Status</th>
+                  <th className="py-3 px-5 text-left font-bold uppercase tracking-wider text-[11px]">Assignment Status</th>
+                  <th className="py-3 px-5 text-right font-bold uppercase tracking-wider text-[11px]">Actions</th>
                 </tr>
               </thead>
-              <tbody className={`divide-y ${isDark ? "divide-gray-600 text-gray-200" : "divide-slate-100 text-gray-800"}`}>
+              <tbody className={`divide-y ${isDark ? "divide-slate-700 text-slate-200" : "divide-slate-200 text-slate-800"}`}>
                 {proctors.map((p) => (
-                  <tr key={p.id} className={`border-t ${isDark ? "border-gray-600 hover:bg-gray-600/50" : "border-slate-100 hover:bg-slate-50"} transition`}>
-                    <td className="py-3 px-4">
-                      <div className="font-medium">{p.name}</div>
-                      <div className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>{p.department || "General"}</div>
+                  <tr key={p.id} className={`transition ${isDark ? "hover:bg-slate-750/50" : "hover:bg-slate-50"}`}>
+                    <td className="py-3.5 px-5">
+                      <div className={`font-bold ${isDark ? "text-white" : "text-slate-900"}`}>{p.name}</div>
+                      <div className={`text-xs font-medium ${isDark ? "text-slate-400" : "text-slate-500"}`}>{p.department || "General Faculty"}</div>
                     </td>
-                    <td className="py-3 px-4">
+                    <td className="py-3.5 px-5">
                       {p.has_schedule ? (
-                        <div className="flex items-center gap-1.5 text-emerald-500 font-medium">
-                          <CheckCircleIcon className="w-4 h-4" />
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
+                          isDark ? "bg-emerald-950/60 text-emerald-300 border-emerald-800" : "bg-emerald-50 text-emerald-800 border-emerald-200"
+                        }`}>
+                          <CheckCircleIcon className="w-3.5 h-3.5" />
                           <span>Uploaded</span>
-                        </div>
+                        </span>
                       ) : (
-                        <div className="flex items-center gap-1.5 text-amber-500 font-medium">
-                          <XCircleIcon className="w-4 h-4" />
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
+                          isDark ? "bg-amber-950/60 text-amber-300 border-amber-800" : "bg-amber-50 text-amber-800 border-amber-200"
+                        }`}>
+                          <XCircleIcon className="w-3.5 h-3.5" />
                           <span>No Schedule</span>
-                        </div>
+                        </span>
                       )}
                     </td>
-                    <td className="py-3 px-4">
+                    <td className="py-3.5 px-5">
                       {p.exclude_from_scheduling ? (
-                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400`}>
+                        <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
+                          isDark ? "bg-rose-950/60 text-rose-300 border-rose-800" : "bg-rose-50 text-rose-800 border-rose-200"
+                        }`}>
                           Excluded
                         </span>
                       ) : (
-                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400`}>
+                        <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
+                          isDark ? "bg-blue-950/60 text-blue-300 border-blue-800" : "bg-blue-50 text-blue-800 border-blue-200"
+                        }`}>
                           Active
                         </span>
                       )}
                     </td>
-                    <td className="py-3 px-4 text-right">
-                      <div className="flex justify-end gap-2">
+                    <td className="py-3.5 px-5 text-right">
+                      <div className="flex justify-end gap-1.5">
                         {!p.has_schedule && (
                           <button
+                            type="button"
                             onClick={() => sendReminder(p.id, p.name)}
                             disabled={isGenerating}
-                            className={`p-2 rounded-lg transition ${
+                            className={`p-2 rounded-xl transition border ${
                               isGenerating 
-                                ? "opacity-50 cursor-not-allowed" 
-                                : (isDark ? "hover:bg-blue-900/30 text-blue-400" : "hover:bg-blue-50 text-blue-600")
+                                ? "opacity-50 cursor-not-allowed border-transparent" 
+                                : isDark ? "hover:bg-blue-900/40 text-blue-300 border-blue-800/80" : "hover:bg-blue-100 text-blue-800 border-blue-200"
                             }`}
-                            title={isGenerating ? "Cannot send reminders while schedule generation is ongoing" : "Send Reminder"}
+                            title={isGenerating ? "Cannot send reminders while schedule generation is ongoing" : "Send Reminder Email"}
                           >
                             <BellIcon className="w-4 h-4" />
                           </button>
                         )}
                         <button
+                          type="button"
                           onClick={() => toggleExclude(p.id, p.exclude_from_scheduling)}
                           disabled={isGenerating}
-                          className={`p-2 rounded-lg transition ${
+                          className={`p-2 rounded-xl transition border ${
                             isGenerating
-                              ? "opacity-50 cursor-not-allowed"
+                              ? "opacity-50 cursor-not-allowed border-transparent"
                               : p.exclude_from_scheduling
-                                ? (isDark ? "hover:bg-emerald-900/30 text-emerald-400" : "hover:bg-emerald-50 text-emerald-600")
-                                : (isDark ? "hover:bg-red-900/30 text-red-400" : "hover:bg-red-50 text-red-600")
+                                ? isDark ? "hover:bg-emerald-900/40 text-emerald-300 border-emerald-800/80" : "hover:bg-emerald-100 text-emerald-800 border-emerald-200"
+                                : isDark ? "hover:bg-rose-900/40 text-rose-300 border-rose-800/80" : "hover:bg-rose-100 text-rose-800 border-rose-200"
                           }`}
                           title={isGenerating ? "Cannot modify proctors while schedule generation is ongoing" : (p.exclude_from_scheduling ? "Include in Scheduling" : "Exclude from Scheduling")}
                         >

@@ -41,6 +41,7 @@ import RoomManagement from "../components/RoomManagement";
 import SettingsDropdown from "../components/SettingsDropdown";
 import DataImport from "../components/DataImport";
 import StudentImport from "../components/StudentImport";
+import ProctorImport from "../components/ProctorImport";
 import ConfirmationModal from "../components/ConfirmationModal";
 import FirstTimePasswordChange from "../components/FirstTimePasswordChange";
 import SubjectDurationsManager from "../components/SubjectDurationsManager";
@@ -205,21 +206,21 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
   return (
     <div className="space-y-6">
       {/* Sub-tab navigation */}
-      <div className={`flex border-b ${isDark ? "border-gray-700" : "border-gray-200"} mb-2 overflow-x-auto no-scrollbar`}>
+      <div className={`flex border-b ${isDark ? "border-slate-800" : "border-slate-200"} mb-2 overflow-x-auto no-scrollbar`}>
         <button
           onClick={() => setActiveSubTab("pending")}
-          className={`px-4 sm:px-5 py-3 text-sm font-semibold border-b-2 transition-all whitespace-nowrap shrink-0 ${activeSubTab === "pending"
-            ? "border-blue-500 text-blue-500"
-            : `border-transparent ${isDark ? "text-gray-400 hover:text-gray-200" : "text-gray-500 hover:text-gray-700"}`
+          className={`px-4 sm:px-5 py-3 text-sm font-bold border-b-2 transition-all whitespace-nowrap shrink-0 ${activeSubTab === "pending"
+            ? "border-blue-600 text-blue-600 dark:border-blue-500 dark:text-blue-400"
+            : `border-transparent ${isDark ? "text-slate-400 hover:text-slate-200" : "text-slate-500 hover:text-slate-800"}`
             }`}
         >
           Pending Requests ({requests.length})
         </button>
         <button
           onClick={() => setActiveSubTab("history")}
-          className={`px-4 sm:px-5 py-3 text-sm font-semibold border-b-2 transition-all whitespace-nowrap shrink-0 ${activeSubTab === "history"
-            ? "border-blue-500 text-blue-500"
-            : `border-transparent ${isDark ? "text-gray-400 hover:text-gray-200" : "text-gray-500 hover:text-gray-700"}`
+          className={`px-4 sm:px-5 py-3 text-sm font-bold border-b-2 transition-all whitespace-nowrap shrink-0 ${activeSubTab === "history"
+            ? "border-blue-600 text-blue-600 dark:border-blue-500 dark:text-blue-400"
+            : `border-transparent ${isDark ? "text-slate-400 hover:text-slate-200" : "text-slate-500 hover:text-slate-800"}`
             }`}
         >
           Rescheduling History
@@ -229,33 +230,33 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
       {activeSubTab === "pending" ? (
         loading ? (
           <div className="flex items-center justify-center py-16">
-            <div className="w-8 h-8 rounded-full border-4 border-t-blue-500 animate-spin" />
-            <span className={`ml-3 ${isDark ? "text-gray-400" : "text-gray-500"}`}>Loading requests...</span>
+            <div className="w-8 h-8 rounded-full border-4 border-blue-600 border-t-transparent animate-spin" />
+            <span className={`ml-3 text-sm font-medium ${isDark ? "text-slate-400" : "text-slate-600"}`}>Loading requests...</span>
           </div>
         ) : requests.length === 0 ? (
-          <div className={`text-center py-16 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
-            <ClipboardDocumentListIcon className="w-12 h-12 mx-auto mb-3 opacity-30" />
-            <p className="font-medium">No pending rescheduling requests.</p>
-            <p className="text-sm mt-1">Students with exam conflicts can submit requests from their dashboard.</p>
+          <div className={`text-center py-16 ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+            <ClipboardDocumentListIcon className="w-12 h-12 mx-auto mb-3 opacity-30 text-slate-400" />
+            <p className="font-semibold text-base">No pending rescheduling requests.</p>
+            <p className="text-sm mt-1 text-slate-400">Students with exam conflicts can submit requests from their dashboard.</p>
           </div>
         ) : (
           <div className="space-y-5">
             {requests.map((req) => (
               <div
                 key={req.id}
-                className={`p-4 sm:p-6 rounded-xl border shadow-sm transition-all ${isDark ? "bg-gray-800/50 border-gray-700" : "bg-white border-gray-200 hover:shadow-md"}`}
+                className={`p-4 sm:p-6 rounded-2xl border shadow-sm transition-all ${isDark ? "bg-slate-800/60 border-slate-700" : "bg-white border-slate-200 hover:shadow-md"}`}
               >
                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-5 gap-4">
                   <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-bold uppercase ${isDark ? "bg-yellow-900/40 text-yellow-300" : "bg-yellow-100 text-yellow-700"
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider border ${isDark ? "bg-amber-950/40 text-amber-300 border-amber-800/60" : "bg-amber-50 text-amber-900 border-amber-300"
                         }`}>Pending</span>
                     </div>
-                    <h4 className={`text-lg font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
+                    <h4 className={`text-lg font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
                       {req.course_name}
                     </h4>
-                    <p className={`text-sm mt-0.5 ${isDark ? "text-gray-400" : "text-gray-600"}`}>
-                      {req.student_name} &bull; Section: {req.section_name}
+                    <p className={`text-sm mt-0.5 ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+                      {req.student_name} &bull; Section: <strong className="font-semibold">{req.section_name}</strong>
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2 shrink-0 w-full sm:w-auto">
@@ -264,10 +265,10 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
                         <button
                           onClick={() => handleAutoAssign(req.id)}
                           disabled={isGenerating}
-                          className={`flex-1 sm:flex-initial px-4 py-2 rounded-lg font-semibold text-sm transition shadow-sm flex items-center justify-center gap-1.5 ${
+                          className={`flex-1 sm:flex-initial px-4 py-2.5 rounded-xl font-bold text-sm transition shadow-sm flex items-center justify-center gap-1.5 ${
                             isGenerating
-                              ? "bg-emerald-700/50 text-emerald-300 cursor-not-allowed"
-                              : "bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-900/20"
+                              ? "bg-emerald-800/50 text-emerald-300 cursor-not-allowed"
+                              : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-900/20"
                           }`}
                           title={isGenerating ? "Cannot approve while schedule generation is running" : "Approve with automatically assigned time and room"}
                         >
@@ -277,10 +278,10 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
                         <button
                           onClick={() => handleApproveClick(req)}
                           disabled={isGenerating}
-                          className={`flex-1 sm:flex-initial px-3 py-2 rounded-lg font-medium text-xs transition border ${
+                          className={`flex-1 sm:flex-initial px-3.5 py-2.5 rounded-xl font-semibold text-xs transition border ${
                             isDark
-                              ? "border-gray-600 bg-gray-700/50 text-gray-300 hover:bg-gray-700"
-                              : "border-gray-300 bg-gray-50 text-gray-700 hover:bg-gray-100"
+                              ? "border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700"
+                              : "border-slate-300 bg-slate-50 text-slate-700 hover:bg-slate-100"
                           }`}
                           title="Manually override time slot or room"
                         >
@@ -291,8 +292,8 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
                       <button
                         onClick={() => handleApproveClick(req)}
                         disabled={isGenerating}
-                        className={`flex-1 sm:flex-initial px-4 py-2 rounded-lg font-semibold text-sm transition ${
-                          isGenerating ? "bg-green-600 text-green-300 cursor-not-allowed" : "bg-green-600 hover:bg-green-500 text-white"
+                        className={`flex-1 sm:flex-initial px-4 py-2.5 rounded-xl font-bold text-sm transition ${
+                          isGenerating ? "bg-emerald-800/50 text-emerald-300 cursor-not-allowed" : "bg-emerald-600 hover:bg-emerald-700 text-white"
                         }`}
                         title={isGenerating ? "Cannot approve while schedule generation is running" : ""}
                       >
@@ -306,7 +307,7 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
                         if (comments !== null) handleReview(req.id, "rejected", comments || "");
                       }}
                       disabled={isGenerating}
-                      className={`flex-1 sm:flex-initial px-4 py-2 rounded-lg font-semibold text-sm transition ${isGenerating ? "bg-red-500/30 text-red-300 cursor-not-allowed" : "bg-red-500 hover:bg-red-600 text-white"
+                      className={`flex-1 sm:flex-initial px-4 py-2.5 rounded-xl font-bold text-sm transition ${isGenerating ? "bg-rose-900/40 text-rose-300 cursor-not-allowed" : "bg-rose-600 hover:bg-rose-700 text-white"
                         }`}
                       title={isGenerating ? "Cannot reject while schedule generation is running" : ""}
                     >
@@ -317,31 +318,39 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
 
                 {/* Auto-Assignment Recommendation Box */}
                 {req.auto_assignment?.success && (
-                  <div className={`p-4 rounded-xl border mb-4 shadow-sm ${isDark ? "bg-emerald-950/20 border-emerald-800/50" : "bg-emerald-50 border-emerald-200"}`}>
+                  <div className={`p-4 rounded-xl border mb-4 shadow-sm ${isDark ? "bg-emerald-950/20 border-emerald-800/60" : "bg-emerald-50/70 border-emerald-200"}`}>
                     <div className="flex items-center justify-between mb-2.5">
-                      <h5 className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${isDark ? "text-emerald-400" : "text-emerald-700"}`}>
+                      <h5 className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${isDark ? "text-emerald-300" : "text-emerald-800"}`}>
                         <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                         Automatically Assigned Schedule
                       </h5>
-                      <span className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full ${isDark ? "bg-emerald-900/50 text-emerald-300 border border-emerald-700/50" : "bg-emerald-100 text-emerald-800"}`}>
+                      <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${isDark ? "bg-emerald-900/50 text-emerald-300 border-emerald-700/60" : "bg-emerald-100 text-emerald-800 border-emerald-300"}`}>
                         Conflict-Free Validated
                       </span>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
-                      <div className={`p-2.5 rounded-lg ${isDark ? "bg-gray-800/60" : "bg-white/80"}`}>
-                        <span className={`text-[11px] block uppercase font-medium ${isDark ? "text-gray-400" : "text-gray-500"}`}>Examination Date & Time</span>
-                        <span className={`font-bold block mt-0.5 ${isDark ? "text-white" : "text-gray-900"}`}>{req.auto_assignment.date_formatted}</span>
+                      <div className={`p-3 rounded-xl border ${isDark ? "bg-slate-900/70 border-slate-800" : "bg-white border-emerald-100"}`}>
+                        <span className={`text-[11px] block uppercase font-bold tracking-wider ${isDark ? "text-slate-400" : "text-slate-500"}`}>Examination Date & Time</span>
+                        <span className={`font-bold block mt-1 ${isDark ? "text-white" : "text-slate-900"}`}>{req.auto_assignment.date_formatted}</span>
                         <div className={`text-xs font-semibold mt-0.5 ${isDark ? "text-emerald-300" : "text-emerald-700"}`}>{req.auto_assignment.time_formatted}</div>
                       </div>
-                      <div className={`p-2.5 rounded-lg ${isDark ? "bg-gray-800/60" : "bg-white/80"}`}>
-                        <span className={`text-[11px] block uppercase font-medium ${isDark ? "text-gray-400" : "text-gray-500"}`}>Assigned Room</span>
-                        <span className={`font-bold block mt-0.5 ${isDark ? "text-white" : "text-gray-900"}`}>Room {req.auto_assignment.room_name}</span>
-                        <div className={`text-xs mt-0.5 ${isDark ? "text-gray-400" : "text-gray-600"}`}>Seating Capacity: {req.auto_assignment.room_capacity} seats</div>
+                      <div className={`p-3 rounded-xl border ${isDark ? "bg-slate-900/70 border-slate-800" : "bg-white border-emerald-100"}`}>
+                        <span className={`text-[11px] block uppercase font-bold tracking-wider ${isDark ? "text-slate-400" : "text-slate-500"}`}>Assigned Room</span>
+                        <span className={`font-bold block mt-1 ${isDark ? "text-white" : "text-slate-900"}`}>
+                          {req.auto_assignment.room_name === "Consultation Area" ? "Consultation Area" : `Room ${req.auto_assignment.room_name}`}
+                        </span>
+                        <div className={`text-xs mt-0.5 ${isDark ? "text-slate-400" : "text-slate-600"}`}>Seating Capacity: {req.auto_assignment.room_capacity} seats</div>
                       </div>
-                      <div className={`p-2.5 rounded-lg ${isDark ? "bg-gray-800/60" : "bg-white/80"}`}>
-                        <span className={`text-[11px] block uppercase font-medium ${isDark ? "text-gray-400" : "text-gray-500"}`}>Room Load Balancing</span>
-                        <span className={`font-bold block mt-0.5 ${isDark ? "text-white" : "text-gray-900"}`}>{req.auto_assignment.assigned_student_count} student(s) scheduled</span>
-                        <div className={`text-xs font-semibold mt-0.5 ${isDark ? "text-emerald-300" : "text-emerald-700"}`}>{req.auto_assignment.remaining_capacity} seats available</div>
+                      <div className={`p-3 rounded-xl border ${isDark ? "bg-slate-900/70 border-slate-800" : "bg-white border-emerald-100"}`}>
+                        <span className={`text-[11px] block uppercase font-bold tracking-wider ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                          {req.auto_assignment.is_consultation ? "Proctoring" : "Room Load Balancing"}
+                        </span>
+                        <span className={`font-bold block mt-1 ${isDark ? "text-white" : "text-slate-900"}`}>
+                          {req.auto_assignment.is_consultation ? "Admin Personal Assignment" : `${req.auto_assignment.assigned_student_count} student(s) scheduled`}
+                        </span>
+                        <div className={`text-xs font-semibold mt-0.5 ${isDark ? "text-emerald-300" : "text-emerald-700"}`}>
+                          {req.auto_assignment.is_consultation ? "Without proctor assignment" : `${req.auto_assignment.remaining_capacity} seats available`}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -349,13 +358,13 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
 
                 {/* Warning when no valid slot or room could be auto-assigned */}
                 {req.student_type === "irregular" && req.auto_assignment && !req.auto_assignment.success && (
-                  <div className={`p-3.5 rounded-xl border mb-4 flex items-start gap-3 ${isDark ? "bg-amber-950/20 border-amber-800/50" : "bg-amber-50 border-amber-200"}`}>
+                  <div className={`p-4 rounded-xl border mb-4 flex items-start gap-3 ${isDark ? "bg-amber-950/30 border-amber-800/60" : "bg-amber-50 border-amber-300"}`}>
                     <ExclamationTriangleIcon className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
                     <div>
-                      <h5 className={`text-xs font-bold uppercase tracking-wider ${isDark ? "text-amber-400" : "text-amber-800"}`}>
+                      <h5 className={`text-xs font-bold uppercase tracking-wider ${isDark ? "text-amber-300" : "text-amber-900"}`}>
                         Automatic Assignment Notice
                       </h5>
-                      <p className={`text-xs mt-1 leading-relaxed ${isDark ? "text-amber-300/90" : "text-amber-700"}`}>
+                      <p className={`text-xs mt-1 leading-relaxed ${isDark ? "text-amber-200/90" : "text-amber-800"}`}>
                         {req.auto_assignment.message}
                       </p>
                     </div>
@@ -363,28 +372,28 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
                 )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                  <div className={`p-4 rounded-lg border ${isDark ? "bg-gray-700/50 border-gray-600" : "bg-gray-50 border-gray-100"}`}>
-                    <h5 className={`text-xs font-bold uppercase tracking-wide mb-2 ${isDark ? "text-gray-400" : "text-gray-500"}`}>Original Exam</h5>
-                    <p className={`text-sm leading-relaxed ${isDark ? "text-gray-200" : "text-gray-700"}`}>
-                      <span className="font-medium">Date:</span> {req.original_exam_date}<br />
-                      <span className="font-medium">Time:</span> {req.original_time}<br />
-                      <span className="font-medium">Type:</span> {req.exam_type}
+                  <div className={`p-4 rounded-xl border ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-slate-50 border-slate-200"}`}>
+                    <h5 className={`text-xs font-bold uppercase tracking-wider mb-2 ${isDark ? "text-slate-400" : "text-slate-500"}`}>Original Exam</h5>
+                    <p className={`text-sm leading-relaxed ${isDark ? "text-slate-200" : "text-slate-700"}`}>
+                      <span className="font-semibold text-slate-900 dark:text-slate-100">Date:</span> {req.original_exam_date}<br />
+                      <span className="font-semibold text-slate-900 dark:text-slate-100">Time:</span> {req.original_time}<br />
+                      <span className="font-semibold text-slate-900 dark:text-slate-100">Type:</span> {req.exam_type}
                     </p>
                   </div>
-                  <div className={`p-4 rounded-lg border ${isDark ? "bg-blue-900/20 border-blue-800/40" : "bg-blue-50 border-blue-100"}`}>
-                    <h5 className={`text-xs font-bold uppercase tracking-wide mb-2 ${isDark ? "text-blue-400" : "text-blue-600"}`}>Requested Schedule</h5>
-                    <p className={`text-sm leading-relaxed ${isDark ? "text-gray-200" : "text-gray-700"}`}>
-                      <span className="font-medium">Mode:</span> {req.requested_mode}<br />
-                      <span className="font-medium">Date:</span> {req.preferred_date || "Flexible"}<br />
-                      <span className="font-medium">Time:</span> {req.preferred_time || "To be determined"}
+                  <div className={`p-4 rounded-xl border ${isDark ? "bg-blue-950/20 border-blue-800/40" : "bg-blue-50/70 border-blue-200"}`}>
+                    <h5 className={`text-xs font-bold uppercase tracking-wider mb-2 ${isDark ? "text-blue-300" : "text-blue-700"}`}>Requested Schedule</h5>
+                    <p className={`text-sm leading-relaxed ${isDark ? "text-slate-200" : "text-slate-700"}`}>
+                      <span className="font-semibold text-slate-900 dark:text-slate-100">Mode:</span> {req.requested_mode}<br />
+                      <span className="font-semibold text-slate-900 dark:text-slate-100">Date:</span> {req.preferred_date || "Flexible"}<br />
+                      <span className="font-semibold text-slate-900 dark:text-slate-100">Time:</span> {req.preferred_time || "To be determined"}
                     </p>
                   </div>
                 </div>
 
-                <div className={`p-4 rounded-lg border ${isDark ? "bg-gray-700/30 border-gray-700" : "bg-gray-50 border-gray-100"}`}>
-                  <h5 className={`text-xs font-bold uppercase tracking-wide mb-2 ${isDark ? "text-gray-400" : "text-gray-500"}`}>Reason for Request</h5>
-                  <p className={`text-sm ${isDark ? "text-gray-300" : "text-gray-700"}`}>
-                    <span className={`inline-block px-2 py-0.5 rounded text-xs font-semibold mr-2 mb-1 ${isDark ? "bg-gray-600 text-gray-200" : "bg-gray-200 text-gray-700"}`}>
+                <div className={`p-4 rounded-xl border ${isDark ? "bg-slate-800/30 border-slate-700" : "bg-slate-50 border-slate-200"}`}>
+                  <h5 className={`text-xs font-bold uppercase tracking-wider mb-2 ${isDark ? "text-slate-400" : "text-slate-500"}`}>Reason for Request</h5>
+                  <p className={`text-sm ${isDark ? "text-slate-300" : "text-slate-700"}`}>
+                    <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-bold mr-2 mb-1 border ${isDark ? "bg-slate-700 border-slate-600 text-slate-200" : "bg-slate-200 border-slate-300 text-slate-800"}`}>
                       {req.reason_type}
                     </span>
                     {req.detailed_explanation}
@@ -397,83 +406,87 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
       ) : (
         loadingHistory ? (
           <div className="flex items-center justify-center py-16">
-            <div className="w-8 h-8 rounded-full border-4 border-t-blue-500 animate-spin" />
-            <span className={`ml-3 ${isDark ? "text-gray-400" : "text-gray-500"}`}>Loading history...</span>
+            <div className="w-8 h-8 rounded-full border-4 border-blue-600 border-t-transparent animate-spin" />
+            <span className={`ml-3 text-sm font-medium ${isDark ? "text-slate-400" : "text-slate-600"}`}>Loading history...</span>
           </div>
         ) : history.length === 0 ? (
-          <div className={`text-center py-16 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
-            <ClipboardDocumentListIcon className="w-12 h-12 mx-auto mb-3 opacity-30" />
-            <p className="font-medium">No rescheduling history.</p>
-            <p className="text-sm mt-1">Processed rescheduling requests will appear here.</p>
+          <div className={`text-center py-16 ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+            <ClipboardDocumentListIcon className="w-12 h-12 mx-auto mb-3 opacity-30 text-slate-400" />
+            <p className="font-semibold text-base">No rescheduling history.</p>
+            <p className="text-sm mt-1 text-slate-400">Processed rescheduling requests will appear here.</p>
           </div>
         ) : (
           <div className="space-y-5">
             {history.map((req) => (
               <div
                 key={req.id}
-                className={`p-6 rounded-xl border shadow-sm transition-all ${isDark ? "bg-gray-800/50 border-gray-700" : "bg-white border-gray-200 hover:shadow-md"}`}
+                className={`p-6 rounded-2xl border shadow-sm transition-all ${isDark ? "bg-slate-800/60 border-slate-700" : "bg-white border-slate-200 hover:shadow-md"}`}
               >
                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-5 gap-4">
                   <div>
                     <div className="flex items-center gap-2 mb-1.5">
-                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase ${req.status === "approved"
-                        ? (isDark ? "bg-green-900/40 text-green-300" : "bg-green-100 text-green-700")
-                        : (isDark ? "bg-red-900/40 text-red-300" : "bg-red-100 text-red-700")
+                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider border ${req.status === "approved"
+                        ? (isDark ? "bg-emerald-950/40 text-emerald-300 border-emerald-800/60" : "bg-emerald-50 text-emerald-900 border-emerald-300")
+                        : (isDark ? "bg-rose-950/40 text-rose-300 border-rose-800/60" : "bg-rose-50 text-rose-900 border-rose-300")
                         }`}>
                         {req.status}
                       </span>
-                      <span className={`text-xs ${isDark ? "text-gray-500" : "text-gray-400"}`}>
+                      <span className={`text-xs ${isDark ? "text-slate-500" : "text-slate-400"}`}>
                         ID: {req.id}
                       </span>
                     </div>
-                    <h4 className={`text-lg font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
+                    <h4 className={`text-lg font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
                       {req.course_name}
                     </h4>
-                    <p className={`text-sm mt-0.5 ${isDark ? "text-gray-400" : "text-gray-600"}`}>
-                      {req.student_name} &bull; Section: {req.section_name}
+                    <p className={`text-sm mt-0.5 ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+                      {req.student_name} &bull; Section: <strong className="font-semibold">{req.section_name}</strong>
                     </p>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                  <div className={`p-4 rounded-lg border ${isDark ? "bg-gray-700/50 border-gray-600" : "bg-gray-50 border-gray-100"}`}>
-                    <h5 className={`text-xs font-bold uppercase tracking-wide mb-2 ${isDark ? "text-gray-400" : "text-gray-500"}`}>Original Exam</h5>
-                    <p className={`text-sm leading-relaxed ${isDark ? "text-gray-200" : "text-gray-700"}`}>
-                      <span className="font-medium">Date:</span> {req.original_exam_date}<br />
-                      <span className="font-medium">Time:</span> {req.original_time}<br />
-                      <span className="font-medium">Type:</span> {req.exam_type}
+                  <div className={`p-4 rounded-xl border ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-slate-50 border-slate-200"}`}>
+                    <h5 className={`text-xs font-bold uppercase tracking-wider mb-2 ${isDark ? "text-slate-400" : "text-slate-500"}`}>Original Exam</h5>
+                    <p className={`text-sm leading-relaxed ${isDark ? "text-slate-200" : "text-slate-700"}`}>
+                      <span className="font-semibold text-slate-900 dark:text-slate-100">Date:</span> {req.original_exam_date}<br />
+                      <span className="font-semibold text-slate-900 dark:text-slate-100">Time:</span> {req.original_time}<br />
+                      <span className="font-semibold text-slate-900 dark:text-slate-100">Type:</span> {req.exam_type}
                     </p>
                   </div>
-                  <div className={`p-4 rounded-lg border ${req.status === "approved"
-                    ? (isDark ? "bg-blue-900/20 border-blue-800/40" : "bg-blue-50 border-blue-100")
-                    : (isDark ? "bg-red-900/10 border-red-900/20" : "bg-red-50/50 border-red-100")
+                  <div className={`p-4 rounded-xl border ${req.status === "approved"
+                    ? (isDark ? "bg-blue-950/20 border-blue-800/40" : "bg-blue-50/70 border-blue-200")
+                    : (isDark ? "bg-rose-950/20 border-rose-800/40" : "bg-rose-50/70 border-rose-200")
                     }`}>
-                    <h5 className={`text-xs font-bold uppercase tracking-wide mb-2 ${req.status === "approved"
-                      ? (isDark ? "text-blue-400" : "text-blue-600")
-                      : (isDark ? "text-red-400" : "text-red-600")
+                    <h5 className={`text-xs font-bold uppercase tracking-wider mb-2 ${req.status === "approved"
+                      ? (isDark ? "text-blue-300" : "text-blue-700")
+                      : (isDark ? "text-rose-300" : "text-rose-700")
                       }`}>
                       {req.status === "approved" ? "Rescheduled To" : "Requested Schedule (Rejected)"}
                     </h5>
-                    <p className={`text-sm leading-relaxed ${isDark ? "text-gray-200" : "text-gray-700"}`}>
-                      <span className="font-medium">Mode:</span> {req.requested_mode}<br />
-                      <span className="font-medium">Date:</span> {formatPreferredDate(req.preferred_date)}<br />
-                      <span className="font-medium">Time:</span> {req.preferred_time || "To be determined"}<br />
+                    <p className={`text-sm leading-relaxed ${isDark ? "text-slate-200" : "text-slate-700"}`}>
+                      <span className="font-semibold text-slate-900 dark:text-slate-100">Mode:</span> {req.requested_mode}<br />
+                      <span className="font-semibold text-slate-900 dark:text-slate-100">Date:</span> {formatPreferredDate(req.preferred_date)}<br />
+                      <span className="font-semibold text-slate-900 dark:text-slate-100">Time:</span> {req.preferred_time || "To be determined"}<br />
                       {req.room && (
                         <>
-                          <span className="font-medium">Room:</span> Room {req.room}
+                          <span className="font-semibold text-slate-900 dark:text-slate-100">Room:</span> {req.room === "Consultation Area" ? "Consultation Area" : `Room ${req.room}`}
                           {req.room_capacity ? ` (Cap: ${req.room_capacity})` : ""}
                           {req.student_count !== null && req.student_count !== undefined ? ` · ${req.student_count} student(s) assigned` : ""}<br />
                         </>
                       )}
-                      {req.proctor && <><span className="font-medium">Proctor:</span> {req.proctor}<br /></>}
+                      {req.proctor ? (
+                        <><span className="font-semibold text-slate-900 dark:text-slate-100">Proctor:</span> {req.proctor}<br /></>
+                      ) : req.room === "Consultation Area" ? (
+                        <><span className="font-semibold text-slate-900 dark:text-slate-100">Proctor:</span> <span className="italic">To be assigned personally by admin</span><br /></>
+                      ) : null}
                     </p>
                   </div>
                 </div>
 
-                <div className={`p-4 rounded-lg border mb-4 ${isDark ? "bg-gray-700/30 border-gray-700" : "bg-gray-50 border-gray-100"}`}>
-                  <h5 className={`text-xs font-bold uppercase tracking-wide mb-2 ${isDark ? "text-gray-400" : "text-gray-500"}`}>Reason for Request</h5>
-                  <p className={`text-sm ${isDark ? "text-gray-300" : "text-gray-700"}`}>
-                    <span className={`inline-block px-2 py-0.5 rounded text-xs font-semibold mr-2 mb-1 ${isDark ? "bg-gray-600 text-gray-200" : "bg-gray-200 text-gray-700"}`}>
+                <div className={`p-4 rounded-xl border mb-4 ${isDark ? "bg-slate-800/30 border-slate-700" : "bg-slate-50 border-slate-200"}`}>
+                  <h5 className={`text-xs font-bold uppercase tracking-wider mb-2 ${isDark ? "text-slate-400" : "text-slate-500"}`}>Reason for Request</h5>
+                  <p className={`text-sm ${isDark ? "text-slate-300" : "text-slate-700"}`}>
+                    <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-bold mr-2 mb-1 border ${isDark ? "bg-slate-700 border-slate-600 text-slate-200" : "bg-slate-200 border-slate-300 text-slate-800"}`}>
                       {req.reason_type}
                     </span>
                     {req.detailed_explanation}
@@ -481,9 +494,9 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
                 </div>
 
                 {req.reviewer_comments && (
-                  <div className={`p-4 rounded-lg border border-dashed ${isDark ? "bg-slate-800/40 border-gray-700" : "bg-slate-50/50 border-gray-200"}`}>
-                    <h5 className={`text-xs font-bold uppercase tracking-wide mb-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}>Reviewer Comments</h5>
-                    <p className={`text-sm italic ${isDark ? "text-gray-300" : "text-gray-600"}`}>
+                  <div className={`p-4 rounded-xl border border-dashed ${isDark ? "bg-slate-800/40 border-slate-700" : "bg-slate-50 border-slate-300"}`}>
+                    <h5 className={`text-xs font-bold uppercase tracking-wider mb-1 ${isDark ? "text-slate-400" : "text-slate-500"}`}>Reviewer Comments</h5>
+                    <p className={`text-sm italic ${isDark ? "text-slate-300" : "text-slate-600"}`}>
                       "{req.reviewer_comments}"
                     </p>
                   </div>
@@ -496,73 +509,75 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
 
       {/* ── Room Selection Approval Modal ── */}
       {approveModalReq && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className={`w-full max-w-md rounded-2xl border shadow-2xl p-6 ${isDark ? "bg-gray-900 border-gray-700" : "bg-white border-gray-200"}`}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className={`w-full max-w-md rounded-2xl border shadow-2xl p-6 ${isDark ? "bg-slate-900 border-slate-700" : "bg-white border-slate-200"}`}>
             <div className="flex items-center justify-between mb-5">
-              <h3 className={`text-lg font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
-                {approveModalReq.consultation_area ? "Assign Proctor & Approve" : "Assign Room & Approve"}
+              <h3 className={`text-lg font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
+                {approveModalReq.consultation_area ? "Approve Consultation Area Exam" : "Assign Room & Approve"}
               </h3>
-              <button onClick={() => setApproveModalReq(null)} className={`p-1.5 rounded-lg ${isDark ? "hover:bg-gray-800 text-gray-400" : "hover:bg-gray-100 text-gray-500"}`}>
+              <button onClick={() => setApproveModalReq(null)} className={`p-1.5 rounded-lg transition ${isDark ? "hover:bg-slate-800 text-slate-400 hover:text-white" : "hover:bg-slate-100 text-slate-500 hover:text-slate-800"}`}>
                 <XMarkIcon className="w-5 h-5" />
               </button>
             </div>
-            <p className={`text-sm mb-4 ${isDark ? "text-gray-300" : "text-gray-600"}`}>
-              Approving <strong>{approveModalReq.course_name}</strong> for <strong>{approveModalReq.student_name}</strong>.<br />
+            <p className={`text-sm mb-4 leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+              Approving <strong className="text-slate-900 dark:text-slate-100">{approveModalReq.course_name}</strong> for <strong className="text-slate-900 dark:text-slate-100">{approveModalReq.student_name}</strong>.<br />
               {approveModalReq.consultation_area
-                ? "This late reschedule will take place in the Consultation Area. Assign a proctor to supervise the student."
+                ? "This reschedule is scheduled for 5:00 PM onwards and will take place in the Consultation Area without a proctor assignment. The admin will assign the proctor personally."
                 : "Select an available room. If another exam is already using it during this time, the irregular student's exam will join that session."}
             </p>
-            <div className={`mb-4 p-3 rounded-lg text-xs ${isDark ? "bg-blue-900/20 text-blue-300 border border-blue-800/40" : "bg-blue-50 text-blue-700 border border-blue-100"}`}>
+            <div className={`mb-4 p-3 rounded-xl text-xs border ${isDark ? "bg-blue-950/30 text-blue-300 border-blue-800/50" : "bg-blue-50 text-blue-800 border-blue-200"}`}>
               <span className="font-bold">Requested timeslot:</span>{" "}
-              {approveModalReq.preferred_date ? `${approveModalReq.preferred_date} · ${approveModalReq.preferred_time || "TBD"}` : "Not specified"}
+              {approveModalReq.preferred_date ? `${approveModalReq.preferred_date} · ${approveModalReq.preferred_time || "5:00 PM onwards"}` : (approveModalReq.auto_assignment?.date_formatted ? `${approveModalReq.auto_assignment.date_formatted} · ${approveModalReq.auto_assignment.time_formatted}` : "5:00 PM onwards")}
             </div>
             {loadingRooms ? (
               <div className="flex items-center gap-2 py-4">
-                <div className="w-5 h-5 rounded-full border-4 border-t-blue-500 animate-spin" />
-                <span className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}>
-                  {approveModalReq.consultation_area ? "Loading proctors..." : "Loading rooms with active exams..."}
+                <div className="w-5 h-5 rounded-full border-2 border-blue-600 border-t-transparent animate-spin" />
+                <span className={`text-sm ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+                  {approveModalReq.consultation_area ? "Loading details..." : "Loading rooms with active exams..."}
                 </span>
               </div>
             ) : approveModalReq.consultation_area ? (
               <>
-                <div className={`mb-4 rounded-lg border p-3 text-sm ${isDark ? "border-emerald-800/50 bg-emerald-900/20 text-emerald-200" : "border-emerald-200 bg-emerald-50 text-emerald-800"}`}>
-                  Location: <strong>Consultation Area</strong>
+                <div className={`mb-4 rounded-xl border p-3 text-sm ${isDark ? "border-emerald-800/60 bg-emerald-950/30 text-emerald-200" : "border-emerald-200 bg-emerald-50 text-emerald-900"}`}>
+                  Location: <strong>Consultation Area (Automated)</strong>
+                  <p className={`text-xs mt-1 ${isDark ? "text-emerald-300/80" : "text-emerald-700"}`}>
+                    Exam location is automatically assigned to Consultation Area.
+                  </p>
                 </div>
-                <label className={`mb-2 block text-xs font-semibold uppercase tracking-wide ${isDark ? "text-gray-400" : "text-gray-500"}`} htmlFor="consultation-proctor">
-                  Supervising proctor
+                <div className={`mb-4 p-3 rounded-xl border text-xs ${isDark ? "bg-amber-950/30 border-amber-800/60 text-amber-300" : "bg-amber-50 border-amber-300 text-amber-900"}`}>
+                  <p className="font-bold mb-0.5">No Proctor Required to Approve</p>
+                  <p>Exam will be approved without proctoring assignment. The admin will personally assign a supervising proctor.</p>
+                </div>
+                <label className={`mb-2 block text-xs font-bold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-600"}`} htmlFor="consultation-proctor">
+                  Supervising proctor (Optional)
                 </label>
                 <select
                   id="consultation-proctor"
                   value={selectedProctorId}
                   onChange={(e) => setSelectedProctorId(e.target.value)}
-                  className={`mb-4 w-full rounded-xl border p-3 text-sm ${isDark ? "border-gray-600 bg-gray-800 text-white" : "border-gray-300 bg-white text-gray-900"}`}
+                  className={`mb-4 w-full rounded-xl border p-3 text-sm outline-none transition focus:ring-2 focus:ring-blue-500/40 ${isDark ? "border-slate-700 bg-slate-800 text-white" : "border-slate-300 bg-slate-50 text-slate-800"}`}
                 >
-                  <option value="">— Select a proctor —</option>
+                  <option value="">— None (Admin will assign personally) —</option>
                   {availableProctors.map((proctor) => (
                     <option key={proctor.id} value={proctor.id}>{proctor.name}</option>
                   ))}
                 </select>
-                {availableProctors.length === 0 && (
-                  <p className={`mb-4 text-sm ${isDark ? "text-amber-300" : "text-amber-700"}`}>
-                    No proctors are available to assign. Add a proctor before approving this request.
-                  </p>
-                )}
               </>
             ) : (
               <>
                 {availableRooms.length === 0 ? (
-                  <div className={`p-3 rounded-lg text-sm mb-4 ${isDark ? "bg-yellow-900/20 text-yellow-300 border border-yellow-800/40" : "bg-yellow-50 text-yellow-700 border border-yellow-200"}`}>
+                  <div className={`p-3 rounded-xl text-sm mb-4 border ${isDark ? "bg-amber-950/30 text-amber-300 border-amber-800/50" : "bg-amber-50 text-amber-900 border-amber-200"}`}>
                     No rooms are available for the full requested time slot.
                   </div>
                 ) : (
                   <>
-                    <p className={`text-xs mb-2 font-semibold uppercase tracking-wide ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                    <p className={`text-xs mb-2 font-bold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-600"}`}>
                       Available rooms for this time:
                     </p>
                     <select
                       value={selectedRoomId}
                       onChange={(e) => setSelectedRoomId(e.target.value)}
-                      className={`w-full p-3 rounded-xl border text-sm mb-4 ${isDark ? "bg-gray-800 border-gray-600 text-white" : "bg-white border-gray-300 text-gray-900"}`}
+                      className={`w-full p-3 rounded-xl border text-sm mb-4 outline-none transition focus:ring-2 focus:ring-blue-500/40 ${isDark ? "bg-slate-800 border-slate-700 text-white" : "bg-slate-50 border-slate-300 text-slate-800"}`}
                     >
                       <option value="">— Select a room —</option>
                       {availableRooms.map((r) => (
@@ -577,21 +592,23 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
             )}
             <div className="flex gap-3 justify-end mt-2">
               <button
+                type="button"
                 onClick={() => setApproveModalReq(null)}
-                className={`px-4 py-2 rounded-xl text-sm font-semibold ${isDark ? "bg-gray-700 text-white hover:bg-gray-600" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
+                className={`px-4 py-2.5 rounded-xl text-sm font-semibold transition ${isDark ? "bg-slate-800 text-slate-200 hover:bg-slate-700" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}`}
               >
                 Cancel
               </button>
               <button
+                type="button"
                 onClick={async () => {
                   const roomId = selectedRoomId ? parseInt(selectedRoomId) : null;
                   const proctorId = selectedProctorId ? parseInt(selectedProctorId) : null;
                   await handleReview(approveModalReq.id, "approved", "", roomId, proctorId);
                   setApproveModalReq(null);
                 }}
-                disabled={approveModalReq.consultation_area ? !selectedProctorId : !selectedRoomId}
-                title={approveModalReq.consultation_area ? "Select a supervising proctor" : "Select a room"}
-                className="px-5 py-2 rounded-xl text-sm font-bold bg-green-500 hover:bg-green-600 text-white transition"
+                disabled={approveModalReq.consultation_area ? false : !selectedRoomId}
+                title={approveModalReq.consultation_area ? "Approve reschedule in Consultation Area" : "Select a room"}
+                className="px-5 py-2.5 rounded-xl text-sm font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition disabled:opacity-50"
               >
                 Confirm Approve
               </button>
@@ -789,22 +806,22 @@ function ChatSupportPanel() {
   };
 
   return (
-    <div className={`flex h-[min(70dvh,620px)] min-h-[360px] sm:h-[620px] min-w-0 rounded-xl border overflow-hidden relative ${isDark ? "border-gray-700" : "border-gray-200"}`}>
+    <div className={`flex h-[min(70dvh,620px)] min-h-[360px] sm:h-[620px] min-w-0 rounded-2xl border overflow-hidden relative shadow-sm ${isDark ? "border-slate-800 bg-slate-900" : "border-slate-200 bg-white"}`}>
       {/* Left: conversation list */}
-      <div className={`w-full min-w-0 md:w-72 md:shrink-0 flex flex-col border-r ${isDark ? "bg-gray-800/60 border-gray-700" : "bg-gray-50 border-gray-200"} ${activeStudentId ? "hidden md:flex" : "flex"}`}>
-        <div className={`p-4 border-b flex justify-between items-center ${isDark ? "border-gray-700" : "border-gray-200"}`}>
+      <div className={`w-full min-w-0 md:w-72 md:shrink-0 flex flex-col border-r ${isDark ? "bg-slate-900/80 border-slate-800" : "bg-slate-50 border-slate-200"} ${activeStudentId ? "hidden md:flex" : "flex"}`}>
+        <div className={`p-4 border-b flex justify-between items-center ${isDark ? "border-slate-800" : "border-slate-200"}`}>
           <div>
-            <h3 className={`font-bold text-sm uppercase tracking-wide ${isDark ? "text-gray-300" : "text-gray-600"}`}>
+            <h3 className={`font-bold text-xs uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-600"}`}>
               Conversations
             </h3>
-            <p className={`text-xs mt-0.5 ${isDark ? "text-gray-500" : "text-gray-400"}`}>{conversations.length} active</p>
+            <p className={`text-xs mt-0.5 ${isDark ? "text-slate-500" : "text-slate-400"}`}>{conversations.length} active</p>
           </div>
           <button
             onClick={openNewChatModal}
-            className={`p-1.5 rounded-lg border transition-all ${
+            className={`p-1.5 rounded-xl border transition-all ${
               isDark 
-                ? "bg-slate-700 border-slate-600 text-slate-200 hover:bg-slate-600" 
-                : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50 shadow-sm"
+                ? "bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700" 
+                : "bg-white border-slate-200 text-slate-700 hover:bg-slate-100 shadow-sm"
             }`}
             title="Start New Chat"
           >
@@ -813,8 +830,8 @@ function ChatSupportPanel() {
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto custom-scrollbar">
           {conversations.length === 0 ? (
-            <div className={`p-6 text-center text-sm ${isDark ? "text-gray-500" : "text-gray-400"}`}>
-              <ChatBubbleLeftRightIcon className="w-8 h-8 mx-auto mb-2 opacity-30" />
+            <div className={`p-6 text-center text-sm ${isDark ? "text-slate-500" : "text-slate-400"}`}>
+              <ChatBubbleLeftRightIcon className="w-8 h-8 mx-auto mb-2 opacity-30 text-slate-400" />
               No conversations yet
             </div>
           ) : conversations.map((conv) => (
@@ -822,36 +839,36 @@ function ChatSupportPanel() {
               key={conv.student_id}
               onClick={() => selectStudent(conv.student_id, conv.student_name, conv.student_type)}
               className={`w-full p-4 text-left border-b transition-all ${activeStudentId === conv.student_id
-                ? isDark ? "bg-blue-600/20 border-blue-700/50" : "bg-blue-50 border-blue-100"
-                : isDark ? "border-gray-700/50 hover:bg-gray-700/40" : "border-gray-100 hover:bg-gray-100"
+                ? isDark ? "bg-blue-950/40 border-blue-900/60" : "bg-blue-50 border-blue-200"
+                : isDark ? "border-slate-800 hover:bg-slate-800/50" : "border-slate-100 hover:bg-slate-100/70"
                 }`}
             >
               <div className="flex items-center justify-between mb-1">
-                <span className={`font-semibold text-sm truncate ${isDark ? "text-white" : "text-gray-900"}`}>
+                <span className={`font-bold text-sm truncate ${isDark ? "text-white" : "text-slate-900"}`}>
                   {conv.student_name}
                 </span>
                 {conv.unread_count > 0 && (
-                  <span className="ml-2 shrink-0 text-[10px] font-bold bg-red-500 text-white rounded-full px-1.5 py-0.5">
+                  <span className="ml-2 shrink-0 text-[10px] font-bold bg-rose-600 text-white rounded-full px-1.5 py-0.5 animate-pulse">
                     {conv.unread_count}
                   </span>
                 )}
               </div>
               <div className="flex items-center justify-between gap-2">
-                <p className={`text-xs truncate flex-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                <p className={`text-xs truncate flex-1 ${isDark ? "text-slate-400" : "text-slate-600"}`}>
                   {conv.last_message || "No messages yet"}
                 </p>
-                <span className={`text-[9px] uppercase px-1.5 py-0.5 rounded-full font-bold select-none whitespace-nowrap ${
+                <span className={`text-[9px] uppercase px-1.5 py-0.5 rounded-full font-bold select-none whitespace-nowrap border ${
                   conv.role === "proctor" || conv.student_type === "proctor"
-                    ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/10"
+                    ? "bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/50"
                     : conv.student_type === "irregular"
-                    ? "bg-purple-500/20 text-purple-400 border border-purple-500/10"
-                    : "bg-blue-500/20 text-blue-400 border border-blue-500/10"
+                    ? "bg-purple-50 text-purple-800 border-purple-300 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800/50"
+                    : "bg-blue-50 text-blue-800 border-blue-300 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800/50"
                 }`}>
                   {conv.role === "proctor" || conv.student_type === "proctor" ? "Proctor" : conv.student_type}
                 </span>
               </div>
               {conv.last_message_time && (
-                <p className={`text-[10px] mt-1 ${isDark ? "text-gray-600" : "text-gray-400"}`}>
+                <p className={`text-[10px] mt-1 ${isDark ? "text-slate-500" : "text-slate-400"}`}>
                   {new Date(conv.last_message_time + "Z").toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                 </p>
               )}
@@ -861,26 +878,26 @@ function ChatSupportPanel() {
       </div>
 
       {/* Right: chat window */}
-      <div className={`min-w-0 flex-1 flex flex-col ${isDark ? "bg-gray-900" : "bg-white"} ${!activeStudentId ? "hidden md:flex" : "flex"}`}>
+      <div className={`min-w-0 flex-1 flex flex-col ${isDark ? "bg-slate-900" : "bg-white"} ${!activeStudentId ? "hidden md:flex" : "flex"}`}>
         {activeStudentId ? (
           <>
             {/* Chat header */}
-            <div className={`p-3 sm:p-4 border-b flex items-center justify-between gap-3 ${isDark ? "border-gray-700 bg-gray-800/50" : "border-gray-200 bg-gray-50"}`}>
+            <div className={`p-3 sm:p-4 border-b flex items-center justify-between gap-3 ${isDark ? "border-slate-800 bg-slate-900/60" : "border-slate-200 bg-slate-50"}`}>
               <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                 <button
                   onClick={() => setActiveStudentId(null)}
-                  className="p-1.5 rounded-lg md:hidden hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 transition shrink-0"
+                  className="p-1.5 rounded-xl md:hidden hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition shrink-0"
                   title="Back to conversations"
                 >
                   <ChevronRightIcon className="w-5 h-5 rotate-180" />
                 </button>
-                <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${isDark ? "bg-blue-600/30 text-blue-300" : "bg-blue-100 text-blue-700"
+                <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${isDark ? "bg-blue-600/30 text-blue-300 border border-blue-500/40" : "bg-blue-100 text-blue-800 border border-blue-200"
                   }`}>
                   {activeStudentName.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
                 </div>
                 <div className="min-w-0">
-                  <h4 className={`font-bold text-sm truncate ${isDark ? "text-white" : "text-gray-900"}`}>{activeStudentName}</h4>
-                  <p className={`text-xs truncate ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                  <h4 className={`font-bold text-sm truncate ${isDark ? "text-white" : "text-slate-900"}`}>{activeStudentName}</h4>
+                  <p className={`text-xs truncate ${isDark ? "text-slate-400" : "text-slate-500"}`}>
                     {activeStudentType === "irregular" ? "Irregular Student" : activeStudentType === "proctor" ? "Proctor" : "Regular Student"}
                   </p>
                 </div>
@@ -888,7 +905,7 @@ function ChatSupportPanel() {
 
               <button
                 onClick={() => deleteConversation(activeStudentId)}
-                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold text-red-500 hover:bg-red-500/10 border border-transparent hover:border-red-500/25 transition-all duration-200 shrink-0"
+                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-transparent hover:border-rose-200 dark:hover:border-rose-800 transition-all shrink-0"
                 title="Delete Conversation"
               >
                 <TrashIcon className="w-4 h-4" />
@@ -899,8 +916,8 @@ function ChatSupportPanel() {
             {/* Messages */}
             <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 custom-scrollbar">
               {messages.length === 0 ? (
-                <div className={`text-center py-12 text-sm ${isDark ? "text-gray-500" : "text-gray-400"}`}>
-                  <ChatBubbleLeftRightIcon className="w-10 h-10 mx-auto mb-2 opacity-20" />
+                <div className={`text-center py-12 text-sm ${isDark ? "text-slate-500" : "text-slate-400"}`}>
+                  <ChatBubbleLeftRightIcon className="w-10 h-10 mx-auto mb-2 opacity-20 text-slate-400" />
                   No messages yet. Start the conversation!
                 </div>
               ) : messages.map((msg) => {
@@ -912,8 +929,8 @@ function ChatSupportPanel() {
                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
                         <button
                           onClick={() => startEditing(msg)}
-                          className={`p-1 rounded transition-colors ${
-                            isDark ? "hover:bg-gray-800 text-gray-400 hover:text-white" : "hover:bg-gray-100 text-gray-500 hover:text-gray-900"
+                          className={`p-1 rounded-lg transition-colors ${
+                            isDark ? "hover:bg-slate-800 text-slate-400 hover:text-white" : "hover:bg-slate-100 text-slate-500 hover:text-slate-900"
                           }`}
                           title="Edit message"
                         >
@@ -921,7 +938,7 @@ function ChatSupportPanel() {
                         </button>
                         <button
                           onClick={() => deleteMessage(msg.id)}
-                          className="p-1 rounded transition-colors hover:bg-red-500/10 text-red-500"
+                          className="p-1 rounded-lg transition-colors hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600"
                           title="Delete message"
                         >
                           <TrashIcon className="w-3.5 h-3.5" />
@@ -929,28 +946,28 @@ function ChatSupportPanel() {
                       </div>
                     )}
 
-                    <div className={`min-w-0 max-w-[90%] sm:max-w-[70%] px-3 sm:px-4 py-2.5 rounded-2xl text-sm shadow-sm ${isMe
+                    <div className={`min-w-0 max-w-[90%] sm:max-w-[70%] px-3.5 sm:px-4 py-2.5 rounded-2xl text-sm shadow-sm ${isMe
                       ? "bg-blue-600 text-white rounded-br-sm"
-                      : isDark ? "bg-gray-700 text-gray-100 rounded-bl-sm" : "bg-gray-100 text-gray-800 rounded-bl-sm"
+                      : isDark ? "bg-slate-800 text-slate-100 border border-slate-700 rounded-bl-sm" : "bg-slate-100 text-slate-800 border border-slate-200 rounded-bl-sm"
                       }`}>
                       {isEditing ? (
                         <div className="flex flex-col gap-2 min-w-[200px]">
                           <textarea
                             value={editingText}
                             onChange={(e) => setEditingText(e.target.value)}
-                            className="p-2 text-sm rounded border outline-none text-slate-800 bg-white dark:bg-slate-800 dark:text-white dark:border-slate-700 resize-none"
+                            className="p-2 text-sm rounded-xl border outline-none text-slate-800 bg-white dark:bg-slate-900 dark:text-white dark:border-slate-700 resize-none focus:ring-2 focus:ring-blue-500"
                             rows={2}
                           />
                           <div className="flex gap-2 justify-end">
                             <button
                               onClick={cancelEditing}
-                              className="px-2.5 py-1 text-xs bg-gray-500 hover:bg-gray-600 text-white rounded font-medium transition"
+                              className="px-2.5 py-1 text-xs bg-slate-600 hover:bg-slate-700 text-white rounded-lg font-medium transition"
                             >
                               Cancel
                             </button>
                             <button
                               onClick={() => saveEditMessage(msg.id)}
-                              className="px-2.5 py-1 text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded font-medium transition"
+                              className="px-2.5 py-1 text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium transition"
                             >
                               Save
                             </button>
@@ -959,7 +976,7 @@ function ChatSupportPanel() {
                       ) : (
                         <>
                           <p className="leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{msg.message}</p>
-                          <p className={`text-[10px] mt-1 ${isMe ? "text-blue-200" : isDark ? "text-gray-500" : "text-gray-400"}`}>
+                          <p className={`text-[10px] mt-1 ${isMe ? "text-blue-100" : isDark ? "text-slate-400" : "text-slate-500"}`}>
                             {new Date(msg.created_at + "Z").toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                           </p>
                         </>
@@ -972,7 +989,7 @@ function ChatSupportPanel() {
             </div>
 
             {/* Input */}
-            <div className={`p-2 sm:p-4 border-t flex gap-2 sm:gap-3 items-end ${isDark ? "border-gray-700 bg-gray-800/30" : "border-gray-200 bg-gray-50"}`}>
+            <div className={`p-2 sm:p-4 border-t flex gap-2 sm:gap-3 items-end ${isDark ? "border-slate-800 bg-slate-900/60" : "border-slate-200 bg-slate-50"}`}>
               <textarea
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
@@ -980,9 +997,9 @@ function ChatSupportPanel() {
                 placeholder="Type a message..."
                 rows={1}
                 aria-label="Type your message"
-                className={`min-w-0 min-h-11 flex-1 p-3 rounded-xl border resize-none outline-none text-base sm:text-sm transition ${isDark
-                  ? "bg-gray-700 border-gray-600 text-white placeholder-gray-500 focus:border-blue-500"
-                  : "bg-white border-gray-300 text-gray-900 placeholder-gray-400 focus:border-blue-500"
+                className={`min-w-0 min-h-11 flex-1 p-3 rounded-xl border resize-none outline-none text-base sm:text-sm transition focus:ring-2 focus:ring-blue-500/40 ${isDark
+                  ? "bg-slate-800 border-slate-700 text-white placeholder-slate-500 focus:border-blue-500"
+                  : "bg-white border-slate-300 text-slate-900 placeholder-slate-400 focus:border-blue-500"
                   }`}
               />
               <button
@@ -990,8 +1007,8 @@ function ChatSupportPanel() {
                 disabled={sending || !newMessage.trim()}
                 aria-label="Send message"
                 className={`w-11 h-11 shrink-0 rounded-xl transition flex items-center justify-center ${sending || !newMessage.trim()
-                  ? isDark ? "bg-gray-700 text-gray-500" : "bg-gray-200 text-gray-400"
-                  : "bg-blue-600 hover:bg-blue-700 text-white"
+                  ? isDark ? "bg-slate-800 text-slate-500 cursor-not-allowed" : "bg-slate-200 text-slate-400 cursor-not-allowed"
+                  : "bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
                   }`}
               >
                 <PaperAirplaneIcon className="w-5 h-5" />
@@ -999,14 +1016,14 @@ function ChatSupportPanel() {
             </div>
           </>
         ) : (
-          <div className={`flex-1 flex flex-col items-center justify-center gap-4 ${isDark ? "text-gray-500" : "text-gray-400"}`}>
-            <div className={`w-16 h-16 rounded-2xl flex items-center justify-center ${isDark ? "bg-gray-800" : "bg-gray-100"
+          <div className={`flex-1 flex flex-col items-center justify-center gap-4 ${isDark ? "text-slate-500" : "text-slate-400"}`}>
+            <div className={`w-16 h-16 rounded-2xl flex items-center justify-center border ${isDark ? "bg-slate-800/60 border-slate-700" : "bg-slate-100 border-slate-200"
               }`}>
-              <ChatBubbleLeftRightIcon className="w-8 h-8 opacity-40" />
+              <ChatBubbleLeftRightIcon className="w-8 h-8 opacity-40 text-slate-400" />
             </div>
             <div className="text-center">
-              <p className="font-semibold">Select a conversation</p>
-              <p className="text-sm mt-1">Choose a student or proctor from the list or start a new chat.</p>
+              <p className="font-bold text-slate-700 dark:text-slate-300 text-base">Select a conversation</p>
+              <p className="text-sm mt-1 text-slate-400">Choose a student or proctor from the list or start a new chat.</p>
             </div>
           </div>
         )}
@@ -1053,7 +1070,7 @@ function ChatSupportPanel() {
                   setContactSearch("");
                 }}
                 className={`p-1.5 rounded-lg transition ${
-                  isDark ? "hover:bg-slate-700 text-slate-400 hover:text-white" : "hover:bg-slate-100 text-gray-500 hover:text-gray-900"
+                  isDark ? "hover:bg-slate-700 text-slate-400 hover:text-white" : "hover:bg-slate-100 text-slate-500 hover:text-slate-900"
                 }`}
               >
                 <XMarkIcon className="w-5 h-5" />
@@ -1450,7 +1467,7 @@ function NavItem({ item, activeTab, setActiveTab, isDark, badge, onSelect }) {
 function NavSidebar({ activeTab, setActiveTab, isDark, unreadChatCount, pendingRescheduleCount, onSelectNavItem }) {
   const schedulingIds = ["generate", "schedules", "durations"];
   const managementIds = ["proctors", "rooms", "monitoring", "rescheduling", "chat", "section-students"];
-  const dataIds = ["import", "students", "rules"];
+  const dataIds = ["import", "proctors-import", "students", "rules"];
 
   const isSchedulingActive = schedulingIds.includes(activeTab);
   const isManagementActive = managementIds.includes(activeTab);
@@ -1478,6 +1495,7 @@ function NavSidebar({ activeTab, setActiveTab, isDark, unreadChatCount, pendingR
       {/* Data & Imports Group */}
       <NavGroup label="Data & Imports" icon={CircleStackIcon} defaultOpen={isDataActive} isDark={isDark}>
         <NavItem item={{ id: "import", icon: CircleStackIcon, label: "Data Import" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
+        <NavItem item={{ id: "proctors-import", icon: UsersIcon, label: "Proctor Accounts" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
         <NavItem item={{ id: "students", icon: UserIcon, label: "Student Accounts" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
         <NavItem item={{ id: "rules", icon: AdjustmentsHorizontalIcon, label: "Distribution Rules" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
       </NavGroup>
@@ -1647,8 +1665,8 @@ export default function ProgramHeadDashboard() {
 
   if (!user) {
     return (
-      <div className={`min-h-screen ${isDark ? "bg-gray-900" : "bg-gray-50"} flex items-center justify-center`}>
-        <p className={isDark ? "text-gray-300" : "text-gray-600"}>Redirecting...</p>
+      <div className={`min-h-screen ${isDark ? "bg-slate-900" : "bg-slate-50"} flex items-center justify-center`}>
+        <p className={isDark ? "text-slate-300" : "text-slate-600"}>Redirecting...</p>
       </div>
     );
   }
@@ -1790,6 +1808,7 @@ export default function ProgramHeadDashboard() {
                                   activeTab === "chat" ? "Chat" :
                                     activeTab === "rules" ? "Distribution Rules" :
                                       activeTab === "import" ? "Curriculum & Catalog Import" :
+                                        activeTab === "proctors-import" ? "Proctor Accounts & Import" :
                                          activeTab === "students" ? "Student Accounts & Import" :
                                            activeTab === "section-students" ? "Exam Attendance Roster" :
                                              activeTab === "manual" ? "User Manual" : "Program Head Dashboard"}
@@ -1911,6 +1930,9 @@ export default function ProgramHeadDashboard() {
                 </div>
                 <div className={activeTab === "students" ? "block" : "hidden"}>
                   <StudentImport isGenerating={isGenerationRunning} />
+                </div>
+                <div className={activeTab === "proctors-import" ? "block" : "hidden"}>
+                  <ProctorImport isGenerating={isGenerationRunning} />
                 </div>
                 {activeTab === "schedules" ? <GeneratedExamSchedules isGenerating={isGenerationRunning} /> :
                   activeTab === "durations" ? <SubjectDurationsManager isGenerating={isGenerationRunning} /> :

@@ -404,16 +404,16 @@ export default function SubjectDurationsManager() {
 
   const termBadgeCls = (t) => {
     const map = {
-      ST1: "bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300",
-      ST2: "bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300",
-      T1: "bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-300",
-      Prelim: "bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300",
-      Midterm: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300",
-      "Pre-Final": "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300",
-      Final: "bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300",
+      ST1: "bg-teal-50 dark:bg-teal-950/40 text-teal-800 dark:text-teal-300 border border-teal-300 dark:border-teal-800/60",
+      ST2: "bg-cyan-50 dark:bg-cyan-950/40 text-cyan-800 dark:text-cyan-300 border border-cyan-300 dark:border-cyan-800/60",
+      T1: "bg-sky-50 dark:bg-sky-950/40 text-sky-800 dark:text-sky-300 border border-sky-300 dark:border-sky-800/60",
+      Prelim: "bg-violet-50 dark:bg-violet-950/40 text-violet-800 dark:text-violet-300 border border-violet-300 dark:border-violet-800/60",
+      Midterm: "bg-blue-50 dark:bg-blue-950/40 text-blue-800 dark:text-blue-300 border border-blue-300 dark:border-blue-800/60",
+      "Pre-Final": "bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-300 border border-amber-300 dark:border-amber-800/60",
+      Final: "bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300 border border-rose-300 dark:border-rose-800/60",
     };
-    return `px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-      map[t] || (isDark ? "bg-slate-700 text-slate-300" : "bg-slate-100 text-slate-600")
+    return `px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider inline-flex items-center justify-center ${
+      map[t] || (isDark ? "bg-slate-800 text-slate-300 border border-slate-700" : "bg-slate-100 text-slate-700 border border-slate-300")
     }`;
   };
 

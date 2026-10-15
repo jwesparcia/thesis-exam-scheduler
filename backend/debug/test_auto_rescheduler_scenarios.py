@@ -272,12 +272,12 @@ def run_all_tests():
         db.commit()
 
         # -------------------------------------------------------------
-        # TEST 5: School Operating Hours & No Valid Schedule Available
-        # If school ends at 17:00, and a student has an exam from 15:00 to 16:30,
-        # after 16:30 + 15m break = 16:45, candidate needs 75m -> 18:00 (past 17:00 closing!).
-        # System must return success=False with clear manual review message.
+        # TEST 5: 5:00 PM Onwards Automatic Consultation Area Placement
+        # When daytime operating hours are exhausted (past 17:00 closing),
+        # the exam is automatically scheduled for 5:00 PM onwards in the Consultation Area
+        # without proctoring assignment because admin will assign personally.
         # -------------------------------------------------------------
-        print("\n--- TEST 5: School Operating Hours & No Valid Schedule ---")
+        print("\n--- TEST 5: Automatic Consultation Area Placement at 5:00 PM Onwards ---")
         # Add an exam for student from 15:00 to 16:30
         ts_late = Timeslot(date=test_date, start_time=time(15, 0), end_time=time(16, 30))
         db.add(ts_late)
@@ -301,10 +301,11 @@ def run_all_tests():
 
         result5 = find_earliest_auto_schedule(req1, db)
         print(f"Test 5 Result: Success={result5.get('success')}, Message={result5.get('message')}")
-        assert result5["success"] is False, "Expected False because no slot fits within operating hours"
-        assert "No valid conflict-free time slot and room combination" in result5["message"]
-        assert "review manually" in result5["message"].lower()
-        print("[PASS] TEST 5: Handled out-of-operating-hours with clear manual review message without creating invalid assignment!")
+        assert result5["success"] is True, "Expected True because 5pm onwards in Consultation Area is supported"
+        assert result5["is_consultation"] is True, "Expected is_consultation=True"
+        assert result5["room_name"] == "Consultation Area", "Expected room to be Consultation Area"
+        assert result5["start_time"] >= time(17, 0), "Expected start time >= 17:00"
+        print("[PASS] TEST 5: Automatically assigned into Consultation Area at 5:00 PM onwards without error!")
 
         # -------------------------------------------------------------
         # TEST 6: Atomic Database Update & apply_auto_reschedule
@@ -470,8 +471,57 @@ def run_all_tests():
         assert assigned_in_y_slot <= 40, f"Over capacity during Y slot: {assigned_in_y_slot} > 40"
         print("[PASS] TEST 7: Concurrency row locks preserved strict capacity limits without conflict!")
 
+        # -------------------------------------------------------------
+        # TEST 8: 5:00 PM Onwards Consultation Area exam has proctor_id=None
+        # -------------------------------------------------------------
+        print("\n--- TEST 8: 5:00 PM Onwards Exam Approved in Consultation Area without Proctor ---")
+        ts_orig8 = Timeslot(date=test_date, start_time=time(9, 0), end_time=time(10, 15))
+        db.add(ts_orig8)
+        db.flush()
+        created_ts_ids.append(ts_orig8.id)
+        exam8 = Exam(subject_id=subj_to_resched.id, room_id=room_a.id, timeslot_id=ts_orig8.id, status="posted")
+        db.add(exam8)
+        db.flush()
+        created_exam_ids.append(exam8.id)
+
+        req8 = ReschedulingRequest(
+            exam_id=exam8.id,
+            student_name=student.name,
+            school_email=student.email,
+            status="pending",
+            preferred_date=test_date,
+            preferred_start_time=time(17, 0),
+            preferred_end_time=time(18, 15),
+        )
+        db.add(req8)
+        db.flush()
+        created_req_ids.append(req8.id)
+
+        auto_result8 = apply_auto_reschedule(
+            req8.id,
+            "Approved 5pm consultation test",
+            db,
+            reviewer_id=student.id,
+        )
+        print("Test 8 Auto-reschedule response:", auto_result8)
+        assert auto_result8["room_name"] == "Consultation Area"
+        assert auto_result8["is_consultation"] is True
+        assert auto_result8["proctor_id"] is None, "Expected proctor_id=None for Consultation Area"
+
+        # Check in DB
+        db.refresh(req8)
+        assigned_exam8 = db.query(Exam).filter(Exam.id == req8.rescheduled_exam_id).first()
+        assert assigned_exam8 is not None
+        assert assigned_exam8.room.name == "Consultation Area"
+        assert assigned_exam8.proctor_id is None, "Expected assigned_exam8.proctor_id to be None"
+        if assigned_exam8.id:
+            created_exam_ids.append(assigned_exam8.id)
+        if assigned_exam8.timeslot_id:
+            created_ts_ids.append(assigned_exam8.timeslot_id)
+        print("[PASS] TEST 8: Rescheduled 5:00 PM onwards took place in Consultation Area with proctor_id=None!")
+
         print("\n================================================================")
-        print("ALL TESTS PASSED SUCCESSFULLY (7/7 TEST SUITES)")
+        print("ALL TESTS PASSED SUCCESSFULLY (8/8 TEST SUITES)")
         print("================================================================")
 
     finally:

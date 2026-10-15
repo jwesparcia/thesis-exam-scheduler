@@ -8,12 +8,19 @@ export default function ThemeToggle({ className = "" }) {
   return (
     <button
       onClick={toggleTheme}
+      type="button"
       aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-      className={`p-2 rounded-lg transition flex items-center justify-center ${className} ${
-        theme === "dark" ? "bg-gray-700 hover:bg-gray-600" : "bg-gray-100 hover:bg-gray-200"
-      }`}
+      className={`p-2.5 rounded-xl border transition-colors flex items-center justify-center ${
+        theme === "dark" 
+          ? "bg-slate-800 hover:bg-slate-700 text-yellow-400 border-slate-700" 
+          : "bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200"
+      } ${className}`}
     >
-      {theme === "dark" ? <SunIcon className="w-5 h-5 text-yellow-400 cursor-pointer" /> : <MoonIcon className="w-5 h-5 text-gray-700 cursor-pointer" />}
+      {theme === "dark" ? (
+        <SunIcon className="w-5 h-5 text-yellow-400" />
+      ) : (
+        <MoonIcon className="w-5 h-5 text-slate-700" />
+      )}
     </button>
   );
 }

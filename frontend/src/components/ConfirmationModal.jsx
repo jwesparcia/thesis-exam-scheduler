@@ -29,7 +29,12 @@ export default function ConfirmationModal({
   const isConfirmedEnabled = !confirmText || inputVal.trim().toLowerCase() === confirmText.toLowerCase();
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="confirmation-modal-title"
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+    >
       {/* Backdrop */}
       <div 
         onClick={onCancel}
@@ -40,7 +45,7 @@ export default function ConfirmationModal({
       <div 
         className={`relative w-full max-w-md p-6 rounded-2xl border shadow-2xl transition-all duration-300 transform scale-100 animate-in zoom-in-95 duration-200 ${
           isDark 
-            ? "bg-slate-900 border-slate-800 text-white" 
+            ? "bg-slate-900 border-slate-700/80 text-slate-100" 
             : "bg-white border-slate-200 text-slate-900"
         }`}
       >
@@ -49,15 +54,18 @@ export default function ConfirmationModal({
           <div className="flex items-center gap-3">
             <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
               isDanger 
-                ? "bg-red-500/10 text-red-500" 
-                : "bg-blue-500/10 text-blue-500"
+                ? "bg-rose-500/10 text-rose-600 dark:text-rose-400" 
+                : "bg-blue-500/10 text-blue-600 dark:text-blue-400"
             }`}>
               {isDanger ? <ExclamationTriangleIcon className="w-5 h-5" /> : <InformationCircleIcon className="w-5 h-5" />}
             </div>
-            <h3 className="text-md font-bold leading-tight">{title}</h3>
+            <h3 id="confirmation-modal-title" className="text-base sm:text-lg font-bold leading-tight">
+              {title}
+            </h3>
           </div>
           <button 
             onClick={onCancel}
+            aria-label="Close dialog"
             className={`p-1.5 rounded-lg transition ${
               isDark ? "hover:bg-slate-800 text-slate-400 hover:text-white" : "hover:bg-slate-100 text-slate-500 hover:text-slate-900"
             }`}
@@ -68,24 +76,24 @@ export default function ConfirmationModal({
 
         {/* Content */}
         <div className="space-y-4 mb-6">
-          <p className={`text-sm ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+          <p className={`text-sm leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
             {message}
           </p>
 
           {confirmText && (
             <div className="space-y-2">
-              <label className={`text-[10px] font-bold uppercase tracking-wider ${isDark ? "text-slate-500" : "text-slate-400"}`}>
-                Please type <span className="text-red-500 font-bold">"{confirmText}"</span> to confirm:
+              <label className={`block text-xs font-semibold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                Please type <span className="text-rose-600 dark:text-rose-400 font-bold">"{confirmText}"</span> to confirm:
               </label>
               <input
                 type="text"
                 value={inputVal}
                 onChange={(e) => setInputVal(e.target.value)}
                 placeholder={`Type "${confirmText}"`}
-                className={`w-full px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2 transition ${
+                className={`w-full px-3.5 py-2.5 text-sm rounded-xl border focus:outline-none focus:ring-2 transition ${
                   isDark
-                    ? "bg-slate-950 border-slate-800 text-white focus:ring-blue-500/30 focus:border-blue-500"
-                    : "bg-slate-50 border-slate-200 text-slate-900 focus:ring-blue-500/30 focus:border-blue-500"
+                    ? "bg-slate-950 border-slate-700 text-slate-100 placeholder-slate-500 focus:ring-blue-500/30 focus:border-blue-500"
+                    : "bg-slate-50 border-slate-300 text-slate-900 placeholder-slate-400 focus:ring-blue-500/30 focus:border-blue-600 focus:bg-white"
                 }`}
               />
             </div>
@@ -96,23 +104,27 @@ export default function ConfirmationModal({
         <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2.5 sm:gap-3">
           <button
             onClick={onCancel}
-            className={`w-full sm:w-auto px-4 py-2.5 rounded-xl text-xs font-bold border transition ${
+            type="button"
+            className={`w-full sm:w-auto px-4 py-2.5 rounded-xl text-sm font-semibold border transition ${
               isDark
-                ? "border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-white"
-                : "border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-900"
+                ? "border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white"
+                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900"
             }`}
           >
             {cancelLabel}
           </button>
           <button
             onClick={onConfirm}
+            type="button"
             disabled={!isConfirmedEnabled}
-            className={`w-full sm:w-auto px-4 py-2.5 rounded-xl text-xs font-bold text-white transition shadow-sm ${
+            className={`w-full sm:w-auto px-4 py-2.5 rounded-xl text-sm font-semibold transition shadow-sm ${
               !isConfirmedEnabled
-                ? "bg-slate-500/20 cursor-not-allowed text-slate-500"
+                ? isDark
+                  ? "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed"
+                  : "bg-slate-200 text-slate-400 border border-slate-200 cursor-not-allowed"
                 : isDanger
-                  ? "bg-red-600 hover:bg-red-700 shadow-red-600/10"
-                  : "bg-blue-600 hover:bg-blue-700 shadow-blue-600/10"
+                  ? "bg-rose-600 hover:bg-rose-700 text-white shadow-rose-600/20 active:scale-95"
+                  : "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-600/20 active:scale-95"
             }`}
           >
             {confirmLabel}

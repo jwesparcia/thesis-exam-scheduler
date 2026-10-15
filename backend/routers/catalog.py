@@ -16,6 +16,7 @@ from model import (
 )
 from routers.auth import require_role, get_current_user
 from utils.logging import log_activity
+from datetime import datetime, time
 from pydantic import BaseModel
 
 # ── cache keys ────────────────────────────────────────────────────────
@@ -23,6 +24,7 @@ _KEY_COURSES       = "courses:all"
 _KEY_YEAR_LEVELS   = "year_levels:all"
 _KEY_STATS         = "catalog:stats"
 _KEY_STUDENT_STATS = "catalog:student_stats"
+_KEY_PROCTOR_STATS = "catalog:proctor_stats"
 
 def _invalidate_student_exam_schedules():
     cache.delete_pattern("exam_schedule:section:*")
@@ -86,6 +88,35 @@ def safe_clear_student_accounts(db: Session) -> int:
         db.query(ActivityLog).filter(ActivityLog.user_id.in_(student_ids)).update({ActivityLog.user_id: None}, synchronize_session=False)
         db.query(IrregularSelection).filter(IrregularSelection.user_id.in_(student_ids)).delete(synchronize_session=False)
         db.query(User).filter(User.role == "student").delete(synchronize_session=False)
+        
+    return count
+
+def safe_clear_proctor_accounts(db: Session) -> int:
+    """
+    Safely delete all proctor user accounts, proctor records, and proctor availabilities.
+    Preserves students, program_head/admin, and teachers.
+    Returns the count of deleted proctor accounts.
+    """
+    proctor_users = db.query(User).filter(User.role == "proctor").all()
+    user_ids = [u.id for u in proctor_users]
+    count = len(user_ids)
+    
+    # Collect proctor IDs from users and all existing proctors
+    proctor_ids_from_users = [u.proctor_id for u in proctor_users if u.proctor_id]
+    all_proctors = db.query(Proctor).all()
+    all_p_ids = list(set(proctor_ids_from_users + [p.id for p in all_proctors]))
+    
+    if all_p_ids:
+        # Null out proctor on exams
+        db.query(Exam).filter(Exam.proctor_id.in_(all_p_ids)).update({Exam.proctor_id: None}, synchronize_session=False)
+        db.query(ProctorAvailability).filter(ProctorAvailability.proctor_id.in_(all_p_ids)).delete(synchronize_session=False)
+        db.query(Proctor).filter(Proctor.id.in_(all_p_ids)).delete(synchronize_session=False)
+
+    if user_ids:
+        db.query(PasswordResetToken).filter(PasswordResetToken.user_id.in_(user_ids)).delete(synchronize_session=False)
+        db.query(ChatMessage).filter(or_(ChatMessage.sender_id.in_(user_ids), ChatMessage.recipient_id.in_(user_ids))).delete(synchronize_session=False)
+        db.query(ActivityLog).filter(ActivityLog.user_id.in_(user_ids)).update({ActivityLog.user_id: None}, synchronize_session=False)
+        db.query(User).filter(User.id.in_(user_ids)).delete(synchronize_session=False)
         
     return count
 
@@ -1002,27 +1033,8 @@ def upload_catalog_excel(
                     existing_teachers[teacher_key] = teacher_obj
                     stats["teachers_created"] += 1
 
-                    # Proctor record
-                    proctor_obj = Proctor(name=teacher_val, teacher_id=teacher_obj.id)
-                    db.add(proctor_obj)
-                    db.flush()
-                    stats["proctors_created"] += 1
-
-                    # User login credentials
-                    email = f"{teacher_val.lower().replace(' ', '.')}@school.edu"
-                    user_exists = db.query(User).filter(User.email == email).first()
-                    if not user_exists:
-                        user_obj = User(
-                            name=teacher_val,
-                            email=email,
-                            hashed_password=hash_pwd("proctor123"),
-                            role="proctor",
-                            teacher_id=teacher_obj.id,
-                            proctor_id=proctor_obj.id
-                        )
-                        db.add(user_obj)
-                        db.flush()
-                        stats["users_created"] += 1
+                    # Note: Proctor accounts are uploaded separately via the Proctor Accounts upload feature
+                    pass
                 
                 teacher = existing_teachers[teacher_key]
 
@@ -1638,4 +1650,328 @@ def clear_student_accounts_endpoint(
         raise HTTPException(status_code=500, detail=f"Failed to clear student accounts: {str(e)}")
 
 
+# -------------------------------------------------------------
+# Proctor Account Management & Upload
+# -------------------------------------------------------------
 
+@router.get("/proctor-stats")
+def get_proctor_stats(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(["admin"]))
+):
+    from sqlalchemy import func, or_
+    total = db.query(User).filter(User.role == "proctor").count()
+    college_depts = ["ICT", "THM", "BM", "GE", "AS", "CRIM", "College"]
+    college = (
+        db.query(User)
+        .join(Proctor, User.proctor_id == Proctor.id)
+        .filter(User.role == "proctor", Proctor.department.in_(college_depts))
+        .count()
+    )
+    shs = (
+        db.query(User)
+        .outerjoin(Proctor, User.proctor_id == Proctor.id)
+        .filter(
+            User.role == "proctor",
+            or_(
+                Proctor.department == "SHS",
+                Proctor.department == "",
+                Proctor.department.is_(None),
+                ~Proctor.department.in_(college_depts)
+            )
+        )
+        .count()
+    )
+
+    dept_rows = (
+        db.query(Proctor.department, func.count(User.id))
+        .join(User, User.proctor_id == Proctor.id)
+        .filter(User.role == "proctor")
+        .group_by(Proctor.department)
+        .all()
+    )
+    breakdown = { (d if d else "Blank"): cnt for d, cnt in dept_rows }
+
+    return {
+        "total": total,
+        "college": college,
+        "shs": shs,
+        "breakdown": breakdown
+    }
+
+@router.get("/proctor-directory")
+def get_proctor_directory(
+    department: str = Query(None),
+    search: str = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=1, le=100),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(["admin"]))
+):
+    from sqlalchemy import func, or_
+    import math
+
+    query = (
+        db.query(User, Proctor)
+        .outerjoin(Proctor, User.proctor_id == Proctor.id)
+        .filter(User.role == "proctor")
+    )
+    college_depts = ["ICT", "THM", "BM", "GE", "AS", "CRIM", "College"]
+    if department and department != "All":
+        if department == "College":
+            query = query.filter(Proctor.department.in_(college_depts))
+        elif department in ["SHS", "Blank", "SHS (Blank)", "Unassigned"]:
+            query = query.filter(or_(
+                Proctor.department == "SHS",
+                Proctor.department == "",
+                Proctor.department.is_(None)
+            ))
+        else:
+            query = query.filter(Proctor.department == department)
+    if search:
+        s = f"%{search.strip()}%"
+        query = query.filter(or_(
+            User.name.ilike(s),
+            User.email.ilike(s),
+            Proctor.department.ilike(s)
+        ))
+
+    total = query.count()
+    rows = query.order_by(User.name).offset((page - 1) * page_size).limit(page_size).all()
+
+    teacher_ids = [u.teacher_id for u, p in rows if u.teacher_id]
+    schedule_counts = dict(
+        db.query(TeacherSchedule.teacher_id, func.count(TeacherSchedule.id))
+        .filter(TeacherSchedule.teacher_id.in_(teacher_ids))
+        .group_by(TeacherSchedule.teacher_id)
+        .all()
+    ) if teacher_ids else {}
+
+    items = []
+    for u, p in rows:
+        has_sched = False
+        if u.teacher_id:
+            has_sched = schedule_counts.get(u.teacher_id, 0) > 0
+        items.append({
+            "id": u.id,
+            "proctor_id": p.id if p else None,
+            "name": u.name,
+            "email": u.email,
+            "department": p.department if (p and p.department) else "",
+            "contact": p.contact if p else None,
+            "has_schedule": has_sched,
+            "is_first_login": u.is_first_login,
+        })
+
+    return {
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": math.ceil(total / page_size) if page_size > 0 else 1,
+        "items": items
+    }
+
+@router.post("/upload-proctors")
+def upload_proctors_excel(
+    file: UploadFile = File(...),
+    clear_existing: bool = Form(False),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(["admin"]))
+):
+    """
+    Upload and parse an Excel spreadsheet containing proctors (NAME, EMAIL, DEPARTMENT).
+    """
+    try:
+        contents = file.file.read()
+        df = pd.read_excel(io.BytesIO(contents))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid Excel file: {str(e)}")
+
+    df.columns = [str(col).strip().upper() for col in df.columns]
+
+    name_col = next((c for c in df.columns if c in ["NAME", "PROCTOR NAME", "FULL NAME", "TEACHER NAME", "PROCTOR"]), None)
+    email_col = next((c for c in df.columns if c in ["EMAIL", "PROCTOR EMAIL", "SCHOOL EMAIL", "EMAIL ADDRESS"]), None)
+    dept_col = next((c for c in df.columns if c in ["DEPARTMENT", "DEPT", "CATEGORY"]), None)
+
+    if not name_col or not email_col:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Missing required columns (NAME, EMAIL). Columns found: {list(df.columns)}"
+        )
+
+    if clear_existing:
+        try:
+            safe_clear_proctor_accounts(db)
+            db.commit()
+            log_activity(db, current_user.id, "PROCTORS_CLEAR_DATA", "Cleared existing proctor accounts before import.")
+        except Exception as e:
+            db.rollback()
+            raise HTTPException(status_code=500, detail=f"Failed to clear existing proctors: {str(e)}")
+
+    stats = {
+        "created": 0,
+        "updated": 0,
+        "skipped": 0
+    }
+
+    default_pw_hash = bcrypt.hashpw("proctor123".encode(), bcrypt.gensalt()).decode()
+
+    existing_users = {u.email.lower(): u for u in db.query(User).filter(User.role == "proctor").all()}
+    existing_proctors_by_name = {p.name.upper(): p for p in db.query(Proctor).all()}
+    teachers_by_name = {t.name.upper(): t for t in db.query(Teacher).all()}
+
+    for index, row in df.iterrows():
+        name_val = str(row[name_col]).strip() if pd.notna(row[name_col]) else ""
+        email_val = str(row[email_col]).strip().lower() if pd.notna(row[email_col]) else ""
+        dept_val = str(row[dept_col]).strip() if dept_col and pd.notna(row[dept_col]) else ""
+
+        if not name_val or name_val.lower() == "nan" or not email_val or email_val.lower() == "nan":
+            stats["skipped"] += 1
+            continue
+
+        if "@" not in email_val:
+            stats["skipped"] += 1
+            continue
+
+        # Department normalization
+        raw_dept = dept_val.upper() if dept_val else ""
+        if raw_dept in ["ICT", "THM", "BM", "GE", "AS", "CRIM"]:
+            dept_clean = raw_dept
+        elif "SHS" in raw_dept or "SENIOR" in raw_dept:
+            dept_clean = ""
+        elif "COL" in raw_dept:
+            dept_clean = "College"
+        else:
+            dept_clean = dept_val if dept_val else ""
+
+        # Link matching teacher if exists
+        teacher = teachers_by_name.get(name_val.upper())
+        if not teacher:
+            teacher = Teacher(name=name_val)
+            db.add(teacher)
+            db.flush()
+            teachers_by_name[name_val.upper()] = teacher
+
+        # Find or create Proctor record
+        proctor = existing_proctors_by_name.get(name_val.upper())
+        if not proctor:
+            proctor = Proctor(
+                name=name_val,
+                department=dept_clean,
+                teacher_id=teacher.id if teacher else None
+            )
+            db.add(proctor)
+            db.flush()
+            existing_proctors_by_name[name_val.upper()] = proctor
+
+            # Add default availability (Mon-Fri 8:00 - 18:00)
+            for dow in range(5):
+                pa = ProctorAvailability(
+                    proctor_id=proctor.id,
+                    day_of_week=dow,
+                    start_time=time(8, 0),
+                    end_time=time(18, 0)
+                )
+                db.add(pa)
+        else:
+            proctor.department = dept_clean
+            if teacher and not proctor.teacher_id:
+                proctor.teacher_id = teacher.id
+
+        # Find or create User record
+        user = existing_users.get(email_val)
+        if user:
+            user.name = name_val
+            user.proctor_id = proctor.id
+            user.teacher_id = teacher.id if teacher else None
+            stats["updated"] += 1
+        else:
+            user = User(
+                name=name_val,
+                email=email_val,
+                hashed_password=default_pw_hash,
+                role="proctor",
+                proctor_id=proctor.id,
+                teacher_id=teacher.id if teacher else None,
+                is_first_login=True
+            )
+            db.add(user)
+            existing_users[email_val] = user
+            stats["created"] += 1
+
+    try:
+        db.commit()
+        cache.invalidate_proctors()
+        log_activity(db, current_user.id, "PROCTORS_IMPORT", f"Imported proctor accounts: {stats['created']} created, {stats['updated']} updated.")
+        return {
+            "message": f"Proctor import completed: {stats['created']} created, {stats['updated']} updated, {stats['skipped']} skipped.",
+            "details": stats
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to save proctors: {str(e)}")
+
+@router.delete("/proctors/{user_id}")
+def delete_proctor_account_endpoint(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(["admin"]))
+):
+    u = db.query(User).filter(User.id == user_id, User.role == "proctor").first()
+    if not u:
+        raise HTTPException(status_code=404, detail="Proctor user account not found.")
+
+    proctor_id = u.proctor_id
+    proctor_name = u.name
+
+    if proctor_id:
+        db.query(Exam).filter(Exam.proctor_id == proctor_id).update({Exam.proctor_id: None}, synchronize_session=False)
+        db.query(ProctorAvailability).filter(ProctorAvailability.proctor_id == proctor_id).delete(synchronize_session=False)
+        p = db.query(Proctor).filter(Proctor.id == proctor_id).first()
+        if p:
+            db.delete(p)
+
+    db.query(PasswordResetToken).filter(PasswordResetToken.user_id == user_id).delete(synchronize_session=False)
+    db.query(ChatMessage).filter(or_(ChatMessage.sender_id == user_id, ChatMessage.recipient_id == user_id)).delete(synchronize_session=False)
+    db.delete(u)
+    db.commit()
+
+    cache.invalidate_proctors()
+    log_activity(db, current_user.id, "DELETE_PROCTOR", f"Deleted proctor account: {proctor_name} (ID: {user_id})")
+    return {"message": f"Successfully deleted proctor account for {proctor_name}."}
+
+@router.post("/clear-proctors")
+def clear_proctor_accounts_endpoint(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(["admin"]))
+):
+    try:
+        count = safe_clear_proctor_accounts(db)
+        db.commit()
+        log_activity(db, current_user.id, "PROCTORS_CLEAR_DATA", f"Admin cleared {count} proctor accounts.")
+        cache.invalidate_proctors()
+        return {"message": f"Successfully deleted {count} proctor account(s)!"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to clear proctor accounts: {str(e)}")
+
+@router.get("/download-proctors-dummy")
+def download_proctors_dummy(current_user: User = Depends(require_role(["admin"]))):
+    import os
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    candidates = [
+        os.path.join(base_dir, "..", "..", "data", "import", "dummy_proctors.xlsx"),
+        os.path.join(base_dir, "..", "..", "data", "imports", "dummy_proctors.xlsx"),
+        os.path.join(base_dir, "..", "dummy_proctors.xlsx"),
+        os.path.join(base_dir, "..", "..", "frontend", "public", "dummy_proctors.xlsx"),
+    ]
+    file_path = next((p for p in candidates if os.path.exists(p)), None)
+    if not file_path:
+        raise HTTPException(status_code=404, detail="Dummy proctor file not found.")
+
+    file_like = open(file_path, mode="rb")
+    return StreamingResponse(
+        file_like,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=dummy_proctors.xlsx"}
+    )

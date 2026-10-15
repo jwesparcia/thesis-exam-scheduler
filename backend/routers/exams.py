@@ -1086,6 +1086,28 @@ def update_exam(
                 detail=f"Room conflict: Selected room is already assigned to {sub_name} ({sec_name}) at this timeslot."
             )
 
+    # 2b. Check proctor subject conflict: Proctor must not teach this subject
+    if target_proctor_id is not None:
+        from model.models import Proctor, TeacherTeaching
+        proc = db.query(Proctor).get(target_proctor_id)
+        if proc and proc.teacher_id:
+            teaches = db.query(Subject).filter(
+                Subject.id == exam.subject_id,
+                Subject.teacher_id == proc.teacher_id
+            ).first()
+            if not teaches:
+                teaches = db.query(TeacherTeaching).filter(
+                    TeacherTeaching.subject_id == exam.subject_id,
+                    TeacherTeaching.teacher_id == proc.teacher_id
+                ).first()
+            if teaches:
+                proc_name = proc.name or "Selected proctor"
+                sub_name = exam.subject.name if exam.subject else "this subject"
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Subject conflict: {proc_name} teaches {sub_name} and cannot be assigned as its proctor."
+                )
+
     # 2. Check proctor conflict: Proctor must not be assigned to another exam at target timeslot
     if target_proctor_id is not None and target_timeslot_id is not None:
         conflict_proc = db.query(Exam).filter(

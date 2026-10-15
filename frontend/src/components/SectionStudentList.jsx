@@ -678,10 +678,10 @@ export default function SectionStudentList() {
                       <table className="hidden w-full min-w-[720px] text-sm md:table">
                         <thead>
                           <tr
-                            className={`text-[11px] uppercase tracking-wider font-bold ${
+                            className={`text-xs uppercase tracking-wider font-semibold border-b ${
                               isDark
-                                ? "bg-slate-900/40 text-slate-500"
-                                : "bg-slate-50 text-slate-400"
+                                ? "bg-slate-800/80 border-slate-700 text-slate-300"
+                                : "bg-slate-100/90 border-slate-200 text-slate-700"
                             }`}
                           >
                             <th className="text-left px-5 py-3 w-10">#</th>
@@ -702,8 +702,8 @@ export default function SectionStudentList() {
                               }`}
                             >
                               <td
-                                className={`px-5 py-3 text-xs font-medium ${
-                                  isDark ? "text-slate-600" : "text-slate-400"
+                                className={`px-5 py-3 text-xs font-semibold ${
+                                  isDark ? "text-slate-400" : "text-slate-500"
                                 }`}
                               >
                                 {idx + 1}
@@ -714,11 +714,11 @@ export default function SectionStudentList() {
                                     className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
                                       student.student_type === "irregular"
                                         ? isDark
-                                          ? "bg-amber-900/40 text-amber-300"
-                                          : "bg-amber-100 text-amber-700"
+                                          ? "bg-amber-900/40 text-amber-300 border border-amber-800/40"
+                                          : "bg-amber-100 text-amber-800 border border-amber-200"
                                         : isDark
-                                        ? "bg-blue-900/40 text-blue-300"
-                                        : "bg-blue-100 text-blue-700"
+                                        ? "bg-blue-900/40 text-blue-300 border border-blue-800/40"
+                                        : "bg-blue-100 text-blue-800 border border-blue-200"
                                     }`}
                                   >
                                     {(student.name || "?")
@@ -730,7 +730,7 @@ export default function SectionStudentList() {
                                   </div>
                                   <span
                                     className={`font-semibold ${
-                                      isDark ? "text-slate-100" : "text-slate-800"
+                                      isDark ? "text-slate-100" : "text-slate-900"
                                     }`}
                                   >
                                     {student.name}
@@ -738,8 +738,8 @@ export default function SectionStudentList() {
                                 </div>
                               </td>
                               <td
-                                className={`px-4 py-3 font-mono text-xs ${
-                                  isDark ? "text-slate-400" : "text-slate-500"
+                                className={`px-4 py-3 font-mono text-xs font-semibold ${
+                                  isDark ? "text-slate-300" : "text-slate-700"
                                 }`}
                               >
                                 {student.student_id || (
