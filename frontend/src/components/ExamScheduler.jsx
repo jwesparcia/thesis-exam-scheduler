@@ -1022,8 +1022,26 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
 
       {/* Overwrite existing schedule modal */}
       {overwriteModal.isOpen && (
-        <div className="fixed inset-0 flex items-center justify-center bg-slate-950/60 backdrop-blur-xs z-50 p-3 sm:p-4">
-          <div className={`${isDark ? "bg-slate-900 border-slate-700" : "bg-white border-slate-200"} border rounded-2xl sm:rounded-3xl shadow-2xl max-w-md w-full p-5 sm:p-8`}>
+        <div 
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 flex items-center justify-center bg-slate-950/60 backdrop-blur-xs z-50 p-3 sm:p-4"
+        >
+          <div 
+            className="absolute inset-0"
+            onClick={() => setOverwriteModal({ isOpen: false })}
+          />
+          <div className={`relative ${isDark ? "bg-slate-900 border-slate-700" : "bg-white border-slate-200"} border rounded-2xl sm:rounded-3xl shadow-2xl max-w-md w-full p-5 sm:p-8`}>
+            <button
+              type="button"
+              onClick={() => setOverwriteModal({ isOpen: false })}
+              aria-label="Close dialog"
+              className={`absolute top-4 right-4 p-1.5 rounded-lg transition ${
+                isDark ? "hover:bg-slate-800 text-slate-400 hover:text-white" : "hover:bg-slate-100 text-slate-500 hover:text-slate-900"
+              }`}
+            >
+              <XMarkIcon className="w-5 h-5" />
+            </button>
             <div className="flex flex-col items-center text-center">
               <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-amber-100 dark:bg-amber-950/50 flex items-center justify-center mb-4 sm:mb-5">
                 <ExclamationTriangleIcon className="w-7 h-7 sm:w-8 sm:h-8 text-amber-600 dark:text-amber-400" />
@@ -1063,8 +1081,26 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
       )}
 
       {confirmModal.isOpen && (
-        <div className="fixed inset-0 flex items-center justify-center bg-slate-950/60 backdrop-blur-xs z-50 p-3 sm:p-4">
-          <div className={`${isDark ? "bg-slate-900 border-slate-700" : "bg-white border-slate-200"} border rounded-2xl sm:rounded-3xl shadow-2xl max-w-md w-full p-5 sm:p-8 animate-slide-in`}>
+        <div 
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 flex items-center justify-center bg-slate-950/60 backdrop-blur-xs z-50 p-3 sm:p-4"
+        >
+          <div 
+            className="absolute inset-0"
+            onClick={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+          />
+          <div className={`relative ${isDark ? "bg-slate-900 border-slate-700" : "bg-white border-slate-200"} border rounded-2xl sm:rounded-3xl shadow-2xl max-w-md w-full p-5 sm:p-8 animate-slide-in`}>
+            <button
+              type="button"
+              onClick={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+              aria-label="Close dialog"
+              className={`absolute top-4 right-4 p-1.5 rounded-lg transition ${
+                isDark ? "hover:bg-slate-800 text-slate-400 hover:text-white" : "hover:bg-slate-100 text-slate-500 hover:text-slate-900"
+              }`}
+            >
+              <XMarkIcon className="w-5 h-5" />
+            </button>
             <div className="flex flex-col items-center text-center">
               <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-blue-100 dark:bg-blue-950/50 flex items-center justify-center mb-4 sm:mb-6">
                 <CalendarDaysIcon className="w-7 h-7 sm:w-8 sm:h-8 text-blue-600 dark:text-blue-400" />

@@ -665,13 +665,23 @@ function StudentChatPanel() {
 
       {/* New Chat Modal */}
       {isNewChatModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-          <div className={`w-full max-w-md rounded-2xl border shadow-xl flex flex-col overflow-hidden ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200"}`} style={{ maxHeight: "80vh" }}>
+        <div 
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm"
+        >
+          <div 
+            className="absolute inset-0"
+            onClick={() => setIsNewChatModalOpen(false)}
+          />
+          <div className={`relative w-full max-w-md rounded-2xl border shadow-xl flex flex-col overflow-hidden ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200"}`} style={{ maxHeight: "80vh" }}>
             {/* Modal Header */}
             <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
               <h3 className={`font-bold text-sm ${isDark ? "text-white" : "text-slate-900"}`}>Start New Chat</h3>
               <button
+                type="button"
                 onClick={() => setIsNewChatModalOpen(false)}
+                aria-label="Close dialog"
                 className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition"
               >
                 <XMarkIcon className="w-4 h-4 text-slate-500" />
@@ -753,11 +763,13 @@ function StudentChatPanel() {
         <ConfirmationModal
           isOpen={isClearConvModalOpen}
           onClose={() => setIsClearConvModalOpen(false)}
+          onCancel={() => setIsClearConvModalOpen(false)}
           onConfirm={executeClearConversation}
           title="Clear Conversation"
           message="Are you sure you want to clear your conversation history with this contact? This action will permanently remove all messages for you."
-          confirmText="Yes, Clear"
-          cancelText="Cancel"
+          confirmLabel="Yes, Clear"
+          cancelLabel="Cancel"
+          requireTypedConfirm={false}
           type="danger"
         />
       )}
@@ -766,11 +778,13 @@ function StudentChatPanel() {
         <ConfirmationModal
           isOpen={isDeleteMsgModalOpen}
           onClose={() => setIsDeleteMsgModalOpen(false)}
+          onCancel={() => setIsDeleteMsgModalOpen(false)}
           onConfirm={executeDeleteChatMessage}
           title="Delete Message"
           message="Are you sure you want to delete this message? This action cannot be undone."
-          confirmText="Delete"
-          cancelText="Cancel"
+          confirmLabel="Delete"
+          cancelLabel="Cancel"
+          requireTypedConfirm={false}
           type="danger"
         />
       )}
@@ -2055,11 +2069,24 @@ export default function StudentDashboard() {
 
       {/* Reschedule Modal - FULL MODAL CODE */}
       {isModalOpen && selectedExam && (
-        <div className="fixed inset-0 flex items-center justify-center p-3 sm:p-6 bg-black/60 backdrop-blur-sm z-50 animate-in fade-in duration-200">
-          <div className={`w-full max-w-2xl max-h-[92dvh] overflow-y-auto p-5 sm:p-7 rounded-2xl sm:rounded-3xl border shadow-2xl custom-scrollbar ${isDark ? "bg-slate-900 border-slate-700 text-slate-100" : "bg-white border-slate-200 text-slate-900"}`}>
+        <div 
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 flex items-center justify-center p-3 sm:p-6 bg-black/60 backdrop-blur-sm z-50 animate-in fade-in duration-200"
+        >
+          <div 
+            className="absolute inset-0"
+            onClick={() => !loadingRequest && setIsModalOpen(false)}
+          />
+          <div className={`relative w-full max-w-2xl max-h-[92dvh] overflow-y-auto p-5 sm:p-7 rounded-2xl sm:rounded-3xl border shadow-2xl custom-scrollbar ${isDark ? "bg-slate-900 border-slate-700 text-slate-100" : "bg-white border-slate-200 text-slate-900"}`}>
             <div className={`flex items-center justify-between mb-6 pb-3 border-b ${isDark ? "border-slate-800" : "border-slate-200"}`}>
               <h3 className={`text-lg sm:text-xl font-bold ${isDark ? "text-slate-100" : "text-slate-900"}`}>Request Exam Reschedule</h3>
-              <button onClick={() => setIsModalOpen(false)} className={`p-2 rounded-xl transition ${isDark ? "hover:bg-slate-800 text-slate-400" : "hover:bg-slate-100 text-slate-500"}`}>
+              <button 
+                type="button"
+                onClick={() => setIsModalOpen(false)} 
+                aria-label="Close dialog"
+                className={`p-2 rounded-xl transition ${isDark ? "hover:bg-slate-800 text-slate-400" : "hover:bg-slate-100 text-slate-500"}`}
+              >
                 <XMarkIcon className="w-5 h-5" />
               </button>
             </div>

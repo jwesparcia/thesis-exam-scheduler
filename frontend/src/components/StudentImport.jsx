@@ -984,7 +984,11 @@ export default function StudentImport({ isGenerating }) {
           aria-modal="true"
           className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200"
         >
-          <div className={`max-w-2xl w-full rounded-2xl border shadow-2xl overflow-hidden ${
+          <div 
+            className="absolute inset-0"
+            onClick={() => setSelectedStudentForModal(null)}
+          />
+          <div className={`relative max-w-2xl w-full rounded-2xl border shadow-2xl overflow-hidden ${
             isDark ? "bg-slate-900 border-slate-700/80 text-white" : "bg-white border-slate-200 text-slate-900"
           }`}>
             <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">

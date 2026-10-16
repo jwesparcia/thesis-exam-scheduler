@@ -509,13 +509,26 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
 
       {/* ── Room Selection Approval Modal ── */}
       {approveModalReq && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className={`w-full max-w-md rounded-2xl border shadow-2xl p-6 ${isDark ? "bg-slate-900 border-slate-700" : "bg-white border-slate-200"}`}>
+        <div 
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+        >
+          <div 
+            className="absolute inset-0"
+            onClick={() => setApproveModalReq(null)}
+          />
+          <div className={`relative w-full max-w-md rounded-2xl border shadow-2xl p-6 ${isDark ? "bg-slate-900 border-slate-700" : "bg-white border-slate-200"}`}>
             <div className="flex items-center justify-between mb-5">
               <h3 className={`text-lg font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
                 {approveModalReq.consultation_area ? "Approve Consultation Area Exam" : "Assign Room & Approve"}
               </h3>
-              <button onClick={() => setApproveModalReq(null)} className={`p-1.5 rounded-lg transition ${isDark ? "hover:bg-slate-800 text-slate-400 hover:text-white" : "hover:bg-slate-100 text-slate-500 hover:text-slate-800"}`}>
+              <button 
+                type="button"
+                onClick={() => setApproveModalReq(null)} 
+                aria-label="Close dialog"
+                className={`p-1.5 rounded-lg transition ${isDark ? "hover:bg-slate-800 text-slate-400 hover:text-white" : "hover:bg-slate-100 text-slate-500 hover:text-slate-800"}`}
+              >
                 <XMarkIcon className="w-5 h-5" />
               </button>
             </div>
@@ -1058,17 +1071,30 @@ function ChatSupportPanel() {
 
       {/* New Chat Modal */}
       {isNewChatModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className={`w-full max-w-md rounded-2xl border p-6 flex flex-col gap-4 shadow-2xl ${
+        <div 
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+        >
+          <div 
+            className="absolute inset-0"
+            onClick={() => {
+              setIsNewChatModalOpen(false);
+              setContactSearch("");
+            }}
+          />
+          <div className={`relative w-full max-w-md rounded-2xl border p-6 flex flex-col gap-4 shadow-2xl ${
             isDark ? "bg-slate-800 border-slate-700 text-white" : "bg-white border-slate-200 text-slate-800"
           }`}>
             <div className="flex items-center justify-between">
               <h3 className="font-bold text-lg">Start a New Chat</h3>
               <button 
+                type="button"
                 onClick={() => {
                   setIsNewChatModalOpen(false);
                   setContactSearch("");
                 }}
+                aria-label="Close dialog"
                 className={`p-1.5 rounded-lg transition ${
                   isDark ? "hover:bg-slate-700 text-slate-400 hover:text-white" : "hover:bg-slate-100 text-slate-500 hover:text-slate-900"
                 }`}

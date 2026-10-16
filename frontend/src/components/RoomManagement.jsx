@@ -787,6 +787,16 @@ export default function RoomManagement({ isGenerating }) {
           <div className={`relative w-full max-w-md rounded-2xl sm:rounded-3xl border p-5 sm:p-6 shadow-2xl transition-all ${
             isDark ? "bg-slate-850 border-slate-700 text-white" : "bg-white border-slate-200 text-slate-900"
           }`}>
+            <button
+              type="button"
+              onClick={() => setShowAddModal(false)}
+              aria-label="Close dialog"
+              className={`absolute top-4 right-4 p-1.5 rounded-lg transition ${
+                isDark ? "hover:bg-slate-750 text-slate-400 hover:text-white" : "hover:bg-slate-100 text-slate-500 hover:text-slate-900"
+              }`}
+            >
+              <XMarkIcon className="w-5 h-5" />
+            </button>
             <div className="flex items-center gap-3 mb-4">
               <div className="p-2.5 rounded-xl bg-blue-600/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400">
                 <BuildingOffice2Icon className="w-6 h-6" />
@@ -974,6 +984,17 @@ export default function RoomManagement({ isGenerating }) {
           <div className={`relative w-full max-w-md rounded-2xl sm:rounded-3xl border p-5 sm:p-6 shadow-2xl transition-all ${
             isDark ? "bg-slate-850 border-slate-700 text-white" : "bg-white border-slate-200 text-slate-900"
           }`}>
+            <button
+              type="button"
+              onClick={() => setShowDeleteAllConfirm(false)}
+              disabled={deletingAll}
+              aria-label="Close dialog"
+              className={`absolute top-4 right-4 p-1.5 rounded-lg transition ${
+                isDark ? "hover:bg-slate-750 text-slate-400 hover:text-white" : "hover:bg-slate-100 text-slate-500 hover:text-slate-900"
+              }`}
+            >
+              <XMarkIcon className="w-5 h-5" />
+            </button>
             <div className="flex items-center gap-3 mb-4">
               <div className="p-2.5 rounded-xl bg-rose-600/10 text-rose-600 dark:bg-rose-500/20 dark:text-rose-400">
                 <TrashIcon className="w-6 h-6" />

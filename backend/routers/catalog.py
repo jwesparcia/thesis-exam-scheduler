@@ -1838,7 +1838,7 @@ def upload_proctors_excel(
         if raw_dept in ["ICT", "THM", "BM", "GE", "AS", "CRIM"]:
             dept_clean = raw_dept
         elif "SHS" in raw_dept or "SENIOR" in raw_dept:
-            dept_clean = ""
+            dept_clean = "SHS"
         elif "COL" in raw_dept:
             dept_clean = "College"
         else:

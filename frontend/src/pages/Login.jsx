@@ -81,7 +81,7 @@ export default function Login() {
             <span>Official Academic Platform</span>
           </div>
           <h2 className="text-3xl lg:text-5xl font-extrabold mb-4 tracking-tight leading-tight text-white drop-shadow-md">
-            Thesis & Examination<br />Scheduling System
+            Examination Scheduling System
           </h2>
           <p className="text-base lg:text-lg text-slate-300 max-w-lg font-normal leading-relaxed drop-shadow-sm">
             Automated conflict-free scheduling, proctor monitoring, irregular student enrollment, and departmental timetable administration.

@@ -7,15 +7,37 @@ export default function ConfirmationModal({
   title,
   message,
   confirmText = "",
-  confirmLabel = "Confirm",
+  confirmLabel,
   cancelLabel = "Cancel",
+  cancelText,
   onConfirm,
   onCancel,
+  onClose,
   isDanger = false,
+  type = "",
+  requireTypedConfirm,
 }) {
   const { theme } = useTheme();
   const isDark = theme === "dark";
   const [inputVal, setInputVal] = useState("");
+
+  const handleCancel = () => {
+    if (typeof onCancel === "function") {
+      onCancel();
+    } else if (typeof onClose === "function") {
+      onClose();
+    }
+  };
+
+  const effectiveCancelLabel = cancelText || cancelLabel || "Cancel";
+  const effectiveConfirmLabel = confirmLabel || (confirmText && !requireTypedConfirm ? confirmText : "Confirm");
+  const effectiveIsDanger = isDanger || type === "danger";
+
+  // If requireTypedConfirm is explicitly false, no text required.
+  // If requireTypedConfirm is true, require confirmText.
+  // If requireTypedConfirm is undefined, require confirmText only if confirmText is non-empty.
+  const hasTypedConfirm = requireTypedConfirm === true || (requireTypedConfirm !== false && Boolean(confirmText));
+  const isConfirmedEnabled = !hasTypedConfirm || inputVal.trim().toLowerCase() === confirmText.toLowerCase();
 
   // Reset input when modal opens/closes
   useEffect(() => {
@@ -24,9 +46,19 @@ export default function ConfirmationModal({
     }
   }, [isOpen]);
 
-  if (!isOpen) return null;
+  // Handle ESC key to close
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") {
+        handleCancel();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onCancel, onClose]);
 
-  const isConfirmedEnabled = !confirmText || inputVal.trim().toLowerCase() === confirmText.toLowerCase();
+  if (!isOpen) return null;
 
   return (
     <div
@@ -37,7 +69,7 @@ export default function ConfirmationModal({
     >
       {/* Backdrop */}
       <div 
-        onClick={onCancel}
+        onClick={handleCancel}
         className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300 animate-in fade-in"
       ></div>
 
@@ -53,18 +85,19 @@ export default function ConfirmationModal({
         <div className="flex items-start justify-between gap-4 mb-4">
           <div className="flex items-center gap-3">
             <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-              isDanger 
+              effectiveIsDanger 
                 ? "bg-rose-500/10 text-rose-600 dark:text-rose-400" 
                 : "bg-blue-500/10 text-blue-600 dark:text-blue-400"
             }`}>
-              {isDanger ? <ExclamationTriangleIcon className="w-5 h-5" /> : <InformationCircleIcon className="w-5 h-5" />}
+              {effectiveIsDanger ? <ExclamationTriangleIcon className="w-5 h-5" /> : <InformationCircleIcon className="w-5 h-5" />}
             </div>
             <h3 id="confirmation-modal-title" className="text-base sm:text-lg font-bold leading-tight">
               {title}
             </h3>
           </div>
           <button 
-            onClick={onCancel}
+            type="button"
+            onClick={handleCancel}
             aria-label="Close dialog"
             className={`p-1.5 rounded-lg transition ${
               isDark ? "hover:bg-slate-800 text-slate-400 hover:text-white" : "hover:bg-slate-100 text-slate-500 hover:text-slate-900"
@@ -80,7 +113,7 @@ export default function ConfirmationModal({
             {message}
           </p>
 
-          {confirmText && (
+          {hasTypedConfirm && (
             <div className="space-y-2">
               <label className={`block text-xs font-semibold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-500"}`}>
                 Please type <span className="text-rose-600 dark:text-rose-400 font-bold">"{confirmText}"</span> to confirm:
@@ -103,7 +136,7 @@ export default function ConfirmationModal({
         {/* Actions */}
         <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2.5 sm:gap-3">
           <button
-            onClick={onCancel}
+            onClick={handleCancel}
             type="button"
             className={`w-full sm:w-auto px-4 py-2.5 rounded-xl text-sm font-semibold border transition ${
               isDark
@@ -111,7 +144,7 @@ export default function ConfirmationModal({
                 : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900"
             }`}
           >
-            {cancelLabel}
+            {effectiveCancelLabel}
           </button>
           <button
             onClick={onConfirm}
@@ -122,12 +155,12 @@ export default function ConfirmationModal({
                 ? isDark
                   ? "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed"
                   : "bg-slate-200 text-slate-400 border border-slate-200 cursor-not-allowed"
-                : isDanger
+                : effectiveIsDanger
                   ? "bg-rose-600 hover:bg-rose-700 text-white shadow-rose-600/20 active:scale-95"
                   : "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-600/20 active:scale-95"
             }`}
           >
-            {confirmLabel}
+            {effectiveConfirmLabel}
           </button>
         </div>
       </div>

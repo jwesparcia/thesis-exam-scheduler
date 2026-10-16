@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { TrashIcon, PlusIcon } from "@heroicons/react/24/outline";
+import { TrashIcon, PlusIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { useToast } from "../context/ToastContext";
 import { useTheme } from "../context/themeStore";
 import api from "../api";
@@ -616,8 +616,26 @@ export default function DistributionRulesManager({ isGenerating }) {
                         </table>
                     </div>
                     {confirmModal.isOpen && (
-                        <div className="fixed inset-0 flex items-center justify-center bg-black/60 backdrop-blur-xs z-50 p-4">
-                            <div className={`${isDark ? "bg-slate-850 border-slate-700" : "bg-white border-slate-200"} border rounded-3xl shadow-2xl max-w-sm w-full p-6 animate-scale-in`}>
+                        <div 
+                            role="dialog"
+                            aria-modal="true"
+                            className="fixed inset-0 flex items-center justify-center bg-black/60 backdrop-blur-xs z-50 p-4"
+                        >
+                            <div 
+                                className="absolute inset-0"
+                                onClick={() => setConfirmModal({ isOpen: false, id: null })}
+                            />
+                            <div className={`relative ${isDark ? "bg-slate-850 border-slate-700" : "bg-white border-slate-200"} border rounded-3xl shadow-2xl max-w-sm w-full p-6 animate-scale-in`}>
+                                <button
+                                    type="button"
+                                    onClick={() => setConfirmModal({ isOpen: false, id: null })}
+                                    aria-label="Close dialog"
+                                    className={`absolute top-4 right-4 p-1.5 rounded-lg transition ${
+                                        isDark ? "hover:bg-slate-750 text-slate-400 hover:text-white" : "hover:bg-slate-100 text-slate-500 hover:text-slate-900"
+                                    }`}
+                                >
+                                    <XMarkIcon className="w-5 h-5" />
+                                </button>
                                 <div className="flex flex-col items-center text-center">
                                     <div className="w-14 h-14 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center mb-4">
                                         <TrashIcon className="w-7 h-7" />

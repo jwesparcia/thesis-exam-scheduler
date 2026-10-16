@@ -1086,7 +1086,7 @@ def update_exam(
                 detail=f"Room conflict: Selected room is already assigned to {sub_name} ({sec_name}) at this timeslot."
             )
 
-    # 2b. Check proctor subject conflict: Proctor must not teach this subject
+    # 2b. Check proctor conflicts: Proctor must not teach this subject, must not teach this section, and must match department
     if target_proctor_id is not None:
         from model.models import Proctor, TeacherTeaching
         proc = db.query(Proctor).get(target_proctor_id)
@@ -1106,6 +1106,33 @@ def update_exam(
                 raise HTTPException(
                     status_code=400,
                     detail=f"Subject conflict: {proc_name} teaches {sub_name} and cannot be assigned as its proctor."
+                )
+
+            # Check proctor section conflict: Proctor must not teach this section
+            teaches_sec = db.query(TeacherTeaching).filter(
+                TeacherTeaching.section_id == exam.section_id,
+                TeacherTeaching.teacher_id == proc.teacher_id
+            ).first()
+            if teaches_sec:
+                proc_name = proc.name or "Selected proctor"
+                sec_name = exam.section.name if exam.section else "this section"
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Section conflict: {proc_name} teaches section {sec_name} and cannot be assigned as its proctor."
+                )
+
+            # Check department consistency: SHS proctor for SHS exam, College proctor for College exam
+            exam_dept = exam.course.category if exam.course else None
+            proc_dept = (proc.department or "").strip().upper()
+            if exam_dept == "SHS" and proc_dept != "SHS":
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Department conflict: {proc.name} ({proc.department}) is not an SHS proctor and cannot proctor an SHS exam."
+                )
+            elif exam_dept == "College" and proc_dept == "SHS":
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Department conflict: {proc.name} is an SHS proctor and cannot proctor a College exam."
                 )
 
     # 2. Check proctor conflict: Proctor must not be assigned to another exam at target timeslot

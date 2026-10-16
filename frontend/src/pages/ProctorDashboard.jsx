@@ -684,17 +684,30 @@ function ProctorChatPanel() {
 
       {/* New Chat Modal */}
       {isNewChatModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className={`w-full max-w-md rounded-2xl border p-6 flex flex-col gap-4 shadow-2xl ${
+        <div 
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+        >
+          <div 
+            className="absolute inset-0"
+            onClick={() => {
+              setIsNewChatModalOpen(false);
+              setContactSearch("");
+            }}
+          />
+          <div className={`relative w-full max-w-md rounded-2xl border p-6 flex flex-col gap-4 shadow-2xl ${
             isDark ? "bg-slate-800 border-slate-700 text-white" : "bg-white border-slate-200 text-slate-800"
           }`}>
             <div className="flex items-center justify-between">
               <h3 className="font-bold text-lg">Start a New Chat</h3>
               <button 
+                type="button"
                 onClick={() => {
                   setIsNewChatModalOpen(false);
                   setContactSearch("");
                 }}
+                aria-label="Close dialog"
                 className={`p-1.5 rounded-lg transition ${
                   isDark ? "hover:bg-slate-700 text-slate-400 hover:text-white" : "hover:bg-slate-100 text-slate-500 hover:text-slate-900"
                 }`}
@@ -1755,8 +1768,27 @@ export default function ProctorDashboard() {
 
       {/* Delete Schedule Confirmation Modal */}
       {showDeleteScheduleModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4 animate-in fade-in duration-200">
-          <div className={`p-5 sm:p-8 rounded-2xl sm:rounded-3xl shadow-2xl max-w-md w-full transform transition-all scale-100 ${isDark ? "bg-slate-800 border border-slate-700" : "bg-white border border-slate-200"}`}>
+        <div 
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4 animate-in fade-in duration-200"
+        >
+          <div 
+            className="absolute inset-0"
+            onClick={() => !deletingSchedule && setShowDeleteScheduleModal(false)}
+          />
+          <div className={`relative p-5 sm:p-8 rounded-2xl sm:rounded-3xl shadow-2xl max-w-md w-full transform transition-all scale-100 ${isDark ? "bg-slate-800 border border-slate-700" : "bg-white border border-slate-200"}`}>
+            <button
+              type="button"
+              onClick={() => setShowDeleteScheduleModal(false)}
+              disabled={deletingSchedule}
+              aria-label="Close dialog"
+              className={`absolute top-4 right-4 p-1.5 rounded-lg transition ${
+                isDark ? "hover:bg-slate-700 text-slate-400 hover:text-white" : "hover:bg-slate-100 text-slate-500 hover:text-slate-900"
+              }`}
+            >
+              <XMarkIcon className="w-5 h-5" />
+            </button>
             <div className="flex flex-col items-center text-center">
               <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mb-4 sm:mb-6 bg-red-100 dark:bg-red-900/50 shadow-lg shadow-red-200/50 dark:shadow-red-900/20">
                 <TrashIcon className="w-7 h-7 sm:w-8 sm:h-8 text-red-600 dark:text-red-400" />
@@ -1769,6 +1801,7 @@ export default function ProctorDashboard() {
               </p>
               <div className="flex flex-col-reverse sm:flex-row gap-2.5 sm:gap-4 w-full">
                 <button
+                  type="button"
                   onClick={() => setShowDeleteScheduleModal(false)}
                   disabled={deletingSchedule}
                   className={`w-full py-3 sm:py-3.5 rounded-xl font-bold text-sm transition-all active:scale-95 disabled:opacity-55 ${isDark ? "bg-slate-700 hover:bg-slate-600 text-white" : "bg-slate-100 hover:bg-slate-200 text-slate-800"}`}
@@ -1776,6 +1809,7 @@ export default function ProctorDashboard() {
                   Cancel
                 </button>
                 <button
+                  type="button"
                   onClick={handleDeleteSchedule}
                   disabled={deletingSchedule}
                   className="w-full py-3 sm:py-3.5 rounded-xl font-bold text-sm bg-red-600 hover:bg-red-700 text-white transition-all shadow-lg shadow-red-600/30 active:scale-95 disabled:opacity-55 flex items-center justify-center gap-2"

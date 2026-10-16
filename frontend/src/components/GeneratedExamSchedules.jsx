@@ -122,7 +122,9 @@ export default function GeneratedExamSchedules({ isGenerating }) {
         setDeleting(true);
         try {
             let url = "/exams/clear";
-            if (deleteScope === "dept") {
+            if (deleteScope === "shs") {
+                url += "?department=SHS";
+            } else if (deleteScope === "dept") {
                 url += `?department=${selectedDept}&semester=${semester}`;
             }
             const res = await api.delete(url);
@@ -303,21 +305,39 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                             <PaperAirplaneIcon className="w-4 h-4" />
                             Post All {selectedDept}
                         </button>
-                        <button
-                            type="button"
-                            onClick={() => {
-                                setDeleteScope("dept");
-                                setShowDeleteModal(true);
-                            }}
-                            disabled={isGenerating}
-                            className={`flex-1 sm:flex-none border border-rose-300 dark:border-rose-900/60 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/30 dark:hover:bg-rose-900/40 text-rose-700 dark:text-rose-300 px-3.5 sm:px-4 py-2.5 rounded-xl shadow-xs flex items-center justify-center gap-1.5 transition-all font-semibold text-xs sm:text-sm ${
-                                isGenerating ? "opacity-50 cursor-not-allowed" : ""
-                            }`}
-                            title={isGenerating ? "Cannot delete schedules while schedule generation is ongoing" : ""}
-                        >
-                            <TrashIcon className="w-4 h-4" />
-                            Delete {selectedDept}
-                        </button>
+                        {selectedDept === "SHS" ? (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setDeleteScope("shs");
+                                    setShowDeleteModal(true);
+                                }}
+                                disabled={isGenerating}
+                                className={`flex-1 sm:flex-none border border-rose-300 dark:border-rose-900/60 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/30 dark:hover:bg-rose-900/40 text-rose-700 dark:text-rose-300 px-3.5 sm:px-4 py-2.5 rounded-xl shadow-xs flex items-center justify-center gap-1.5 transition-all font-semibold text-xs sm:text-sm ${
+                                    isGenerating ? "opacity-50 cursor-not-allowed" : ""
+                                }`}
+                                title={isGenerating ? "Cannot delete schedules while schedule generation is ongoing" : "Delete all Senior High School schedules"}
+                            >
+                                <TrashIcon className="w-4 h-4" />
+                                Delete All SHS Schedule
+                            </button>
+                        ) : (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setDeleteScope("dept");
+                                    setShowDeleteModal(true);
+                                }}
+                                disabled={isGenerating}
+                                className={`flex-1 sm:flex-none border border-rose-300 dark:border-rose-900/60 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/30 dark:hover:bg-rose-900/40 text-rose-700 dark:text-rose-300 px-3.5 sm:px-4 py-2.5 rounded-xl shadow-xs flex items-center justify-center gap-1.5 transition-all font-semibold text-xs sm:text-sm ${
+                                    isGenerating ? "opacity-50 cursor-not-allowed" : ""
+                                }`}
+                                title={isGenerating ? "Cannot delete schedules while schedule generation is ongoing" : ""}
+                            >
+                                <TrashIcon className="w-4 h-4" />
+                                Delete College Schedule
+                            </button>
+                        )}
                         <button
                             type="button"
                             onClick={() => {
@@ -789,8 +809,26 @@ export default function GeneratedExamSchedules({ isGenerating }) {
 
             {/* Confirmation Modal */}
             {showPostAllModal && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-3 sm:p-4 animate-in fade-in duration-200">
-                    <div className={`p-5 sm:p-8 rounded-2xl sm:rounded-3xl shadow-2xl max-w-md w-full border ${isDark ? "bg-slate-900 border-slate-750" : "bg-white border-slate-200"}`}>
+                <div 
+                    role="dialog"
+                    aria-modal="true"
+                    className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-3 sm:p-4 animate-in fade-in duration-200"
+                >
+                    <div 
+                        className="absolute inset-0"
+                        onClick={() => setShowPostAllModal(false)}
+                    />
+                    <div className={`relative p-5 sm:p-8 rounded-2xl sm:rounded-3xl shadow-2xl max-w-md w-full border ${isDark ? "bg-slate-900 border-slate-750" : "bg-white border-slate-200"}`}>
+                        <button
+                            type="button"
+                            onClick={() => setShowPostAllModal(false)}
+                            aria-label="Close dialog"
+                            className={`absolute top-4 right-4 p-1.5 rounded-lg transition ${
+                                isDark ? "hover:bg-slate-800 text-slate-400 hover:text-white" : "hover:bg-slate-100 text-slate-500 hover:text-slate-900"
+                            }`}
+                        >
+                            <XMarkIcon className="w-5 h-5" />
+                        </button>
                         <div className="flex flex-col items-center text-center">
                             <div className={`w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mb-4 sm:mb-6 ${isDark ? "bg-emerald-950/50 text-emerald-400" : "bg-emerald-100 text-emerald-600"}`}>
                                 <PaperAirplaneIcon className="w-7 h-7 sm:w-8 sm:h-8" />
@@ -829,8 +867,27 @@ export default function GeneratedExamSchedules({ isGenerating }) {
 
             {/* Save All Confirmation Modal */}
             {showSaveAllModal && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-3 sm:p-4 animate-in fade-in duration-200">
-                    <div className={`p-5 sm:p-8 rounded-2xl sm:rounded-3xl shadow-2xl max-w-md w-full border ${isDark ? "bg-slate-900 border-slate-750" : "bg-white border-slate-200"}`}>
+                <div 
+                    role="dialog"
+                    aria-modal="true"
+                    className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-3 sm:p-4 animate-in fade-in duration-200"
+                >
+                    <div 
+                        className="absolute inset-0"
+                        onClick={() => !saving && setShowSaveAllModal(false)}
+                    />
+                    <div className={`relative p-5 sm:p-8 rounded-2xl sm:rounded-3xl shadow-2xl max-w-md w-full border ${isDark ? "bg-slate-900 border-slate-750" : "bg-white border-slate-200"}`}>
+                        <button
+                            type="button"
+                            onClick={() => setShowSaveAllModal(false)}
+                            disabled={saving}
+                            aria-label="Close dialog"
+                            className={`absolute top-4 right-4 p-1.5 rounded-lg transition ${
+                                isDark ? "hover:bg-slate-800 text-slate-400 hover:text-white" : "hover:bg-slate-100 text-slate-500 hover:text-slate-900"
+                            }`}
+                        >
+                            <XMarkIcon className="w-5 h-5" />
+                        </button>
                         <div className="flex flex-col items-center text-center">
                             <div className={`w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mb-4 sm:mb-6 ${isDark ? "bg-slate-800 text-slate-200" : "bg-slate-100 text-slate-700"}`}>
                                 <DocumentCheckIcon className="w-7 h-7 sm:w-8 sm:h-8" />
@@ -870,18 +927,44 @@ export default function GeneratedExamSchedules({ isGenerating }) {
 
             {/* Delete Confirmation Modal */}
             {showDeleteModal && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-3 sm:p-4 animate-in fade-in duration-200">
-                    <div className={`p-5 sm:p-8 rounded-2xl sm:rounded-3xl shadow-2xl max-w-md w-full border ${isDark ? "bg-slate-900 border-slate-750" : "bg-white border-slate-200"}`}>
+                <div 
+                    role="dialog"
+                    aria-modal="true"
+                    className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-3 sm:p-4 animate-in fade-in duration-200"
+                >
+                    <div 
+                        className="absolute inset-0"
+                        onClick={() => !deleting && setShowDeleteModal(false)}
+                    />
+                    <div className={`relative p-5 sm:p-8 rounded-2xl sm:rounded-3xl shadow-2xl max-w-md w-full border ${isDark ? "bg-slate-900 border-slate-750" : "bg-white border-slate-200"}`}>
+                        <button
+                            type="button"
+                            onClick={() => setShowDeleteModal(false)}
+                            disabled={deleting}
+                            aria-label="Close dialog"
+                            className={`absolute top-4 right-4 p-1.5 rounded-lg transition ${
+                                isDark ? "hover:bg-slate-800 text-slate-400 hover:text-white" : "hover:bg-slate-100 text-slate-500 hover:text-slate-900"
+                            }`}
+                        >
+                            <XMarkIcon className="w-5 h-5" />
+                        </button>
                         <div className="flex flex-col items-center text-center">
                             <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mb-4 sm:mb-6 bg-rose-100 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400">
                                 <TrashIcon className="w-7 h-7 sm:w-8 sm:h-8" />
                             </div>
                             <h3 className={`text-xl sm:text-2xl font-bold mb-2 sm:mb-3 ${isDark ? "text-white" : "text-slate-900"}`}>
-                                {deleteScope === "all" ? "Delete All Schedules?" : `Delete ${selectedDept} Schedule?`}
+                                {deleteScope === "all" 
+                                    ? "Delete All Schedules?" 
+                                    : deleteScope === "shs"
+                                    ? "Delete All SHS Schedules?"
+                                    : `Delete ${selectedDept} Schedule?`
+                                }
                             </h3>
                             <p className={`mb-6 sm:mb-8 text-xs sm:text-sm leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
                                 {deleteScope === "all" 
                                     ? "Are you sure you want to delete ALL generated exam schedules across the entire platform? This operation is permanent and cannot be undone."
+                                    : deleteScope === "shs"
+                                    ? "Are you sure you want to delete ALL Senior High School (SHS) exam schedules across all strands, terms, and semesters? This operation is permanent and cannot be undone."
                                     : `Are you sure you want to delete all generated exam schedules for ${selectedDept} (Semester ${semester})? This operation is permanent and cannot be undone.`
                                 }
                             </p>
@@ -906,7 +989,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                             <span>Deleting...</span>
                                         </>
                                     ) : (
-                                        <span>Yes, Delete</span>
+                                        <span>{deleteScope === "shs" ? "Yes, Delete All SHS" : "Yes, Delete"}</span>
                                     )}
                                 </button>
                             </div>
@@ -917,8 +1000,16 @@ export default function GeneratedExamSchedules({ isGenerating }) {
 
             {/* Edit Exam Schedule Modal */}
             {editingExam && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-3 sm:p-4 animate-in fade-in duration-200">
-                    <div className={`p-5 sm:p-6 rounded-2xl sm:rounded-3xl shadow-2xl max-w-lg w-full border ${isDark ? "bg-slate-900 border-slate-750 text-slate-100" : "bg-white border-slate-200 text-slate-900"}`}>
+                <div 
+                    role="dialog"
+                    aria-modal="true"
+                    className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-3 sm:p-4 animate-in fade-in duration-200"
+                >
+                    <div 
+                        className="absolute inset-0"
+                        onClick={() => !editSaving && setEditingExam(null)}
+                    />
+                    <div className={`relative p-5 sm:p-6 rounded-2xl sm:rounded-3xl shadow-2xl max-w-lg w-full border ${isDark ? "bg-slate-900 border-slate-750 text-slate-100" : "bg-white border-slate-200 text-slate-900"}`}>
                         <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-200 dark:border-slate-750">
                             <div className="flex items-center gap-2.5">
                                 <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-blue-100 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400">
@@ -999,11 +1090,17 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                     }`}
                                 >
                                     <option value="">-- Unassigned / No Proctor --</option>
-                                    {availableProctors.map((p) => (
-                                        <option key={p.id} value={p.id}>
-                                            {p.name} {p.department ? `(${p.department})` : ""}
-                                        </option>
-                                    ))}
+                                    {availableProctors
+                                        .filter((p) => {
+                                            if (selectedDept === "SHS") return p.department === "SHS";
+                                            if (selectedDept === "College") return p.department !== "SHS";
+                                            return true;
+                                        })
+                                        .map((p) => (
+                                            <option key={p.id} value={p.id}>
+                                                {p.name} {p.department ? `(${p.department})` : ""}
+                                            </option>
+                                        ))}
                                 </select>
                             </div>
 

@@ -40,6 +40,8 @@ function getDepartmentBadge(dept) {
       return "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300 border border-rose-200 dark:border-rose-800";
     case "COLLEGE":
       return "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800";
+    case "SHS":
+      return "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300 border border-violet-200 dark:border-violet-800";
     default:
       return "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 border border-slate-200 dark:border-slate-700";
   }
@@ -394,7 +396,7 @@ export default function ProctorImport({ isGenerating }) {
             <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-4">
               {/* Department Selector */}
               <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
-                {["All", "College", "ICT", "THM", "BM", "GE", "AS", "CRIM", "SHS (Blank)"].map((dept) => (
+                {["All", "College", "ICT", "THM", "BM", "GE", "AS", "CRIM", "SHS"].map((dept) => (
                   <button
                     key={dept}
                     onClick={() => handleDeptChange(dept)}
@@ -406,7 +408,7 @@ export default function ProctorImport({ isGenerating }) {
                         : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                     }`}
                   >
-                    {dept === "All" ? "All Proctors" : dept === "College" ? "All College" : dept === "SHS (Blank)" ? "SHS (Blank)" : `${dept}`}
+                    {dept === "All" ? "All Proctors" : dept === "College" ? "All College" : dept === "SHS" ? "SHS" : `${dept}`}
                   </button>
                 ))}
               </div>
@@ -532,7 +534,7 @@ export default function ProctorImport({ isGenerating }) {
                             <span
                               className={`px-2.5 py-1 rounded-full text-[11px] font-semibold ${getDepartmentBadge(p.department)}`}
                             >
-                              {p.department || "Blank (SHS)"}
+                              {p.department || "SHS"}
                             </span>
                           </td>
                           <td className="py-3 px-4 text-center">
@@ -642,7 +644,8 @@ export default function ProctorImport({ isGenerating }) {
                   Your file must contain the headers: <code className="font-mono font-bold">NAME</code>,{" "}
                   <code className="font-mono font-bold">EMAIL</code>, and{" "}
                   <code className="font-mono font-bold">DEPARTMENT</code>. College departments:{" "}
-                  <span className="font-semibold text-blue-600 dark:text-blue-400">ICT, THM, BM, GE, AS, CRIM</span>. Senior High School (SHS) proctors must be left blank. Email format must follow{" "}
+                  <span className="font-semibold text-blue-600 dark:text-blue-400">ICT, THM, BM, GE, AS, CRIM</span>. Senior High School proctors must be{" "}
+                  <span className="font-semibold text-violet-600 dark:text-violet-400">SHS</span>. Email format must follow{" "}
                   <code className="font-mono font-bold">name.lastname@edu.ph</code>.
                 </p>
               </div>
@@ -790,11 +793,13 @@ export default function ProctorImport({ isGenerating }) {
       <ConfirmationModal
         isOpen={isImportConfirmOpen}
         onClose={() => setIsImportConfirmOpen(false)}
+        onCancel={() => setIsImportConfirmOpen(false)}
         onConfirm={executeImport}
         title="Clear Existing Proctors Before Import?"
         message="You have enabled 'Clear existing proctors before import'. All existing proctor user accounts and proctor assignments will be wiped before uploading the new file. This action cannot be undone."
-        confirmText="Yes, Clear and Import"
-        cancelText="Cancel"
+        confirmLabel="Yes, Clear and Import"
+        cancelLabel="Cancel"
+        requireTypedConfirm={false}
         isDanger={true}
       />
 
@@ -802,10 +807,13 @@ export default function ProctorImport({ isGenerating }) {
       <ConfirmationModal
         isOpen={isClearAllModalOpen}
         onClose={() => setIsClearAllModalOpen(false)}
+        onCancel={() => setIsClearAllModalOpen(false)}
         onConfirm={executeClearAllProctors}
         title="Clear All Proctor Accounts?"
         message={`Are you sure you want to delete all ${stats.total || 0} proctor accounts? This will remove their login access. Program Head and Student accounts will not be affected.`}
         confirmText="Yes, Delete All Proctors"
+        confirmLabel="Yes, Delete All Proctors"
+        cancelLabel="Cancel"
         cancelText="Cancel"
         isDanger={true}
       />
@@ -814,11 +822,14 @@ export default function ProctorImport({ isGenerating }) {
       <ConfirmationModal
         isOpen={Boolean(proctorToDelete)}
         onClose={() => setProctorToDelete(null)}
+        onCancel={() => setProctorToDelete(null)}
         onConfirm={executeDeleteProctor}
         title="Delete Proctor Account?"
         message={`Are you sure you want to delete the proctor account for "${proctorToDelete?.name}" (${proctorToDelete?.email})?`}
-        confirmText="Delete Proctor"
+        confirmLabel="Delete Proctor"
+        cancelLabel="Cancel"
         cancelText="Cancel"
+        requireTypedConfirm={false}
         isDanger={true}
       />
     </div>

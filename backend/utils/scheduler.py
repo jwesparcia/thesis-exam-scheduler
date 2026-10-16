@@ -414,6 +414,7 @@ def generate_exam_schedule(
         forbidden = {(tt.subject_id, tt.section_id) for tt in teachings}
         taught_subject_ids = {s.id for s in taught_subs} | {tt.subject_id for tt in teachings}
         taught_subject_names = {s.name for s in taught_subs if s.name} | {sched.subject_name for sched in schedules if sched.subject_name}
+        taught_section_ids = {tt.section_id for tt in teachings if tt.section_id}
 
         # Proctor department normalization
         p_dept = (proctor.department or "").strip().upper()
@@ -428,6 +429,7 @@ def generate_exam_schedule(
             "max_assignments": max_assignments,
             "taught_subject_ids": taught_subject_ids,
             "taught_subjects": taught_subject_names,
+            "taught_section_ids": taught_section_ids,
             "department": p_dept,
             "teacher_id": proctor.teacher_id
         }
@@ -688,6 +690,7 @@ def generate_exam_schedule(
     proctor_max_assignments = [proctor_data[pid]["max_assignments"] for pid in proctor_ids]
     proctor_departments = [proctor_data[pid]["department"] for pid in proctor_ids]
     proctor_taught_ids = [proctor_data[pid]["taught_subject_ids"] for pid in proctor_ids]
+    proctor_taught_section_ids = [proctor_data[pid]["taught_section_ids"] for pid in proctor_ids]
     proctor_teacher_id_list = [proctor_data[pid]["teacher_id"] for pid in proctor_ids]
 
     # Preprocess groups to avoid ORM access inside the GA loops
@@ -750,6 +753,14 @@ def generate_exam_schedule(
                 for p_idx, pid in enumerate(proctor_ids):
                     if not proctor_slot_avail.get((p_idx, slot_idx)):
                         continue
+                    p_dept = proctor_departments[p_idx]
+
+                    # Hard constraint: Department alignment (SHS proctors for SHS, College proctors for College)
+                    if exam_dept == "SHS" and p_dept != "SHS":
+                        continue
+                    if exam_dept != "SHS" and p_dept == "SHS":
+                        continue
+
                     # Hard constraint: Proctor MUST NOT handle the subject that he/she teaches
                     if sub.id in proctor_taught_ids[p_idx]:
                         continue
@@ -757,11 +768,15 @@ def generate_exam_schedule(
                         continue
                     if sub.teacher_id and sub.teacher_id == proctor_teacher_id_list[p_idx]:
                         continue
+
+                    # Hard constraint: Proctor MUST NOT handle any exam for a section that he/she teaches
+                    if sec.id in proctor_taught_section_ids[p_idx]:
+                        continue
                     if (sub.id, sec.id) in proctor_data[pid]["forbidden"]:
                         continue
                     candidates.append(p_idx)
                 
-                # Soft constraint: Prioritize proctors from another department
+                # Soft constraint: Prioritize proctors from another department (within College)
                 candidates.sort(key=lambda pidx: (
                     1 if (proctor_departments[pidx] and exam_dept and proctor_departments[pidx] == exam_dept) else 0,
                     pidx
