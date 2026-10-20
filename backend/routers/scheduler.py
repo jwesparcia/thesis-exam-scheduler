@@ -120,9 +120,16 @@ def generate_exam_schedule(payload: dict = Body(...), db: Session = Depends(get_
         if len(exam_days) % 2 == 0:
             day_index += 1
 
-    # --- Fetch all teachers who are "real proctors" (linked to User with role="proctor") ---
-    from model import User
-    proctor_teachers = db.query(Teacher).join(User, User.teacher_id == Teacher.id).filter(User.role == "proctor").all()
+    # --- Fetch all eligible proctors (not excluded, with uploaded weekly class schedule) ---
+    from model import Proctor, TeacherSchedule
+    from utils.scheduler import validate_proctor_availability
+    all_proctors = db.query(Proctor).filter(Proctor.exclude_from_scheduling == False).all()
+    proctor_candidates_pool = []
+    for p in all_proctors:
+        if p.teacher_id:
+            sched_count = db.query(TeacherSchedule).filter(TeacherSchedule.teacher_id == p.teacher_id).count()
+            if sched_count > 0:
+                proctor_candidates_pool.append(p)
 
     # --- Create exams for each section ---
     created_exams = []
@@ -140,16 +147,25 @@ def generate_exam_schedule(payload: dict = Body(...), db: Session = Depends(get_
                 )
             room = random.choice(available_rooms)
 
-            # Assign a real proctor (not the subject's own teacher, not busy at this timeslot)
+            # Assign an eligible proctor (schedule uploaded, available for timeslot date/hours, not subject teacher, not busy)
             chosen_proctor = None
-            candidates = [t for t in proctor_teachers if t.id != subject.teacher_id]
+            candidates = [p for p in proctor_candidates_pool if p.teacher_id != subject.teacher_id]
             random.shuffle(candidates)
             for candidate in candidates:
                 is_busy = any(
                     e.timeslot_id == timeslot.id and e.proctor_id == candidate.id
                     for e in created_exams
                 )
-                if not is_busy:
+                if is_busy:
+                    continue
+                is_avail, _ = validate_proctor_availability(
+                    db,
+                    proctor_id=candidate.id,
+                    target_date=timeslot.date,
+                    target_start=timeslot.start_time,
+                    target_end=timeslot.end_time
+                )
+                if is_avail:
                     chosen_proctor = candidate
                     break
 
@@ -170,7 +186,6 @@ def generate_exam_schedule(payload: dict = Body(...), db: Session = Depends(get_
     db.commit()
 
     # --- Format response ---
-    from model import User
     exams_data = []
     for e in created_exams:
         subject = db.query(Subject).filter(Subject.id == e.subject_id).first()
@@ -180,14 +195,9 @@ def generate_exam_schedule(payload: dict = Body(...), db: Session = Depends(get_
         
         proctor_name = "Unassigned"
         if e.proctor_id:
-            # Prefer User.name (professional name) over Teacher.name
-            proctor_user = db.query(User).filter(User.teacher_id == e.proctor_id).first()
-            if proctor_user:
-                proctor_name = proctor_user.name
-            else:
-                proctor_teacher = db.query(Teacher).filter(Teacher.id == e.proctor_id).first()
-                if proctor_teacher:
-                    proctor_name = proctor_teacher.name
+            proctor_obj = db.query(Proctor).filter(Proctor.id == e.proctor_id).first()
+            if proctor_obj:
+                proctor_name = proctor_obj.name
 
         day_name = timeslot.date.strftime("%A")
         date_str = timeslot.date.strftime("%B %d, %Y")

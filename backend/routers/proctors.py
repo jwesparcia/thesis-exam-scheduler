@@ -42,18 +42,21 @@ def get_proctors(db: Session = Depends(get_db), current_user: models.User = Depe
         return cached
 
     proctors = db.query(models.Proctor).all()
-    counts = dict(
-        db.query(models.TeacherSchedule.teacher_id, func.count(models.TeacherSchedule.id))
-        .filter(models.TeacherSchedule.teacher_id.isnot(None))
-        .group_by(models.TeacherSchedule.teacher_id)
+    teacher_ids = [p.teacher_id for p in proctors if p.teacher_id]
+    schedules = (
+        db.query(models.TeacherSchedule)
+        .filter(models.TeacherSchedule.teacher_id.in_(teacher_ids))
         .all()
-    )
+    ) if teacher_ids else []
+
+    schedules_by_teacher = {}
+    for s in schedules:
+        schedules_by_teacher.setdefault(s.teacher_id, []).append(s)
+
     result = []
     for p in proctors:
-        has_schedule = False
-        if p.teacher_id:
-            sched_count = counts.get(p.teacher_id, 0)
-            has_schedule = sched_count > 0
+        p_scheds = schedules_by_teacher.get(p.teacher_id, []) if p.teacher_id else []
+        has_schedule = len(p_scheds) > 0
 
         result.append({
             "id": p.id,
@@ -67,7 +70,7 @@ def get_proctors(db: Session = Depends(get_db), current_user: models.User = Depe
                     "day_of_week": a.day_of_week,
                     "start_time": a.start_time.strftime("%I:%M %p"),
                     "end_time": a.end_time.strftime("%I:%M %p")
-                } for a in p.availabilities
+                } for a in sorted(p_scheds, key=lambda s: (s.day_of_week, s.start_time))
             ]
         })
     cache.set("proctors:all", result, TTL_PROCTORS)
@@ -106,7 +109,26 @@ def add_availability(proctor_id: int, body: dict, db: Session = Depends(get_db),
         end_time=body["end_time"]
     )
     db.add(availability)
+    if proctor.teacher_id:
+        start_val = body["start_time"]
+        end_val = body["end_time"]
+        try:
+            if isinstance(start_val, str):
+                start_val = datetime.strptime(start_val, "%I:%M %p").time() if ("AM" in start_val or "PM" in start_val) else datetime.strptime(start_val, "%H:%M").time()
+            if isinstance(end_val, str):
+                end_val = datetime.strptime(end_val, "%I:%M %p").time() if ("AM" in end_val or "PM" in end_val) else datetime.strptime(end_val, "%H:%M").time()
+            ts = models.TeacherSchedule(
+                teacher_id=proctor.teacher_id,
+                day_of_week=body["day_of_week"],
+                start_time=start_val,
+                end_time=end_val,
+                subject_name="Proctor Availability"
+            )
+            db.add(ts)
+        except Exception:
+            pass
     db.commit()
+    cache.invalidate_proctors()
     return {"message": "Availability added"}
 
 @router.post("/upload-schedules")

@@ -7,7 +7,7 @@ from datetime import datetime, date, time
 from sqlalchemy.orm import Session
 from core import SessionLocal
 from model import Exam, Proctor, TeacherSchedule, Subject, Section, Room, Timeslot
-from utils.scheduler import intervals_cover, subjects_match
+from utils.scheduler import intervals_cover, time_range_covers, subjects_match
 
 def verify_constraints():
     db = SessionLocal()
@@ -86,10 +86,11 @@ def verify_constraints():
                 violations.append(f"Proctor {proctor.name} is assigned to Exam {exam.id} on {slot.date} (Weekday {dow}), but has no schedule on that day.")
                 continue
                 
-            # Check interval coverage
-            if not intervals_cover(p_data["availability"][dow], slot.start_time, slot.end_time):
-                sched_strs = [f"{start.strftime('%I:%M %p')}-{end.strftime('%I:%M %p')}" for start, end in p_data["availability"][dow]]
-                violations.append(f"Proctor {proctor.name} schedule does not cover timeslot {slot.start_time}-{slot.end_time} on weekday {dow}. Work intervals: {', '.join(sched_strs)}")
+            # Check time range coverage (exam must fall within uploaded class hours start and end times)
+            if not time_range_covers(p_data["availability"][dow], slot.start_time, slot.end_time):
+                min_s = min(start for start, end in p_data["availability"][dow]).strftime('%I:%M %p')
+                max_e = max(end for start, end in p_data["availability"][dow]).strftime('%I:%M %p')
+                violations.append(f"Proctor {proctor.name} schedule ({min_s} - {max_e}) does not cover timeslot {slot.start_time.strftime('%I:%M %p')} - {slot.end_time.strftime('%I:%M %p')} on weekday {dow}.")
 
             # No proctoring own class/subject check
             for taught_name in p_data["taught_subjects"]:

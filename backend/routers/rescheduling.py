@@ -277,6 +277,16 @@ def review_request(request_id: int, update: ReschedulingRequestUpdate, db: Sessi
                 proctor = db.query(Proctor).filter(Proctor.id == update.proctor_id).first()
                 if not proctor:
                     raise HTTPException(status_code=404, detail="Proctor not found")
+                from utils.scheduler import validate_proctor_availability
+                is_valid, err_msg = validate_proctor_availability(
+                    db,
+                    proctor_id=update.proctor_id,
+                    target_date=request.preferred_date,
+                    target_start=request.preferred_start_time,
+                    target_end=request.preferred_end_time
+                )
+                if not is_valid:
+                    raise HTTPException(status_code=400, detail=err_msg)
 
         if exam and request.preferred_date and request.preferred_start_time and request.preferred_end_time:
             ts = db.query(Timeslot).filter(
@@ -305,9 +315,15 @@ def review_request(request_id: int, update: ReschedulingRequestUpdate, db: Sessi
                     assigned_room_id = consultation_room.id
                     # 5:00 PM onwards in Consultation Area: without proctoring assignment
                     assigned_proctor_id = update.proctor_id if update.proctor_id else None
-                else:
-                    if not assigned_proctor_id:
-                        assigned_proctor_id = exam.proctor_id
+                    if not assigned_proctor_id and exam.proctor_id:
+                        is_valid, _ = validate_proctor_availability(
+                            db,
+                            proctor_id=exam.proctor_id,
+                            target_date=request.preferred_date,
+                            target_start=request.preferred_start_time,
+                            target_end=request.preferred_end_time
+                        )
+                        assigned_proctor_id = exam.proctor_id if is_valid else None
 
                 assigned_exam = Exam(
                     subject_id=exam.subject_id,

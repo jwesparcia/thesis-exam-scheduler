@@ -1097,8 +1097,8 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                             return true;
                                         })
                                         .map((p) => (
-                                            <option key={p.id} value={p.id}>
-                                                {p.name} {p.department ? `(${p.department})` : ""}
+                                            <option key={p.id} value={p.id} disabled={!p.has_schedule}>
+                                                {p.name} {p.department ? `(${p.department})` : ""} {!p.has_schedule ? "(No schedule uploaded - Ineligible)" : ""}
                                             </option>
                                         ))}
                                 </select>

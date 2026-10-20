@@ -54,6 +54,12 @@ GENERATIONS = 60
 MUTATION_RATE = 0.20
 
 def time_to_minutes(t):
+    if isinstance(t, str):
+        t_clean = t.strip()
+        if "AM" in t_clean or "PM" in t_clean:
+            return datetime.strptime(t_clean, "%I:%M %p").time().hour * 60 + datetime.strptime(t_clean, "%I:%M %p").time().minute
+        parts = t_clean.split(":")
+        return int(parts[0]) * 60 + int(parts[1])
     return t.hour * 60 + t.minute
 
 def intervals_cover(intervals, target_start, target_end):
@@ -70,6 +76,91 @@ def intervals_cover(intervals, target_start, target_end):
             for m in range(clip_start - t_start, clip_end - t_start):
                 covered_minutes[m] = True
     return all(covered_minutes)
+
+def time_range_covers(intervals, target_start, target_end):
+    """
+    Checks whether the target exam timeslot (target_start to target_end) falls completely
+    within the proctor's uploaded class hours time range (from earliest start time to latest end time).
+    """
+    if not intervals:
+        return False
+    t_start = time_to_minutes(target_start)
+    t_end = time_to_minutes(target_end)
+    
+    start_mins = []
+    end_mins = []
+    for item in intervals:
+        if isinstance(item, (tuple, list)):
+            start_mins.append(time_to_minutes(item[0]))
+            end_mins.append(time_to_minutes(item[1]))
+        elif hasattr(item, "start_time") and hasattr(item, "end_time"):
+            start_mins.append(time_to_minutes(item.start_time))
+            end_mins.append(time_to_minutes(item.end_time))
+            
+    if not start_mins or not end_mins:
+        return False
+        
+    range_start = min(start_mins)
+    range_end = max(end_mins)
+    return t_start >= range_start and t_end <= range_end
+
+def validate_proctor_availability(
+    db: Session,
+    proctor_id: int,
+    target_date: date,
+    target_start: time,
+    target_end: time
+) -> tuple[bool, str | None]:
+    """
+    Validates if a proctor is eligible and available to proctor an exam at target_date / target_start - target_end,
+    based strictly on the start and end times of their uploaded weekly class schedule (TeacherSchedule).
+    The proctor is only eligible if they have uploaded a weekly class schedule and the exam's start and end times
+    fall within the start and end times of their uploaded class hours.
+    Proctors who have not uploaded a schedule are not eligible.
+    Returns (True, None) if eligible and available.
+    Returns (False, error_message) if ineligible or not available.
+    """
+    proctor = db.query(Proctor).get(proctor_id)
+    if not proctor:
+        return False, "Proctor not found."
+
+    if proctor.exclude_from_scheduling:
+        return False, f"Proctor {proctor.name} is excluded from scheduling and is not eligible for proctor assignment."
+
+    if not proctor.teacher_id:
+        return False, f"Proctor {proctor.name} has not uploaded a weekly class schedule and is not eligible for proctor assignment."
+
+    schedules = (
+        db.query(TeacherSchedule)
+        .filter(TeacherSchedule.teacher_id == proctor.teacher_id)
+        .all()
+    )
+    if not schedules:
+        return False, f"Proctor {proctor.name} has not uploaded a weekly class schedule and is not eligible for proctor assignment."
+
+    dow = target_date.weekday()
+    day_schedules = [s for s in schedules if s.day_of_week == dow or s.day_of_week is None]
+    day_name = target_date.strftime("%A")
+    date_str = target_date.strftime("%B %d, %Y")
+    if not day_schedules:
+        return False, (
+            f"Availability conflict: Proctor {proctor.name} has no uploaded schedule for {day_name} ({date_str}) "
+            f"and cannot be assigned to this exam."
+        )
+
+    intervals = [(s.start_time, s.end_time) for s in day_schedules]
+    if not time_range_covers(intervals, target_start, target_end):
+        slot_start = target_start.strftime("%I:%M %p")
+        slot_end = target_end.strftime("%I:%M %p")
+        day_start = min(s.start_time for s in day_schedules).strftime("%I:%M %p")
+        day_end = max(s.end_time for s in day_schedules).strftime("%I:%M %p")
+        return False, (
+            f"Availability conflict: Exam timeslot ({slot_start} - {slot_end}) falls outside "
+            f"Proctor {proctor.name}'s uploaded schedule hours on {day_name} ({day_start} - {day_end})."
+        )
+
+    return True, None
+
 
 def subjects_match(sched_sub, exam_sub):
     sched_sub = str(sched_sub).upper().replace(" ", "").replace("-", "")
@@ -362,14 +453,6 @@ def generate_exam_schedule(
     for sub in all_subjects_taught:
         subjects_by_teacher.setdefault(sub.teacher_id, []).append(sub)
 
-    from model.models import ProctorAvailability
-    all_availabilities = (
-        db.query(ProctorAvailability).filter(ProctorAvailability.proctor_id.in_([p.id for p in all_proctors])).all()
-    )
-    availabilities_by_proctor = {}
-    for pa in all_availabilities:
-        availabilities_by_proctor.setdefault(pa.proctor_id, {}).setdefault(pa.day_of_week, []).append((pa.start_time, pa.end_time))
-
     COURSE_TO_DEPT = {
         "BSIT": "ICT",
         "BSCS": "ICT",
@@ -394,18 +477,17 @@ def generate_exam_schedule(
 
     proctor_data = {}
     for proctor in all_proctors:
-        # Determine availability: TeacherSchedule first, then ProctorAvailability, then default Mon-Fri 8:00-18:00
+        # Determine availability strictly from the proctor's uploaded weekly class schedule (TeacherSchedule).
+        # Since regular classes are suspended during exam week, the uploaded schedule days & time slots
+        # are treated as the proctor's available hours for supervising examinations.
         schedules = schedules_by_teacher.get(proctor.teacher_id, []) if proctor.teacher_id else []
+        if not schedules:
+            # Proctor has not uploaded a weekly schedule -> NOT eligible for any exam proctor assignment
+            continue
+
         availability = {}
-        if schedules:
-            for sched in schedules:
-                availability.setdefault(sched.day_of_week, []).append((sched.start_time, sched.end_time))
-        elif proctor.id in availabilities_by_proctor:
-            availability = availabilities_by_proctor[proctor.id]
-        else:
-            from datetime import time as dt_time
-            for dow in range(5):
-                availability.setdefault(dow, []).append((dt_time(8, 0), dt_time(18, 0)))
+        for sched in schedules:
+            availability.setdefault(sched.day_of_week, []).append((sched.start_time, sched.end_time))
 
         # Teaching assignments & subjects taught by this teacher
         teachings = teachings_by_teacher.get(proctor.teacher_id, []) if proctor.teacher_id else []
@@ -701,13 +783,15 @@ def generate_exam_schedule(
     irr_counts = {(row[0], row[1]): row[2] for row in irr_rows}
 
     # Precompute proctor availability per (p_idx, slot_idx) and taught subjects to make setup instantaneous
+    # Each proctor is assigned based on the start and end times of their uploaded class hours
     proctor_slot_avail = {}
     for p_idx, pid in enumerate(proctor_ids):
         pdata = proctor_data[pid]
         for slot_id, slot_idx in timeslot_id_to_idx.items():
             ts_inf = timeslot_info_list[slot_idx]
             dow = ts_inf["weekday"]
-            if dow in pdata["availability"] and intervals_cover(pdata["availability"][dow], ts_inf["start_time"], ts_inf["end_time"]):
+            day_intervals = pdata["availability"].get(dow, []) + pdata["availability"].get(None, [])
+            if day_intervals and time_range_covers(day_intervals, ts_inf["start_time"], ts_inf["end_time"]):
                 proctor_slot_avail[(p_idx, slot_idx)] = True
 
     all_sub_names = {sub.name for g in groups for _, sub in g["sections"]}

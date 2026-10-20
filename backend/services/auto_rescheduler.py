@@ -694,6 +694,11 @@ def apply_auto_reschedule(
         # 5:00 PM onwards in Consultation Area: automatically without proctoring assignment
         # because the admin will assign it personally.
         assigned_proctor_id = None
+    elif assigned_proctor_id:
+        from utils.scheduler import validate_proctor_availability
+        is_avail, _ = validate_proctor_availability(db, assigned_proctor_id, assigned_date, assigned_start, assigned_end)
+        if not is_avail:
+            assigned_proctor_id = None
 
     assigned_exam = Exam(
         subject_id=orig_exam.subject_id,

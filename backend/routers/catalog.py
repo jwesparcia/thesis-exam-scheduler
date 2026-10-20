@@ -1863,16 +1863,6 @@ def upload_proctors_excel(
             db.add(proctor)
             db.flush()
             existing_proctors_by_name[name_val.upper()] = proctor
-
-            # Add default availability (Mon-Fri 8:00 - 18:00)
-            for dow in range(5):
-                pa = ProctorAvailability(
-                    proctor_id=proctor.id,
-                    day_of_week=dow,
-                    start_time=time(8, 0),
-                    end_time=time(18, 0)
-                )
-                db.add(pa)
         else:
             proctor.department = dept_clean
             if teacher and not proctor.teacher_id:

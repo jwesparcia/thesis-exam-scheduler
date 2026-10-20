@@ -6,7 +6,7 @@ from core import get_db, cache
 from core.cache import TTL_ROOMS, TTL_EXAM_COUNT
 from model import Exam, Subject, Section, Room, Timeslot, Course, YearLevel, Teacher, User, Notification, Proctor, ReschedulingRequest
 from room_data import AVAILABLE_EXAM_ROOMS, get_room_names_for_department
-from utils.scheduler import generate_exam_schedule
+from utils.scheduler import generate_exam_schedule, validate_proctor_availability
 from datetime import datetime, time
 from threading import Lock
 from typing import Optional
@@ -1087,10 +1087,19 @@ def update_exam(
             )
 
     # 2b. Check proctor conflicts: Proctor must not teach this subject, must not teach this section, and must match department
+    # 2b. Check proctor conflicts & schedule availability
     if target_proctor_id is not None:
         from model.models import Proctor, TeacherTeaching
         proc = db.query(Proctor).get(target_proctor_id)
-        if proc and proc.teacher_id:
+        if not proc:
+            raise HTTPException(status_code=404, detail="Selected proctor not found.")
+        if proc.exclude_from_scheduling:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Proctor {proc.name} is excluded from scheduling and cannot be assigned as a proctor."
+            )
+
+        if proc.teacher_id:
             teaches = db.query(Subject).filter(
                 Subject.id == exam.subject_id,
                 Subject.teacher_id == proc.teacher_id
@@ -1134,6 +1143,36 @@ def update_exam(
                     status_code=400,
                     detail=f"Department conflict: {proc.name} is an SHS proctor and cannot proctor a College exam."
                 )
+
+        # 2c. Check proctor uploaded weekly schedule availability
+        # Proctor must have uploaded a schedule and exam date/time must fall within their designated hours
+        slot_for_proc = None
+        if target_timeslot_id is not None:
+            slot_for_proc = db.query(Timeslot).get(target_timeslot_id)
+        elif exam.timeslot_id is not None:
+            slot_for_proc = exam.timeslot or db.query(Timeslot).get(exam.timeslot_id)
+
+        if slot_for_proc:
+            is_valid, err_msg = validate_proctor_availability(
+                db,
+                proctor_id=target_proctor_id,
+                target_date=slot_for_proc.date,
+                target_start=slot_for_proc.start_time,
+                target_end=slot_for_proc.end_time
+            )
+            if not is_valid:
+                raise HTTPException(status_code=400, detail=err_msg)
+        else:
+            # If exam has no timeslot yet, still ensure proctor is eligible (schedule uploaded)
+            is_valid, err_msg = validate_proctor_availability(
+                db,
+                proctor_id=target_proctor_id,
+                target_date=datetime.now().date(),
+                target_start=time(8, 0),
+                target_end=time(9, 30)
+            )
+            if not is_valid and "not uploaded a weekly class schedule" in (err_msg or ""):
+                raise HTTPException(status_code=400, detail=err_msg)
 
     # 2. Check proctor conflict: Proctor must not be assigned to another exam at target timeslot
     if target_proctor_id is not None and target_timeslot_id is not None:
