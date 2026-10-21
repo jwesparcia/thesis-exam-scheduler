@@ -230,6 +230,8 @@ class User(Base):
     student_id = Column(String, nullable=True, index=True)
     is_first_login = Column(Boolean, default=True)
 
+    course = relationship("Course")
+
 class IrregularSelection(Base):
     __tablename__ = "irregular_selections"
     id = Column(Integer, primary_key=True, index=True)

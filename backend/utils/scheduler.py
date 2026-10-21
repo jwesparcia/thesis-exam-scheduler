@@ -53,7 +53,42 @@ POP_SIZE = 40
 GENERATIONS = 60
 MUTATION_RATE = 0.20
 
+def normalize_day_of_week(val):
+    """
+    Normalizes a day of week representation (integer 0-6, string digit, or day name)
+    to a standard integer (0=Monday, 6=Sunday). Returns None if invalid or None.
+    """
+    if val is None:
+        return None
+    if isinstance(val, int):
+        return val if 0 <= val <= 6 else None
+    if isinstance(val, str):
+        v = val.strip().lower()
+        if v.isdigit():
+            iv = int(v)
+            return iv if 0 <= iv <= 6 else None
+        day_names = {
+            "monday": 0, "mon": 0,
+            "tuesday": 1, "tue": 1, "tues": 1,
+            "wednesday": 2, "wed": 2,
+            "thursday": 3, "thu": 3, "thur": 3, "thurs": 3,
+            "friday": 4, "fri": 4,
+            "saturday": 5, "sat": 5,
+            "sunday": 6, "sun": 6
+        }
+        return day_names.get(v)
+    return None
+
+def minutes_to_time_str(m: int) -> str:
+    h = (m // 60) % 24
+    mins = m % 60
+    am_pm = "AM" if h < 12 else "PM"
+    disp_h = h if 1 <= h <= 12 else (h - 12 if h > 12 else 12)
+    return f"{disp_h}:{mins:02d} {am_pm}"
+
 def time_to_minutes(t):
+    if t is None:
+        return 0
     if isinstance(t, str):
         t_clean = t.strip()
         if "AM" in t_clean or "PM" in t_clean:
@@ -80,22 +115,31 @@ def intervals_cover(intervals, target_start, target_end):
 def time_range_covers(intervals, target_start, target_end):
     """
     Checks whether the target exam timeslot (target_start to target_end) falls completely
-    within the proctor's uploaded class hours time range (from earliest start time to latest end time).
+    within the proctor's uploaded class hours time range (from earliest start time to latest end time)
+    for that specific day.
     """
     if not intervals:
         return False
     t_start = time_to_minutes(target_start)
     t_end = time_to_minutes(target_end)
+    if t_end <= t_start:
+        return False
     
     start_mins = []
     end_mins = []
     for item in intervals:
         if isinstance(item, (tuple, list)):
-            start_mins.append(time_to_minutes(item[0]))
-            end_mins.append(time_to_minutes(item[1]))
+            s_m = time_to_minutes(item[0])
+            e_m = time_to_minutes(item[1])
         elif hasattr(item, "start_time") and hasattr(item, "end_time"):
-            start_mins.append(time_to_minutes(item.start_time))
-            end_mins.append(time_to_minutes(item.end_time))
+            s_m = time_to_minutes(item.start_time)
+            e_m = time_to_minutes(item.end_time)
+        else:
+            continue
+        if e_m < s_m and e_m <= 7 * 60:
+            e_m += 12 * 60
+        start_mins.append(s_m)
+        end_mins.append(e_m)
             
     if not start_mins or not end_mins:
         return False
@@ -113,10 +157,10 @@ def validate_proctor_availability(
 ) -> tuple[bool, str | None]:
     """
     Validates if a proctor is eligible and available to proctor an exam at target_date / target_start - target_end,
-    based strictly on the start and end times of their uploaded weekly class schedule (TeacherSchedule).
-    The proctor is only eligible if they have uploaded a weekly class schedule and the exam's start and end times
-    fall within the start and end times of their uploaded class hours.
-    Proctors who have not uploaded a schedule are not eligible.
+    based strictly on their uploaded weekly class schedule (TeacherSchedule) for the specific day of the week.
+    The exam's entire time interval [target_start, target_end] must fall completely within the proctor's
+    uploaded schedule window (earliest start time to latest end time) for that specific day of the week.
+    Proctors with no uploaded schedule for the exam's day of the week are not eligible.
     Returns (True, None) if eligible and available.
     Returns (False, error_message) if ineligible or not available.
     """
@@ -138,10 +182,18 @@ def validate_proctor_availability(
     if not schedules:
         return False, f"Proctor {proctor.name} has not uploaded a weekly class schedule and is not eligible for proctor assignment."
 
+    # Normalize target_date to datetime.date
+    if isinstance(target_date, str):
+        target_date = datetime.strptime(target_date[:10], "%Y-%m-%d").date()
+    elif isinstance(target_date, datetime):
+        target_date = target_date.date()
+
     dow = target_date.weekday()
-    day_schedules = [s for s in schedules if s.day_of_week == dow or s.day_of_week is None]
     day_name = target_date.strftime("%A")
     date_str = target_date.strftime("%B %d, %Y")
+
+    # Strictly retrieve schedules matching the exam's specific day of the week
+    day_schedules = [s for s in schedules if normalize_day_of_week(s.day_of_week) == dow]
     if not day_schedules:
         return False, (
             f"Availability conflict: Proctor {proctor.name} has no uploaded schedule for {day_name} ({date_str}) "
@@ -150,10 +202,22 @@ def validate_proctor_availability(
 
     intervals = [(s.start_time, s.end_time) for s in day_schedules]
     if not time_range_covers(intervals, target_start, target_end):
-        slot_start = target_start.strftime("%I:%M %p")
-        slot_end = target_end.strftime("%I:%M %p")
-        day_start = min(s.start_time for s in day_schedules).strftime("%I:%M %p")
-        day_end = max(s.end_time for s in day_schedules).strftime("%I:%M %p")
+        slot_start = target_start.strftime("%I:%M %p") if hasattr(target_start, "strftime") else str(target_start)
+        slot_end = target_end.strftime("%I:%M %p") if hasattr(target_end, "strftime") else str(target_end)
+        
+        start_mins = []
+        end_mins = []
+        for s in day_schedules:
+            if s.start_time and s.end_time:
+                s_m = time_to_minutes(s.start_time)
+                e_m = time_to_minutes(s.end_time)
+                if e_m < s_m and e_m <= 7 * 60:
+                    e_m += 12 * 60
+                start_mins.append(s_m)
+                end_mins.append(e_m)
+
+        day_start = minutes_to_time_str(min(start_mins)) if start_mins else "N/A"
+        day_end = minutes_to_time_str(max(end_mins)) if end_mins else "N/A"
         return False, (
             f"Availability conflict: Exam timeslot ({slot_start} - {slot_end}) falls outside "
             f"Proctor {proctor.name}'s uploaded schedule hours on {day_name} ({day_start} - {day_end})."
@@ -341,13 +405,15 @@ def generate_exam_schedule(
     timeslots = []
     existing_ts_list = db.query(Timeslot).filter(Timeslot.date.in_(exam_days)).all()
     existing_ts_map = {(ts.date, ts.start_time, ts.end_time): ts for ts in existing_ts_list}
+    break_m = (max(break_seconds_by_category.values()) // 60) if break_seconds_by_category else 15
     for d in exam_days:
         for dur_m in distinct_durations:
             day_slots = generate_slots_for_day(
                 daily_start_time,
                 daily_end_time,
                 dur_m,
-                slot_step_minutes=15,
+                break_minutes=break_m,
+                slot_step_minutes=None,
             )
             for start_t, end_t in day_slots:
                 key = (d, start_t, end_t)
@@ -496,7 +562,13 @@ def generate_exam_schedule(
 
         availability = {}
         for sched in schedules:
-            availability.setdefault(sched.day_of_week, []).append((sched.start_time, sched.end_time))
+            dow = normalize_day_of_week(sched.day_of_week)
+            if dow is not None and sched.start_time and sched.end_time:
+                availability.setdefault(dow, []).append((sched.start_time, sched.end_time))
+
+        if not availability:
+            # Proctor has no valid daily schedules uploaded -> NOT eligible for proctor assignment
+            continue
 
         # Teaching assignments & subjects taught by this teacher
         teachings = teachings_by_teacher.get(proctor.teacher_id, []) if proctor.teacher_id else []
@@ -799,7 +871,7 @@ def generate_exam_schedule(
         for slot_id, slot_idx in timeslot_id_to_idx.items():
             ts_inf = timeslot_info_list[slot_idx]
             dow = ts_inf["weekday"]
-            day_intervals = pdata["availability"].get(dow, []) + pdata["availability"].get(None, [])
+            day_intervals = pdata["availability"].get(dow, [])
             if day_intervals and time_range_covers(day_intervals, ts_inf["start_time"], ts_inf["end_time"]):
                 proctor_slot_avail[(p_idx, slot_idx)] = True
 
@@ -986,13 +1058,13 @@ def generate_exam_schedule(
     PRIMARY_TIMES = {
         time(7, 30),
         time(9, 0),
+        time(9, 45),
         time(10, 30),
         time(12, 0),
-        time(13, 0),
         time(13, 30),
-        time(14, 30),
+        time(14, 15),
         time(15, 0),
-        time(16, 0),
+        time(16, 30),
     }
 
     # Precomputations for ultra-fast conflict and gap checking
@@ -2991,6 +3063,8 @@ def generate_exam_schedule(
             for pidx in candidates:
                 if (pidx, exam_slot_idx) in proctor_slots_set:
                     continue
+                if not proctor_slot_avail.get((pidx, exam_slot_idx)):
+                    continue
                 if proctor_counts[pidx] >= proctor_max_assignments[pidx]:
                     continue
 
@@ -3030,8 +3104,28 @@ def generate_exam_schedule(
     # Same-Floor Cohort Harmonizer
     # Enforces that all sections of any multi-section cohort
     # taking an exam at the exact same timeslot are assigned
-    # rooms on the EXACT SAME FLOOR.
+    # rooms on the EXACT SAME FLOOR without creating any
+    # time-interval overlaps or double-booking rooms.
     # ----------------------------------------------------
+    section_size_map = {sec.id: getattr(sec, "student_count", 35) or 35 for sec in sections}
+
+    def _exam_time_interval(e):
+        ts = e.timeslot or timeslot_map.get(e.timeslot_id)
+        if not ts:
+            return None, 0, 0
+        s_m = ts.start_time.hour * 60 + ts.start_time.minute
+        e_m = ts.end_time.hour * 60 + ts.end_time.minute
+        return ts.date, s_m, e_m
+
+    def _is_room_available_for(r_id, target_date, s_m, e_m, excluded_exams):
+        excluded_ids = {id(x) for x in excluded_exams}
+        for other in generated_exams:
+            if other.room_id == r_id and id(other) not in excluded_ids:
+                o_date, o_s, o_e = _exam_time_interval(other)
+                if o_date == target_date and max(s_m, o_s) < min(e_m, o_e):
+                    return False
+        return True
+
     by_slot_exams = {}
     for e in generated_exams:
         ts_id = e.timeslot_id or (e.timeslot.id if e.timeslot else None)
@@ -3040,8 +3134,11 @@ def generate_exam_schedule(
             by_slot_exams.setdefault(ts_id, []).append(e)
 
     for ts_id, s_exams in by_slot_exams.items():
-        used_r_ids = {e.room_id for e in s_exams}
-        avail_r_ids = [r_id for r_id in room_ids if r_id not in used_r_ids]
+        if not s_exams:
+            continue
+        t_date, s_m, e_m = _exam_time_interval(s_exams[0])
+        if not t_date:
+            continue
 
         c_groups = {}
         for e in s_exams:
@@ -3057,35 +3154,69 @@ def generate_exam_schedule(
                 fl_distribution.setdefault(fl, []).append(e)
 
             if len(fl_distribution) > 1:
-                # 1. Try to move minority sections into unused rooms on the majority floor
                 maj_floor = max(fl_distribution.keys(), key=lambda f: len(fl_distribution[f]))
                 minority_exams = [e for f, elist in fl_distribution.items() if f != maj_floor for e in elist]
+
+                # 1. Try to move minority sections into unused rooms on the majority floor
                 free_on_maj = [
-                    r_id for r_id in avail_r_ids
+                    r_id for r_id in room_ids
                     if room_floor_by_id.get(r_id) == maj_floor
+                    and _is_room_available_for(r_id, t_date, s_m, e_m, excluded_exams=minority_exams)
                 ]
                 if len(free_on_maj) >= len(minority_exams):
-                    for e_min, r_free_id in zip(minority_exams, free_on_maj):
-                        avail_r_ids.remove(r_free_id)
-                        avail_r_ids.append(e_min.room_id)
-                        e_min.room_id = r_free_id
-                    continue
+                    assigned_moves = []
+                    avail_free = list(free_on_maj)
+                    possible = True
+                    for e_min in minority_exams:
+                        needed_cap = section_size_map.get(e_min.section_id, 35)
+                        cand = next((r for r in avail_free if room_capacity_by_id.get(r, 40) >= needed_cap), None)
+                        if cand is not None:
+                            avail_free.remove(cand)
+                            assigned_moves.append((e_min, cand))
+                        else:
+                            possible = False
+                            break
+                    if possible:
+                        for e_min, r_cand in assigned_moves:
+                            e_min.room_id = r_cand
+                        continue
 
                 # 2. Try to move the entire cohort to an alternative floor with enough unused rooms
-                fl_free_counts = {}
-                for r_id in avail_r_ids:
-                    f = room_floor_by_id.get(r_id)
-                    fl_free_counts.setdefault(f, []).append(r_id)
-                alt_floor = next((f for f, rlist in fl_free_counts.items() if len(rlist) >= len(cohort_e)), None)
-                if alt_floor:
-                    for e, r_id in zip(cohort_e, fl_free_counts[alt_floor][:len(cohort_e)]):
-                        avail_r_ids.remove(r_id)
-                        avail_r_ids.append(e.room_id)
-                        e.room_id = r_id
+                fl_free_candidate_rooms = {}
+                for r_id in room_ids:
+                    if _is_room_available_for(r_id, t_date, s_m, e_m, excluded_exams=cohort_e):
+                        f = room_floor_by_id.get(r_id)
+                        fl_free_candidate_rooms.setdefault(f, []).append(r_id)
+
+                alt_floor = None
+                alt_moves = None
+                for f, f_rooms in fl_free_candidate_rooms.items():
+                    if len(f_rooms) >= len(cohort_e):
+                        avail_f_rooms = list(f_rooms)
+                        moves = []
+                        ok = True
+                        for e in cohort_e:
+                            needed_cap = section_size_map.get(e.section_id, 35)
+                            cand = next((r for r in avail_f_rooms if room_capacity_by_id.get(r, 40) >= needed_cap), None)
+                            if cand is not None:
+                                avail_f_rooms.remove(cand)
+                                moves.append((e, cand))
+                            else:
+                                ok = False
+                                break
+                        if ok:
+                            alt_floor = f
+                            alt_moves = moves
+                            break
+
+                if alt_floor and alt_moves:
+                    for e, r_cand in alt_moves:
+                        e.room_id = r_cand
                     continue
 
-                # 3. Reciprocal swap with another split cohort (e.g. Cohort A needs Floor 2, Cohort B needs Floor 5)
+                # 3. Reciprocal swap with another split cohort on the exact same timeslot
                 for e_min in list(minority_exams):
+                    e_min_cap = section_size_map.get(e_min.section_id, 35)
                     min_floor = room_floor_by_id.get(e_min.room_id)
                     swapped = False
                     for other_ckey, other_cohort_e in c_groups.items():
@@ -3093,15 +3224,18 @@ def generate_exam_schedule(
                             continue
                         for o_e in other_cohort_e:
                             if room_floor_by_id.get(o_e.room_id) == maj_floor:
-                                other_fl_dist = {}
-                                for oe2 in other_cohort_e:
-                                    f2 = room_floor_by_id.get(oe2.room_id)
-                                    other_fl_dist[f2] = other_fl_dist.get(f2, 0) + 1
-                                other_maj = max(other_fl_dist.keys(), key=lambda f: other_fl_dist[f])
-                                if other_maj == min_floor or other_fl_dist.get(min_floor, 0) >= other_fl_dist.get(maj_floor, 0) or len(other_cohort_e) == 1:
-                                    e_min.room_id, o_e.room_id = o_e.room_id, e_min.room_id
-                                    swapped = True
-                                    break
+                                o_e_cap = section_size_map.get(o_e.section_id, 35)
+                                if (room_capacity_by_id.get(o_e.room_id, 40) >= e_min_cap and
+                                    room_capacity_by_id.get(e_min.room_id, 40) >= o_e_cap):
+                                    other_fl_dist = {}
+                                    for oe2 in other_cohort_e:
+                                        f2 = room_floor_by_id.get(oe2.room_id)
+                                        other_fl_dist[f2] = other_fl_dist.get(f2, 0) + 1
+                                    other_maj = max(other_fl_dist.keys(), key=lambda f: other_fl_dist[f])
+                                    if other_maj == min_floor or other_fl_dist.get(min_floor, 0) >= other_fl_dist.get(maj_floor, 0) or len(other_cohort_e) == 1:
+                                        e_min.room_id, o_e.room_id = o_e.room_id, e_min.room_id
+                                        swapped = True
+                                        break
                         if swapped:
                             break
 

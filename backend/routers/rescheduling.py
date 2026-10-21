@@ -10,6 +10,8 @@ from services.auto_rescheduler import (
     find_earliest_auto_schedule,
     apply_auto_reschedule,
     get_assigned_student_count_for_room,
+    get_reschedule_student_category,
+    is_room_allowed_for_category,
 )
 
 router = APIRouter(prefix="/rescheduling", tags=["Rescheduling Requests"])
@@ -140,12 +142,14 @@ def get_pending_requests(db: Session = Depends(get_db), current_user: User = Dep
 
         is_consultation = is_consultation_request(db, req) or bool(auto_assignment and auto_assignment.get("is_consultation"))
 
+        student_category = get_reschedule_student_category(db, req)
         result.append({
             "id": req.id,
             "exam_id": req.exam_id,
             "section_name": req.section_name,
             "student_name": req.student_name,
             "student_type": student.student_type if student else "regular",
+            "department": student_category,
             "course_name": req.course_name,
             "original_exam_date": req.original_exam_date.strftime("%A, %B %d, %Y") if req.original_exam_date else "Unknown",
             "original_time": f"{req.original_start_time.strftime('%I:%M %p')} - {req.original_end_time.strftime('%I:%M %p')}" if req.original_start_time and req.original_end_time else "Unknown",
@@ -251,6 +255,27 @@ def review_request(request_id: int, update: ReschedulingRequestUpdate, db: Sessi
         # If irregular request and no room is manually chosen, auto-assign time and room
         if irregular_request and not consultation_request and not update.room_id:
             return apply_auto_reschedule(request_id, update.reviewer_comments, db, current_user.id)
+
+        student_category = get_reschedule_student_category(db, request)
+
+        # Validate manually chosen room against building restrictions:
+        # College students must ONLY be assigned to Building B rooms (e.g. B401).
+        # SHS students must ONLY be assigned to Building C rooms (e.g. C201).
+        if update.room_id is not None:
+            chosen_room = db.query(Room).filter(Room.id == update.room_id).first()
+            if not chosen_room:
+                raise HTTPException(status_code=404, detail="Selected room not found")
+            if chosen_room.name != "Consultation Area" and not is_room_allowed_for_category(chosen_room, student_category):
+                if student_category == "College":
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Room {chosen_room.name} cannot be assigned. College students can only be assigned to Building B rooms (rooms starting with 'B', e.g. B401). Building C is reserved for SHS."
+                    )
+                else:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Room {chosen_room.name} cannot be assigned. SHS students can only be assigned to Building C rooms (rooms starting with 'C'). Building B is reserved for College."
+                    )
 
         exam = request.exam
         if consultation_request:
@@ -384,6 +409,8 @@ def get_available_rooms_for_request(
     if not request:
         raise HTTPException(status_code=404, detail="Request not found")
 
+    student_category = get_reschedule_student_category(db, request)
+
     # If no preferred timeslot specified, return empty list (admin cannot proceed without a time)
     if not (request.preferred_date and request.preferred_start_time and request.preferred_end_time):
         return []
@@ -417,7 +444,8 @@ def get_available_rooms_for_request(
             Exam.id != request.exam_id
         ).join(Room, Exam.room_id == Room.id).filter(Room.name != "Consultation Area").all()
 
-    # Collect unique room IDs with active exams, preserving subject info for display
+    # Collect unique room IDs with active exams, preserving subject info for display.
+    # Strictly filter rooms so College students only see Building B rooms and SHS only see Building C rooms.
     seen_room_ids = set()
     result = []
     for exam_entry in exams_at_timeslot:
@@ -425,11 +453,11 @@ def get_available_rooms_for_request(
             continue
         seen_room_ids.add(exam_entry.room_id)
         room = db.query(Room).filter(Room.id == exam_entry.room_id).first()
-        if room:
+        if room and is_room_allowed_for_category(room, student_category):
             result.append({
                 "id": room.id,
                 "name": room.name,
-                "building": room.building,
+                "building": room.building or (room.name[0] if room.name and room.name[0] in "BC" else None),
                 "capacity": room.capacity,
                 "exam_subject": exam_entry.subject.name if exam_entry.subject else None
             })
@@ -456,12 +484,12 @@ def get_available_rooms_for_request(
         {
             "id": room.id,
             "name": room.name,
-            "building": room.building,
+            "building": room.building or (room.name[0] if room.name and room.name[0] in "BC" else None),
             "capacity": room.capacity,
             "exam_subject": None,
         }
         for room in free_rooms
-        if room.id not in occupied_room_ids
+        if room.id not in occupied_room_ids and is_room_allowed_for_category(room, student_category)
     ], key=lambda room: room["name"])
 
 

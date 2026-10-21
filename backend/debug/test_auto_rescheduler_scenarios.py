@@ -345,7 +345,7 @@ def run_all_tests():
             created_ts_ids.append(assigned_exam.timeslot_id)
 
         # Verify notification was generated for student
-        notif = db.query(Notification).filter(Notification.related_id == req1.id).first()
+        notif = db.query(Notification).filter(Notification.related_id == req1.id).order_by(Notification.id.desc()).first()
         assert notif is not None
         assert "approved" in notif.message.lower()
         print("[PASS] TEST 6: Database updated atomically with Timeslot, Exam, Request, and Notification!")

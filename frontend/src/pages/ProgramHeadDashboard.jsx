@@ -251,6 +251,15 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
                     <div className="flex items-center gap-2 mb-1.5">
                       <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider border ${isDark ? "bg-amber-950/40 text-amber-300 border-amber-800/60" : "bg-amber-50 text-amber-900 border-amber-300"
                         }`}>Pending</span>
+                      {req.department && (
+                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
+                          req.department === "College"
+                            ? isDark ? "bg-blue-950/50 text-blue-300 border-blue-800/60" : "bg-blue-50 text-blue-800 border-blue-200"
+                            : isDark ? "bg-purple-950/50 text-purple-300 border-purple-800/60" : "bg-purple-50 text-purple-800 border-purple-200"
+                        }`}>
+                          {req.department === "College" ? "College (Building B)" : "SHS (Building C)"}
+                        </span>
+                      )}
                     </div>
                     <h4 className={`text-lg font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
                       {req.course_name}
@@ -339,7 +348,14 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
                         <span className={`font-bold block mt-1 ${isDark ? "text-white" : "text-slate-900"}`}>
                           {req.auto_assignment.room_name === "Consultation Area" ? "Consultation Area" : `Room ${req.auto_assignment.room_name}`}
                         </span>
-                        <div className={`text-xs mt-0.5 ${isDark ? "text-slate-400" : "text-slate-600"}`}>Seating Capacity: {req.auto_assignment.room_capacity} seats</div>
+                        <div className={`text-xs mt-0.5 ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+                          {req.auto_assignment.room_name !== "Consultation Area" && (
+                            <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                              {req.auto_assignment.room_name.startsWith("B") ? "Building B (College) · " : req.auto_assignment.room_name.startsWith("C") ? "Building C (SHS) · " : ""}
+                            </span>
+                          )}
+                          Capacity: {req.auto_assignment.room_capacity} seats
+                        </div>
                       </div>
                       <div className={`p-3 rounded-xl border ${isDark ? "bg-slate-900/70 border-slate-800" : "bg-white border-emerald-100"}`}>
                         <span className={`text-[11px] block uppercase font-bold tracking-wider ${isDark ? "text-slate-400" : "text-slate-500"}`}>
@@ -533,10 +549,23 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
               </button>
             </div>
             <p className={`text-sm mb-4 leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
-              Approving <strong className="text-slate-900 dark:text-slate-100">{approveModalReq.course_name}</strong> for <strong className="text-slate-900 dark:text-slate-100">{approveModalReq.student_name}</strong>.<br />
+              Approving <strong className="text-slate-900 dark:text-slate-100">{approveModalReq.course_name}</strong> for <strong className="text-slate-900 dark:text-slate-100">{approveModalReq.student_name}</strong>
+              {approveModalReq.department && (
+                <span className={`ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold border ${
+                  approveModalReq.department === "College"
+                    ? isDark ? "bg-blue-900/40 text-blue-300 border-blue-700/50" : "bg-blue-100 text-blue-800 border-blue-300"
+                    : isDark ? "bg-purple-900/40 text-purple-300 border-purple-700/50" : "bg-purple-100 text-purple-800 border-purple-300"
+                }`}>
+                  {approveModalReq.department === "College" ? "College — Building B Only" : "SHS — Building C Only"}
+                </span>
+              )}
+              .<br />
               {approveModalReq.consultation_area
                 ? "This reschedule is scheduled for 5:00 PM onwards and will take place in the Consultation Area without a proctor assignment. The admin will assign the proctor personally."
-                : "Select an available room. If another exam is already using it during this time, the irregular student's exam will join that session."}
+                : (approveModalReq.department === "College"
+                  ? "Select an available Building B room (B___). Building C is reserved for SHS. If another exam is already using it during this time, the irregular student's exam will join that session."
+                  : "Select an available Building C room (C___). Building B is reserved for College. If another exam is already using it during this time, the irregular student's exam will join that session."
+                )}
             </p>
             <div className={`mb-4 p-3 rounded-xl text-xs border ${isDark ? "bg-blue-950/30 text-blue-300 border-blue-800/50" : "bg-blue-50 text-blue-800 border-blue-200"}`}>
               <span className="font-bold">Requested timeslot:</span>{" "}
@@ -585,7 +614,7 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
                 ) : (
                   <>
                     <p className={`text-xs mb-2 font-bold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-600"}`}>
-                      Available rooms for this time:
+                      Available rooms for this time ({approveModalReq.department === "College" ? "Building B" : "Building C"}):
                     </p>
                     <select
                       value={selectedRoomId}
@@ -595,7 +624,7 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
                       <option value="">— Select a room —</option>
                       {availableRooms.map((r) => (
                         <option key={r.id} value={r.id}>
-                          {r.name}{r.building ? ` — ${r.building}` : ""}{r.exam_subject ? ` · ${r.exam_subject}` : ""}{r.capacity ? ` (cap: ${r.capacity})` : ""}
+                          {r.name}{r.building ? ` — Building ${r.building}` : ""}{r.exam_subject ? ` · ${r.exam_subject}` : ""}{r.capacity ? ` (cap: ${r.capacity})` : ""}
                         </option>
                       ))}
                     </select>

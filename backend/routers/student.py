@@ -345,10 +345,6 @@ def submit_reschedule_request(
                 status_code=400,
                 detail="This conflict already has a pending or approved rescheduling request. Only one exam in the conflict can be moved.",
             )
-        if (exam.subject and exam.subject.category == "major") and any(
-            peer.subject and peer.subject.category != "major" for peer in conflicting_exams
-        ):
-            raise HTTPException(status_code=400, detail="The minor or general exam must be rescheduled when it conflicts with a major exam")
     else:
         if exam.section and exam.section.name != current_user.section_name:
             raise HTTPException(status_code=403, detail="Unauthorized: section mismatch")

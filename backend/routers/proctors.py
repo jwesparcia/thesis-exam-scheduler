@@ -117,9 +117,10 @@ def add_availability(proctor_id: int, body: dict, db: Session = Depends(get_db),
                 start_val = datetime.strptime(start_val, "%I:%M %p").time() if ("AM" in start_val or "PM" in start_val) else datetime.strptime(start_val, "%H:%M").time()
             if isinstance(end_val, str):
                 end_val = datetime.strptime(end_val, "%I:%M %p").time() if ("AM" in end_val or "PM" in end_val) else datetime.strptime(end_val, "%H:%M").time()
+            from utils.scheduler import normalize_day_of_week
             ts = models.TeacherSchedule(
                 teacher_id=proctor.teacher_id,
-                day_of_week=body["day_of_week"],
+                day_of_week=normalize_day_of_week(body["day_of_week"]),
                 start_time=start_val,
                 end_time=end_val,
                 subject_name="Proctor Availability"
@@ -276,6 +277,8 @@ async def upload_my_schedule(proctor_id: int, file: UploadFile = File(...), db: 
                     parts = time_range.split("-")
                     start_t = parse_t(parts[0].strip())
                     end_t = parse_t(parts[1].strip())
+                    if end_t <= start_t and end_t.hour <= 7:
+                        end_t = time(end_t.hour + 12, end_t.minute)
                 except:
                     continue
                 for day_name, day_idx in day_map.items():

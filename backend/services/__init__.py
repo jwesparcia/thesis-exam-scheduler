@@ -6,4 +6,7 @@ from .auto_rescheduler import (
     get_assigned_student_count_for_room,
     get_school_operating_hours,
     get_exam_configured_duration,
+    get_reschedule_student_category,
+    is_room_allowed_for_category,
 )
+

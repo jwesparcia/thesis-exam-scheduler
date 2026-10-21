@@ -1,5 +1,19 @@
-import React, { useEffect, useState } from "react";
-import { CalendarDaysIcon, DocumentTextIcon, ArrowPathIcon, PaperAirplaneIcon, ArrowDownTrayIcon, TrashIcon, DocumentCheckIcon, PencilSquareIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import React, { useEffect, useState, useRef, useMemo } from "react";
+import {
+    CalendarDaysIcon,
+    DocumentTextIcon,
+    ArrowPathIcon,
+    PaperAirplaneIcon,
+    ArrowDownTrayIcon,
+    TrashIcon,
+    DocumentCheckIcon,
+    PencilSquareIcon,
+    XMarkIcon,
+    MagnifyingGlassIcon,
+    ChevronDownIcon,
+    CheckIcon,
+    UserIcon
+} from "@heroicons/react/24/outline";
 import { useTheme } from "../context/themeStore";
 import api from "../api";
 import { useToast } from "../context/ToastContext";
@@ -34,6 +48,14 @@ export default function GeneratedExamSchedules({ isGenerating }) {
     const [editTimeslotId, setEditTimeslotId] = useState("");
     const [editProctorId, setEditProctorId] = useState("");
     const [editSaving, setEditSaving] = useState(false);
+
+    // Searchable Proctor Dropdown State
+    const [eligibleProctors, setEligibleProctors] = useState([]);
+    const [loadingEligibleProctors, setLoadingEligibleProctors] = useState(false);
+    const [proctorSearchQuery, setProctorSearchQuery] = useState("");
+    const [isProctorDropdownOpen, setIsProctorDropdownOpen] = useState(false);
+    const proctorDropdownRef = useRef(null);
+    const proctorSearchInputRef = useRef(null);
 
     const handleDownload = async () => {
         setDownloading(true);
@@ -149,6 +171,8 @@ export default function GeneratedExamSchedules({ isGenerating }) {
         setEditRoomId(exam.room_id ? String(exam.room_id) : "");
         setEditTimeslotId(exam.timeslot_id ? String(exam.timeslot_id) : "");
         setEditProctorId(exam.proctor_id ? String(exam.proctor_id) : "");
+        setProctorSearchQuery("");
+        setIsProctorDropdownOpen(false);
 
         try {
             const [roomsRes, timeslotsRes, proctorsRes] = await Promise.all([
@@ -164,6 +188,84 @@ export default function GeneratedExamSchedules({ isGenerating }) {
             showError("Failed to load room, timeslot, or proctor options.");
         }
     };
+
+    // Dynamically fetch only eligible proctors for the current exam and timeslot
+    useEffect(() => {
+        if (!editingExam) {
+            setEligibleProctors([]);
+            return;
+        }
+        let isMounted = true;
+        const fetchEligible = async () => {
+            setLoadingEligibleProctors(true);
+            try {
+                const res = await api.get(`/exams/${editingExam.id}/eligible-proctors`, {
+                    params: {
+                        timeslot_id: editTimeslotId ? parseInt(editTimeslotId, 10) : undefined
+                    }
+                });
+                if (isMounted) {
+                    setEligibleProctors(res.data || []);
+                }
+            } catch (err) {
+                console.error("Error loading eligible proctors:", err);
+            } finally {
+                if (isMounted) {
+                    setLoadingEligibleProctors(false);
+                }
+            }
+        };
+        fetchEligible();
+        return () => {
+            isMounted = false;
+        };
+    }, [editingExam?.id, editTimeslotId]);
+
+    // Handle outside clicks and keyboard interactions for proctor searchable dropdown
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (proctorDropdownRef.current && !proctorDropdownRef.current.contains(e.target)) {
+                setIsProctorDropdownOpen(false);
+            }
+        };
+        const handleKeyDown = (e) => {
+            if (e.key === "Escape") {
+                setIsProctorDropdownOpen(false);
+            }
+        };
+        if (isProctorDropdownOpen) {
+            document.addEventListener("mousedown", handleClickOutside);
+            document.addEventListener("keydown", handleKeyDown);
+            setTimeout(() => {
+                proctorSearchInputRef.current?.focus();
+            }, 50);
+        }
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+            document.removeEventListener("keydown", handleKeyDown);
+        };
+    }, [isProctorDropdownOpen]);
+
+    // Resolve currently selected proctor details
+    const selectedProctorObj = useMemo(() => {
+        if (!editProctorId) return null;
+        const pId = parseInt(editProctorId, 10);
+        return (
+            eligibleProctors.find((p) => p.id === pId) ||
+            availableProctors.find((p) => p.id === pId) ||
+            null
+        );
+    }, [editProctorId, eligibleProctors, availableProctors]);
+
+    // Filter eligible proctors dynamically as user types (supports partial matches)
+    const filteredEligibleProctors = useMemo(() => {
+        if (!proctorSearchQuery.trim()) return eligibleProctors;
+        const q = proctorSearchQuery.toLowerCase().trim();
+        return eligibleProctors.filter((p) =>
+            (p.name && p.name.toLowerCase().includes(q)) ||
+            (p.department && p.department.toLowerCase().includes(q))
+        );
+    }, [eligibleProctors, proctorSearchQuery]);
 
     const handleSaveEdit = async (e) => {
         e.preventDefault();
@@ -1076,32 +1178,192 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                 </select>
                             </div>
 
-                            <div>
+                            <div className="relative" ref={proctorDropdownRef}>
                                 <label className={`block text-xs font-semibold uppercase tracking-wider mb-1.5 ${isDark ? "text-slate-300" : "text-slate-700"}`}>
                                     Assigned Proctor
                                 </label>
-                                <select
-                                    value={editProctorId}
-                                    onChange={(e) => setEditProctorId(e.target.value)}
-                                    className={`w-full px-3 py-2.5 rounded-xl text-xs sm:text-sm border outline-none transition ${
+                                
+                                {/* Dropdown Trigger Button */}
+                                <button
+                                    type="button"
+                                    onClick={() => setIsProctorDropdownOpen(!isProctorDropdownOpen)}
+                                    className={`w-full px-3 py-2.5 rounded-xl text-xs sm:text-sm border outline-none transition flex items-center justify-between text-left ${
                                         isDark
-                                            ? "bg-slate-800 border-slate-700 text-slate-100 focus:border-blue-500"
-                                            : "bg-slate-50 border-slate-200 text-slate-900 focus:border-blue-600"
+                                            ? "bg-slate-800 border-slate-700 text-slate-100 focus:border-blue-500 hover:bg-slate-750"
+                                            : "bg-slate-50 border-slate-200 text-slate-900 focus:border-blue-600 hover:bg-slate-100"
                                     }`}
+                                    aria-haspopup="listbox"
+                                    aria-expanded={isProctorDropdownOpen}
                                 >
-                                    <option value="">-- Unassigned / No Proctor --</option>
-                                    {availableProctors
-                                        .filter((p) => {
-                                            if (selectedDept === "SHS") return p.department === "SHS";
-                                            if (selectedDept === "College") return p.department !== "SHS";
-                                            return true;
-                                        })
-                                        .map((p) => (
-                                            <option key={p.id} value={p.id} disabled={!p.has_schedule}>
-                                                {p.name} {p.department ? `(${p.department})` : ""} {!p.has_schedule ? "(No schedule uploaded - Ineligible)" : ""}
-                                            </option>
-                                        ))}
-                                </select>
+                                    <span className="truncate flex items-center gap-2">
+                                        <UserIcon className={`w-4 h-4 shrink-0 ${editProctorId ? (isDark ? "text-blue-400" : "text-blue-600") : "text-slate-400"}`} />
+                                        {selectedProctorObj ? (
+                                            <span className="font-medium truncate">
+                                                {selectedProctorObj.name}
+                                                {selectedProctorObj.department && (
+                                                    <span className={`ml-2 text-xs font-normal px-2 py-0.5 rounded-full border ${
+                                                        isDark ? "bg-slate-700 text-slate-300 border-slate-600" : "bg-slate-200/70 text-slate-700 border-slate-300"
+                                                    }`}>
+                                                        {selectedProctorObj.department}
+                                                    </span>
+                                                )}
+                                            </span>
+                                        ) : (
+                                            <span className={isDark ? "text-slate-400" : "text-slate-500"}>
+                                                -- Unassigned / No Proctor --
+                                            </span>
+                                        )}
+                                    </span>
+                                    <div className="flex items-center gap-1.5 ml-2 shrink-0">
+                                        {editProctorId && (
+                                            <span
+                                                role="button"
+                                                tabIndex={0}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setEditProctorId("");
+                                                }}
+                                                title="Clear assigned proctor"
+                                                className={`p-1 rounded-md transition ${isDark ? "hover:bg-slate-700 text-slate-400 hover:text-slate-200" : "hover:bg-slate-200 text-slate-400 hover:text-slate-600"}`}
+                                            >
+                                                <XMarkIcon className="w-3.5 h-3.5" />
+                                            </span>
+                                        )}
+                                        <ChevronDownIcon className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isProctorDropdownOpen ? "rotate-180" : ""}`} />
+                                    </div>
+                                </button>
+
+                                {/* Dropdown Menu with Search Bar */}
+                                {isProctorDropdownOpen && (
+                                    <div className={`absolute left-0 right-0 top-full mt-1.5 z-50 rounded-xl border shadow-xl backdrop-blur-md overflow-hidden ${
+                                        isDark
+                                            ? "bg-slate-850/95 border-slate-700 shadow-black/50"
+                                            : "bg-white/95 border-slate-200 shadow-slate-400/20"
+                                    }`}>
+                                        {/* Search Input */}
+                                        <div className={`p-2.5 border-b ${isDark ? "border-slate-750 bg-slate-900/60" : "border-slate-100 bg-slate-50/70"}`}>
+                                            <div className="relative">
+                                                <MagnifyingGlassIcon className={`w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 ${isDark ? "text-slate-400" : "text-slate-400"}`} />
+                                                <input
+                                                    ref={proctorSearchInputRef}
+                                                    type="text"
+                                                    value={proctorSearchQuery}
+                                                    onChange={(e) => setProctorSearchQuery(e.target.value)}
+                                                    placeholder="Search eligible proctor name..."
+                                                    className={`w-full pl-9 pr-8 py-1.5 rounded-lg text-xs sm:text-sm border outline-none transition ${
+                                                        isDark
+                                                            ? "bg-slate-800 border-slate-700 text-slate-100 placeholder-slate-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                                                            : "bg-white border-slate-200 text-slate-900 placeholder-slate-400 focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
+                                                    }`}
+                                                />
+                                                {proctorSearchQuery && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setProctorSearchQuery("")}
+                                                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                                                    >
+                                                        <XMarkIcon className="w-3.5 h-3.5" />
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* Proctors List */}
+                                        <div className="max-h-56 overflow-y-auto p-1.5 space-y-0.5">
+                                            {/* Unassigned Option */}
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setEditProctorId("");
+                                                    setIsProctorDropdownOpen(false);
+                                                    setProctorSearchQuery("");
+                                                }}
+                                                className={`w-full px-3 py-2 rounded-lg text-left text-xs sm:text-sm flex items-center justify-between transition ${
+                                                    !editProctorId
+                                                        ? isDark ? "bg-blue-950/60 text-blue-300 font-semibold" : "bg-blue-50 text-blue-700 font-semibold"
+                                                        : isDark ? "text-slate-300 hover:bg-slate-800 hover:text-slate-100" : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                                                }`}
+                                            >
+                                                <span className="italic opacity-80">-- Unassigned / No Proctor --</span>
+                                                {!editProctorId && <CheckIcon className="w-4 h-4 text-blue-500 shrink-0" />}
+                                            </button>
+
+                                            {loadingEligibleProctors ? (
+                                                <div className={`p-4 text-center text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                                                    <ArrowPathIcon className="w-4 h-4 animate-spin inline-block mr-1.5" />
+                                                    Checking eligibility & schedule availability...
+                                                </div>
+                                            ) : filteredEligibleProctors.length === 0 ? (
+                                                <div className={`p-4 text-center text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                                                    {proctorSearchQuery ? (
+                                                        <>
+                                                            No eligible proctors match <span className="font-semibold text-slate-300">"{proctorSearchQuery}"</span>
+                                                        </>
+                                                    ) : (
+                                                        "No eligible proctors available for this timeslot."
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                filteredEligibleProctors.map((p) => {
+                                                    const isSelected = String(p.id) === String(editProctorId);
+                                                    return (
+                                                        <button
+                                                            key={p.id}
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setEditProctorId(String(p.id));
+                                                                setIsProctorDropdownOpen(false);
+                                                                setProctorSearchQuery("");
+                                                            }}
+                                                            className={`w-full px-3 py-2 rounded-lg text-left text-xs sm:text-sm flex items-center justify-between transition ${
+                                                                isSelected
+                                                                    ? isDark
+                                                                        ? "bg-blue-950/60 text-blue-300 font-semibold"
+                                                                        : "bg-blue-50 text-blue-700 font-semibold"
+                                                                    : isDark
+                                                                    ? "text-slate-200 hover:bg-slate-800 hover:text-blue-400"
+                                                                    : "text-slate-700 hover:bg-blue-50/70 hover:text-blue-700"
+                                                            }`}
+                                                        >
+                                                            <div className="flex items-center gap-2 truncate">
+                                                                <span className="truncate">{p.name}</span>
+                                                                {p.department && (
+                                                                    <span className={`text-[10px] uppercase font-semibold px-1.5 py-0.5 rounded border shrink-0 ${
+                                                                        isDark
+                                                                            ? "bg-slate-800 text-slate-300 border-slate-700"
+                                                                            : "bg-slate-100 text-slate-600 border-slate-200"
+                                                                    }`}>
+                                                                        {p.department}
+                                                                    </span>
+                                                                )}
+                                                                {p.is_current && (
+                                                                    <span className="text-[10px] font-medium text-emerald-500 dark:text-emerald-400 shrink-0">
+                                                                        (Current)
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            {isSelected && <CheckIcon className="w-4 h-4 text-blue-500 shrink-0 ml-2" />}
+                                                        </button>
+                                                    );
+                                                })
+                                            )}
+                                        </div>
+
+                                        {/* Dropdown Footer: Eligible Count */}
+                                        {!loadingEligibleProctors && (
+                                            <div className={`px-3 py-1.5 text-[11px] border-t flex items-center justify-between ${
+                                                isDark ? "border-slate-750 bg-slate-900/60 text-slate-400" : "border-slate-100 bg-slate-50/60 text-slate-500"
+                                            }`}>
+                                                <span>
+                                                    {filteredEligibleProctors.length} eligible proctor{filteredEligibleProctors.length === 1 ? "" : "s"}
+                                                </span>
+                                                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
+                                                    Availability & conflicts verified
+                                                </span>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
 
                             <div className="flex items-center justify-end gap-2.5 sm:gap-3 pt-3 border-t border-slate-200 dark:border-slate-750">

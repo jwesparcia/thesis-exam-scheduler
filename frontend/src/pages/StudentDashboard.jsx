@@ -17,6 +17,7 @@ import {
   ChatBubbleLeftRightIcon,
   PlusIcon,
   ArrowPathIcon,
+  ExclamationCircleIcon,
 } from "@heroicons/react/24/outline";
 import { useTheme } from "../context/themeStore";
 import ThemeToggle from "../components/ThemeToggle";
@@ -1238,7 +1239,7 @@ export default function StudentDashboard() {
       conflictExamIds.has(request.exam_id) && ["pending", "approved"].includes(request.status)
     );
     if (conflictAlreadyHandled) return false;
-    return !(exam.category === "major" && conflictingExams.some((peer) => peer.category !== "major"));
+    return true;
   };
 
   const getIrregularRescheduleSuggestions = (exam) => {
@@ -1273,14 +1274,8 @@ export default function StudentDashboard() {
         const overlaps = parseTime12(firstExam.start_time) < parseTime12(secondExam.end_time) &&
           parseTime12(secondExam.start_time) < parseTime12(firstExam.end_time);
         if (!overlaps) continue;
-        if (firstExam.category === "major" && secondExam.category !== "major") {
-          conflictTargets.add(secondExam.id);
-        } else if (secondExam.category === "major" && firstExam.category !== "major") {
-          conflictTargets.add(firstExam.id);
-        } else {
-          conflictTargets.add(firstExam.id);
-          conflictTargets.add(secondExam.id);
-        }
+        conflictTargets.add(firstExam.id);
+        conflictTargets.add(secondExam.id);
       }
     }
     const optionCount = Math.max(2, conflictTargets.size);

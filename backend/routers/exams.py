@@ -1060,6 +1060,162 @@ def get_timeslots(
         for s in slots
     ]
 
+def check_proctor_consecutive_limit(db: Session, proctor_id: int, target_slot: Timeslot, exclude_exam_id: Optional[int] = None) -> bool:
+    """
+    Validate that assigning target_slot to proctor_id does not exceed 2 consecutive assignments.
+    Assignments are considered consecutive if they occur on the same date with a break <= 30 minutes.
+    """
+    if not target_slot:
+        return True
+
+    exam_query = db.query(Exam).join(Timeslot).filter(
+        Exam.proctor_id == proctor_id,
+        Timeslot.date == target_slot.date,
+        Exam.timeslot_id.isnot(None)
+    )
+    if exclude_exam_id:
+        exam_query = exam_query.filter(Exam.id != exclude_exam_id)
+
+    day_exams = exam_query.all()
+    all_slots = [e.timeslot for e in day_exams if e.timeslot]
+    all_slots.append(target_slot)
+    all_slots.sort(key=lambda s: s.start_time)
+
+    streak = 0
+    prev_end = None
+    for s in all_slots:
+        s_start = s.start_time.hour * 60 + s.start_time.minute
+        s_end = s.end_time.hour * 60 + s.end_time.minute
+        if prev_end is not None and 0 <= (s_start - prev_end) <= 30:
+            streak += 1
+        else:
+            streak = 1
+        prev_end = s_end
+
+        if streak > 2:
+            return False
+
+    return True
+
+
+@router.get("/{exam_id}/eligible-proctors")
+def get_eligible_proctors(
+    exam_id: int,
+    timeslot_id: Optional[int] = Query(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Return all eligible proctors for a specific exam and timeslot,
+    strictly validating department consistency, schedule availability,
+    subject/section teaching conflicts, schedule double-booking, and consecutive limits.
+    """
+    exam = db.query(Exam).options(
+        joinedload(Exam.course),
+        joinedload(Exam.subject),
+        joinedload(Exam.section),
+        joinedload(Exam.timeslot)
+    ).filter(Exam.id == exam_id).first()
+    if not exam:
+        raise HTTPException(status_code=404, detail="Exam not found")
+
+    target_slot = None
+    ts_val = timeslot_id if isinstance(timeslot_id, int) else (int(timeslot_id) if isinstance(timeslot_id, str) and timeslot_id.isdigit() else None)
+    if ts_val is not None:
+        target_slot = db.query(Timeslot).filter(Timeslot.id == ts_val).first()
+    if not target_slot:
+        target_slot = exam.timeslot
+
+    exam_dept = exam.course.category if exam.course else "College"
+
+    from model.models import TeacherTeaching, TeacherSchedule
+    subject_teacher_ids = set()
+    if exam.subject and exam.subject.teacher_id:
+        subject_teacher_ids.add(exam.subject.teacher_id)
+
+    tr_sub = db.query(TeacherTeaching.teacher_id).filter(TeacherTeaching.subject_id == exam.subject_id).all()
+    for row in tr_sub:
+        subject_teacher_ids.add(row[0])
+
+    section_teacher_ids = set()
+    tr_sec = db.query(TeacherTeaching.teacher_id).filter(TeacherTeaching.section_id == exam.section_id).all()
+    for row in tr_sec:
+        section_teacher_ids.add(row[0])
+
+    busy_proctor_ids = set()
+    if target_slot:
+        busy_rows = db.query(Exam.proctor_id).filter(
+            Exam.timeslot_id == target_slot.id,
+            Exam.id != exam.id,
+            Exam.proctor_id.isnot(None)
+        ).all()
+        busy_proctor_ids = {r[0] for r in busy_rows}
+
+    proctors = db.query(Proctor).filter(Proctor.exclude_from_scheduling == False).all()
+    teacher_ids = [p.teacher_id for p in proctors if p.teacher_id]
+
+    sched_counts = dict(
+        db.query(TeacherSchedule.teacher_id, func.count(TeacherSchedule.id))
+        .filter(TeacherSchedule.teacher_id.in_(teacher_ids))
+        .group_by(TeacherSchedule.teacher_id)
+        .all()
+    ) if teacher_ids else {}
+
+    result = []
+    for proc in proctors:
+        is_current = (proc.id == exam.proctor_id)
+
+        # Department consistency
+        proc_dept = (proc.department or "").strip().upper()
+        if exam_dept == "SHS" and proc_dept != "SHS":
+            continue
+        if exam_dept == "College" and proc_dept == "SHS":
+            continue
+
+        # Must have uploaded weekly schedule
+        if not proc.teacher_id or sched_counts.get(proc.teacher_id, 0) == 0:
+            continue
+
+        # Subject teaching conflict: Proctor must not teach this subject
+        if proc.teacher_id in subject_teacher_ids:
+            continue
+
+        # Section teaching conflict: Proctor must not teach this section
+        if proc.teacher_id in section_teacher_ids:
+            continue
+
+        if target_slot:
+            # Proctor timeslot conflict: double booking
+            if proc.id in busy_proctor_ids:
+                continue
+
+            # Class-hour availability check
+            is_avail, _ = validate_proctor_availability(
+                db,
+                proctor_id=proc.id,
+                target_date=target_slot.date,
+                target_start=target_slot.start_time,
+                target_end=target_slot.end_time
+            )
+            if not is_avail:
+                continue
+
+            # Max 2 consecutive assignments check
+            if not check_proctor_consecutive_limit(db, proc.id, target_slot, exclude_exam_id=exam.id):
+                continue
+
+        result.append({
+            "id": proc.id,
+            "name": proc.name,
+            "department": proc.department,
+            "contact": proc.contact,
+            "is_current": is_current
+        })
+
+    result.sort(key=lambda p: (not p.get("is_current", False), p["name"]))
+    return result
+
+
 @router.put("/{exam_id}")
 def update_exam(
     exam_id: int,
@@ -1186,15 +1342,16 @@ def update_exam(
                 raise HTTPException(status_code=400, detail=err_msg)
         else:
             # If exam has no timeslot yet, still ensure proctor is eligible (schedule uploaded)
-            is_valid, err_msg = validate_proctor_availability(
-                db,
-                proctor_id=target_proctor_id,
-                target_date=datetime.now().date(),
-                target_start=time(8, 0),
-                target_end=time(9, 30)
-            )
-            if not is_valid and "not uploaded a weekly class schedule" in (err_msg or ""):
-                raise HTTPException(status_code=400, detail=err_msg)
+            schedules = (
+                db.query(TeacherSchedule)
+                .filter(TeacherSchedule.teacher_id == proc.teacher_id)
+                .all()
+            ) if proc.teacher_id else []
+            if not schedules:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Proctor {proc.name} has not uploaded a weekly class schedule and is not eligible for proctor assignment."
+                )
 
     # 2. Check proctor conflict: Proctor must not be assigned to another exam at target timeslot
     if target_proctor_id is not None and target_timeslot_id is not None:
@@ -1210,6 +1367,15 @@ def update_exam(
                 status_code=409,
                 detail=f"Proctor conflict: Selected proctor is already assigned to {sub_name} ({sec_name}) at this timeslot."
             )
+
+        # Check consecutive proctoring limit (max 2 consecutive assignments per proctor)
+        if slot_for_proc:
+            if not check_proctor_consecutive_limit(db, target_proctor_id, slot_for_proc, exclude_exam_id=exam_id):
+                proc_name = proc.name or "Selected proctor"
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Consecutive limit conflict: {proc_name} already has 2 consecutive proctoring assignments and requires a break before another assignment."
+                )
 
     # 3. Check section conflict: Section must not have another exam at target timeslot
     if target_timeslot_id is not None and target_timeslot_id != exam.timeslot_id:

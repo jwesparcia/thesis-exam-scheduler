@@ -93,6 +93,85 @@ def get_exam_configured_duration(exam: Exam, db: Session) -> int:
     return 75
 
 
+def get_reschedule_student_category(db: Session, request: ReschedulingRequest) -> str:
+    """
+    Determine whether a student requesting a reschedule belongs to 'College' or 'SHS'.
+    Priority:
+    1. Student User profile course category
+    2. Rescheduled Exam course category
+    3. Rescheduled Exam section course category
+    4. Program code/name match in Course table
+    5. Section name heuristic ('SHS', 'Grade 11', 'Grade 12', etc.)
+    Defaults to 'College'.
+    """
+    student = None
+    if request.school_email:
+        student = db.query(User).filter(User.email == request.school_email).first()
+    if not student and request.student_id:
+        student = db.query(User).filter(User.student_id == request.student_id).first()
+
+    if student:
+        if getattr(student, "course", None) and student.course.category:
+            return student.course.category
+        if getattr(student, "course_id", None):
+            c = db.query(Course).filter(Course.id == student.course_id).first()
+            if c and c.category:
+                return c.category
+
+    exam = request.exam or (db.query(Exam).filter(Exam.id == request.exam_id).first() if request.exam_id else None)
+    if exam and exam.course and exam.course.category:
+        return exam.course.category
+
+    if exam and exam.section and exam.section.course and exam.section.course.category:
+        return exam.section.course.category
+
+    if request.program:
+        prog = request.program.strip()
+        c = db.query(Course).filter(Course.name.ilike(prog)).first()
+        if c and c.category:
+            return c.category
+
+    sec_name = request.section_name or (student.section_name if student else "")
+    if sec_name:
+        upper_sec = sec_name.upper()
+        if any(keyword in upper_sec for keyword in ["SHS", "GRADE 11", "GRADE 12", "G11", "G12"]):
+            return "SHS"
+
+    return "College"
+
+
+def is_room_allowed_for_category(room: Room, category: str) -> bool:
+    """
+    Check if a room is valid for a given student category (College vs SHS).
+    Rules:
+    - If College: Room MUST be in Building B (all room starts with 'B', e.g. B401). Building C is strictly forbidden.
+    - If SHS: Room MUST be in Building C (all room starts with 'C', e.g. C201). Building B is strictly forbidden.
+    - 'Consultation Area' is handled separately for after-hours/special sessions.
+    """
+    if not room or room.name == "Consultation Area":
+        return False
+
+    room_name = (room.name or "").strip().upper()
+    building = (room.building or "").strip().upper()
+    department = (room.department or "").strip().lower()
+
+    if category == "College":
+        # Reject Building C rooms (reserved exclusively for SHS)
+        if building == "C" or room_name.startswith("C") or department == "shs":
+            return False
+        # Must be in Building B or start with 'B' or department College
+        return building == "B" or room_name.startswith("B") or department == "college"
+
+    elif category == "SHS":
+        # Reject Building B rooms (reserved exclusively for College)
+        if building == "B" or room_name.startswith("B") or department == "college":
+            return False
+        # Must be in Building C or start with 'C' or department SHS
+        return building == "C" or room_name.startswith("C") or department == "shs"
+
+    return True
+
+
 def get_student_complete_exams(
     student: User,
     db: Session,
@@ -376,20 +455,25 @@ def find_earliest_auto_schedule(
     # Sort student's same-day exams chronologically
     same_day_student_exams.sort(key=lambda e: e.timeslot.start_time)
 
-    # Department room matching
-    course_category = exam.course.category if exam.course else "College"
+    # Department room matching & building restriction
+    course_category = get_reschedule_student_category(db, request)
     dept_room_names = set(get_room_names_for_department(course_category, db=db))
 
     # All candidate physical rooms (excluding Consultation Area)
+    # Strictly enforce building rules:
+    # College students must ONLY be assigned to Building B (rooms starting with 'B', e.g. B401).
+    # Building C is reserved exclusively for SHS.
     if candidate_rooms is not None:
-        all_rooms = [r for r in candidate_rooms if r.name != "Consultation Area"]
+        base_rooms = [r for r in candidate_rooms if r.name != "Consultation Area"]
     else:
-        all_rooms = (
+        base_rooms = (
             db.query(Room)
             .filter(Room.name != "Consultation Area")
             .order_by(Room.name)
             .all()
         )
+
+    all_rooms = [r for r in base_rooms if is_room_allowed_for_category(r, course_category)]
 
     # If an irregular student explicitly requested 5:00 PM onwards, skip the daytime search
     pref_t = parse_time_value(request.preferred_start_time)
@@ -457,8 +541,8 @@ def find_earliest_auto_schedule(
                     is_dept_preferred = 0 if (
                         r.name in dept_room_names
                         or r.department == course_category
-                        or (course_category == "College" and r.building == "B")
-                        or (course_category == "SHS" and r.building == "C")
+                        or (course_category == "College" and (r.building == "B" or (r.name and r.name.startswith("B"))))
+                        or (course_category == "SHS" and (r.building == "C" or (r.name and r.name.startswith("C"))))
                     ) else 1
 
                     # Priority tuple:
@@ -649,6 +733,19 @@ def apply_auto_reschedule(
     )
     if not chosen_room:
         raise HTTPException(status_code=404, detail="Selected room not found")
+
+    student_category = get_reschedule_student_category(db, req)
+    if chosen_room.name != "Consultation Area" and not is_room_allowed_for_category(chosen_room, student_category):
+        if student_category == "College":
+            raise HTTPException(
+                status_code=400,
+                detail=f"Room {chosen_room.name} cannot be assigned. College students can only be assigned to Building B rooms (e.g. B401). Building C is reserved for SHS."
+            )
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Room {chosen_room.name} cannot be assigned. SHS students can only be assigned to Building C rooms. Building B is reserved for College."
+            )
 
     # 5. Re-verify capacity under lock to guarantee no race condition exceeded capacity
     current_room_students = get_assigned_student_count_for_room(
