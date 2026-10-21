@@ -363,8 +363,18 @@ def generate_exam_schedule(
     # Store timeslots by ID for later retrieval
     timeslot_map = {ts.id: ts for ts in timeslots}
     generated_timeslot_ids = {ts.id for ts in timeslots}
-    room_names = get_room_names_for_department(department)
-    rooms = db.query(Room).filter(Room.name.in_(room_names)).order_by(Room.name).all()
+    from sqlalchemy import or_
+    room_query = db.query(Room).filter(Room.name != "Consultation Area")
+    if department == "College":
+        room_query = room_query.filter(or_(Room.department == "College", Room.building == "B"))
+    elif department == "SHS":
+        room_query = room_query.filter(or_(Room.department == "SHS", Room.building == "C"))
+    elif department:
+        room_query = room_query.filter(Room.department == department)
+    rooms = room_query.order_by(Room.name).all()
+    if not rooms:
+        room_names = get_room_names_for_department(department, db=db)
+        rooms = db.query(Room).filter(Room.name.in_(room_names)).order_by(Room.name).all()
     room_ids = [r.id for r in rooms]
     room_ids_set = set(room_ids)
     room_name_by_id = {r.id: r.name for r in rooms}
@@ -373,7 +383,6 @@ def generate_exam_schedule(
     room_capacity_by_id = {r.id: (r.capacity or 40) for r in rooms}
     if not room_ids:
         raise ValueError(f"No available exam rooms found for {department}. Sync or seed the Exam-Rooms.xlsx room list first.")
-    from sqlalchemy import or_
     sections = db.query(Section).join(Course).filter(
         Course.category == department,
         or_(Section.semester == semester, Section.semester.is_(None))
@@ -929,6 +938,31 @@ def generate_exam_schedule(
         )
         posted_section_day_slots.setdefault((e.section_id, day), []).append(posted_slot_info)
 
+    MAX_CONSECUTIVE_GAP = max(30, max([s // 60 for s in break_seconds_by_category.values()] + [15]) + 15)
+
+    posted_proctor_last_assignment_init = [None] * num_proctors
+    posted_proctor_consec_streak_init = [0] * num_proctors
+
+    posted_exams_with_proctors = [
+        e for e in posted_exams
+        if e.timeslot and e.proctor_id in proctor_id_to_idx and e.timeslot.id in timeslot_id_to_idx
+    ]
+    posted_exams_with_proctors.sort(
+        key=lambda e: (e.timeslot.date, timeslot_info_list[timeslot_id_to_idx[e.timeslot.id]]["start_m"])
+    )
+    for e in posted_exams_with_proctors:
+        p_idx = proctor_id_to_idx[e.proctor_id]
+        ts_inf = timeslot_info_list[timeslot_id_to_idx[e.timeslot.id]]
+        d = ts_inf["date"]
+        s_m = ts_inf["start_m"]
+        e_m = ts_inf["end_m"]
+        last_asgn = posted_proctor_last_assignment_init[p_idx]
+        if last_asgn is not None and last_asgn[0] == d and 0 <= (s_m - last_asgn[2]) <= MAX_CONSECUTIVE_GAP:
+            posted_proctor_consec_streak_init[p_idx] += 1
+        else:
+            posted_proctor_consec_streak_init[p_idx] = 1
+        posted_proctor_last_assignment_init[p_idx] = (d, s_m, e_m)
+
     slot_room_capacity = [0] * num_timeslots
     for slot_idx in range(num_timeslots):
         dur = timeslot_info_list[slot_idx]["duration_m"]
@@ -1414,6 +1448,8 @@ def generate_exam_schedule(
                 slot_allocations.setdefault(slot_idx, []).append(idx)
 
         proctor_counts = list(posted_proctor_counts_init)
+        proctor_last_assignment = list(posted_proctor_last_assignment_init)
+        proctor_consec_streak = list(posted_proctor_consec_streak_init)
         
         section_slots_set = set()
         room_slots_set = set()
@@ -1594,6 +1630,12 @@ def generate_exam_schedule(
                         continue
                     if proctor_counts[pidx] >= proctor_max_assignments[pidx]:
                         continue
+                    last_asgn = proctor_last_assignment[pidx]
+                    if last_asgn is not None:
+                        last_d, last_s_m, last_e_m = last_asgn
+                        if day == last_d and 0 <= (ts_inf["start_m"] - last_e_m) <= MAX_CONSECUTIVE_GAP:
+                            if proctor_consec_streak[pidx] >= 2:
+                                continue
                     p_dept = proctor_departments[pidx]
                     is_same = 1 if (p_dept and exam_dept and p_dept == exam_dept) else 0
                     key = (is_same, proctor_counts[pidx])
@@ -1606,6 +1648,12 @@ def generate_exam_schedule(
                         proctor_slots_set.add((p_idx, ov_idx))
                     assigned_proctors_in_slot.add(p_idx)
                     proctor_counts[p_idx] += 1
+                    last_asgn = proctor_last_assignment[p_idx]
+                    if last_asgn is not None and day == last_asgn[0] and 0 <= (ts_inf["start_m"] - last_asgn[2]) <= MAX_CONSECUTIVE_GAP:
+                        proctor_consec_streak[p_idx] += 1
+                    else:
+                        proctor_consec_streak[p_idx] = 1
+                    proctor_last_assignment[p_idx] = (day, ts_inf["start_m"], ts_inf["end_m"])
                     if proctor_counts[p_idx] > proctor_max_assignments[p_idx]:
                         score -= 10000
                     if best_key[0] == 0:
@@ -1853,6 +1901,8 @@ def generate_exam_schedule(
                 slot_allocations.setdefault(slot_idx, []).append(idx)
             
         proctor_counts = list(posted_proctor_counts_init)
+        proctor_last_assignment = list(posted_proctor_last_assignment_init)
+        proctor_consec_streak = list(posted_proctor_consec_streak_init)
         
         section_slots_set = set()
         room_slots_set = set(posted_room_slots_set)
@@ -2035,6 +2085,12 @@ def generate_exam_schedule(
                         continue
                     if proctor_counts[pidx] >= proctor_max_assignments[pidx]:
                         continue
+                    last_asgn = proctor_last_assignment[pidx]
+                    if last_asgn is not None:
+                        last_d, last_s_m, last_e_m = last_asgn
+                        if day == last_d and 0 <= (ts_inf["start_m"] - last_e_m) <= MAX_CONSECUTIVE_GAP:
+                            if proctor_consec_streak[pidx] >= 2:
+                                continue
                     p_dept = proctor_departments[pidx]
                     is_same = 1 if (p_dept and exam_dept and p_dept == exam_dept) else 0
                     key = (is_same, proctor_counts[pidx])
@@ -2047,6 +2103,12 @@ def generate_exam_schedule(
                         proctor_slots_set.add((p_idx, ov_idx))
                     assigned_proctors_in_slot.add(p_idx)
                     proctor_counts[p_idx] += 1
+                    last_asgn = proctor_last_assignment[p_idx]
+                    if last_asgn is not None and day == last_asgn[0] and 0 <= (ts_inf["start_m"] - last_asgn[2]) <= MAX_CONSECUTIVE_GAP:
+                        proctor_consec_streak[p_idx] += 1
+                    else:
+                        proctor_consec_streak[p_idx] = 1
+                    proctor_last_assignment[p_idx] = (day, ts_inf["start_m"], ts_inf["end_m"])
                     if proctor_counts[p_idx] > proctor_max_assignments[p_idx]:
                         proc_limit += 1
 
@@ -2125,6 +2187,7 @@ def generate_exam_schedule(
         section_slots_set = set(posted_section_slots_set)
         actual_section_slots = set()
         actual_section_breaks = {}
+        pending_proctor_tasks = []
 
         def available_room_count(slot_idx, req_dur=75, min_capacity=0):
             allowed_r_indices = room_indices_for_dur.get(req_dur, list(range(num_rooms)))
@@ -2862,28 +2925,6 @@ def generate_exam_schedule(
                 exam_slot_idx = assigned_slots[sec_id]
                 r_id = assigned_rooms[sec_id]
 
-                p_id = None
-                best_key = (99, 99999)
-                candidates = group["slot_proctors"][exam_slot_idx][prep_sec["idx_in_g"]]
-                exam_dept = prep_sec.get("exam_dept", "")
-                for pidx in candidates:
-                    if (pidx, exam_slot_idx) in proctor_slots_set:
-                        continue
-                    if proctor_counts[pidx] >= proctor_max_assignments[pidx]:
-                        continue
-                    p_dept = proctor_departments[pidx]
-                    is_same = 1 if (p_dept and exam_dept and p_dept == exam_dept) else 0
-                    key = (is_same, proctor_counts[pidx])
-                    if key < best_key:
-                        best_key = key
-                        p_id = proctor_ids[pidx]
-                        
-                if p_id:
-                    p_idx = proctor_id_to_idx[p_id]
-                    for ov_idx in slot_overlaps[exam_slot_idx]:
-                        proctor_slots_set.add((p_idx, ov_idx))
-                    proctor_counts[p_idx] += 1
-
                 for ov_idx in slot_overlaps[exam_slot_idx]:
                     section_slots_set.add((sec_id, ov_idx))
                 actual_section_slots.add((sec_id, exam_slot_idx))
@@ -2900,15 +2941,90 @@ def generate_exam_schedule(
                     semester=prep_sec["semester"],
                     term=term,
                     status="draft",
-                    proctor_id=p_id,
+                    proctor_id=None,
                 )
                 generated_exams.append(new_exam)
                 total_scheduled += 1
                 if r_id:
                     assigned_room_count += 1
-                if p_id:
-                    assigned_proctor_count += 1
-                    proctor_data[p_id]["assigned_count"] += 1
+
+                candidates = group["slot_proctors"][exam_slot_idx][prep_sec["idx_in_g"]]
+                exam_dept = prep_sec.get("exam_dept", "")
+                pending_proctor_tasks.append({
+                    "exam": new_exam,
+                    "slot_idx": exam_slot_idx,
+                    "candidates": candidates,
+                    "exam_dept": exam_dept
+                })
+
+        # ----------------------------------------------------
+        # Proctor Assignment in Chronological Order
+        # Enforces a maximum of 2 consecutive proctoring assignments
+        # per proctor (with mandatory break before next assignment),
+        # preserving workload balancing, cross-department priority,
+        # uploaded schedule hours, and conflict prevention.
+        # ----------------------------------------------------
+        pending_proctor_tasks.sort(
+            key=lambda item: (
+                timeslot_info_list[item["slot_idx"]]["date"],
+                timeslot_info_list[item["slot_idx"]]["start_m"],
+                timeslot_info_list[item["slot_idx"]]["end_m"],
+                len(item["candidates"])
+            )
+        )
+
+        proctor_last_assignment = list(posted_proctor_last_assignment_init)
+        proctor_consec_streak = list(posted_proctor_consec_streak_init)
+
+        for task in pending_proctor_tasks:
+            exam = task["exam"]
+            exam_slot_idx = task["slot_idx"]
+            candidates = task["candidates"]
+            exam_dept = task["exam_dept"]
+            ts_inf = timeslot_info_list[exam_slot_idx]
+            day = ts_inf["date"]
+            start_m = ts_inf["start_m"]
+            end_m = ts_inf["end_m"]
+
+            p_id = None
+            best_key = (99, 99999)
+            for pidx in candidates:
+                if (pidx, exam_slot_idx) in proctor_slots_set:
+                    continue
+                if proctor_counts[pidx] >= proctor_max_assignments[pidx]:
+                    continue
+
+                # Check maximum 2 consecutive proctoring assignments
+                last_asgn = proctor_last_assignment[pidx]
+                if last_asgn is not None:
+                    last_d, last_s_m, last_e_m = last_asgn
+                    if day == last_d and 0 <= (start_m - last_e_m) <= MAX_CONSECUTIVE_GAP:
+                        if proctor_consec_streak[pidx] >= 2:
+                            continue  # Skip proctor: reached 2 consecutive assignments without break
+
+                p_dept = proctor_departments[pidx]
+                is_same = 1 if (p_dept and exam_dept and p_dept == exam_dept) else 0
+                key = (is_same, proctor_counts[pidx])
+                if key < best_key:
+                    best_key = key
+                    p_id = proctor_ids[pidx]
+
+            if p_id:
+                p_idx = proctor_id_to_idx[p_id]
+                for ov_idx in slot_overlaps[exam_slot_idx]:
+                    proctor_slots_set.add((p_idx, ov_idx))
+                proctor_counts[p_idx] += 1
+                assigned_proctor_count += 1
+                proctor_data[p_id]["assigned_count"] += 1
+                exam.proctor_id = p_id
+
+                # Update consecutive assignment tracking
+                last_asgn = proctor_last_assignment[p_idx]
+                if last_asgn is not None and day == last_asgn[0] and 0 <= (start_m - last_asgn[2]) <= MAX_CONSECUTIVE_GAP:
+                    proctor_consec_streak[p_idx] += 1
+                else:
+                    proctor_consec_streak[p_idx] = 1
+                proctor_last_assignment[p_idx] = (day, start_m, end_m)
 
     # ----------------------------------------------------
     # Same-Floor Cohort Harmonizer

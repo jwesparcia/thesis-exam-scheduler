@@ -81,9 +81,44 @@ COLLEGE_ROOM_NAMES = [room["name"] for room in AVAILABLE_EXAM_ROOMS if room["dep
 SHS_ROOM_NAMES = [room["name"] for room in AVAILABLE_EXAM_ROOMS if room["department"] == "SHS"]
 
 
-def get_room_names_for_department(department):
+def get_room_names_for_department(department=None, db=None):
+    """
+    Dynamically retrieve eligible room names from the database for the given department.
+    Excludes virtual/special rooms like 'Consultation Area'.
+    Falls back to static defaults if DB is unavailable or empty (e.g. initial setup/migration).
+    """
+    def _query(session):
+        from model.models import Room
+        from sqlalchemy import or_
+        query = session.query(Room.name).filter(Room.name != "Consultation Area")
+        if department == "SHS":
+            query = query.filter(or_(Room.department == "SHS", Room.building == "C"))
+        elif department == "College":
+            query = query.filter(or_(Room.department == "College", Room.building == "B"))
+        elif department:
+            query = query.filter(Room.department == department)
+        return [r[0] for r in query.order_by(Room.name).all()]
+
+    if db is not None:
+        try:
+            names = _query(db)
+            if names:
+                return names
+        except Exception:
+            pass
+    else:
+        try:
+            from core.database import SessionLocal
+            with SessionLocal() as session:
+                names = _query(session)
+                if names:
+                    return names
+        except Exception:
+            pass
+
     if department == "SHS":
-        return SHS_ROOM_NAMES
+        return list(SHS_ROOM_NAMES)
     if department == "College":
-        return COLLEGE_ROOM_NAMES
-    return AVAILABLE_EXAM_ROOM_NAMES
+        return list(COLLEGE_ROOM_NAMES)
+    return list(AVAILABLE_EXAM_ROOM_NAMES)
+

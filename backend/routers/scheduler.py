@@ -51,8 +51,18 @@ def generate_exam_schedule(payload: dict = Body(...), db: Session = Depends(get_
         Subject.semester == semester
     ).all()
     course = db.query(Course).filter(Course.id == course_id).first()
-    room_names = get_room_names_for_department(course.category if course else None)
-    rooms = db.query(Room).filter(Room.name.in_(room_names)).order_by(Room.name).all()
+    category = course.category if course else None
+    room_query = db.query(Room).filter(Room.name != "Consultation Area")
+    if category == "College":
+        room_query = room_query.filter(or_(Room.department == "College", Room.building == "B"))
+    elif category == "SHS":
+        room_query = room_query.filter(or_(Room.department == "SHS", Room.building == "C"))
+    elif category:
+        room_query = room_query.filter(Room.department == category)
+    rooms = room_query.order_by(Room.name).all()
+    if not rooms:
+        room_names = get_room_names_for_department(category, db=db)
+        rooms = db.query(Room).filter(Room.name.in_(room_names)).order_by(Room.name).all()
 
     if not sections or not subjects or not rooms:
         raise HTTPException(status_code=404, detail="Missing sections, subjects, or available rooms")
@@ -158,6 +168,31 @@ def generate_exam_schedule(payload: dict = Body(...), db: Session = Depends(get_
                 )
                 if is_busy:
                     continue
+                # Check maximum 2 consecutive assignments rule
+                cand_exams = [
+                    e for e in created_exams
+                    if e.proctor_id == candidate.id and e.timeslot_id and e.timeslot_id == timeslot.id or (
+                        e.proctor_id == candidate.id and hasattr(e, "timeslot") and e.timeslot and e.timeslot.date == timeslot.date
+                    )
+                ]
+                if cand_exams:
+                    cand_day_exams = sorted(
+                        [e for e in cand_exams if hasattr(e, "timeslot") and e.timeslot and e.timeslot.date == timeslot.date],
+                        key=lambda e: e.timeslot.start_time
+                    )
+                    streak = 0
+                    prev_end = None
+                    for ce in cand_day_exams:
+                        ce_start = ce.timeslot.start_time.hour * 60 + ce.timeslot.start_time.minute
+                        ce_end = ce.timeslot.end_time.hour * 60 + ce.timeslot.end_time.minute
+                        if prev_end is not None and 0 <= (ce_start - prev_end) <= 30:
+                            streak += 1
+                        else:
+                            streak = 1
+                        prev_end = ce_end
+                    ts_start_m = timeslot.start_time.hour * 60 + timeslot.start_time.minute
+                    if prev_end is not None and 0 <= (ts_start_m - prev_end) <= 30 and streak >= 2:
+                        continue  # Skip: maximum 2 consecutive assignments reached
                 is_avail, _ = validate_proctor_availability(
                     db,
                     proctor_id=candidate.id,

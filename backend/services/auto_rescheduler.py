@@ -378,7 +378,7 @@ def find_earliest_auto_schedule(
 
     # Department room matching
     course_category = exam.course.category if exam.course else "College"
-    dept_room_names = set(get_room_names_for_department(course_category))
+    dept_room_names = set(get_room_names_for_department(course_category, db=db))
 
     # All candidate physical rooms (excluding Consultation Area)
     if candidate_rooms is not None:
@@ -454,7 +454,12 @@ def find_earliest_auto_schedule(
                 # Seating capacity check: must fit existing students + 1 irregular student
                 if assigned_count + 1 <= room_cap:
                     remaining_cap = room_cap - (assigned_count + 1)
-                    is_dept_preferred = 0 if (r.name in dept_room_names or r.department == course_category) else 1
+                    is_dept_preferred = 0 if (
+                        r.name in dept_room_names
+                        or r.department == course_category
+                        or (course_category == "College" and r.building == "B")
+                        or (course_category == "SHS" and r.building == "C")
+                    ) else 1
 
                     # Priority tuple:
                     # 1. Lowest number of students assigned (load balancing)
@@ -699,6 +704,40 @@ def apply_auto_reschedule(
         is_avail, _ = validate_proctor_availability(db, assigned_proctor_id, assigned_date, assigned_start, assigned_end)
         if not is_avail:
             assigned_proctor_id = None
+        else:
+            # Check maximum 2 consecutive assignments rule
+            existing_p_exams = (
+                db.query(Exam)
+                .join(Timeslot)
+                .filter(
+                    Exam.proctor_id == assigned_proctor_id,
+                    Exam.id != orig_exam.id,
+                    Timeslot.date == assigned_date
+                )
+                .all()
+            )
+            if existing_p_exams:
+                cand_st_m = assigned_start.hour * 60 + assigned_start.minute
+                cand_et_m = assigned_end.hour * 60 + assigned_end.minute
+                sim_intervals = [
+                    (e.timeslot.start_time.hour * 60 + e.timeslot.start_time.minute,
+                     e.timeslot.end_time.hour * 60 + e.timeslot.end_time.minute)
+                    for e in existing_p_exams if e.timeslot
+                ]
+                sim_intervals.append((cand_st_m, cand_et_m))
+                sim_intervals.sort(key=lambda x: x[0])
+                streak = 0
+                prev_e = None
+                max_streak = 0
+                for s, e in sim_intervals:
+                    if prev_e is not None and 0 <= (s - prev_e) <= 30:
+                        streak += 1
+                    else:
+                        streak = 1
+                    prev_e = e
+                    max_streak = max(max_streak, streak)
+                if max_streak > 2:
+                    assigned_proctor_id = None
 
     assigned_exam = Exam(
         subject_id=orig_exam.subject_id,

@@ -108,6 +108,33 @@ def verify_constraints():
                     p_name = proctor_map[pid].name
                     violations.append(f"Proctor {p_name} is double-booked in timeslot {slot_id} with multiple exams: {exam_details}")
 
+        # 4b. Check maximum 2 consecutive proctoring assignments per proctor
+        for pid, assignments in proctor_time_load.items():
+            by_date = {}
+            for slot_id, exam in assignments:
+                by_date.setdefault(exam.timeslot.date, []).append(exam)
+            for d, exam_list in by_date.items():
+                sorted_exams = sorted(exam_list, key=lambda e: (e.timeslot.start_time, e.timeslot.end_time))
+                streak = 0
+                prev_end = None
+                consec_exams = []
+                for e in sorted_exams:
+                    st_m = e.timeslot.start_time.hour * 60 + e.timeslot.start_time.minute
+                    et_m = e.timeslot.end_time.hour * 60 + e.timeslot.end_time.minute
+                    if prev_end is not None and 0 <= (st_m - prev_end) <= 30:
+                        streak += 1
+                        consec_exams.append(e)
+                    else:
+                        streak = 1
+                        consec_exams = [e]
+                    prev_end = et_m
+                    if streak > 2:
+                        p_name = proctor_map[pid].name
+                        details = ", ".join([f"Exam {x.id} ({x.timeslot.start_time.strftime('%I:%M %p')}-{x.timeslot.end_time.strftime('%I:%M %p')})" for x in consec_exams])
+                        violations.append(
+                            f"Consecutive proctoring violation: Proctor {p_name} assigned to {streak} consecutive exams without a break on {d}: {details}"
+                        )
+
         # 5. Check room collision violations
         for (room_id, slot_id), exam_list in room_time_load.items():
             if len(exam_list) > 1:

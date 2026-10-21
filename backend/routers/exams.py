@@ -1,11 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from core import get_db, cache
 from core.cache import TTL_ROOMS, TTL_EXAM_COUNT
 from model import Exam, Subject, Section, Room, Timeslot, Course, YearLevel, Teacher, User, Notification, Proctor, ReschedulingRequest
-from room_data import AVAILABLE_EXAM_ROOMS, get_room_names_for_department
 from utils.scheduler import generate_exam_schedule, validate_proctor_availability
 from datetime import datetime, time
 from threading import Lock
@@ -357,7 +356,12 @@ def list_rooms(
     query = db.query(Room)
     query = query.filter(Room.name != "Consultation Area")
     if department:
-        query = query.filter(Room.department == department)
+        if department == "College":
+            query = query.filter(or_(Room.department == "College", Room.building == "B"))
+        elif department == "SHS":
+            query = query.filter(or_(Room.department == "SHS", Room.building == "C"))
+        else:
+            query = query.filter(Room.department == department)
     rooms = query.order_by(Room.name).all()
     result = [
         {"id": r.id, "name": r.name, "building": r.building, "capacity": r.capacity, "department": r.department}
@@ -610,11 +614,18 @@ def get_room_status(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(["admin"]))
 ):
-    selected_department = department if department in ["College", "SHS"] else "All"
+    dept_val = department if isinstance(department, str) else "College"
+    selected_department = dept_val if dept_val in ["College", "SHS"] else "All"
+    sem_val = semester if isinstance(semester, int) else (int(semester) if isinstance(semester, str) and semester.isdigit() else None)
+    status_val = status if isinstance(status, str) else "all"
     
     # Query rooms from the database directly
-    rooms_query = db.query(Room)
-    if selected_department != "All":
+    rooms_query = db.query(Room).filter(Room.name != "Consultation Area")
+    if selected_department == "College":
+        rooms_query = rooms_query.filter(or_(Room.department == "College", Room.building == "B"))
+    elif selected_department == "SHS":
+        rooms_query = rooms_query.filter(or_(Room.department == "SHS", Room.building == "C"))
+    elif selected_department != "All":
         rooms_query = rooms_query.filter(Room.department == selected_department)
     rooms = rooms_query.order_by(Room.name).all()
     
@@ -631,10 +642,10 @@ def get_room_status(
 
     if selected_department != "All":
         exam_query = exam_query.filter(Course.category == selected_department)
-    if semester:
-        exam_query = exam_query.filter(Exam.semester == semester)
-    if status in ["draft", "posted"]:
-        exam_query = exam_query.filter(Exam.status == status)
+    if sem_val is not None:
+        exam_query = exam_query.filter(Exam.semester == sem_val)
+    if status_val in ["draft", "posted"]:
+        exam_query = exam_query.filter(Exam.status == status_val)
 
     exams = exam_query.all()
 
@@ -1071,20 +1082,31 @@ def update_exam(
     target_room_id = payload["room_id"] if "room_id" in payload else exam.room_id
     target_proctor_id = payload["proctor_id"] if "proctor_id" in payload else exam.proctor_id
 
-    # 1. Check room conflict: Room must not be occupied by another exam at target timeslot
-    if target_room_id is not None and target_timeslot_id is not None:
-        conflict_exam = db.query(Exam).filter(
-            Exam.id != exam_id,
-            Exam.room_id == target_room_id,
-            Exam.timeslot_id == target_timeslot_id
-        ).first()
-        if conflict_exam:
-            sub_name = conflict_exam.subject.name if conflict_exam.subject else "another subject"
-            sec_name = conflict_exam.section.name if conflict_exam.section else "another section"
-            raise HTTPException(
-                status_code=409,
-                detail=f"Room conflict: Selected room is already assigned to {sub_name} ({sec_name}) at this timeslot."
-            )
+    # 1. Check room conflict & capacity: Room must exist, have sufficient capacity, and not be occupied at target timeslot
+    if target_room_id is not None:
+        target_room = db.query(Room).filter(Room.id == target_room_id).first()
+        if not target_room:
+            raise HTTPException(status_code=404, detail="Selected room not found.")
+        if exam.section and exam.section.student_count and target_room.capacity:
+            if exam.section.student_count > target_room.capacity:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Capacity conflict: Room {target_room.name} has capacity {target_room.capacity}, but section {exam.section.name} has {exam.section.student_count} students."
+                )
+
+        if target_timeslot_id is not None:
+            conflict_exam = db.query(Exam).filter(
+                Exam.id != exam_id,
+                Exam.room_id == target_room_id,
+                Exam.timeslot_id == target_timeslot_id
+            ).first()
+            if conflict_exam:
+                sub_name = conflict_exam.subject.name if conflict_exam.subject else "another subject"
+                sec_name = conflict_exam.section.name if conflict_exam.section else "another section"
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Room conflict: Selected room is already assigned to {sub_name} ({sec_name}) at this timeslot."
+                )
 
     # 2b. Check proctor conflicts: Proctor must not teach this subject, must not teach this section, and must match department
     # 2b. Check proctor conflicts & schedule availability
