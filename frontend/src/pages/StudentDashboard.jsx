@@ -31,9 +31,30 @@ import FirstTimePasswordChange from "../components/FirstTimePasswordChange";
 
 function formatDate(dateStr) {
   if (!dateStr) return "";
-  const parts = dateStr.split(", ");
-  const date = new Date(`${parts[1]}, ${parts[2]}`);
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  try {
+    const parts = dateStr.split(", ");
+    if (parts.length >= 3) {
+      const weekday = parts[0];
+      const datePart = `${parts[1]}, ${parts[2]}`;
+      const date = new Date(datePart);
+      if (!isNaN(date)) {
+        return `${weekday}, ${date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
+      }
+      return dateStr;
+    }
+    const parsedDate = new Date(dateStr.includes("T") ? dateStr : `${dateStr}T00:00:00`);
+    if (!isNaN(parsedDate)) {
+      return parsedDate.toLocaleDateString("en-US", {
+        weekday: "long",
+        month: "short",
+        day: "numeric",
+        year: "numeric"
+      });
+    }
+  } catch (e) {
+    console.error(e);
+  }
+  return dateStr;
 }
 
 function buildConflictExamMap(conflicts, scheduledExams) {

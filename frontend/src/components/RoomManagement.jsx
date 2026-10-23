@@ -267,8 +267,8 @@ export default function RoomManagement({ isGenerating }) {
   };
 
   return (
-    <div className={`min-h-screen rounded-2xl ${isDark ? "bg-slate-900" : "bg-slate-50"}`}>
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-8 space-y-6">
+    <div className="w-full space-y-6">
+      <div className="w-full space-y-6">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-blue-600/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400">

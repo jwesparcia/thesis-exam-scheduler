@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState, useRef } from "react";
+import React, { useCallback, useEffect, useState, useRef, useMemo } from "react";
 import * as XLSX from "xlsx";
 import {
   CheckBadgeIcon,
@@ -22,6 +22,7 @@ import {
   PlusIcon,
   MagnifyingGlassIcon,
   ChevronRightIcon,
+  Bars3Icon,
 } from "@heroicons/react/24/outline";
 import { useTheme } from "../context/themeStore";
 import { useUser } from "../context/userStore";
@@ -824,6 +825,38 @@ export default function ProctorDashboard() {
   const [exams, setExams] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("assignments");
+  const [assignmentViewMode, setAssignmentViewMode] = useState(() => {
+    return localStorage.getItem("proctor_assignment_view_mode") || "list";
+  });
+  const [assignmentFilter, setAssignmentFilter] = useState("all");
+  const [assignmentSearch, setAssignmentSearch] = useState("");
+
+  const handleViewModeChange = (mode) => {
+    setAssignmentViewMode(mode);
+    localStorage.setItem("proctor_assignment_view_mode", mode);
+  };
+
+  const pendingExamsCount = useMemo(() => exams.filter(e => e.proctor_attendance !== "confirmed").length, [exams]);
+  const confirmedExamsCount = useMemo(() => exams.filter(e => e.proctor_attendance === "confirmed").length, [exams]);
+
+  const filteredExams = useMemo(() => {
+    return exams.filter((exam) => {
+      if (assignmentFilter === "confirmed" && exam.proctor_attendance !== "confirmed") return false;
+      if (assignmentFilter === "pending" && exam.proctor_attendance === "confirmed") return false;
+
+      if (assignmentSearch.trim()) {
+        const query = assignmentSearch.toLowerCase();
+        const matchName = (exam.subject_name || "").toLowerCase().includes(query);
+        const matchCode = (exam.subject_code || "").toLowerCase().includes(query);
+        const matchSection = (exam.section_name || "").toLowerCase().includes(query);
+        const matchRoom = (exam.room || "").toLowerCase().includes(query);
+        const matchDate = (exam.exam_date || "").toLowerCase().includes(query);
+        if (!matchName && !matchCode && !matchSection && !matchRoom && !matchDate) return false;
+      }
+
+      return true;
+    });
+  }, [exams, assignmentFilter, assignmentSearch]);
   const [uploading, setUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [mySchedule, setMySchedule] = useState([]);
@@ -1063,10 +1096,30 @@ export default function ProctorDashboard() {
 
   const formatDate = (dateStr) => {
     if (!dateStr) return "";
-    const parts = dateStr.split(", ");
-    if (parts.length < 3) return dateStr;
-    const parsedDate = new Date(`${parts[1]}, ${parts[2]}`);
-    return parsedDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    try {
+      const parts = dateStr.split(", ");
+      if (parts.length >= 3) {
+        const weekday = parts[0];
+        const datePart = `${parts[1]}, ${parts[2]}`;
+        const parsedDate = new Date(datePart);
+        if (!isNaN(parsedDate)) {
+          return `${weekday}, ${parsedDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
+        }
+        return dateStr;
+      }
+      const parsedDate = new Date(dateStr.includes("T") ? dateStr : `${dateStr}T00:00:00`);
+      if (!isNaN(parsedDate)) {
+        return parsedDate.toLocaleDateString("en-US", {
+          weekday: "long",
+          month: "short",
+          day: "numeric",
+          year: "numeric"
+        });
+      }
+    } catch (e) {
+      console.error("formatDate error", e);
+    }
+    return dateStr;
   };
 
   const formatNotifTime = (createdAt) => {
@@ -1116,7 +1169,7 @@ export default function ProctorDashboard() {
   const latestUnreadNotif = notifications.find(n => !n.is_read);
 
   return (
-    <div className={`min-h-dvh w-full overflow-x-hidden flex transition-colors duration-300 ${isDark ? "bg-slate-900" : "bg-slate-50"}`}>
+    <div className={`h-screen h-dvh w-full overflow-hidden flex transition-colors duration-300 ${isDark ? "bg-slate-900" : "bg-slate-50"}`}>
       {/* Notifications Overlay */}
       {showNotifications && (
         <div className="fixed inset-0 z-40 bg-slate-950/10 transition-opacity" onClick={() => setShowNotifications(false)}></div>
@@ -1188,7 +1241,7 @@ export default function ProctorDashboard() {
       )}
 
       {/* Sidebar */}
-      <aside className={`fixed lg:static inset-y-0 left-0 w-[min(18rem,85vw)] flex flex-col border-r transition-transform duration-300 z-50 transform ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"} ${isDark ? "bg-slate-900/95 lg:bg-slate-900/80 border-slate-800 backdrop-blur-xl" : "bg-white/95 lg:bg-white border-slate-200 backdrop-blur-xl"}`}>
+      <aside className={`fixed lg:static inset-y-0 left-0 w-[min(18rem,85vw)] h-full flex flex-col border-r transition-transform duration-300 z-50 shrink-0 transform ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"} ${isDark ? "bg-slate-900/95 lg:bg-slate-900/80 border-slate-800 backdrop-blur-xl" : "bg-white/95 lg:bg-white border-slate-200 backdrop-blur-xl"}`}>
         <div className="p-6 flex flex-col items-center gap-4 border-b border-transparent relative">
           <button 
             onClick={() => setIsMobileMenuOpen(false)}
@@ -1247,7 +1300,7 @@ export default function ProctorDashboard() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col h-dvh overflow-hidden relative min-w-0">
+      <main className="flex-1 flex flex-col h-full overflow-hidden relative min-w-0">
         <header className={`sticky top-0 z-20 backdrop-blur-2xl border-b transition-all duration-300 ${isDark ? "bg-slate-900/70 border-slate-800" : "bg-white/70 border-slate-200"}`}>
           <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-5">
             <div className="flex items-center justify-between gap-4">
@@ -1704,62 +1757,399 @@ export default function ProctorDashboard() {
               </div>
             ) : (
               <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="flex items-center justify-between px-1 sm:px-2">
-                  <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-xl ${isDark ? "bg-blue-500/20" : "bg-blue-100"}`}>
-                      <BookOpenIcon className={`w-5 h-5 ${isDark ? "text-blue-400" : "text-blue-600"}`} />
+                {/* Header Controls: Title, Filter Pills, Search & View Switcher */}
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex items-center gap-3 mr-1">
+                      <div className={`p-2 rounded-xl ${isDark ? "bg-blue-500/20" : "bg-blue-100"}`}>
+                        <BookOpenIcon className={`w-5 h-5 ${isDark ? "text-blue-400" : "text-blue-600"}`} />
+                      </div>
+                      <h3 className={`text-lg sm:text-xl font-bold tracking-tight ${isDark ? "text-white" : "text-slate-900"}`}>
+                        Exam Supervision List
+                      </h3>
                     </div>
-                    <h3 className={`text-lg sm:text-xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Exam Supervision List</h3>
+
+                    {/* Filter Pills matching reference image [Enroled 13] [Completed 52] */}
+                    <div className="flex items-center gap-1 p-1 rounded-full bg-slate-200/70 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60 shadow-xs max-w-full overflow-x-auto no-scrollbar">
+                      <button
+                        onClick={() => setAssignmentFilter("all")}
+                        className={`px-3 py-1 rounded-full text-xs font-bold transition-all whitespace-nowrap ${
+                          assignmentFilter === "all"
+                            ? (isDark ? "bg-blue-600 text-white shadow-xs" : "bg-blue-600 text-white shadow-xs")
+                            : (isDark ? "text-slate-400 hover:text-white" : "text-slate-600 hover:text-slate-900")
+                        }`}
+                      >
+                        All <span className="ml-1 opacity-80">({exams.length})</span>
+                      </button>
+                      <button
+                        onClick={() => setAssignmentFilter("pending")}
+                        className={`px-3 py-1 rounded-full text-xs font-bold transition-all whitespace-nowrap ${
+                          assignmentFilter === "pending"
+                            ? (isDark ? "bg-amber-600 text-white shadow-xs" : "bg-amber-600 text-white shadow-xs")
+                            : (isDark ? "text-slate-400 hover:text-white" : "text-slate-600 hover:text-slate-900")
+                        }`}
+                      >
+                        Pending <span className="ml-1 opacity-80">({pendingExamsCount})</span>
+                      </button>
+                      <button
+                        onClick={() => setAssignmentFilter("confirmed")}
+                        className={`px-3 py-1 rounded-full text-xs font-bold transition-all whitespace-nowrap ${
+                          assignmentFilter === "confirmed"
+                            ? (isDark ? "bg-emerald-600 text-white shadow-xs" : "bg-emerald-600 text-white shadow-xs")
+                            : (isDark ? "text-slate-400 hover:text-white" : "text-slate-600 hover:text-slate-900")
+                        }`}
+                      >
+                        Confirmed <span className="ml-1 opacity-80">({confirmedExamsCount})</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Search and View Mode Switcher */}
+                  <div className="flex items-center gap-2 sm:gap-2.5 w-full lg:w-auto">
+                    <div className="relative flex-1 sm:w-64 min-w-0">
+                      <MagnifyingGlassIcon className={`w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 ${isDark ? "text-slate-400" : "text-slate-400"}`} />
+                      <input
+                        type="text"
+                        placeholder="Search assignments..."
+                        value={assignmentSearch}
+                        onChange={(e) => setAssignmentSearch(e.target.value)}
+                        className={`w-full pl-9 pr-8 py-2 rounded-xl text-xs border outline-none transition ${
+                          isDark
+                            ? "bg-slate-800/80 border-slate-700 text-white placeholder-slate-400 focus:border-blue-500"
+                            : "bg-white border-slate-200 text-slate-800 placeholder-slate-400 focus:border-blue-500 shadow-xs"
+                        }`}
+                      />
+                      {assignmentSearch && (
+                        <button
+                          onClick={() => setAssignmentSearch("")}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                        >
+                          <XMarkIcon className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* View Switcher: List vs Grid */}
+                    <div className={`flex items-center p-1 rounded-xl border ${isDark ? "bg-slate-800/80 border-slate-700" : "bg-slate-100 border-slate-200"}`}>
+                      <button
+                        type="button"
+                        onClick={() => handleViewModeChange("list")}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                          assignmentViewMode === "list"
+                            ? (isDark ? "bg-blue-600 text-white shadow-xs" : "bg-white text-blue-700 shadow-xs")
+                            : (isDark ? "text-slate-400 hover:text-white" : "text-slate-600 hover:text-slate-900")
+                        }`}
+                        title="List View"
+                      >
+                        <Bars3Icon className="w-4 h-4" />
+                        <span className="hidden sm:inline">List</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleViewModeChange("grid")}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                          assignmentViewMode === "grid"
+                            ? (isDark ? "bg-blue-600 text-white shadow-xs" : "bg-white text-blue-700 shadow-xs")
+                            : (isDark ? "text-slate-400 hover:text-white" : "text-slate-600 hover:text-slate-900")
+                        }`}
+                        title="Grid View"
+                      >
+                        <Squares2X2Icon className="w-4 h-4" />
+                        <span className="hidden sm:inline">Grid</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
-                <div className="grid gap-4 sm:gap-6 md:grid-cols-2 xl:grid-cols-3">
-                  {exams.map((exam) => (
-                    <div key={exam.id} className={`rounded-2xl sm:rounded-3xl border transition-all duration-300 hover:shadow-lg relative overflow-hidden group ${isDark ? "bg-slate-800/90 border-slate-700/50 hover:border-slate-600" : "bg-white border-slate-200 hover:border-blue-200 shadow-sm"}`}>
-                      <div className={`h-2 w-full ${exam.proctor_attendance === "confirmed" ? "bg-emerald-500" : "bg-amber-500"}`}></div>
-                      
-                      <div className="p-4 sm:p-6">
-                        <div className="flex flex-col gap-1.5 mb-5 pr-16 sm:pr-20">
-                          <span className={`inline-block w-fit px-2 py-0.5 rounded text-[10px] font-bold tracking-widest uppercase mb-1 ${isDark ? "bg-blue-500/20 text-blue-400" : "bg-blue-50 text-blue-600"}`}>{exam.section_name}</span>
-                          <h3 className={`text-lg sm:text-xl font-bold leading-tight break-words ${isDark ? "text-white" : "text-slate-900"}`}>{exam.subject_name}</h3>
-                          <p className={`text-xs font-medium ${isDark ? "text-slate-500" : "text-slate-500"}`}>ID: {exam.subject_code}</p>
-                        </div>
-                        
-                        <div className={`space-y-3.5 pt-5 border-t ${isDark ? "border-slate-700/50" : "border-slate-100"}`}>
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <div className={`p-1.5 rounded-lg ${isDark ? "bg-blue-500/10" : "bg-blue-50"}`}><CalendarIcon className={`w-4 h-4 ${isDark ? "text-blue-400" : "text-blue-500"}`} /></div>
-                              <span className={`text-sm font-medium ${isDark ? "text-slate-300" : "text-slate-700"}`}>{formatDate(exam.exam_date)}</span>
-                            </div>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <div className={`p-1.5 rounded-lg ${isDark ? "bg-purple-500/10" : "bg-blue-50"}`}><ClockIcon className={`w-4 h-4 ${isDark ? "text-purple-400" : "text-purple-500"}`} /></div>
-                              <span className={`text-sm font-medium ${isDark ? "text-slate-300" : "text-slate-700"}`}>{exam.start_time} - {exam.end_time}</span>
-                            </div>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <div className={`p-1.5 rounded-lg ${isDark ? "bg-pink-500/10" : "bg-pink-50"}`}><MapPinIcon className={`w-4 h-4 ${isDark ? "text-pink-400" : "text-pink-500"}`} /></div>
-                              <span className={`text-sm font-bold ${isDark ? "text-pink-400" : "text-pink-600"}`}>{exam.room}</span>
-                            </div>
-                          </div>
-                        </div>
-                        
-                        {exam.proctor_attendance === "pending" ? (
-                          <button onClick={() => handleConfirmAttendance(exam.id)} className="w-full mt-7 py-3 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 hover:-translate-y-0.5">
-                            <CheckBadgeIcon className="w-4 h-4" /> 
-                            Confirm My Attendance
-                          </button>
-                        ) : (
-                          <div className={`w-full mt-7 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 ${isDark ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-emerald-50 text-emerald-700 border border-emerald-200"}`}>
-                            <CheckBadgeIcon className="w-4 h-4 text-emerald-500" /> 
-                            Attendance Confirmed
-                          </div>
-                        )}
+
+                {filteredExams.length === 0 ? (
+                  <div className={`text-center py-12 px-4 rounded-2xl border-2 border-dashed ${isDark ? "border-slate-800 bg-slate-900/30 text-slate-400" : "border-slate-200 bg-slate-50/50 text-slate-500"}`}>
+                    <ExclamationCircleIcon className="w-10 h-10 mx-auto mb-3 opacity-40 text-blue-500" />
+                    <p className="text-base font-bold mb-1 text-slate-900 dark:text-slate-100">No Assignments Found</p>
+                    <p className="text-xs">No exam assignments match your current filter or search criteria.</p>
+                    {(assignmentFilter !== "all" || assignmentSearch) && (
+                      <button
+                        onClick={() => { setAssignmentFilter("all"); setAssignmentSearch(""); }}
+                        className="mt-3 px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition"
+                      >
+                        Clear Filters
+                      </button>
+                    )}
+                  </div>
+                ) : assignmentViewMode === "list" ? (
+                  /* LIST VIEW - Fully responsive for all devices */
+                  <div className="space-y-4">
+                    {/* DESKTOP TABLE VIEW (lg and larger: >= 1024px) */}
+                    <div className={`hidden lg:block rounded-2xl border overflow-hidden shadow-sm ${
+                      isDark ? "border-slate-700/80 bg-slate-900/60" : "border-slate-200 bg-white"
+                    }`}>
+                      <div className="overflow-x-auto custom-scrollbar">
+                        <table className="w-full text-left border-collapse text-xs min-w-[760px]">
+                          <thead>
+                            <tr className={`border-b font-semibold uppercase tracking-wider text-[11px] ${
+                              isDark ? "border-slate-700/80 bg-slate-800/60 text-slate-400" : "border-slate-200 bg-slate-50/80 text-slate-600"
+                            }`}>
+                              <th className="py-3.5 px-4 sm:px-6">Name</th>
+                              <th className="py-3.5 px-4 whitespace-nowrap">Schedule Date</th>
+                              <th className="py-3.5 px-4 whitespace-nowrap">Time Period</th>
+                              <th className="py-3.5 px-4 whitespace-nowrap">Room</th>
+                              <th className="py-3.5 px-4 text-center whitespace-nowrap">Attendance</th>
+                              <th className="py-3.5 px-4 sm:px-6 text-right whitespace-nowrap">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody className={`divide-y ${isDark ? "divide-slate-800/80 text-slate-200" : "divide-slate-100 text-slate-800"}`}>
+                            {filteredExams.map((exam) => {
+                              const isConfirmed = exam.proctor_attendance === "confirmed";
+                              return (
+                                <tr
+                                  key={exam.id}
+                                  className={`transition-colors ${
+                                    isDark ? "hover:bg-slate-800/40" : "hover:bg-blue-50/40"
+                                  }`}
+                                >
+                                  {/* Name column with image/icon, subject title, and subtitle [code • section] */}
+                                  <td className="py-4 px-4 sm:px-6">
+                                    <div className="flex items-center gap-3.5">
+                                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white shadow-md shadow-blue-900/20 shrink-0">
+                                        <BookOpenIcon className="w-5 h-5" />
+                                      </div>
+                                      <div className="min-w-0">
+                                        <h4 className={`font-bold text-sm leading-tight break-words ${isDark ? "text-white" : "text-slate-900"}`}>
+                                          {exam.subject_name}
+                                        </h4>
+                                        <p className={`text-xs mt-1 font-medium flex items-center gap-1.5 ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                                          <span className="font-mono font-bold text-slate-400 dark:text-slate-500">{exam.subject_code}</span>
+                                          <span>•</span>
+                                          <span className="font-semibold text-blue-600 dark:text-blue-400">{exam.section_name}</span>
+                                        </p>
+                                      </div>
+                                    </div>
+                                  </td>
+
+                                  {/* Schedule Date with Day of the Week */}
+                                  <td className="py-4 px-4 whitespace-nowrap">
+                                    <div className="flex items-center gap-2">
+                                      <CalendarIcon className="w-4 h-4 text-blue-500 shrink-0" />
+                                      <span className="font-semibold text-xs sm:text-sm">
+                                        {formatDate(exam.exam_date)}
+                                      </span>
+                                    </div>
+                                  </td>
+
+                                  {/* Time Period */}
+                                  <td className="py-4 px-4 whitespace-nowrap">
+                                    <div className="flex items-center gap-2 font-mono text-xs">
+                                      <ClockIcon className="w-4 h-4 text-purple-500 shrink-0" />
+                                      <span>{exam.start_time} – {exam.end_time}</span>
+                                    </div>
+                                  </td>
+
+                                  {/* Room */}
+                                  <td className="py-4 px-4 whitespace-nowrap">
+                                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border ${
+                                      isDark
+                                        ? "bg-slate-800 text-pink-400 border-slate-700"
+                                        : "bg-pink-50 text-pink-600 border-pink-200"
+                                    }`}>
+                                      <MapPinIcon className="w-3.5 h-3.5 shrink-0" />
+                                      {exam.room}
+                                    </span>
+                                  </td>
+
+                                  {/* Attendance Status */}
+                                  <td className="py-4 px-4 text-center whitespace-nowrap">
+                                    {isConfirmed ? (
+                                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/60 shadow-xs">
+                                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                                        Confirmed
+                                      </span>
+                                    ) : (
+                                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200 dark:border-amber-800/60 shadow-xs">
+                                        <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                                        Pending
+                                      </span>
+                                    )}
+                                  </td>
+
+                                  {/* Actions */}
+                                  <td className="py-4 px-4 sm:px-6 text-right whitespace-nowrap">
+                                    {isConfirmed ? (
+                                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                                        <CheckBadgeIcon className="w-4 h-4 text-emerald-500" />
+                                        Verified
+                                      </span>
+                                    ) : (
+                                      <button
+                                        onClick={() => handleConfirmAttendance(exam.id)}
+                                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition hover:shadow-md hover:-translate-y-0.5"
+                                      >
+                                        <CheckBadgeIcon className="w-4 h-4" />
+                                        Confirm Attendance
+                                      </button>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
                       </div>
                     </div>
-                  ))}
-                </div>
+
+                    {/* MOBILE & TABLET RESPONSIVE LIST VIEW (Screens < 1024px) */}
+                    <div className="block lg:hidden space-y-3">
+                      {filteredExams.map((exam) => {
+                        const isConfirmed = exam.proctor_attendance === "confirmed";
+                        return (
+                          <div
+                            key={exam.id}
+                            className={`rounded-2xl border p-4 sm:p-5 transition-all duration-200 shadow-xs hover:shadow-md ${
+                              isDark
+                                ? "bg-slate-900/60 border-slate-700/80 hover:border-slate-600"
+                                : "bg-white border-slate-200 hover:border-blue-200"
+                            }`}
+                          >
+                            {/* Top Row: Icon + Subject Info + Attendance Status Badge */}
+                            <div className="flex items-start justify-between gap-3 mb-3.5">
+                              <div className="flex items-start gap-3 min-w-0">
+                                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white shadow-md shadow-blue-900/20 shrink-0 mt-0.5">
+                                  <BookOpenIcon className="w-5 h-5" />
+                                </div>
+                                <div className="min-w-0">
+                                  <h4 className={`font-bold text-sm sm:text-base leading-snug break-words ${isDark ? "text-white" : "text-slate-900"}`}>
+                                    {exam.subject_name}
+                                  </h4>
+                                  <p className={`text-xs mt-1 font-medium flex items-center gap-1.5 flex-wrap ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                                    <span className="font-mono font-bold text-slate-400 dark:text-slate-500">{exam.subject_code}</span>
+                                    <span>•</span>
+                                    <span className="font-semibold text-blue-600 dark:text-blue-400">{exam.section_name}</span>
+                                  </p>
+                                </div>
+                              </div>
+
+                              {/* Status Badge */}
+                              <div className="shrink-0">
+                                {isConfirmed ? (
+                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/60 shadow-xs">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                    Confirmed
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200 dark:border-amber-800/60 shadow-xs">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                                    Pending
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Details Grid / Chips */}
+                            <div className={`grid grid-cols-1 sm:grid-cols-3 gap-2.5 py-3 border-y text-xs ${
+                              isDark ? "border-slate-800/80 text-slate-300" : "border-slate-100 text-slate-600"
+                            }`}>
+                              {/* Schedule Date */}
+                              <div className="flex items-center gap-2">
+                                <CalendarIcon className="w-4 h-4 text-blue-500 shrink-0" />
+                                <span className="font-medium text-xs">
+                                  {formatDate(exam.exam_date)}
+                                </span>
+                              </div>
+
+                              {/* Time Period */}
+                              <div className="flex items-center gap-2 font-mono text-xs">
+                                <ClockIcon className="w-4 h-4 text-purple-500 shrink-0" />
+                                <span>{exam.start_time} – {exam.end_time}</span>
+                              </div>
+
+                              {/* Room */}
+                              <div className="flex items-center gap-2">
+                                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border ${
+                                  isDark
+                                    ? "bg-slate-800 text-pink-400 border-slate-700"
+                                    : "bg-pink-50 text-pink-600 border-pink-200"
+                                }`}>
+                                  <MapPinIcon className="w-3.5 h-3.5 shrink-0" />
+                                  {exam.room}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Action Button */}
+                            <div className="mt-3.5 pt-0.5">
+                              {isConfirmed ? (
+                                <div className={`w-full py-2.5 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 ${
+                                  isDark
+                                    ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                                    : "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                }`}>
+                                  <CheckBadgeIcon className="w-4 h-4 text-emerald-500" />
+                                  Attendance Verified
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => handleConfirmAttendance(exam.id)}
+                                  className="w-full py-2.5 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/20 active:scale-[0.99]"
+                                >
+                                  <CheckBadgeIcon className="w-4 h-4" />
+                                  Confirm Attendance
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  /* GRID VIEW */
+                  <div className="grid gap-4 sm:gap-6 md:grid-cols-2 xl:grid-cols-3">
+                    {filteredExams.map((exam) => (
+                      <div key={exam.id} className={`rounded-2xl sm:rounded-3xl border transition-all duration-300 hover:shadow-lg relative overflow-hidden group ${isDark ? "bg-slate-800/90 border-slate-700/50 hover:border-slate-600" : "bg-white border-slate-200 hover:border-blue-200 shadow-sm"}`}>
+                        <div className={`h-2 w-full ${exam.proctor_attendance === "confirmed" ? "bg-emerald-500" : "bg-amber-500"}`}></div>
+                        
+                        <div className="p-4 sm:p-6">
+                          <div className="flex flex-col gap-1.5 mb-5 pr-16 sm:pr-20">
+                            <span className={`inline-block w-fit px-2 py-0.5 rounded text-[10px] font-bold tracking-widest uppercase mb-1 ${isDark ? "bg-blue-500/20 text-blue-400" : "bg-blue-50 text-blue-600"}`}>{exam.section_name}</span>
+                            <h3 className={`text-lg sm:text-xl font-bold leading-tight break-words ${isDark ? "text-white" : "text-slate-900"}`}>{exam.subject_name}</h3>
+                            <p className={`text-xs font-medium ${isDark ? "text-slate-500" : "text-slate-500"}`}>ID: {exam.subject_code}</p>
+                          </div>
+                          
+                          <div className={`space-y-3.5 pt-5 border-t ${isDark ? "border-slate-700/50" : "border-slate-100"}`}>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <div className={`p-1.5 rounded-lg ${isDark ? "bg-blue-500/10" : "bg-blue-50"}`}><CalendarIcon className={`w-4 h-4 ${isDark ? "text-blue-400" : "text-blue-500"}`} /></div>
+                                <span className={`text-sm font-medium ${isDark ? "text-slate-300" : "text-slate-700"}`}>{formatDate(exam.exam_date)}</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <div className={`p-1.5 rounded-lg ${isDark ? "bg-purple-500/10" : "bg-blue-50"}`}><ClockIcon className={`w-4 h-4 ${isDark ? "text-purple-400" : "text-purple-500"}`} /></div>
+                                <span className={`text-sm font-medium ${isDark ? "text-slate-300" : "text-slate-700"}`}>{exam.start_time} - {exam.end_time}</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <div className={`p-1.5 rounded-lg ${isDark ? "bg-pink-500/10" : "bg-pink-50"}`}><MapPinIcon className={`w-4 h-4 ${isDark ? "text-pink-400" : "text-pink-500"}`} /></div>
+                                <span className={`text-sm font-bold ${isDark ? "text-pink-400" : "text-pink-600"}`}>{exam.room}</span>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          {exam.proctor_attendance === "pending" ? (
+                            <button onClick={() => handleConfirmAttendance(exam.id)} className="w-full mt-7 py-3 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 hover:-translate-y-0.5">
+                              <CheckBadgeIcon className="w-4 h-4" /> 
+                              Confirm My Attendance
+                            </button>
+                          ) : (
+                            <div className={`w-full mt-7 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 ${isDark ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-emerald-50 text-emerald-700 border border-emerald-200"}`}>
+                              <CheckBadgeIcon className="w-4 h-4 text-emerald-500" /> 
+                              Attendance Confirmed
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>

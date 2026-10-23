@@ -472,8 +472,8 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
   );
 
   return (
-    <div className={`min-h-screen ${isDark ? "bg-slate-900/50" : "bg-slate-50"} rounded-2xl transition-colors`}>
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-10">
+    <div className="w-full space-y-6">
+      <div className="w-full">
         <div className="flex items-center justify-between gap-3 mb-5 sm:mb-8">
           <div className="flex items-center gap-2.5 sm:gap-3">
             <CalendarDaysIcon className="text-blue-600 dark:text-blue-400 w-7 h-7 sm:w-8 sm:h-8 shrink-0" />

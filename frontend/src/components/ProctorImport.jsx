@@ -354,10 +354,10 @@ export default function ProctorImport({ isGenerating }) {
         }`}
       >
         {/* Navigation Tabs Header */}
-        <div className={`flex border-b px-6 pt-4 gap-6 ${isDark ? "border-slate-700/80" : "border-slate-200"}`}>
+        <div className={`flex border-b px-4 sm:px-6 pt-3 sm:pt-4 gap-4 sm:gap-6 overflow-x-auto no-scrollbar ${isDark ? "border-slate-700/80" : "border-slate-200"}`}>
           <button
             onClick={() => setActiveTab("directory")}
-            className={`pb-4 text-sm font-bold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
+            className={`pb-3 sm:pb-4 text-xs sm:text-sm font-bold flex items-center gap-2 border-b-2 transition-all cursor-pointer whitespace-nowrap ${
               activeTab === "directory"
                 ? "border-blue-600 text-blue-600 dark:text-blue-400"
                 : "border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
@@ -378,7 +378,7 @@ export default function ProctorImport({ isGenerating }) {
 
           <button
             onClick={() => setActiveTab("upload")}
-            className={`pb-4 text-sm font-bold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
+            className={`pb-3 sm:pb-4 text-xs sm:text-sm font-bold flex items-center gap-2 border-b-2 transition-all cursor-pointer whitespace-nowrap ${
               activeTab === "upload"
                 ? "border-blue-600 text-blue-600 dark:text-blue-400"
                 : "border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
@@ -391,16 +391,16 @@ export default function ProctorImport({ isGenerating }) {
 
         {/* TAB 1: PROCTOR DIRECTORY */}
         {activeTab === "directory" && (
-          <div className="p-6 space-y-6">
+          <div className="p-4 sm:p-6 space-y-5 sm:space-y-6">
             {/* Filter Controls Bar */}
-            <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-4">
+            <div className="flex flex-col lg:flex-row justify-between items-stretch lg:items-center gap-3 sm:gap-4">
               {/* Department Selector */}
-              <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
+              <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar py-0.5 max-w-full">
                 {["All", "College", "ICT", "THM", "BM", "GE", "AS", "CRIM", "SHS"].map((dept) => (
                   <button
                     key={dept}
                     onClick={() => handleDeptChange(dept)}
-                    className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+                    className={`px-3 sm:px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
                       selectedDept === dept
                         ? "bg-blue-600 text-white shadow-sm"
                         : isDark
@@ -414,15 +414,15 @@ export default function ProctorImport({ isGenerating }) {
               </div>
 
               {/* Search & Actions */}
-              <div className="flex items-center gap-3">
-                <div className="relative flex-1 sm:w-72">
+              <div className="flex items-center gap-2 sm:gap-3 w-full lg:w-auto">
+                <div className="relative flex-1 sm:w-72 min-w-0">
                   <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search name or email..."
-                    className={`w-full pl-9 pr-4 py-2 rounded-xl text-xs border outline-none transition-all ${
+                    className={`w-full pl-9 pr-8 py-2 rounded-xl text-xs border outline-none transition-all ${
                       isDark
                         ? "bg-slate-900/60 border-slate-700 text-white placeholder-slate-500 focus:border-blue-500"
                         : "bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400 focus:border-blue-500"
@@ -431,7 +431,7 @@ export default function ProctorImport({ isGenerating }) {
                   {searchQuery && (
                     <button
                       onClick={() => setSearchQuery("")}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                     >
                       <XMarkIcon className="w-3.5 h-3.5" />
                     </button>
@@ -442,7 +442,7 @@ export default function ProctorImport({ isGenerating }) {
                 {(selectedDept !== "All" || searchQuery) && (
                   <button
                     onClick={handleResetFilters}
-                    className={`p-2 rounded-xl border text-xs font-medium transition-all ${
+                    className={`p-2 rounded-xl border text-xs font-medium transition-all shrink-0 ${
                       isDark
                         ? "border-slate-700 text-slate-300 hover:bg-slate-700"
                         : "border-slate-200 text-slate-600 hover:bg-slate-100"
@@ -457,7 +457,7 @@ export default function ProctorImport({ isGenerating }) {
                 <button
                   onClick={() => setIsClearAllModalOpen(true)}
                   disabled={isGenerating || clearing || (stats.total || 0) === 0}
-                  className={`px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                  className={`px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shrink-0 ${
                     (stats.total || 0) === 0
                       ? "opacity-50 cursor-not-allowed text-slate-400"
                       : "text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 border border-red-200 dark:border-red-900/50"
@@ -494,76 +494,147 @@ export default function ProctorImport({ isGenerating }) {
                   </p>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse text-xs">
-                    <thead>
-                      <tr className={`border-b font-semibold ${isDark ? "border-slate-700/80 bg-slate-800/60 text-slate-400" : "border-slate-200 bg-slate-50/80 text-slate-600"}`}>
-                        <th className="py-3 px-4 w-12 text-center">#</th>
-                        <th className="py-3 px-4">Proctor Name</th>
-                        <th className="py-3 px-4">School Email</th>
-                        <th className="py-3 px-4">Department</th>
-                        <th className="py-3 px-4 text-center">Schedule Uploaded</th>
-                        <th className="py-3 px-4 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className={`divide-y ${isDark ? "divide-slate-800" : "divide-slate-100"}`}>
-                      {proctors.map((p, idx) => (
-                        <tr
-                          key={p.id}
-                          className={`transition-colors ${
-                            isDark ? "hover:bg-slate-800/40" : "hover:bg-slate-50/70"
-                          }`}
-                        >
-                          <td className="py-3 px-4 text-center text-slate-400 font-mono">
-                            {(page - 1) * pageSize + idx + 1}
-                          </td>
-                          <td className="py-3 px-4">
-                            <div className="flex items-center gap-2.5">
-                              <div className="w-7 h-7 rounded-full bg-blue-500/10 text-blue-500 flex items-center justify-center font-bold text-xs uppercase">
-                                {p.name ? p.name.charAt(0) : "P"}
+                <>
+                  {/* DESKTOP TABLE VIEW (Screens >= 768px) */}
+                  <div className="hidden md:block overflow-x-auto custom-scrollbar">
+                    <table className="w-full text-left border-collapse text-xs min-w-[640px]">
+                      <thead>
+                        <tr className={`border-b font-semibold ${isDark ? "border-slate-700/80 bg-slate-800/60 text-slate-400" : "border-slate-200 bg-slate-50/80 text-slate-600"}`}>
+                          <th className="py-3 px-4 w-12 text-center">#</th>
+                          <th className="py-3 px-4">Proctor Name</th>
+                          <th className="py-3 px-4">School Email</th>
+                          <th className="py-3 px-4">Department</th>
+                          <th className="py-3 px-4 text-center whitespace-nowrap">Schedule Uploaded</th>
+                          <th className="py-3 px-4 text-right whitespace-nowrap">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className={`divide-y ${isDark ? "divide-slate-800" : "divide-slate-100"}`}>
+                        {proctors.map((p, idx) => (
+                          <tr
+                            key={p.id}
+                            className={`transition-colors ${
+                              isDark ? "hover:bg-slate-800/40" : "hover:bg-slate-50/70"
+                            }`}
+                          >
+                            <td className="py-3 px-4 text-center text-slate-400 font-mono">
+                              {(page - 1) * pageSize + idx + 1}
+                            </td>
+                            <td className="py-3 px-4">
+                              <div className="flex items-center gap-2.5">
+                                <div className="w-7 h-7 rounded-full bg-blue-500/10 text-blue-500 flex items-center justify-center font-bold text-xs uppercase shrink-0">
+                                  {p.name ? p.name.charAt(0) : "P"}
+                                </div>
+                                <span className={`font-semibold ${isDark ? "text-white" : "text-slate-900"}`}>
+                                  {p.name}
+                                </span>
                               </div>
-                              <span className={`font-semibold ${isDark ? "text-white" : "text-slate-900"}`}>
-                                {p.name}
+                            </td>
+                            <td className="py-3 px-4 font-mono text-slate-500 dark:text-slate-400">
+                              {p.email}
+                            </td>
+                            <td className="py-3 px-4 whitespace-nowrap">
+                              <span
+                                className={`px-2.5 py-1 rounded-full text-[11px] font-semibold ${getDepartmentBadge(p.department)}`}
+                              >
+                                {p.department || "SHS"}
                               </span>
+                            </td>
+                            <td className="py-3 px-4 text-center whitespace-nowrap">
+                              {p.has_schedule ? (
+                                <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+                                  <CheckCircleIcon className="w-4 h-4" />
+                                  Yes
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-400">
+                                  No
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-3 px-4 text-right whitespace-nowrap">
+                              <button
+                                onClick={() => setProctorToDelete(p)}
+                                disabled={deletingId === p.id}
+                                className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all"
+                                title="Delete proctor account"
+                              >
+                                <TrashIcon className="w-4 h-4" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* MOBILE RESPONSIVE CARDS VIEW (Screens < 768px) */}
+                  <div className={`block md:hidden divide-y ${isDark ? "divide-slate-800" : "divide-slate-100"}`}>
+                    {proctors.map((p, idx) => (
+                      <div
+                        key={p.id}
+                        className={`p-4 transition-colors ${
+                          isDark ? "hover:bg-slate-800/40" : "hover:bg-slate-50/70"
+                        }`}
+                      >
+                        {/* Top: Avatar, Serial, Name, Email, and Delete Action */}
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="w-9 h-9 rounded-full bg-blue-500/10 text-blue-500 flex items-center justify-center font-bold text-sm uppercase shrink-0">
+                              {p.name ? p.name.charAt(0) : "P"}
                             </div>
-                          </td>
-                          <td className="py-3 px-4 font-mono text-slate-500 dark:text-slate-400">
-                            {p.email}
-                          </td>
-                          <td className="py-3 px-4">
-                            <span
-                              className={`px-2.5 py-1 rounded-full text-[11px] font-semibold ${getDepartmentBadge(p.department)}`}
-                            >
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-[10px] font-mono font-semibold text-slate-400">
+                                  #{(page - 1) * pageSize + idx + 1}
+                                </span>
+                                <h5 className={`font-bold text-sm leading-tight break-words ${isDark ? "text-white" : "text-slate-900"}`}>
+                                  {p.name}
+                                </h5>
+                              </div>
+                              <p className="text-xs font-mono text-slate-500 dark:text-slate-400 mt-0.5 truncate">
+                                {p.email}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Delete Action Button */}
+                          <button
+                            onClick={() => setProctorToDelete(p)}
+                            disabled={deletingId === p.id}
+                            className="p-2 rounded-xl text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all shrink-0 active:scale-95"
+                            title="Delete proctor account"
+                          >
+                            <TrashIcon className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        {/* Bottom: Department Badge and Schedule Status */}
+                        <div className="flex items-center justify-between gap-2 mt-3 pt-2.5 border-t border-dashed border-slate-200 dark:border-slate-800 text-xs">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[11px] text-slate-400 font-medium">Dept:</span>
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${getDepartmentBadge(p.department)}`}>
                               {p.department || "SHS"}
                             </span>
-                          </td>
-                          <td className="py-3 px-4 text-center">
+                          </div>
+
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[11px] text-slate-400 font-medium">Schedule:</span>
                             {p.has_schedule ? (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
-                                <CheckCircleIcon className="w-4 h-4" />
-                                Yes
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50">
+                                <CheckCircleIcon className="w-3.5 h-3.5 text-emerald-500" />
+                                Uploaded
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-400">
-                                No
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-400 border border-slate-200 dark:border-slate-700">
+                                None
                               </span>
                             )}
-                          </td>
-                          <td className="py-3 px-4 text-right">
-                            <button
-                              onClick={() => setProctorToDelete(p)}
-                              disabled={deletingId === p.id}
-                              className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all"
-                              title="Delete proctor account"
-                            >
-                              <TrashIcon className="w-4 h-4" />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
               )}
 
               {/* Pagination footer */}

@@ -260,7 +260,7 @@ export default function SectionStudentList() {
                 isDark ? "text-white" : "text-slate-900"
               }`}
             >
-              Exam Attendance Roster
+              Section List
             </h2>
             <p className={`text-sm mt-0.5 ${isDark ? "text-slate-400" : "text-slate-500"}`}>
               View students attending each scheduled exam — regular students of the section plus irregular students who selected that subject

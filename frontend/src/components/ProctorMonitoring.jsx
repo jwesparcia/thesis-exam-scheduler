@@ -101,8 +101,8 @@ export default function ProctorMonitoring() {
 
   // ── Render ───────────────────────────────────────────────────────────────
   return (
-    <div className={`min-h-full ${isDark ? "bg-slate-900" : "bg-slate-50"} rounded-2xl`}>
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-8 space-y-6">
+    <div className="w-full space-y-6">
+      <div className="w-full space-y-6">
 
         {/* ── Page Header ── */}
         <div className="flex items-start justify-between gap-4 flex-wrap">

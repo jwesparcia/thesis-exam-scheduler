@@ -1544,7 +1544,7 @@ function NavSidebar({ activeTab, setActiveTab, isDark, unreadChatCount, pendingR
         <NavItem item={{ id: "monitoring", icon: ShieldCheckIcon, label: "Proctor Monitoring" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
         <NavItem item={{ id: "rescheduling", icon: ClipboardDocumentListIcon, label: "Rescheduling" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={pendingRescheduleCount} onSelect={onSelectNavItem} />
         <NavItem item={{ id: "chat", icon: ChatBubbleLeftRightIcon, label: "Chat" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={unreadChatCount} onSelect={onSelectNavItem} />
-        <NavItem item={{ id: "section-students", icon: UserGroupIcon, label: "Section Roster" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
+        <NavItem item={{ id: "section-students", icon: UserGroupIcon, label: "Section List" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
       </NavGroup>
 
       {/* Data & Imports Group */}
@@ -1743,7 +1743,7 @@ export default function ProgramHeadDashboard() {
   }
 
   return (
-    <div className={`min-h-screen flex transition-colors duration-300 ${isDark ? "bg-slate-900" : "bg-slate-50"}`}>
+    <div className={`h-screen h-dvh flex overflow-hidden transition-colors duration-300 ${isDark ? "bg-slate-900" : "bg-slate-50"}`}>
       {showNotifications && (
         <div className="fixed inset-0 z-40" onClick={() => setShowNotifications(false)}></div>
       )}
@@ -1804,7 +1804,7 @@ export default function ProgramHeadDashboard() {
       )}
 
       {/* Sidebar */}
-      <aside className={`fixed lg:static inset-y-0 left-0 w-[min(18rem,85vw)] flex flex-col border-r transition-transform duration-300 z-50 transform ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"} ${isDark ? "bg-slate-900/95 lg:bg-slate-900/80 border-slate-800 backdrop-blur-xl" : "bg-white/95 lg:bg-white border-slate-200 backdrop-blur-xl"}`}>
+      <aside className={`fixed lg:static inset-y-0 left-0 w-[min(18rem,85vw)] h-full flex flex-col border-r transition-transform duration-300 z-50 shrink-0 transform ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"} ${isDark ? "bg-slate-900/95 lg:bg-slate-900/80 border-slate-800 backdrop-blur-xl" : "bg-white/95 lg:bg-white border-slate-200 backdrop-blur-xl"}`}>
         <div className="p-6 flex flex-col items-center gap-4 border-b border-transparent relative">
           <button 
             onClick={() => setIsMobileMenuOpen(false)}
@@ -1838,7 +1838,7 @@ export default function ProgramHeadDashboard() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col h-screen overflow-hidden relative min-w-0">
+      <main className="flex-1 flex flex-col h-full overflow-hidden relative min-w-0">
         <header className={`sticky top-0 z-20 backdrop-blur-2xl border-b transition-all duration-300 ${isDark ? "bg-slate-900/70 border-slate-800" : "bg-white/70 border-slate-200"}`}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-5">
             <div className="flex items-center justify-between gap-4">
@@ -1865,7 +1865,7 @@ export default function ProgramHeadDashboard() {
                                       activeTab === "import" ? "Curriculum & Catalog Import" :
                                         activeTab === "proctors-import" ? "Proctor Accounts & Import" :
                                          activeTab === "students" ? "Student Accounts & Import" :
-                                           activeTab === "section-students" ? "Exam Attendance Roster" :
+                                           activeTab === "section-students" ? "Section List" :
                                              activeTab === "manual" ? "User Manual" : "Program Head Dashboard"}
                   </h1>
                 </div>

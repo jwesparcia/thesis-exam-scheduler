@@ -354,8 +354,8 @@ export default function GeneratedExamSchedules({ isGenerating }) {
     }, {});
 
     return (
-        <div className={`min-h-screen ${isDark ? "bg-slate-900/50" : "bg-slate-50"} rounded-2xl transition-colors`}>
-            <div className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-10">
+        <div className="w-full space-y-6">
+            <div className="w-full">
                 {/* Header */}
                 <div className="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4 mb-6 sm:mb-8">
                     <div className="flex items-center gap-2.5 sm:gap-3">
