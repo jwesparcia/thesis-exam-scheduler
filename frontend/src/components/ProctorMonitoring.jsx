@@ -19,7 +19,7 @@ import api from "../api";
 // ─── Utility ────────────────────────────────────────────────────────────────
 
 function AttendanceBadge({ status }) {
-  const attended = status === "attended";
+  const attended = status === "attended" || status === "confirmed";
   return (
     <span
       className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider border ${
@@ -71,10 +71,10 @@ export default function ProctorMonitoring() {
     return () => clearInterval(interval);
   }, [fetchMonitoring]);
 
-  // ── Derived stats ───────────────────────────────────────────────────────
+  const isExamAttended = (status) => status === "attended" || status === "confirmed";
   const allExams = courseGroups.flatMap((g) => g.exams);
   const totalExams = allExams.length;
-  const attendedCount = allExams.filter((e) => e.attendance_status === "attended").length;
+  const attendedCount = allExams.filter((e) => isExamAttended(e.attendance_status)).length;
   const pendingCount = totalExams - attendedCount;
   const completionPct = totalExams > 0 ? Math.round((attendedCount / totalExams) * 100) : 0;
 
@@ -82,8 +82,10 @@ export default function ProctorMonitoring() {
   const filteredGroups = courseGroups
     .map((group) => {
       let exams = group.exams;
-      if (filterStatus !== "all") {
-        exams = exams.filter((e) => e.attendance_status === filterStatus);
+      if (filterStatus === "attended") {
+        exams = exams.filter((e) => isExamAttended(e.attendance_status));
+      } else if (filterStatus === "pending") {
+        exams = exams.filter((e) => !isExamAttended(e.attendance_status));
       }
       if (searchText.trim()) {
         const q = searchText.toLowerCase();
@@ -281,7 +283,7 @@ export default function ProctorMonitoring() {
           /* ── Course Groups ── */
           <div className="space-y-6 sm:space-y-8">
             {filteredGroups.map(({ course_name, exams }) => {
-              const courseAttended = exams.filter((e) => e.attendance_status === "attended").length;
+              const courseAttended = exams.filter((e) => isExamAttended(e.attendance_status)).length;
               const coursePct =
                 exams.length > 0 ? Math.round((courseAttended / exams.length) * 100) : 0;
 
@@ -355,7 +357,7 @@ export default function ProctorMonitoring() {
                   <div className="w-full min-w-0">
                     <div className={`md:hidden divide-y ${isDark ? "divide-slate-750" : "divide-slate-200"}`}>
                       {exams.map((exam) => (
-                        <article key={exam.exam_id} className={`space-y-3 p-4 ${exam.attendance_status === "attended" ? isDark ? "bg-emerald-950/20" : "bg-emerald-50/50" : ""}`}>
+                        <article key={exam.exam_id} className={`space-y-3 p-4 ${isExamAttended(exam.attendance_status) ? isDark ? "bg-emerald-950/20" : "bg-emerald-50/50" : ""}`}>
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
                               <h4 className={`break-words font-bold text-sm ${isDark ? "text-white" : "text-slate-900"}`}>{exam.subject_name}</h4>
@@ -403,7 +405,7 @@ export default function ProctorMonitoring() {
                             <tr
                               key={exam.exam_id}
                               className={`transition ${
-                                exam.attendance_status === "attended"
+                                isExamAttended(exam.attendance_status)
                                   ? isDark
                                   ? "bg-emerald-950/20 hover:bg-emerald-950/30"
                                   : "bg-emerald-50/50 hover:bg-emerald-50"

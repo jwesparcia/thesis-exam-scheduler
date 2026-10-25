@@ -197,7 +197,9 @@ export default function RoomManagement({ isGenerating }) {
   const summary = data?.summary || {};
   const issues = [
     ...(data?.unassigned_exams || []).map((exam) => ({ ...exam, issue_type: "No Room" })),
-    ...(data?.wrong_building_exams || []).map((exam) => ({ ...exam, issue_type: "Wrong Building" })),
+    ...(data?.wrong_building_exams || [])
+      .filter((exam) => exam.room !== "Consultation Area")
+      .map((exam) => ({ ...exam, issue_type: "Wrong Building" })),
   ];
 
   const filteredRooms = useMemo(() => {

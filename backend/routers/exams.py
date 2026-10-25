@@ -259,7 +259,7 @@ def get_exams(
             "proctor_id": e.proctor_id,
             "proctor": proctor_name,
             "proctor_name": proctor_name,
-            "proctor_attendance": e.proctor_attendance or "pending",
+            "proctor_attendance": "confirmed" if e.proctor_attendance in ["attended", "confirmed"] else (e.proctor_attendance or "pending"),
         })
 
     return result
@@ -692,7 +692,8 @@ def get_room_status(
             unassigned_exams.append(exam)
             continue
 
-        if selected_department != "All" and exam.room.name not in allowed_room_names:
+        # Consultation Area is a normal/valid location for consultation/after-hours reschedule requests
+        if selected_department != "All" and exam.room.name != "Consultation Area" and exam.room.name not in allowed_room_names:
             wrong_building_exams.append(exam)
 
         if exam.room_id in room_bookings:
@@ -707,9 +708,12 @@ def get_room_status(
     for conflict_exams in conflict_map.values():
         if len(conflict_exams) <= 1:
             continue
+        first_exam = conflict_exams[0]
+        # Consultation Area is a shared area designed for multiple concurrent irregular consultation exams
+        if first_exam.room and first_exam.room.name == "Consultation Area":
+            continue
         for exam in conflict_exams:
             conflict_exam_ids.add(exam.id)
-        first_exam = conflict_exams[0]
         conflicts.append({
             "room": first_exam.room.name if first_exam.room else "-",
             "exam_date": first_exam.timeslot.date.strftime("%A, %B %d, %Y") if first_exam.timeslot else "-",

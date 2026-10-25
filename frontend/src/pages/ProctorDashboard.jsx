@@ -830,19 +830,25 @@ export default function ProctorDashboard() {
   });
   const [assignmentFilter, setAssignmentFilter] = useState("all");
   const [assignmentSearch, setAssignmentSearch] = useState("");
+  const [confirmingExamId, setConfirmingExamId] = useState(null);
+
+  const isAttendanceConfirmed = useCallback((attendance) => {
+    return attendance === "confirmed" || attendance === "attended";
+  }, []);
 
   const handleViewModeChange = (mode) => {
     setAssignmentViewMode(mode);
     localStorage.setItem("proctor_assignment_view_mode", mode);
   };
 
-  const pendingExamsCount = useMemo(() => exams.filter(e => e.proctor_attendance !== "confirmed").length, [exams]);
-  const confirmedExamsCount = useMemo(() => exams.filter(e => e.proctor_attendance === "confirmed").length, [exams]);
+  const pendingExamsCount = useMemo(() => exams.filter(e => !isAttendanceConfirmed(e.proctor_attendance)).length, [exams, isAttendanceConfirmed]);
+  const confirmedExamsCount = useMemo(() => exams.filter(e => isAttendanceConfirmed(e.proctor_attendance)).length, [exams, isAttendanceConfirmed]);
 
   const filteredExams = useMemo(() => {
     return exams.filter((exam) => {
-      if (assignmentFilter === "confirmed" && exam.proctor_attendance !== "confirmed") return false;
-      if (assignmentFilter === "pending" && exam.proctor_attendance === "confirmed") return false;
+      const isConfirmed = isAttendanceConfirmed(exam.proctor_attendance);
+      if (assignmentFilter === "confirmed" && !isConfirmed) return false;
+      if (assignmentFilter === "pending" && isConfirmed) return false;
 
       if (assignmentSearch.trim()) {
         const query = assignmentSearch.toLowerCase();
@@ -856,7 +862,7 @@ export default function ProctorDashboard() {
 
       return true;
     });
-  }, [exams, assignmentFilter, assignmentSearch]);
+  }, [exams, assignmentFilter, assignmentSearch, isAttendanceConfirmed]);
   const [uploading, setUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [mySchedule, setMySchedule] = useState([]);
@@ -1067,15 +1073,41 @@ export default function ProctorDashboard() {
   };
 
   const handleConfirmAttendance = async (examId) => {
+    if (confirmingExamId) return; // Prevent spamming / multiple concurrent clicks
+
+    const targetExam = exams.find((e) => e.id === examId);
+    if (targetExam && isAttendanceConfirmed(targetExam.proctor_attendance)) {
+      showError("Attendance has already been confirmed for this exam.");
+      return;
+    }
+
+    setConfirmingExamId(examId);
+
+    // Optimistically update attendance in state so button immediately switches to verified
+    setExams((prev) =>
+      prev.map((e) => (e.id === examId ? { ...e, proctor_attendance: "confirmed" } : e))
+    );
+
     try {
-      await api.post(`/proctors/${user.proctor_id}/confirm-attendance/${examId}`);
-      showSuccess("Attendance confirmed!");
+      const response = await api.post(`/proctors/${user.proctor_id}/confirm-attendance/${examId}`);
+      showSuccess(response.data?.message || "Attendance confirmed!");
       const examsResponse = await api.get(`/exams?proctor_id=${user.proctor_id}&status=posted`);
       setExams(examsResponse.data);
     } catch (error) {
       console.error(error);
+      // Revert optimistic update on failure
+      try {
+        const examsResponse = await api.get(`/exams?proctor_id=${user.proctor_id}&status=posted`);
+        setExams(examsResponse.data);
+      } catch (fetchErr) {
+        if (targetExam) {
+          setExams((prev) => prev.map((e) => (e.id === examId ? targetExam : e)));
+        }
+      }
       const errMsg = error.response?.data?.detail || "An error occurred. Please try again.";
       showError(errMsg);
+    } finally {
+      setConfirmingExamId(null);
     }
   };
 
@@ -1898,7 +1930,7 @@ export default function ProctorDashboard() {
                           </thead>
                           <tbody className={`divide-y ${isDark ? "divide-slate-800/80 text-slate-200" : "divide-slate-100 text-slate-800"}`}>
                             {filteredExams.map((exam) => {
-                              const isConfirmed = exam.proctor_attendance === "confirmed";
+                              const isConfirmed = isAttendanceConfirmed(exam.proctor_attendance);
                               return (
                                 <tr
                                   key={exam.id}
@@ -1980,10 +2012,17 @@ export default function ProctorDashboard() {
                                     ) : (
                                       <button
                                         onClick={() => handleConfirmAttendance(exam.id)}
-                                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition hover:shadow-md hover:-translate-y-0.5"
+                                        disabled={confirmingExamId === exam.id}
+                                        className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition hover:shadow-md hover:-translate-y-0.5 ${
+                                          confirmingExamId === exam.id ? "opacity-60 cursor-not-allowed" : ""
+                                        }`}
                                       >
-                                        <CheckBadgeIcon className="w-4 h-4" />
-                                        Confirm Attendance
+                                        {confirmingExamId === exam.id ? (
+                                          <ArrowPathIcon className="w-4 h-4 animate-spin" />
+                                        ) : (
+                                          <CheckBadgeIcon className="w-4 h-4" />
+                                        )}
+                                        {confirmingExamId === exam.id ? "Confirming..." : "Confirm Attendance"}
                                       </button>
                                     )}
                                   </td>
@@ -1998,7 +2037,7 @@ export default function ProctorDashboard() {
                     {/* MOBILE & TABLET RESPONSIVE LIST VIEW (Screens < 1024px) */}
                     <div className="block lg:hidden space-y-3">
                       {filteredExams.map((exam) => {
-                        const isConfirmed = exam.proctor_attendance === "confirmed";
+                        const isConfirmed = isAttendanceConfirmed(exam.proctor_attendance);
                         return (
                           <div
                             key={exam.id}
@@ -2087,10 +2126,17 @@ export default function ProctorDashboard() {
                               ) : (
                                 <button
                                   onClick={() => handleConfirmAttendance(exam.id)}
-                                  className="w-full py-2.5 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/20 active:scale-[0.99]"
+                                  disabled={confirmingExamId === exam.id}
+                                  className={`w-full py-2.5 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/20 active:scale-[0.99] ${
+                                    confirmingExamId === exam.id ? "opacity-60 cursor-not-allowed" : ""
+                                  }`}
                                 >
-                                  <CheckBadgeIcon className="w-4 h-4" />
-                                  Confirm Attendance
+                                  {confirmingExamId === exam.id ? (
+                                    <ArrowPathIcon className="w-4 h-4 animate-spin" />
+                                  ) : (
+                                    <CheckBadgeIcon className="w-4 h-4" />
+                                  )}
+                                  {confirmingExamId === exam.id ? "Confirming..." : "Confirm Attendance"}
                                 </button>
                               )}
                             </div>
@@ -2102,9 +2148,11 @@ export default function ProctorDashboard() {
                 ) : (
                   /* GRID VIEW */
                   <div className="grid gap-4 sm:gap-6 md:grid-cols-2 xl:grid-cols-3">
-                    {filteredExams.map((exam) => (
+                    {filteredExams.map((exam) => {
+                      const isConfirmed = isAttendanceConfirmed(exam.proctor_attendance);
+                      return (
                       <div key={exam.id} className={`rounded-2xl sm:rounded-3xl border transition-all duration-300 hover:shadow-lg relative overflow-hidden group ${isDark ? "bg-slate-800/90 border-slate-700/50 hover:border-slate-600" : "bg-white border-slate-200 hover:border-blue-200 shadow-sm"}`}>
-                        <div className={`h-2 w-full ${exam.proctor_attendance === "confirmed" ? "bg-emerald-500" : "bg-amber-500"}`}></div>
+                        <div className={`h-2 w-full ${isConfirmed ? "bg-emerald-500" : "bg-amber-500"}`}></div>
                         
                         <div className="p-4 sm:p-6">
                           <div className="flex flex-col gap-1.5 mb-5 pr-16 sm:pr-20">
@@ -2134,10 +2182,20 @@ export default function ProctorDashboard() {
                             </div>
                           </div>
                           
-                          {exam.proctor_attendance === "pending" ? (
-                            <button onClick={() => handleConfirmAttendance(exam.id)} className="w-full mt-7 py-3 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 hover:-translate-y-0.5">
-                              <CheckBadgeIcon className="w-4 h-4" /> 
-                              Confirm My Attendance
+                          {!isConfirmed ? (
+                            <button
+                              onClick={() => handleConfirmAttendance(exam.id)}
+                              disabled={confirmingExamId === exam.id}
+                              className={`w-full mt-7 py-3 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 hover:-translate-y-0.5 ${
+                                confirmingExamId === exam.id ? "opacity-60 cursor-not-allowed" : ""
+                              }`}
+                            >
+                              {confirmingExamId === exam.id ? (
+                                <ArrowPathIcon className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <CheckBadgeIcon className="w-4 h-4" />
+                              )}
+                              {confirmingExamId === exam.id ? "Confirming..." : "Confirm My Attendance"}
                             </button>
                           ) : (
                             <div className={`w-full mt-7 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 ${isDark ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-emerald-50 text-emerald-700 border border-emerald-200"}`}>
@@ -2147,7 +2205,7 @@ export default function ProctorDashboard() {
                           )}
                         </div>
                       </div>
-                    ))}
+                    );})}
                   </div>
                 )}
               </div>

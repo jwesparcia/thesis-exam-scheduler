@@ -469,9 +469,9 @@ def confirm_attendance(
     exam = db.query(models.Exam).filter(models.Exam.id == exam_id, models.Exam.proctor_id == proctor_id).first()
     if not exam:
         raise HTTPException(status_code=404, detail="Exam assignment not found for this proctor")
-    if exam.proctor_attendance == "attended":
-        return {"message": "Attendance already confirmed"}
-    exam.proctor_attendance = "attended"
+    if exam.proctor_attendance in ["attended", "confirmed"]:
+        raise HTTPException(status_code=400, detail="Attendance has already been confirmed for this exam")
+    exam.proctor_attendance = "confirmed"
     proctor = db.query(models.Proctor).get(proctor_id)
     proctor_name = proctor.name if proctor else f"Proctor {proctor_id}"
     subject_name = exam.subject.name if exam.subject else "Unknown Subject"
@@ -548,7 +548,7 @@ def get_proctor_monitoring(
             "start_time": start_time,
             "end_time": end_time,
             "room": e.room.name if e.room else "-",
-            "attendance_status": e.proctor_attendance or "pending",
+            "attendance_status": "attended" if e.proctor_attendance in ["attended", "confirmed"] else (e.proctor_attendance or "pending"),
         })
     result = [{"course_name": course, "exams": entries} for course, entries in sorted(course_map.items())]
     cache.set("proctors:monitoring", result, TTL_MONITORING)
