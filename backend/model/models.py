@@ -4,12 +4,28 @@ from datetime import datetime, timezone
 from sqlalchemy.orm import relationship
 from core.database import Base
 
+class Department(Base):
+    __tablename__ = "departments"
+    id = Column(Integer, primary_key=True, index=True)
+    code = Column(String, unique=True, index=True, nullable=False)
+    name = Column(String, unique=True, index=True, nullable=False)
+    description = Column(String, nullable=True)
+    is_general_education = Column(Boolean, default=False)
+    is_super = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+
+    courses = relationship("Course", back_populates="department_rel")
+    subjects = relationship("Subject", back_populates="department_rel")
+    users = relationship("User", back_populates="department_rel")
+
 class Course(Base):
     __tablename__ = "courses"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, index=True)
     category = Column(String, default="College")
+    department_code = Column(String, ForeignKey("departments.code"), nullable=True)
     
+    department_rel = relationship("Department", back_populates="courses", foreign_keys=[department_code])
     sections = relationship("Section", back_populates="course")
     subjects = relationship("Subject", back_populates="course")
     exams = relationship("Exam", back_populates="course")
@@ -46,6 +62,16 @@ class Section(Base):
     year_level = relationship("YearLevel", back_populates="sections")
     preferred_room = relationship("Room")
 
+class SubjectProgram(Base):
+    __tablename__ = "subject_programs"
+    __table_args__ = (UniqueConstraint("subject_id", "course_id", name="uq_subject_course"),)
+    id = Column(Integer, primary_key=True, index=True)
+    subject_id = Column(Integer, ForeignKey("subjects.id", ondelete="CASCADE"), nullable=False)
+    course_id = Column(Integer, ForeignKey("courses.id", ondelete="CASCADE"), nullable=False)
+
+    subject = relationship("Subject", back_populates="assigned_programs")
+    course = relationship("Course")
+
 class Subject(Base):
     __tablename__ = "subjects"
     id = Column(Integer, primary_key=True, index=True)
@@ -59,7 +85,10 @@ class Subject(Base):
     category = Column(String, default="major")
     duration_minutes = Column(Integer, default=75, nullable=False)
     term = Column(String, default="All", nullable=True)
+    department_code = Column(String, ForeignKey("departments.code"), nullable=True)
     
+    department_rel = relationship("Department", back_populates="subjects", foreign_keys=[department_code])
+    assigned_programs = relationship("SubjectProgram", back_populates="subject", cascade="all, delete-orphan")
     course = relationship("Course", back_populates="subjects")
     year_level = relationship("YearLevel", back_populates="subjects")
     teacher = relationship("Teacher", back_populates="subjects")
@@ -183,9 +212,11 @@ class ReschedulingRequest(Base):
     acknowledged = Column(Boolean, default=False)
     status = Column(String, default="pending")
     reviewer_comments = Column(String, nullable=True)
+    department_code = Column(String, ForeignKey("departments.code"), nullable=True)
     
     exam = relationship("Exam", foreign_keys=[exam_id], primaryjoin="ReschedulingRequest.exam_id == Exam.id")
     rescheduled_exam = relationship("Exam", foreign_keys=[rescheduled_exam_id])
+    department_rel = relationship("Department", foreign_keys=[department_code])
 
 class Notification(Base):
     __tablename__ = "notifications"
@@ -229,8 +260,11 @@ class User(Base):
     course_id = Column(Integer, ForeignKey("courses.id"), nullable=True)
     student_id = Column(String, nullable=True, index=True)
     is_first_login = Column(Boolean, default=True)
+    department_code = Column(String, ForeignKey("departments.code"), nullable=True)
+    is_super_admin = Column(Boolean, default=False)
 
     course = relationship("Course")
+    department_rel = relationship("Department", back_populates="users", foreign_keys=[department_code])
 
 class IrregularSelection(Base):
     __tablename__ = "irregular_selections"

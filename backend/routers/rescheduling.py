@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session, joinedload
 from core import get_db, cache
-from model import ReschedulingRequest, Exam, Notification, User, Timeslot, Room, Proctor
+from model import ReschedulingRequest, Exam, Notification, User, Timeslot, Room, Proctor, Course, Department
 from schema import ReschedulingRequestCreate, ReschedulingRequest as ReschedulingRequestSchema, ReschedulingRequestUpdate
 from datetime import datetime, time, timedelta
+from typing import Optional
 from .auth import get_current_user, require_role
 from utils.logging import log_activity
 from services.auto_rescheduler import (
@@ -28,6 +29,30 @@ def is_consultation_request(db: Session, request: ReschedulingRequest) -> bool:
             or (request.rescheduled_exam and request.rescheduled_exam.room and request.rescheduled_exam.room.name == "Consultation Area")
         )
     )
+
+def check_request_department_access(request: ReschedulingRequest, current_user: User, db: Session):
+    """
+    Prevent department administrators from approving requests belonging to other departments
+    unless they have Super Admin privileges (Requirements 4, 5, 7).
+    """
+    is_super = bool(current_user.is_super_admin or current_user.department_code == "GE")
+    if is_super:
+        return
+    req_dept = request.department_code
+    if not req_dept and request.exam and request.exam.course:
+        req_dept = request.exam.course.department_code
+    if not req_dept and request.program:
+        c_obj = db.query(Course).filter(Course.name.ilike(request.program.strip())).first()
+        if c_obj and c_obj.department_code:
+            req_dept = c_obj.department_code
+    if not req_dept:
+        req_dept = "GE"
+    
+    if current_user.department_code != req_dept:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Access denied: You are the administrator for {current_user.department_code}, but this request belongs to {req_dept}. Only the {req_dept} department administrator or Super Admin can approve or reject this request."
+        )
 
 @router.post("/submit")
 def submit_rescheduling_request(request: ReschedulingRequestCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
@@ -74,12 +99,60 @@ def submit_rescheduling_request(request: ReschedulingRequestCreate, db: Session 
     if pref_start and pref_end and pref_start >= pref_end:
         raise HTTPException(status_code=400, detail="Preferred start time must be before preferred end time")
 
+    # Automatically determine student's program department based on their enrolled course
+    dept_code = None
+    student_program = request.program
+
+    # 1. Lookup student user to check if enrolled in a specific course (e.g. irregular student)
+    student_user = None
+    if request.school_email:
+        student_user = db.query(User).filter(User.email == request.school_email.strip().lower()).first()
+    if not student_user and request.student_id:
+        student_user = db.query(User).filter(User.student_id == request.student_id.strip()).first()
+
+    if student_user and student_user.course_id:
+        course_obj = db.query(Course).filter(Course.id == student_user.course_id).first()
+        if course_obj:
+            student_program = course_obj.name
+            if course_obj.department_code:
+                dept_code = course_obj.department_code
+
+    if not dept_code and student_user and student_user.course and student_user.course.department_code:
+        dept_code = student_user.course.department_code
+        student_program = student_user.course.name
+
+    # 2. Check student_program by name against courses
+    if not dept_code and student_program:
+        course_obj = db.query(Course).filter(Course.name.ilike(student_program.strip())).first()
+        if course_obj and course_obj.department_code:
+            dept_code = course_obj.department_code
+            student_program = course_obj.name
+
+    # 3. Check section name
+    if not dept_code and student_user and student_user.section_name:
+        for c in db.query(Course).all():
+            if c.name and c.name.lower() in student_user.section_name.lower():
+                dept_code = c.department_code
+                student_program = c.name
+                break
+
+    # 4. Fallback to exam's course
+    if not dept_code and exam and exam.course and exam.course.department_code:
+        dept_code = exam.course.department_code
+        if not student_program:
+            student_program = exam.course.name
+
+    # 5. Default to GE if unresolved
+    if not dept_code:
+        ge_dept = db.query(Department).filter(Department.is_super == True).first()
+        dept_code = ge_dept.code if ge_dept else "GE"
+
     db_request = ReschedulingRequest(
         exam_id=request.exam_id,
         section_name=request.section_name,
         student_name=request.student_name,
         student_id=request.student_id,
-        program=request.program,
+        program=student_program or request.program,
         school_email=request.school_email,
         course_code=request.course_code,
         course_name=request.course_name,
@@ -94,37 +167,66 @@ def submit_rescheduling_request(request: ReschedulingRequestCreate, db: Session 
         preferred_date=pref_date,
         preferred_start_time=pref_start,
         preferred_end_time=pref_end,
-        acknowledged=request.acknowledged
+        acknowledged=request.acknowledged,
+        department_code=dept_code
     )
     db.add(db_request)
     db.commit()
     db.refresh(db_request)
 
-    # Notify Admin (role "program_head")
-    admin_user = db.query(User).filter(User.role == "program_head").first()
-    admin_user_id = admin_user.id if admin_user else None
+    # Route only to the program head responsible for the student's department
+    dept_admin = db.query(User).filter(
+        User.role.in_(["program_head", "admin"]),
+        User.department_code == dept_code
+    ).first()
 
-    notification = Notification(
-        user_id=admin_user_id,
-        message=f"New rescheduling request from {request.student_name} ({request.section_name}) for {request.course_name}",
-        type="info",
-        related_id=db_request.id
-    )
-    db.add(notification)
-    db.commit()
-    log_activity(db, current_user.id, "RESCHEDULING_SUBMIT", f"Exam ID: {request.exam_id}, Student: {request.student_name}")
-    return {"message": "Rescheduling request submitted successfully", "id": db_request.id}
+    target_admin = dept_admin
+    if not target_admin:
+        target_admin = db.query(User).filter(
+            User.role.in_(["program_head", "admin"]),
+            User.is_super_admin == True
+        ).first()
+
+    if target_admin:
+        notification = Notification(
+            user_id=target_admin.id,
+            message=f"New [{dept_code}] rescheduling request from {request.student_name} ({db_request.program}) for {request.course_name}",
+            type="info",
+            related_id=db_request.id
+        )
+        db.add(notification)
+        db.commit()
+
+    log_activity(db, current_user.id, "RESCHEDULING_SUBMIT", f"Exam ID: {request.exam_id}, Student: {request.student_name}, Dept: {dept_code}")
+    return {"message": "Rescheduling request submitted successfully", "id": db_request.id, "department_code": dept_code}
 
 @router.get("/pending/count")
 def get_pending_rescheduling_count(db: Session = Depends(get_db), current_user: User = Depends(require_role(["admin"]))):
-    count = db.query(ReschedulingRequest).filter(ReschedulingRequest.status == "pending").count()
+    query = db.query(ReschedulingRequest).filter(ReschedulingRequest.status == "pending")
+    is_super = bool(current_user.is_super_admin or current_user.department_code == "GE")
+    if not is_super:
+        query = query.filter(ReschedulingRequest.department_code == current_user.department_code)
+    count = query.count()
     return {"count": count}
 
 @router.get("/pending")
-def get_pending_requests(db: Session = Depends(get_db), current_user: User = Depends(require_role(["admin"]))):
-    requests = db.query(ReschedulingRequest).options(
-        joinedload(ReschedulingRequest.exam)
-    ).filter(ReschedulingRequest.status == "pending").all()
+def get_pending_requests(
+    department: Optional[str] = None,
+    db: Session = Depends(get_db), 
+    current_user: User = Depends(require_role(["admin"]))
+):
+    is_super = bool(current_user.is_super_admin or current_user.department_code == "GE")
+    query = db.query(ReschedulingRequest).options(
+        joinedload(ReschedulingRequest.exam).joinedload(Exam.course),
+        joinedload(ReschedulingRequest.department_rel)
+    ).filter(ReschedulingRequest.status == "pending")
+
+    if not is_super:
+        query = query.filter(ReschedulingRequest.department_code == current_user.department_code)
+    elif department and department != "All":
+        query = query.filter(ReschedulingRequest.department_code == department)
+
+    requests = query.all()
 
     result = []
     for req in requests:
@@ -141,15 +243,23 @@ def get_pending_requests(db: Session = Depends(get_db), current_user: User = Dep
                 }
 
         is_consultation = is_consultation_request(db, req) or bool(auto_assignment and auto_assignment.get("is_consultation"))
-
         student_category = get_reschedule_student_category(db, req)
+        
+        req_dept_code = req.department_code or (req.exam.course.department_code if (req.exam and req.exam.course) else None)
+        req_dept_name = req.department_rel.name if req.department_rel else (req_dept_code or student_category)
+        can_approve = bool(is_super or (current_user.department_code and current_user.department_code == req_dept_code))
+
         result.append({
             "id": req.id,
             "exam_id": req.exam_id,
             "section_name": req.section_name,
             "student_name": req.student_name,
             "student_type": student.student_type if student else "regular",
+            "program": req.program,
             "department": student_category,
+            "department_code": req_dept_code,
+            "department_name": req_dept_name,
+            "can_approve": can_approve,
             "course_name": req.course_name,
             "original_exam_date": req.original_exam_date.strftime("%A, %B %d, %Y") if req.original_exam_date else "Unknown",
             "original_time": f"{req.original_start_time.strftime('%I:%M %p')} - {req.original_end_time.strftime('%I:%M %p')}" if req.original_start_time and req.original_end_time else "Unknown",
@@ -167,11 +277,24 @@ def get_pending_requests(db: Session = Depends(get_db), current_user: User = Dep
     return result
 
 @router.get("/history")
-def get_rescheduling_history(db: Session = Depends(get_db), current_user: User = Depends(require_role(["admin"]))):
-    requests = db.query(ReschedulingRequest).options(
+def get_rescheduling_history(
+    department: Optional[str] = None,
+    db: Session = Depends(get_db), 
+    current_user: User = Depends(require_role(["admin"]))
+):
+    is_super = bool(current_user.is_super_admin or current_user.department_code == "GE")
+    query = db.query(ReschedulingRequest).options(
         joinedload(ReschedulingRequest.exam),
         joinedload(ReschedulingRequest.rescheduled_exam),
-    ).filter(ReschedulingRequest.status.in_(["approved", "rejected"])).order_by(ReschedulingRequest.id.desc()).all()
+        joinedload(ReschedulingRequest.department_rel)
+    ).filter(ReschedulingRequest.status.in_(["approved", "rejected"]))
+
+    if not is_super:
+        query = query.filter(ReschedulingRequest.department_code == current_user.department_code)
+    elif department and department != "All":
+        query = query.filter(ReschedulingRequest.department_code == department)
+
+    requests = query.order_by(ReschedulingRequest.id.desc()).all()
 
     result = []
     for req in requests:
@@ -188,11 +311,17 @@ def get_rescheduling_history(db: Session = Depends(get_db), current_user: User =
                 db,
             )
 
+        req_dept_code = req.department_code or (assigned_exam.course.department_code if (assigned_exam and assigned_exam.course) else None)
+        req_dept_name = req.department_rel.name if req.department_rel else (req_dept_code or "-")
+
         result.append({
             "id": req.id,
             "exam_id": req.exam_id,
             "section_name": req.section_name,
             "student_name": req.student_name,
+            "program": req.program,
+            "department_code": req_dept_code,
+            "department_name": req_dept_name,
             "course_name": req.course_name,
             "original_exam_date": req.original_exam_date.strftime("%A, %B %d, %Y") if req.original_exam_date else "Unknown",
             "original_time": f"{req.original_start_time.strftime('%I:%M %p')} - {req.original_end_time.strftime('%I:%M %p')}" if req.original_start_time and req.original_end_time else "Unknown",
@@ -222,6 +351,13 @@ def auto_assign_request(
     from .exams import is_generation_ongoing
     if is_generation_ongoing():
         raise HTTPException(status_code=400, detail="Cannot review rescheduling requests while schedule generation is ongoing")
+    request = db.query(ReschedulingRequest).filter(ReschedulingRequest.id == request_id).first()
+    if not request:
+        raise HTTPException(status_code=404, detail="Request not found")
+    
+    # Enforce department authorization (Requirement 7)
+    check_request_department_access(request, current_user, db)
+
     comments = payload.get("reviewer_comments")
     return apply_auto_reschedule(request_id, comments, db, current_user.id)
 
@@ -244,6 +380,9 @@ def review_request(request_id: int, update: ReschedulingRequestUpdate, db: Sessi
     request = db.query(ReschedulingRequest).filter(ReschedulingRequest.id == request_id).first()
     if not request:
         raise HTTPException(status_code=404, detail="Request not found")
+
+    # Enforce department authorization (Requirement 7)
+    check_request_department_access(request, current_user, db)
 
     student = db.query(User).filter(User.email == request.school_email).first()
     irregular_request = bool(student and student.student_type == "irregular")

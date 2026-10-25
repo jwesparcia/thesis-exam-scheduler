@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, or_
 from core import get_db, cache
 from core.cache import TTL_ROOMS, TTL_EXAM_COUNT
-from model import Exam, Subject, Section, Room, Timeslot, Course, YearLevel, Teacher, User, Notification, Proctor, ReschedulingRequest
+from model import Exam, Subject, Section, Room, Timeslot, Course, YearLevel, Teacher, User, Notification, Proctor, ReschedulingRequest, Department
 from utils.scheduler import generate_exam_schedule, validate_proctor_availability
 from datetime import datetime, time
 from threading import Lock
@@ -327,8 +327,13 @@ def get_department_subjects(
     Get all unique written subject names for a specific department, semester, and term.
     Optionally filter by course_id when a specific course is selected.
     """
+    if department in ("College", "SHS"):
+        dept_cond = (Course.category == department)
+    else:
+        dept_cond = or_(Course.category == department, Course.department_code == department, Subject.department_code == department)
+
     query = db.query(Subject.name).join(Course).filter(
-        Course.category == department,
+        dept_cond,
         Subject.exam_type == "written",
         Subject.semester == semester
     )
@@ -615,7 +620,7 @@ def get_room_status(
     current_user: User = Depends(require_role(["admin"]))
 ):
     dept_val = department if isinstance(department, str) else "College"
-    selected_department = dept_val if dept_val in ["College", "SHS"] else "All"
+    selected_department = dept_val
     sem_val = semester if isinstance(semester, int) else (int(semester) if isinstance(semester, str) and semester.isdigit() else None)
     status_val = status if isinstance(status, str) else "all"
     
@@ -626,7 +631,7 @@ def get_room_status(
     elif selected_department == "SHS":
         rooms_query = rooms_query.filter(or_(Room.department == "SHS", Room.building == "C"))
     elif selected_department != "All":
-        rooms_query = rooms_query.filter(Room.department == selected_department)
+        rooms_query = rooms_query.filter(or_(Room.department == selected_department, Room.department == "College", Room.building == "B"))
     rooms = rooms_query.order_by(Room.name).all()
     
     allowed_room_names = {room.name for room in rooms}
@@ -640,8 +645,12 @@ def get_room_status(
         joinedload(Exam.room),
     ).join(Course, Exam.course_id == Course.id)
 
-    if selected_department != "All":
-        exam_query = exam_query.filter(Course.category == selected_department)
+    if selected_department == "College":
+        exam_query = exam_query.filter(Course.category == "College")
+    elif selected_department == "SHS":
+        exam_query = exam_query.filter(Course.category == "SHS")
+    elif selected_department != "All":
+        exam_query = exam_query.filter(or_(Course.category == selected_department, Course.department_code == selected_department))
     if sem_val is not None:
         exam_query = exam_query.filter(Exam.semester == sem_val)
     if status_val in ["draft", "posted"]:
@@ -807,10 +816,15 @@ def get_exam_count(
     if cached is not None:
         return cached
 
+    if department in ("College", "SHS"):
+        dept_cond = (Course.category == department)
+    else:
+        dept_cond = or_(Course.category == department, Course.department_code == department)
+
     count = (
         db.query(Exam)
         .join(Course, Exam.course_id == Course.id)
-        .filter(Course.category == department, Exam.semester == semester)
+        .filter(dept_cond, Exam.semester == semester)
         .count()
     )
     result = {"count": count, "department": department, "semester": semester}
@@ -923,10 +937,15 @@ async def generate_schedule(
             raise HTTPException(status_code=400, detail="End date cannot be before start date.")
 
         # --- Guard: Block if existing exams exist and overwrite not confirmed ---
+        if department in ("College", "SHS"):
+            gen_dept_cond = (Course.category == department)
+        else:
+            gen_dept_cond = or_(Course.category == department, Course.department_code == department)
+
         existing_count = (
             db.query(Exam)
             .join(Course, Exam.course_id == Course.id)
-            .filter(Course.category == department, Exam.semester == semester)
+            .filter(gen_dept_cond, Exam.semester == semester)
             .count()
         )
         if existing_count > 0 and not force_overwrite:
@@ -943,7 +962,7 @@ async def generate_schedule(
             exams_to_delete = (
                 db.query(Exam)
                 .join(Course, Exam.course_id == Course.id)
-                .filter(Course.category == department, Exam.semester == semester)
+                .filter(gen_dept_cond, Exam.semester == semester)
                 .all()
             )
             exams_to_delete_ids = [e.id for e in exams_to_delete]
@@ -1443,7 +1462,10 @@ def post_exams(
     if year_level_id:
         query = query.filter(Exam.year_level_id == year_level_id)
     if department:
-        query = query.join(Course).filter(Course.category == department)
+        if department in ("College", "SHS"):
+            query = query.join(Course).filter(Course.category == department)
+        else:
+            query = query.join(Course).filter(or_(Course.category == department, Course.department_code == department))
     if term:
         query = query.filter(Exam.term == term)
         
@@ -1460,7 +1482,10 @@ def post_exams(
         if year_level_id:
             posted_query = posted_query.filter(Exam.year_level_id == year_level_id)
         if department:
-            posted_query = posted_query.join(Course).filter(Course.category == department)
+            if department in ("College", "SHS"):
+                posted_query = posted_query.join(Course).filter(Course.category == department)
+            else:
+                posted_query = posted_query.join(Course).filter(or_(Course.category == department, Course.department_code == department))
         if term:
             posted_query = posted_query.filter(Exam.term == term)
             
@@ -1528,7 +1553,10 @@ def save_exams(
     if year_level_id:
         query = query.filter(Exam.year_level_id == year_level_id)
     if department:
-        query = query.join(Course).filter(Course.category == department)
+        if department in ("College", "SHS"):
+            query = query.join(Course).filter(Course.category == department)
+        else:
+            query = query.join(Course).filter(or_(Course.category == department, Course.department_code == department))
     if term:
         query = query.filter(Exam.term == term)
         
@@ -1581,7 +1609,10 @@ def download_exam_schedule(
     if semester:
         query = query.filter(Exam.semester == semester)
     if department:
-        query = query.join(Course, Exam.course_id == Course.id).filter(Course.category == department)
+        if department in ("College", "SHS"):
+            query = query.join(Course, Exam.course_id == Course.id).filter(Course.category == department)
+        else:
+            query = query.join(Course, Exam.course_id == Course.id).filter(or_(Course.category == department, Course.department_code == department))
     if term:
         query = query.filter(Exam.term == term)
 
@@ -1738,7 +1769,10 @@ def clear_exams(
     query = db.query(Exam)
     
     if department:
-        query = query.join(Course).filter(Course.category == department)
+        if department in ("College", "SHS"):
+            query = query.join(Course).filter(Course.category == department)
+        else:
+            query = query.join(Course).filter(or_(Course.category == department, Course.department_code == department))
         
     if semester:
         query = query.filter(Exam.semester == semester)

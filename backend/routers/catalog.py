@@ -9,10 +9,11 @@ import pandas as pd
 import bcrypt
 from typing import List, Optional
 from sqlalchemy import or_
+from sqlalchemy.orm import joinedload
 from model import (
     Course, YearLevel, Section, Subject, Teacher, Proctor, User, TeacherTeaching, 
     Exam, ReschedulingRequest, IrregularSelection, ActivityLog, PasswordResetToken, 
-    ChatMessage, TeacherSchedule, ProctorAvailability
+    ChatMessage, TeacherSchedule, ProctorAvailability, Department, SubjectProgram
 )
 from routers.auth import require_role, get_current_user
 from utils.logging import log_activity
@@ -20,6 +21,7 @@ from datetime import datetime, time
 from pydantic import BaseModel
 
 # ── cache keys ────────────────────────────────────────────────────────
+_KEY_DEPARTMENTS   = "departments:all"
 _KEY_COURSES       = "courses:all"
 _KEY_YEAR_LEVELS   = "year_levels:all"
 _KEY_STATS         = "catalog:stats"
@@ -155,13 +157,39 @@ def classify_subject(name: str):
 
     return exam_type, category
 
+@router.get("/departments")
+def get_departments(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """
+    Load available departments from PostgreSQL instead of hardcoding them.
+    """
+    departments = db.query(Department).order_by(Department.id.asc()).all()
+    return [
+        {
+            "id": d.id,
+            "code": d.code,
+            "name": d.name,
+            "description": d.description,
+            "is_general_education": bool(d.is_general_education),
+            "is_super": bool(d.is_super)
+        }
+        for d in departments
+    ]
+
 @router.get("/courses")
 def get_courses(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     cached = cache.get(_KEY_COURSES)
     if cached is not None:
         return cached
     courses = crud.list_courses(db)
-    result = [{"id": c.id, "name": c.name, "category": c.category} for c in courses]
+    result = [
+        {
+            "id": c.id, 
+            "name": c.name, 
+            "category": c.category,
+            "department_code": c.department_code
+        } 
+        for c in courses
+    ]
     cache.set(_KEY_COURSES, result, TTL_STATIC)
     return result
 
@@ -395,13 +423,15 @@ def get_student_stats(db: Session = Depends(get_db), current_user: User = Depend
 class SubjectCreateRequest(BaseModel):
     code: Optional[str] = None
     name: str
-    course_id: int
+    course_id: Optional[int] = None
     year_level_id: Optional[int] = None
     semester: int = 1
     term: Optional[str] = "All"
     category: str = "major"
     exam_type: str = "written"
     duration_minutes: int = 75
+    department_code: Optional[str] = None
+    program_ids: Optional[List[int]] = None
 
 class SubjectUpdateRequest(BaseModel):
     code: Optional[str] = None
@@ -413,6 +443,8 @@ class SubjectUpdateRequest(BaseModel):
     category: Optional[str] = None
     exam_type: Optional[str] = None
     duration_minutes: Optional[int] = None
+    department_code: Optional[str] = None
+    program_ids: Optional[List[int]] = None
 
 @router.get("/subjects")
 @router.get("/subjects/durations")
@@ -436,11 +468,28 @@ def get_subject_durations(
     category = category if isinstance(category, str) else None
     search = search if isinstance(search, str) else None
 
-    query = db.query(Subject).join(Course).join(YearLevel)
+    query = db.query(Subject).join(Course).join(YearLevel).options(
+        joinedload(Subject.assigned_programs).joinedload(SubjectProgram.course),
+        joinedload(Subject.department_rel),
+        joinedload(Subject.course)
+    )
     if department:
-        query = query.filter(Course.category == department)
+        query = query.filter(
+            or_(
+                Subject.department_code == department,
+                Course.department_code == department,
+                Course.category == department
+            )
+        )
     if course_id:
-        query = query.filter(Subject.course_id == course_id)
+        query = query.filter(
+            or_(
+                Subject.course_id == course_id,
+                Subject.id.in_(
+                    db.query(SubjectProgram.subject_id).filter(SubjectProgram.course_id == course_id)
+                )
+            )
+        )
     if year_level_id:
         query = query.filter(Subject.year_level_id == year_level_id)
     if semester:
@@ -457,8 +506,13 @@ def get_subject_durations(
         query = query.filter(or_(Subject.name.ilike(s), Subject.code.ilike(s)))
     
     subjects = query.order_by(Course.name, YearLevel.name, Subject.name).all()
-    return [
-        {
+    results = []
+    for s in subjects:
+        assigned_p_ids = [sp.course_id for sp in s.assigned_programs] if s.assigned_programs else ([s.course_id] if s.course_id else [])
+        assigned_p_names = [sp.course.name for sp in s.assigned_programs if sp.course] if s.assigned_programs else ([s.course.name] if s.course else [])
+        dept_code = s.department_code or (s.course.department_code if s.course else None)
+        dept_name = s.department_rel.name if s.department_rel else (s.course.department_rel.name if (s.course and s.course.department_rel) else (dept_code or "-"))
+        results.append({
             "id": s.id,
             "code": s.code,
             "name": s.name,
@@ -471,10 +525,13 @@ def get_subject_durations(
             "term": s.term or "All",
             "category": s.category or "major",
             "exam_type": s.exam_type or "written",
-            "duration_minutes": s.duration_minutes or 75
-        }
-        for s in subjects
-    ]
+            "duration_minutes": s.duration_minutes or 75,
+            "department_code": dept_code,
+            "department_name": dept_name,
+            "program_ids": assigned_p_ids,
+            "program_names": assigned_p_names,
+        })
+    return results
 
 @router.post("/subjects")
 def create_subject(
@@ -483,14 +540,16 @@ def create_subject(
     current_user: User = Depends(require_role(["admin", "program_head"]))
 ):
     """
-    Create a new subject with category (major/minor), semester, term, and duration.
+    Create a new subject with department, category (major/minor), semester, term, duration, and program assignments.
     """
     if not payload.name or not payload.name.strip():
         raise HTTPException(status_code=400, detail="Subject name is required")
-    if not payload.course_id:
-        raise HTTPException(status_code=400, detail="Course is required")
     
-    course = db.query(Course).filter(Course.id == payload.course_id).first()
+    primary_course_id = payload.course_id or (payload.program_ids[0] if payload.program_ids else None)
+    if not primary_course_id:
+        raise HTTPException(status_code=400, detail="Course or Program assignment is required")
+    
+    course = db.query(Course).filter(Course.id == primary_course_id).first()
     if not course:
         raise HTTPException(status_code=404, detail="Selected course not found")
 
@@ -505,6 +564,11 @@ def create_subject(
     if cat == "minor":
         cat = "general"
 
+    # Department assignment
+    dept_code = payload.department_code
+    if not dept_code:
+        dept_code = "GE" if cat == "general" else (course.department_code or course.category)
+
     # Duration default: 120 for BSA majors, 75 for others
     duration = payload.duration_minutes
     if not duration or duration <= 0:
@@ -516,15 +580,23 @@ def create_subject(
     new_sub = Subject(
         code=code,
         name=payload.name.strip(),
-        course_id=payload.course_id,
+        course_id=primary_course_id,
         year_level_id=payload.year_level_id,
         semester=payload.semester or 1,
         term=payload.term.strip() if payload.term else "All",
         category=cat,
         exam_type=payload.exam_type or "written",
-        duration_minutes=duration
+        duration_minutes=duration,
+        department_code=dept_code
     )
     db.add(new_sub)
+    db.flush()
+
+    # Link multiple program assignments
+    assigned_course_ids = payload.program_ids if payload.program_ids else [primary_course_id]
+    for cid in set(assigned_course_ids):
+        db.add(SubjectProgram(subject_id=new_sub.id, course_id=cid))
+
     db.commit()
     db.refresh(new_sub)
 
@@ -532,7 +604,10 @@ def create_subject(
     cache.delete_pattern("catalog:details:*")
     cache.delete("catalog:stats")
     if current_user:
-        log_activity(db, current_user.id, "SUBJECT_CREATE", f"Created subject {new_sub.code} - {new_sub.name} ({new_sub.category}, Sem {new_sub.semester}, Term {new_sub.term})")
+        log_activity(db, current_user.id, "SUBJECT_CREATE", f"Created subject {new_sub.code} - {new_sub.name} (Dept: {new_sub.department_code}, Sem {new_sub.semester}, Term {new_sub.term})")
+
+    assigned_p_ids = [sp.course_id for sp in new_sub.assigned_programs]
+    assigned_p_names = [sp.course.name for sp in new_sub.assigned_programs if sp.course]
 
     return {
         "message": f"Subject '{new_sub.name}' created successfully.",
@@ -547,7 +622,11 @@ def create_subject(
             "term": new_sub.term,
             "category": new_sub.category,
             "exam_type": new_sub.exam_type,
-            "duration_minutes": new_sub.duration_minutes
+            "duration_minutes": new_sub.duration_minutes,
+            "department_code": new_sub.department_code,
+            "department_name": new_sub.department_rel.name if new_sub.department_rel else None,
+            "program_ids": assigned_p_ids,
+            "program_names": assigned_p_names
         }
     }
 
@@ -559,7 +638,7 @@ def update_subject(
     current_user: User = Depends(require_role(["admin", "program_head"]))
 ):
     """
-    Update any subject attributes (code, name, course, year level, semester, term, category, duration).
+    Update any subject attributes (code, name, course, year level, semester, term, category, duration, department, programs).
     """
     subject = db.query(Subject).filter(Subject.id == subject_id).first()
     if not subject:
@@ -586,6 +665,23 @@ def update_subject(
         subject.exam_type = payload.exam_type.strip()
     if payload.duration_minutes is not None and payload.duration_minutes > 0:
         subject.duration_minutes = payload.duration_minutes
+    if payload.department_code is not None:
+        subject.department_code = payload.department_code.strip() if payload.department_code else None
+
+    # Handle multiple program assignments
+    if payload.program_ids is not None:
+        db.query(SubjectProgram).filter(SubjectProgram.subject_id == subject.id).delete(synchronize_session=False)
+        for cid in set(payload.program_ids):
+            db.add(SubjectProgram(subject_id=subject.id, course_id=cid))
+        if payload.program_ids and not payload.course_id:
+            subject.course_id = payload.program_ids[0]
+    elif payload.course_id is not None:
+        existing_sp = db.query(SubjectProgram).filter(
+            SubjectProgram.subject_id == subject.id,
+            SubjectProgram.course_id == payload.course_id
+        ).first()
+        if not existing_sp:
+            db.add(SubjectProgram(subject_id=subject.id, course_id=payload.course_id))
 
     db.commit()
     db.refresh(subject)
@@ -594,7 +690,10 @@ def update_subject(
     if payload.duration_minutes is not None:
         _invalidate_student_exam_schedules()
     if current_user:
-        log_activity(db, current_user.id, "SUBJECT_UPDATE", f"Updated subject {subject.code} - {subject.name}")
+        log_activity(db, current_user.id, "SUBJECT_UPDATE", f"Updated subject {subject.code} - {subject.name} (Dept: {subject.department_code})")
+
+    assigned_p_ids = [sp.course_id for sp in subject.assigned_programs]
+    assigned_p_names = [sp.course.name for sp in subject.assigned_programs if sp.course]
 
     return {
         "message": f"Subject '{subject.name}' updated successfully.",
@@ -608,7 +707,11 @@ def update_subject(
             "term": subject.term,
             "category": subject.category,
             "exam_type": subject.exam_type,
-            "duration_minutes": subject.duration_minutes
+            "duration_minutes": subject.duration_minutes,
+            "department_code": subject.department_code,
+            "department_name": subject.department_rel.name if subject.department_rel else None,
+            "program_ids": assigned_p_ids,
+            "program_names": assigned_p_names
         }
     }
 

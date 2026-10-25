@@ -1468,7 +1468,13 @@ export default function StudentDashboard() {
     setStudentName(user?.name || studentName || "");
     setSchoolEmail(user?.email || schoolEmail || "");
     setSection(exam.section_name || user?.section_name || "");
-    setProgram(exam.course_name || program || user?.section_name || "");
+
+    // Resolve program dynamically based on student's enrolled course:
+    const studentCourse = coursesList.find(c => c.id === user?.course_id);
+    const resolvedProgram = (user?.student_type === "irregular" && studentCourse?.name)
+      ? studentCourse.name
+      : (studentCourse?.name || user?.course_name || (user?.student_type !== "irregular" && exam.course_name) || program || user?.section_name || "");
+    setProgram(resolvedProgram);
 
     let dateStr = "";
     if (exam.exam_date) {
@@ -2125,12 +2131,17 @@ export default function StudentDashboard() {
 
               setLoadingRequest(true);
               try {
+                const studentCourse = coursesList.find(c => c.id === user?.course_id);
+                const resolvedProgram = (user?.student_type === "irregular" && studentCourse?.name)
+                  ? studentCourse.name
+                  : (program || studentCourse?.name || user?.course_name || selectedExam.course_name || "");
+
                 const requestData = {
                   exam_id: selectedExam.id,
                   section_name: section || selectedExam.section_name || "",
                   student_name: studentName || user?.name || "",
                   student_id: studentId || getFallbackStudentId(user) || "",
-                  program: program || selectedExam.course_name || "",
+                  program: resolvedProgram,
                   school_email: schoolEmail || user?.email || "",
                   course_code: courseCode || selectedExam.subject_code || "",
                   course_name: courseName || selectedExam.subject_name || "",
@@ -2190,6 +2201,19 @@ export default function StudentDashboard() {
                     <label className={`block text-xs font-semibold mb-1 ${isDark ? "text-slate-300" : "text-slate-700"}`}>School Email</label>
                     <input type="email" value={schoolEmail} readOnly className={`w-full p-2.5 rounded-xl text-xs sm:text-sm border cursor-not-allowed ${isDark ? "bg-slate-700/50 text-slate-300 border-slate-600" : "bg-slate-100 text-slate-700 border-slate-200"}`} />
                   </div>
+                  {user?.student_type === "irregular" && (
+                    <div className="md:col-span-2">
+                      <div className={`p-3 rounded-xl border flex items-start gap-2.5 text-xs ${isDark ? "bg-blue-950/20 border-blue-800/40 text-blue-300" : "bg-blue-50/80 border-blue-200 text-blue-800"}`}>
+                        <ExclamationCircleIcon className="w-4 h-4 shrink-0 mt-0.5 text-blue-500" />
+                        <div>
+                          <strong className="block font-semibold">Routed to Your Program Head</strong>
+                          <span>
+                            As an irregular student, all your exam rescheduling requests (including general education and minor subjects) are dynamically forwarded to your designated Program Head ({program || "Your Department"}).
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 

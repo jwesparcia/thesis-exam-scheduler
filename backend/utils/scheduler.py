@@ -329,9 +329,18 @@ def generate_exam_schedule(
     # 1. Clear previous DRAFT schedules for the specific department, semester and term
     report_progress(4, "Preparing schedule", "Clearing previous draft schedules")
     from model import Course
+    from sqlalchemy import or_
+
+    if department in ("College", "SHS"):
+        cat_filter = (Course.category == department)
+        sub_dept_filter = or_(Course.category == department, Subject.department_code == department)
+    else:
+        cat_filter = or_(Course.category == department, Course.department_code == department)
+        sub_dept_filter = or_(Course.category == department, Course.department_code == department, Subject.department_code == department)
+
     drafts_to_delete = db.query(Exam).join(Course, Exam.course_id == Course.id).filter(
         Exam.status == "draft",
-        Course.category == department,
+        cat_filter,
         Exam.semester == semester,
         Exam.term == term
     ).all()
@@ -348,10 +357,9 @@ def generate_exam_schedule(
 
     # 2. Fetch Resources for the specific department and semester
     report_progress(8, "Loading resources", "Fetching subjects, rooms, and distribution rules")
-    from sqlalchemy import or_
     subjects_query = db.query(Subject).join(Course).filter(
         Subject.exam_type == "written",
-        Course.category == department,
+        sub_dept_filter,
         Subject.semester == semester
     )
     if term and term != "All":
@@ -449,8 +457,9 @@ def generate_exam_schedule(
     room_capacity_by_id = {r.id: (r.capacity or 40) for r in rooms}
     if not room_ids:
         raise ValueError(f"No available exam rooms found for {department}. Sync or seed the Exam-Rooms.xlsx room list first.")
+    sec_dept_filter = (Course.category == department) if department in ("College", "SHS") else or_(Course.category == department, Course.department_code == department)
     sections = db.query(Section).join(Course).filter(
-        Course.category == department,
+        sec_dept_filter,
         or_(Section.semester == semester, Section.semester.is_(None))
     ).all()
     
@@ -548,7 +557,7 @@ def generate_exam_schedule(
         "Tourism": "SHS",
     }
     all_courses_list = db.query(Course).all()
-    course_id_to_dept = {c.id: COURSE_TO_DEPT.get(c.name, c.category or "College") for c in all_courses_list}
+    course_id_to_dept = {c.id: (c.department_code or COURSE_TO_DEPT.get(c.name, c.category or "College")) for c in all_courses_list}
 
     proctor_data = {}
     for proctor in all_proctors:
@@ -896,7 +905,7 @@ def generate_exam_schedule(
                 "sub_id": sub.id,
                 "sub_name": sub.name,
                 "course_id": sub.course_id,
-                "exam_dept": course_id_to_dept.get(sub.course_id, "College"),
+                "exam_dept": getattr(sub, "department_code", None) or course_id_to_dept.get(sub.course_id, "College"),
                 "year_level_id": sub.year_level_id,
                 "semester": sub.semester,
                 "subjects_per_section": subjects_per_section.get(sec.id, 0),

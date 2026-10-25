@@ -62,6 +62,7 @@ const INITIAL_GENERATION_STATE = {
 
 function ReschedulingRequests({ isGenerating, onRequestsChange }) {
   const { theme } = useTheme();
+  const { user } = useUser();
   const isDark = theme === "dark";
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -227,6 +228,31 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
         </button>
       </div>
 
+      {/* Department Routing Notice */}
+      <div className={`p-4 rounded-2xl border flex items-center justify-between text-xs transition-all ${
+        user?.is_super_admin
+          ? isDark ? "bg-amber-950/20 border-amber-800/40 text-amber-200" : "bg-amber-50 border-amber-200 text-amber-900"
+          : isDark ? "bg-blue-950/20 border-blue-800/40 text-blue-200" : "bg-blue-50 border-blue-200 text-blue-900"
+      }`}>
+        <div className="flex items-center gap-2.5">
+          {user?.is_super_admin ? (
+            <ShieldCheckIcon className="w-5 h-5 text-amber-500 shrink-0" />
+          ) : (
+            <BuildingOffice2Icon className="w-5 h-5 text-blue-500 shrink-0" />
+          )}
+          <div>
+            <span className="font-bold uppercase tracking-wider block text-[11px]">
+              {user?.is_super_admin ? "Super Admin Authority (General Education)" : `${user?.department_code || "Department"} Administrator`}
+            </span>
+            <p className="mt-0.5 text-xs opacity-90">
+              {user?.is_super_admin
+                ? "Full cross-department access active: You can review, approve, and auto-assign requests across all school departments and academic programs."
+                : `Student rescheduling requests for ${user?.department_code || "your department"} are automatically routed here. Cross-department approvals are restricted to Super Admin.`}
+            </p>
+          </div>
+        </div>
+      </div>
+
       {activeSubTab === "pending" ? (
         loading ? (
           <div className="flex items-center justify-center py-16">
@@ -251,78 +277,91 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
                     <div className="flex items-center gap-2 mb-1.5">
                       <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider border ${isDark ? "bg-amber-950/40 text-amber-300 border-amber-800/60" : "bg-amber-50 text-amber-900 border-amber-300"
                         }`}>Pending</span>
-                      {req.department && (
-                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
-                          req.department === "College"
-                            ? isDark ? "bg-blue-950/50 text-blue-300 border-blue-800/60" : "bg-blue-50 text-blue-800 border-blue-200"
-                            : isDark ? "bg-purple-950/50 text-purple-300 border-purple-800/60" : "bg-purple-50 text-purple-800 border-purple-200"
-                        }`}>
-                          {req.department === "College" ? "College (Building B)" : "SHS (Building C)"}
-                        </span>
-                      )}
+                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
+                        req.department_code === "GE"
+                          ? isDark ? "bg-purple-950/50 text-purple-300 border-purple-800/60" : "bg-purple-50 text-purple-800 border-purple-200"
+                          : req.department_code === "ICT"
+                          ? isDark ? "bg-blue-950/50 text-blue-300 border-blue-800/60" : "bg-blue-50 text-blue-800 border-blue-200"
+                          : isDark ? "bg-slate-800 text-slate-300 border-slate-700" : "bg-slate-100 text-slate-800 border-slate-200"
+                      }`}>
+                        Dept: {req.department_code || req.department || "General"}
+                      </span>
                     </div>
                     <h4 className={`text-lg font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
                       {req.course_name}
                     </h4>
                     <p className={`text-sm mt-0.5 ${isDark ? "text-slate-400" : "text-slate-600"}`}>
-                      {req.student_name} &bull; Section: <strong className="font-semibold">{req.section_name}</strong>
+                      {req.student_name} {req.program ? <> &bull; Program: <strong className="font-semibold text-blue-600 dark:text-blue-400">{req.program}</strong></> : null} &bull; Section: <strong className="font-semibold">{req.section_name}</strong>
                     </p>
                   </div>
-                  <div className="flex flex-wrap gap-2 shrink-0 w-full sm:w-auto">
-                    {req.auto_assignment?.success ? (
-                      <>
+                  {(() => {
+                    const canReview = user?.is_super_admin || !req.department_code || user?.department_code === req.department_code;
+                    if (!canReview) {
+                      return (
+                        <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                          <ShieldCheckIcon className="w-4 h-4 shrink-0" />
+                          <span>Requires {req.department_code} Admin / Super Admin</span>
+                        </div>
+                      );
+                    }
+                    return (
+                      <div className="flex flex-wrap gap-2 shrink-0 w-full sm:w-auto">
+                        {req.auto_assignment?.success ? (
+                          <>
+                            <button
+                              onClick={() => handleAutoAssign(req.id)}
+                              disabled={isGenerating}
+                              className={`flex-1 sm:flex-initial px-4 py-2.5 rounded-xl font-bold text-sm transition shadow-sm flex items-center justify-center gap-1.5 ${
+                                isGenerating
+                                  ? "bg-emerald-800/50 text-emerald-300 cursor-not-allowed"
+                                  : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-900/20"
+                              }`}
+                              title={isGenerating ? "Cannot approve while schedule generation is running" : "Approve with automatically assigned time and room"}
+                            >
+                              <CheckBadgeIcon className="w-4 h-4" />
+                              <span>Approve (Auto-Assigned)</span>
+                            </button>
+                            <button
+                              onClick={() => handleApproveClick(req)}
+                              disabled={isGenerating}
+                              className={`flex-1 sm:flex-initial px-3.5 py-2.5 rounded-xl font-semibold text-xs transition border ${
+                                isDark
+                                  ? "border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700"
+                                  : "border-slate-300 bg-slate-50 text-slate-700 hover:bg-slate-100"
+                              }`}
+                              title="Manually override time slot or room"
+                            >
+                              Manual Review
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            onClick={() => handleApproveClick(req)}
+                            disabled={isGenerating}
+                            className={`flex-1 sm:flex-initial px-4 py-2.5 rounded-xl font-bold text-sm transition ${
+                              isGenerating ? "bg-emerald-800/50 text-emerald-300 cursor-not-allowed" : "bg-emerald-600 hover:bg-emerald-700 text-white"
+                            }`}
+                            title={isGenerating ? "Cannot approve while schedule generation is running" : ""}
+                          >
+                            {req.student_type === "irregular" ? "Manual Review & Approve" : "Approve"}
+                          </button>
+                        )}
                         <button
-                          onClick={() => handleAutoAssign(req.id)}
+                          onClick={() => {
+                            if (isGenerating) return;
+                            const comments = prompt("Rejection reason (optional):");
+                            if (comments !== null) handleReview(req.id, "rejected", comments || "");
+                          }}
                           disabled={isGenerating}
-                          className={`flex-1 sm:flex-initial px-4 py-2.5 rounded-xl font-bold text-sm transition shadow-sm flex items-center justify-center gap-1.5 ${
-                            isGenerating
-                              ? "bg-emerald-800/50 text-emerald-300 cursor-not-allowed"
-                              : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-900/20"
-                          }`}
-                          title={isGenerating ? "Cannot approve while schedule generation is running" : "Approve with automatically assigned time and room"}
+                          className={`flex-1 sm:flex-initial px-4 py-2.5 rounded-xl font-bold text-sm transition ${isGenerating ? "bg-rose-900/40 text-rose-300 cursor-not-allowed" : "bg-rose-600 hover:bg-rose-700 text-white"
+                            }`}
+                          title={isGenerating ? "Cannot reject while schedule generation is running" : ""}
                         >
-                          <CheckBadgeIcon className="w-4 h-4" />
-                          <span>Approve (Auto-Assigned)</span>
+                          Reject
                         </button>
-                        <button
-                          onClick={() => handleApproveClick(req)}
-                          disabled={isGenerating}
-                          className={`flex-1 sm:flex-initial px-3.5 py-2.5 rounded-xl font-semibold text-xs transition border ${
-                            isDark
-                              ? "border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700"
-                              : "border-slate-300 bg-slate-50 text-slate-700 hover:bg-slate-100"
-                          }`}
-                          title="Manually override time slot or room"
-                        >
-                          Manual Review
-                        </button>
-                      </>
-                    ) : (
-                      <button
-                        onClick={() => handleApproveClick(req)}
-                        disabled={isGenerating}
-                        className={`flex-1 sm:flex-initial px-4 py-2.5 rounded-xl font-bold text-sm transition ${
-                          isGenerating ? "bg-emerald-800/50 text-emerald-300 cursor-not-allowed" : "bg-emerald-600 hover:bg-emerald-700 text-white"
-                        }`}
-                        title={isGenerating ? "Cannot approve while schedule generation is running" : ""}
-                      >
-                        {req.student_type === "irregular" ? "Manual Review & Approve" : "Approve"}
-                      </button>
-                    )}
-                    <button
-                      onClick={() => {
-                        if (isGenerating) return;
-                        const comments = prompt("Rejection reason (optional):");
-                        if (comments !== null) handleReview(req.id, "rejected", comments || "");
-                      }}
-                      disabled={isGenerating}
-                      className={`flex-1 sm:flex-initial px-4 py-2.5 rounded-xl font-bold text-sm transition ${isGenerating ? "bg-rose-900/40 text-rose-300 cursor-not-allowed" : "bg-rose-600 hover:bg-rose-700 text-white"
-                        }`}
-                      title={isGenerating ? "Cannot reject while schedule generation is running" : ""}
-                    >
-                      Reject
-                    </button>
-                  </div>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Auto-Assignment Recommendation Box */}
@@ -450,12 +489,17 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
                       <span className={`text-xs ${isDark ? "text-slate-500" : "text-slate-400"}`}>
                         ID: {req.id}
                       </span>
+                      {req.department_code && (
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${isDark ? "bg-slate-800 text-slate-300 border-slate-700" : "bg-slate-100 text-slate-700 border-slate-200"}`}>
+                          Dept: {req.department_code}
+                        </span>
+                      )}
                     </div>
                     <h4 className={`text-lg font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
                       {req.course_name}
                     </h4>
                     <p className={`text-sm mt-0.5 ${isDark ? "text-slate-400" : "text-slate-600"}`}>
-                      {req.student_name} &bull; Section: <strong className="font-semibold">{req.section_name}</strong>
+                      {req.student_name} {req.program ? <> &bull; Program: <strong className="font-semibold text-blue-600 dark:text-blue-400">{req.program}</strong></> : null} &bull; Section: <strong className="font-semibold">{req.section_name}</strong>
                     </p>
                   </div>
                 </div>
@@ -1819,7 +1863,17 @@ export default function ProgramHeadDashboard() {
           </div>
           <div className="text-center">
             <h2 className={`text-lg font-bold tracking-tight ${isDark ? "text-white" : "text-slate-900"}`}>{user?.name || "Admin"}</h2>
-            <p className={`text-xs font-medium tracking-wide uppercase mt-1 ${isDark ? "text-blue-400" : "text-blue-600"}`}>Exam Management</p>
+            <div className="flex items-center justify-center gap-1 mt-1">
+              {user?.is_super_admin ? (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                  Super Admin (GE)
+                </span>
+              ) : (
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${isDark ? "bg-blue-500/20 text-blue-400 border border-blue-500/30" : "bg-blue-50 text-blue-700 border border-blue-200"}`}>
+                  {user?.department_code ? `${user.department_code} Admin` : "Exam Management"}
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
@@ -1871,8 +1925,13 @@ export default function ProgramHeadDashboard() {
                 </div>
               </div>
               <div className="flex items-center gap-2 sm:gap-4 shrink-0">
-                <div className={`hidden md:flex px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all shadow-sm ${isDark ? "bg-blue-500/20 text-blue-400 border border-blue-500/30" : "bg-blue-50 text-blue-700 border border-blue-100"}`}>
-                  Administrator
+                <div className={`hidden md:flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all shadow-sm ${
+                  user?.is_super_admin
+                    ? isDark ? "bg-amber-500/20 text-amber-300 border border-amber-500/30" : "bg-amber-50 text-amber-800 border border-amber-200"
+                    : isDark ? "bg-blue-500/20 text-blue-400 border border-blue-500/30" : "bg-blue-50 text-blue-700 border border-blue-100"
+                }`}>
+                  <ShieldCheckIcon className="w-3.5 h-3.5" />
+                  {user?.is_super_admin ? "Super Admin (GE)" : `${user?.department_code || "Dept"} Admin`}
                 </div>
                 <div className="relative">
                   <button onClick={() => setShowNotifications(!showNotifications)} className={`relative p-2.5 rounded-xl transition-all duration-300 ${isDark ? "text-slate-300 hover:text-white hover:bg-slate-800" : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"}`}>

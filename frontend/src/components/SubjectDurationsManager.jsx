@@ -23,19 +23,20 @@ const COLLEGE_TERMS = ["All", "Prelim", "Midterm", "Pre-Final", "Final"];
 const SHS_TERMS = ["All", "ST1", "ST2", "T1"];
 
 // ─── Add / Edit Subject Modal ─────────────────────────────────────────────────
-function SubjectModal({ open, onClose, onSave, courses, yearLevels, initial }) {
+function SubjectModal({ open, onClose, onSave, courses, yearLevels, departments = [], initial }) {
   const { theme } = useTheme();
   const isDark = theme === "dark";
   const isEdit = !!initial;
   const [form, setForm] = useState({
     code: "", name: "", course_id: "", year_level_id: "",
     semester: 1, term: "All", category: "major", exam_type: "written", duration_minutes: 75,
+    department_code: "", program_ids: [],
   });
   const [saving, setSaving] = useState(false);
   const nameRef = useRef(null);
 
   const selectedCourse = courses.find((c) => String(c.id) === String(form.course_id));
-  const isSHS = selectedCourse?.category === "SHS";
+  const isSHS = selectedCourse?.category === "SHS" || form.department_code === "SHS";
   const termOptions = isSHS ? SHS_TERMS : COLLEGE_TERMS;
 
   const filteredYears = useMemo(() => {
@@ -48,20 +49,30 @@ function SubjectModal({ open, onClose, onSave, courses, yearLevels, initial }) {
   useEffect(() => {
     if (open) {
       if (initial) {
+        const initialPrograms = initial.program_ids && initial.program_ids.length > 0
+          ? initial.program_ids
+          : (initial.course_id ? [initial.course_id] : []);
         setForm({
           code: initial.code || "", name: initial.name || "",
           course_id: initial.course_id || "", year_level_id: initial.year_level_id || "",
           semester: initial.semester || 1, term: initial.term || "All",
           category: initial.category || "major", exam_type: initial.exam_type || "written",
           duration_minutes: initial.duration_minutes || 75,
+          department_code: initial.department_code || (initial.course_category === "SHS" ? "SHS" : "GE"),
+          program_ids: initialPrograms,
         });
       } else {
-        setForm({ code: "", name: "", course_id: "", year_level_id: "", semester: 1, term: "All", category: "major", exam_type: "written", duration_minutes: 75 });
+        const defaultDept = departments.length > 0 ? departments[0].code : "GE";
+        setForm({
+          code: "", name: "", course_id: "", year_level_id: "", semester: 1, term: "All",
+          category: "major", exam_type: "written", duration_minutes: 75,
+          department_code: defaultDept, program_ids: [],
+        });
       }
       setSaving(false);
       setTimeout(() => nameRef.current?.focus(), 50);
     }
-  }, [open, initial]);
+  }, [open, initial, departments]);
 
   useEffect(() => {
     if (isSHS && !SHS_TERMS.includes(form.term)) setForm((f) => ({ ...f, term: "ST1" }));
@@ -74,6 +85,11 @@ function SubjectModal({ open, onClose, onSave, courses, yearLevels, initial }) {
     e.preventDefault();
     if (!form.name.trim() || !form.course_id) return;
     setSaving(true);
+    const progIds = Array.from(new Set([
+      ...(form.program_ids || []).map(Number),
+      ...(form.course_id ? [Number(form.course_id)] : [])
+    ])).filter(Boolean);
+
     try {
       await onSave({
         ...form,
@@ -81,6 +97,8 @@ function SubjectModal({ open, onClose, onSave, courses, yearLevels, initial }) {
         year_level_id: form.year_level_id ? Number(form.year_level_id) : null,
         semester: Number(form.semester),
         duration_minutes: Number(form.duration_minutes),
+        department_code: form.department_code || null,
+        program_ids: progIds,
       });
       onClose();
     } catch { } finally { setSaving(false); }
@@ -112,7 +130,7 @@ function SubjectModal({ open, onClose, onSave, courses, yearLevels, initial }) {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4 max-h-[70vh] overflow-y-auto">
+        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4 max-h-[75vh] overflow-y-auto">
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2">
               <label className={lbl}>Subject Name <span className="text-red-500">*</span></label>
@@ -135,14 +153,88 @@ function SubjectModal({ open, onClose, onSave, courses, yearLevels, initial }) {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={lbl}>Course / Strand <span className="text-red-500">*</span></label>
-              <select value={form.course_id} onChange={(e) => set("course_id", e.target.value)} className={inp} required>
+              <label className={lbl}>Department / Program Group <span className="text-red-500">*</span></label>
+              <select
+                value={form.department_code}
+                onChange={(e) => set("department_code", e.target.value)}
+                className={inp}
+                required
+              >
+                <option value="">Select Department...</option>
+                {departments.map((dept) => (
+                  <option key={dept.code} value={dept.code}>
+                    {dept.name} ({dept.code})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={lbl}>Primary Course / Strand <span className="text-red-500">*</span></label>
+              <select
+                value={form.course_id}
+                onChange={(e) => {
+                  const cid = e.target.value;
+                  set("course_id", cid);
+                  if (cid && !form.program_ids.includes(Number(cid))) {
+                    set("program_ids", [...form.program_ids, Number(cid)]);
+                  }
+                }}
+                className={inp}
+                required
+              >
                 <option value="">Select course...</option>
                 {courses.map((c) => (
                   <option key={c.id} value={c.id}>{c.name} ({c.category})</option>
                 ))}
               </select>
             </div>
+          </div>
+
+          {/* Multiple Program Assignment (Shared / GE Subjects) */}
+          <div className={`p-3.5 rounded-xl border text-xs space-y-2 ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-slate-50 border-slate-200"}`}>
+            <div className="flex items-center justify-between">
+              <label className={`font-bold uppercase tracking-wider text-[11px] ${isDark ? "text-slate-300" : "text-slate-700"}`}>
+                Multi-Program Assignment (Shared / GE Subjects)
+              </label>
+              <span className="text-[10px] text-slate-400">
+                {form.program_ids.length} program{form.program_ids.length !== 1 ? "s" : ""} assigned
+              </span>
+            </div>
+            <p className={`text-[11px] ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+              Assign this subject to multiple programs/courses when shared across curricula (e.g., General Education subjects).
+            </p>
+            <div className="max-h-32 overflow-y-auto grid grid-cols-2 gap-1.5 pt-1">
+              {courses.map((c) => {
+                const isPrimary = String(form.course_id) === String(c.id);
+                const isChecked = form.program_ids.includes(c.id) || isPrimary;
+                return (
+                  <label key={c.id} className={`flex items-center gap-2 p-1.5 rounded-lg cursor-pointer text-xs transition ${
+                    isChecked
+                      ? isDark ? "bg-blue-950/40 text-blue-300 border border-blue-800/60" : "bg-blue-50 text-blue-900 border border-blue-200"
+                      : isDark ? "hover:bg-slate-700/50 text-slate-400" : "hover:bg-slate-100 text-slate-600"
+                  }`}>
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      disabled={isPrimary}
+                      onChange={(e) => {
+                        const cid = c.id;
+                        if (e.target.checked) {
+                          set("program_ids", [...form.program_ids, cid]);
+                        } else {
+                          set("program_ids", form.program_ids.filter((id) => id !== cid));
+                        }
+                      }}
+                      className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="truncate">{c.name} ({c.category})</span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={lbl}>Year Level</label>
               <select value={form.year_level_id} onChange={(e) => set("year_level_id", e.target.value)} className={inp}>
@@ -150,15 +242,28 @@ function SubjectModal({ open, onClose, onSave, courses, yearLevels, initial }) {
                 {filteredYears.map((y) => (<option key={y.id} value={y.id}>{y.name}</option>))}
               </select>
             </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={lbl}>Semester</label>
               <select value={form.semester} onChange={(e) => set("semester", e.target.value)} className={inp}>
                 <option value={1}>1st Semester</option>
                 <option value={2}>2nd Semester</option>
                 {isSHS && <option value={3}>3rd Semester</option>}
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={lbl}>Category</label>
+              <select value={form.category} onChange={(e) => {
+                const cat = e.target.value;
+                set("category", cat);
+                if (cat === "general" && !form.department_code) {
+                  set("department_code", "GE");
+                }
+              }} className={inp}>
+                <option value="major">Major Subject</option>
+                <option value="general">General Education / Minor</option>
               </select>
             </div>
             <div>
@@ -172,14 +277,7 @@ function SubjectModal({ open, onClose, onSave, courses, yearLevels, initial }) {
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={lbl}>Category</label>
-              <select value={form.category} onChange={(e) => set("category", e.target.value)} className={inp}>
-                <option value="major">Major Subject</option>
-                <option value="general">General Education / Minor</option>
-              </select>
-            </div>
-            <div>
+            <div className="col-span-2">
               <label className={lbl}>Exam Duration</label>
               <select value={form.duration_minutes} onChange={(e) => set("duration_minutes", e.target.value)} className={inp}>
                 <option value={60}>1h 00m (60 mins)</option>
@@ -193,9 +291,7 @@ function SubjectModal({ open, onClose, onSave, courses, yearLevels, initial }) {
           </div>
 
           <div className={`p-3 rounded-xl border text-xs ${isDark ? "bg-blue-950/20 border-blue-800/40 text-blue-300" : "bg-blue-50 border-blue-200 text-blue-700"}`}>
-            <strong>Tip:</strong> The <em>Exam Term</em> controls which schedule generation this subject appears in.
-            Subjects set to <em>All Terms</em> always appear.
-            {isSHS && <> SHS uses <strong>ST1</strong>, <strong>ST2</strong>, <strong>T1</strong>.</>}
+            <strong>Tip:</strong> The <em>Department</em> links this subject to the department administrator, and multiple programs can take this subject.
           </div>
         </form>
 
@@ -224,6 +320,7 @@ export default function SubjectDurationsManager() {
   const [subjects, setSubjects] = useState([]);
   const [courses, setCourses] = useState([]);
   const [yearLevels, setYearLevels] = useState([]);
+  const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [savingId, setSavingId] = useState(null);
   const [bulkApplying, setBulkApplying] = useState(false);
@@ -244,12 +341,14 @@ export default function SubjectDurationsManager() {
 
   const fetchMetadata = async () => {
     try {
-      const [cRes, yRes] = await Promise.all([
+      const [cRes, yRes, dRes] = await Promise.all([
         api.get("/catalog/courses"),
         api.get("/catalog/year-levels"),
+        api.get("/catalog/departments"),
       ]);
       setCourses(cRes.data || []);
       setYearLevels(yRes.data || []);
+      setDepartments(dRes.data || []);
     } catch (err) { console.error("Failed to fetch catalog metadata:", err); }
   };
 
@@ -366,14 +465,22 @@ export default function SubjectDurationsManager() {
   };
 
   const filteredSubjects = useMemo(() => subjects.filter((sub) => {
-    if (departmentFilter !== "All" && sub.course_category !== departmentFilter) return false;
+    if (departmentFilter !== "All") {
+      const match = sub.department_code === departmentFilter ||
+        (departmentFilter === "College" && sub.course_category === "College") ||
+        (departmentFilter === "SHS" && sub.course_category === "SHS");
+      if (!match) return false;
+    }
     if (courseFilter !== "All" && sub.course_name !== courseFilter) return false;
     if (yearFilter !== "All" && sub.year_level_name !== yearFilter) return false;
     if (categoryFilter !== "All" && sub.category !== categoryFilter) return false;
     if (termFilter !== "All" && sub.term !== termFilter) return false;
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-      if (!sub.name.toLowerCase().includes(q) && !(sub.course_name || "").toLowerCase().includes(q) && !(sub.code || "").toLowerCase().includes(q)) return false;
+      if (!sub.name.toLowerCase().includes(q) &&
+          !(sub.course_name || "").toLowerCase().includes(q) &&
+          !(sub.code || "").toLowerCase().includes(q) &&
+          !(sub.department_code || "").toLowerCase().includes(q)) return false;
     }
     return true;
   }), [subjects, departmentFilter, courseFilter, yearFilter, categoryFilter, termFilter, searchQuery]);
@@ -535,7 +642,12 @@ export default function SubjectDurationsManager() {
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 pt-4">
           <div><label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Department</label>
             <select value={departmentFilter} onChange={(e) => setDepartmentFilter(e.target.value)} className={selectCls}>
-              <option value="All">All</option><option value="College">College</option><option value="SHS">Senior High</option>
+              <option value="All">All Departments</option>
+              {departments.map((d) => (
+                <option key={d.code} value={d.code}>{d.name} ({d.code})</option>
+              ))}
+              <option value="College">All College</option>
+              <option value="SHS">All Senior High</option>
             </select>
           </div>
           <div><label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Course</label>
@@ -657,6 +769,7 @@ export default function SubjectDurationsManager() {
               }`}>
                 <tr>
                   <th className="py-3 px-4">Subject</th>
+                  <th className="py-3 px-4">Department</th>
                   <th className="py-3 px-4">Course</th>
                   <th className="py-3 px-4">Year</th>
                   <th className="py-3 px-4">Sem</th>
@@ -680,6 +793,22 @@ export default function SubjectDurationsManager() {
                       <td className="py-3 px-4 max-w-[240px] whitespace-normal">
                         <div className={`font-semibold break-words ${isDark ? "text-slate-100" : "text-slate-800"}`}>{sub.name}</div>
                         <div className="text-[10px] text-slate-400">{sub.code}</div>
+                      </td>
+                      <td className="py-3 px-4 whitespace-nowrap">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border ${
+                          sub.department_code === "GE"
+                            ? "bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800"
+                            : sub.department_code === "ICT"
+                            ? "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800"
+                            : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700"
+                        }`}>
+                          {sub.department_code || sub.course_category || "—"}
+                        </span>
+                        {sub.program_names && sub.program_names.length > 1 && (
+                          <div className="text-[10px] text-slate-400 mt-0.5" title={sub.program_names.join(", ")}>
+                            +{sub.program_names.length - 1} more program{sub.program_names.length > 2 ? "s" : ""}
+                          </div>
+                        )}
                       </td>
                       <td className="py-3 px-4 whitespace-nowrap">
                         <span className={`font-semibold ${isDark ? "text-slate-300" : "text-slate-700"}`}>{sub.course_name}</span>
@@ -774,6 +903,7 @@ export default function SubjectDurationsManager() {
         onSave={handleModalSave}
         courses={courses}
         yearLevels={yearLevels}
+        departments={departments}
         initial={modal.subject}
       />
     </div>

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.orm import Session, joinedload
 from core import get_db, cache
 from core.cache import TTL_EXAM_SCHEDULE
-from model import Exam, Timeslot, ReschedulingRequest, User, IrregularSelection, Subject, Section
+from model import Exam, Timeslot, ReschedulingRequest, User, IrregularSelection, Subject, Section, Course, Department, Notification
 from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime, time, timedelta
@@ -362,12 +362,56 @@ def submit_reschedule_request(
                 pass
         return None
 
+    # Dynamically resolve student's enrolled course and responsible department
+    # For irregular students, all subjects (including minor and GE subjects) must route to their program head
+    dept_code = None
+    student_program = body.program
+
+    # Priority 1: Check student's enrolled course_id
+    if current_user.course_id:
+        course_obj = db.query(Course).filter(Course.id == current_user.course_id).first()
+        if course_obj:
+            student_program = course_obj.name
+            if course_obj.department_code:
+                dept_code = course_obj.department_code
+
+    # Priority 2: Check current_user.course relationship
+    if not dept_code and current_user.course and current_user.course.department_code:
+        dept_code = current_user.course.department_code
+        student_program = current_user.course.name
+
+    # Priority 3: Resolve course by name (body.program)
+    if not dept_code and student_program:
+        course_obj = db.query(Course).filter(Course.name.ilike(student_program.strip())).first()
+        if course_obj and course_obj.department_code:
+            dept_code = course_obj.department_code
+            student_program = course_obj.name
+
+    # Priority 4: Check if student's section matches a course dynamically
+    if not dept_code and current_user.section_name:
+        for c in db.query(Course).all():
+            if c.name and c.name.lower() in current_user.section_name.lower():
+                dept_code = c.department_code
+                student_program = c.name
+                break
+
+    # Priority 5: Fallback to exam's course only if regular student without course_id
+    if not dept_code and exam and exam.course and exam.course.department_code:
+        dept_code = exam.course.department_code
+        if not student_program:
+            student_program = exam.course.name
+
+    # Priority 6: Default to GE department if unresolved
+    if not dept_code:
+        ge_dept = db.query(Department).filter(Department.is_super == True).first()
+        dept_code = ge_dept.code if ge_dept else "GE"
+
     db_req = ReschedulingRequest(
         exam_id=body.exam_id,
         section_name=body.section_name or (exam.section.name if exam.section else ""),
         student_name=body.student_name or current_user.name,
         student_id=body.student_id or current_user.student_id or (f"02000{str(current_user.id * 123457 % 900000 + 100000)}"),
-        program=body.program or (exam.course.name if exam.course else ""),
+        program=student_program or (exam.course.name if exam.course else ""),
         school_email=body.school_email or current_user.email,
         course_code=body.course_code or (exam.subject.code if exam.subject else ""),
         course_name=body.course_name or (exam.subject.name if exam.subject else ""),
@@ -383,6 +427,7 @@ def submit_reschedule_request(
         preferred_start_time=parse_time(body.preferred_start_time),
         preferred_end_time=parse_time(body.preferred_end_time),
         acknowledged=body.acknowledged,
+        department_code=dept_code,
     )
     if current_user.student_type == "irregular":
         if not db_req.preferred_date:
@@ -413,7 +458,31 @@ def submit_reschedule_request(
     db.add(db_req)
     db.commit()
     db.refresh(db_req)
-    log_activity(db, current_user.id, "STUDENT_RESCHED_SUBMIT", f"Exam ID: {body.exam_id}")
+
+    # Forward notification to the student's dedicated department program head
+    dept_admin = db.query(User).filter(
+        User.role.in_(["program_head", "admin"]),
+        User.department_code == dept_code
+    ).first()
+
+    target_admin = dept_admin
+    if not target_admin:
+        target_admin = db.query(User).filter(
+            User.role.in_(["program_head", "admin"]),
+            User.is_super_admin == True
+        ).first()
+
+    if target_admin:
+        notification = Notification(
+            user_id=target_admin.id,
+            message=f"New [{dept_code}] rescheduling request submitted by {db_req.student_name} ({db_req.program}) for {db_req.course_name} ({db_req.course_code}).",
+            type="info",
+            related_id=db_req.id
+        )
+        db.add(notification)
+        db.commit()
+
+    log_activity(db, current_user.id, "STUDENT_RESCHED_SUBMIT", f"Exam ID: {body.exam_id}, Dept: {dept_code}")
     return {"message": "Request submitted successfully", "id": db_req.id}
 
 # ========== ENDPOINTS FOR IRREGULAR STUDENTS ==========
@@ -433,6 +502,9 @@ def set_student_type(
     current_user.student_type = req.student_type
     if req.course_id is not None:
         current_user.course_id = req.course_id
+        course_obj = db.query(Course).filter(Course.id == req.course_id).first()
+        if course_obj and course_obj.department_code:
+            current_user.department_code = course_obj.department_code
     db.commit()
     log_activity(db, current_user.id, "STUDENT_TYPE_CHANGE", f"New Type: {req.student_type}, Course: {req.course_id}")
     return {
@@ -451,6 +523,9 @@ def set_student_course(
     db: Session = Depends(get_db)
 ):
     current_user.course_id = req.course_id
+    course_obj = db.query(Course).filter(Course.id == req.course_id).first()
+    if course_obj and course_obj.department_code:
+        current_user.department_code = course_obj.department_code
     db.commit()
     log_activity(db, current_user.id, "STUDENT_COURSE_CHANGE", f"New Course ID: {req.course_id}")
     return {"course_id": current_user.course_id}
