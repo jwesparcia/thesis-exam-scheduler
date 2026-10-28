@@ -1,7 +1,7 @@
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 from core import SessionLocal, engine
-from model import Base, Course, YearLevel, Section, Subject, Room, Timeslot, Teacher, Exam, DistributionRule, User, Proctor, ProctorAvailability, IrregularSelection
+from model import Base, Course, YearLevel, Section, Subject, Room, Timeslot, Teacher, Exam, DistributionRule, User, Proctor, ProctorAvailability, IrregularSelection, SubjectProgram
 from room_data import AVAILABLE_EXAM_ROOMS
 import bcrypt
 from datetime import date, time, timedelta, datetime
@@ -829,6 +829,8 @@ shs_subjects = {
 # -------------------------
 sections = []
 subjects = []
+subject_programs = []
+shared_subjects_map = {}
 
 def classify_subject(name: str):
     # Practical subjects
@@ -906,19 +908,29 @@ def generate_subjects(course, year, semester):
             subj_code = f"{course.name[:2].upper()}{year.id}{semester}{len(subject_objs)+1:02d}"
         
         exam_type, category = classify_subject(subj_name)
+        norm_key = (" ".join(subj_name.strip().lower().split()), year.id, semester, exam_type)
         
-        subj = Subject(
-            code=subj_code,
-            name=subj_name,
-            course_id=course.id,
-            year_level_id=year.id,
-            semester=semester,
-            teacher_id=random.choice(teacher_ids) if teacher_ids else None,
-            exam_type=exam_type,
-            category=category,
-            duration_minutes=120 if (course.name == "BSA" and category == "major") else 75
-        )
-        subject_objs.append(subj)
+        if norm_key in shared_subjects_map:
+            master_subj = shared_subjects_map[norm_key]
+            # Will link course via SubjectProgram after subjects get IDs
+            if not hasattr(master_subj, "_assigned_cids"):
+                master_subj._assigned_cids = {master_subj.course_id}
+            master_subj._assigned_cids.add(course.id)
+        else:
+            subj = Subject(
+                code=subj_code,
+                name=subj_name,
+                course_id=course.id,
+                year_level_id=year.id,
+                semester=semester,
+                teacher_id=random.choice(teacher_ids) if teacher_ids else None,
+                exam_type=exam_type,
+                category=category,
+                duration_minutes=120 if (course.name == "BSA" and category == "major") else 75
+            )
+            subj._assigned_cids = {course.id}
+            shared_subjects_map[norm_key] = subj
+            subject_objs.append(subj)
     return subject_objs
 
 for course in courses:
@@ -951,9 +963,15 @@ for course in courses:
 
 db.add_all(sections)
 db.add_all(subjects)
+db.flush()
+
+for subj in subjects:
+    for cid in getattr(subj, "_assigned_cids", [subj.course_id]):
+        subject_programs.append(SubjectProgram(subject_id=subj.id, course_id=cid))
+db.add_all(subject_programs)
 db.commit()
 
-print("Database seeded successfully!")
+print(f"Database seeded successfully with {len(subjects)} distinct subjects and {len(subject_programs)} program assignments!")
 
 # -------------------------
 # Rooms

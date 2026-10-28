@@ -263,10 +263,10 @@ def verify_and_change_password(
             detail="Invalid or expired verification code."
         )
         
-    if len(payload.new_password) < 6:
+    if len(payload.new_password) < 8 or len(payload.new_password) > 12:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Password must be at least 6 characters long."
+            detail="Password must be between 8 and 12 characters long."
         )
         
     hashed = hash_password(payload.new_password)

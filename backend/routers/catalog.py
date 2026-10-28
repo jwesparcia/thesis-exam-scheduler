@@ -5,6 +5,7 @@ from core import get_db, cache
 from core.cache import TTL_STATIC, TTL_CATALOG_STATS, TTL_CATALOG_DETAILS
 from services import crud
 import io
+import re
 import pandas as pd
 import bcrypt
 from typing import List, Optional
@@ -420,6 +421,19 @@ def get_student_stats(db: Session = Depends(get_db), current_user: User = Depend
     cache.set(_KEY_STUDENT_STATS, result, TTL_CATALOG_STATS)
     return result
 
+def parse_time_str(val):
+    if not val:
+        return None
+    if isinstance(val, time):
+        return val
+    s = str(val).strip()
+    for fmt in ("%H:%M:%S", "%H:%M", "%I:%M %p", "%I:%M%p"):
+        try:
+            return datetime.strptime(s, fmt).time()
+        except ValueError:
+            pass
+    return None
+
 class SubjectCreateRequest(BaseModel):
     code: Optional[str] = None
     name: str
@@ -432,6 +446,10 @@ class SubjectCreateRequest(BaseModel):
     duration_minutes: int = 75
     department_code: Optional[str] = None
     program_ids: Optional[List[int]] = None
+    is_fixed_timeslot: Optional[bool] = False
+    fixed_day: Optional[int] = None
+    fixed_start_time: Optional[str] = None
+    fixed_end_time: Optional[str] = None
 
 class SubjectUpdateRequest(BaseModel):
     code: Optional[str] = None
@@ -445,6 +463,10 @@ class SubjectUpdateRequest(BaseModel):
     duration_minutes: Optional[int] = None
     department_code: Optional[str] = None
     program_ids: Optional[List[int]] = None
+    is_fixed_timeslot: Optional[bool] = None
+    fixed_day: Optional[int] = None
+    fixed_start_time: Optional[str] = None
+    fixed_end_time: Optional[str] = None
 
 @router.get("/subjects")
 @router.get("/subjects/durations")
@@ -530,6 +552,10 @@ def get_subject_durations(
             "department_name": dept_name,
             "program_ids": assigned_p_ids,
             "program_names": assigned_p_names,
+            "is_fixed_timeslot": bool(s.is_fixed_timeslot),
+            "fixed_day": s.fixed_day,
+            "fixed_start_time": s.fixed_start_time.strftime("%H:%M") if s.fixed_start_time else None,
+            "fixed_end_time": s.fixed_end_time.strftime("%H:%M") if s.fixed_end_time else None,
         })
     return results
 
@@ -577,6 +603,11 @@ def create_subject(
         else:
             duration = 75
 
+    is_fixed = bool(payload.is_fixed_timeslot)
+    f_day = payload.fixed_day if is_fixed else None
+    f_start = parse_time_str(payload.fixed_start_time) if is_fixed else None
+    f_end = parse_time_str(payload.fixed_end_time) if is_fixed else None
+
     new_sub = Subject(
         code=code,
         name=payload.name.strip(),
@@ -587,7 +618,11 @@ def create_subject(
         category=cat,
         exam_type=payload.exam_type or "written",
         duration_minutes=duration,
-        department_code=dept_code
+        department_code=dept_code,
+        is_fixed_timeslot=is_fixed,
+        fixed_day=f_day,
+        fixed_start_time=f_start,
+        fixed_end_time=f_end
     )
     db.add(new_sub)
     db.flush()
@@ -626,7 +661,11 @@ def create_subject(
             "department_code": new_sub.department_code,
             "department_name": new_sub.department_rel.name if new_sub.department_rel else None,
             "program_ids": assigned_p_ids,
-            "program_names": assigned_p_names
+            "program_names": assigned_p_names,
+            "is_fixed_timeslot": bool(new_sub.is_fixed_timeslot),
+            "fixed_day": new_sub.fixed_day,
+            "fixed_start_time": new_sub.fixed_start_time.strftime("%H:%M") if new_sub.fixed_start_time else None,
+            "fixed_end_time": new_sub.fixed_end_time.strftime("%H:%M") if new_sub.fixed_end_time else None
         }
     }
 
@@ -667,6 +706,27 @@ def update_subject(
         subject.duration_minutes = payload.duration_minutes
     if payload.department_code is not None:
         subject.department_code = payload.department_code.strip() if payload.department_code else None
+
+    # Handle fixed time slot updates
+    if payload.is_fixed_timeslot is not None:
+        subject.is_fixed_timeslot = bool(payload.is_fixed_timeslot)
+        if subject.is_fixed_timeslot:
+            subject.fixed_day = payload.fixed_day
+            subject.fixed_start_time = parse_time_str(payload.fixed_start_time)
+            subject.fixed_end_time = parse_time_str(payload.fixed_end_time)
+        else:
+            subject.fixed_day = None
+            subject.fixed_start_time = None
+            subject.fixed_end_time = None
+        
+        # If subject is a shared/minor/GE subject, sync the fixed slot across all instances with the same name
+        if subject.category in ["general", "minor"]:
+            db.query(Subject).filter(Subject.name == subject.name).update({
+                Subject.is_fixed_timeslot: subject.is_fixed_timeslot,
+                Subject.fixed_day: subject.fixed_day,
+                Subject.fixed_start_time: subject.fixed_start_time,
+                Subject.fixed_end_time: subject.fixed_end_time,
+            }, synchronize_session=False)
 
     # Handle multiple program assignments
     if payload.program_ids is not None:
@@ -711,7 +771,11 @@ def update_subject(
             "department_code": subject.department_code,
             "department_name": subject.department_rel.name if subject.department_rel else None,
             "program_ids": assigned_p_ids,
-            "program_names": assigned_p_names
+            "program_names": assigned_p_names,
+            "is_fixed_timeslot": bool(subject.is_fixed_timeslot),
+            "fixed_day": subject.fixed_day,
+            "fixed_start_time": subject.fixed_start_time.strftime("%H:%M") if subject.fixed_start_time else None,
+            "fixed_end_time": subject.fixed_end_time.strftime("%H:%M") if subject.fixed_end_time else None
         }
     }
 
@@ -748,6 +812,116 @@ def delete_subject(
         log_activity(db, current_user.id, "SUBJECT_DELETE", f"Deleted subject {sub_name}")
 
     return {"message": f"Subject '{sub_name}' has been deleted."}
+
+@router.post("/subjects/consolidate-shared")
+def consolidate_shared_subjects(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(["admin", "program_head"]))
+):
+    """
+    Consolidate identical shared subjects (GE and common major subjects) across multiple degree programs
+    into single canonical subject records with multi-program assignments (SubjectProgram).
+    Re-links TeacherTeaching, Exam, and IrregularSelection records seamlessly.
+    """
+    try:
+        from collections import defaultdict
+        subjects = db.query(Subject).options(
+            joinedload(Subject.assigned_programs),
+            joinedload(Subject.course)
+        ).all()
+
+        groups = defaultdict(list)
+        for s in subjects:
+            norm_name = " ".join(s.name.strip().lower().split()) if s.name else ""
+            key = (norm_name, s.year_level_id, s.semester, s.exam_type or "written")
+            groups[key].append(s)
+
+        merged_groups = 0
+        duplicate_records = 0
+        total_sp_added = 0
+
+        for key, sub_list in groups.items():
+            if len(sub_list) <= 1:
+                continue
+
+            sub_list.sort(key=lambda s: s.id)
+            canonical = sub_list[0]
+            duplicates = sub_list[1:]
+
+            all_course_ids = set()
+            for s in sub_list:
+                if s.course_id:
+                    all_course_ids.add(s.course_id)
+                for sp in s.assigned_programs:
+                    all_course_ids.add(sp.course_id)
+
+            existing_sp_cids = {sp.course_id for sp in canonical.assigned_programs}
+            for cid in all_course_ids:
+                if cid not in existing_sp_cids:
+                    db.add(SubjectProgram(subject_id=canonical.id, course_id=cid))
+                    existing_sp_cids.add(cid)
+                    total_sp_added += 1
+
+            if any(s.category == "general" for s in sub_list):
+                canonical.category = "general"
+
+            if any(s.department_code == "GE" for s in sub_list):
+                canonical.department_code = "GE"
+
+            dup_ids = [s.id for s in duplicates]
+
+            # Re-link TeacherTeaching records
+            dup_teachings = db.query(TeacherTeaching).filter(TeacherTeaching.subject_id.in_(dup_ids)).all()
+            for tt in dup_teachings:
+                existing_tt = db.query(TeacherTeaching).filter(
+                    TeacherTeaching.teacher_id == tt.teacher_id,
+                    TeacherTeaching.subject_id == canonical.id,
+                    TeacherTeaching.section_id == tt.section_id
+                ).first()
+                if existing_tt:
+                    db.delete(tt)
+                else:
+                    tt.subject_id = canonical.id
+
+            # Re-link Exam records
+            db.query(Exam).filter(Exam.subject_id.in_(dup_ids)).update(
+                {Exam.subject_id: canonical.id},
+                synchronize_session=False
+            )
+
+            # Re-link IrregularSelection records
+            db.query(IrregularSelection).filter(IrregularSelection.subject_id.in_(dup_ids)).update(
+                {IrregularSelection.subject_id: canonical.id},
+                synchronize_session=False
+            )
+
+            # Delete duplicate SubjectPrograms and Subjects
+            db.query(SubjectProgram).filter(SubjectProgram.subject_id.in_(dup_ids)).delete(synchronize_session=False)
+            db.query(Subject).filter(Subject.id.in_(dup_ids)).delete(synchronize_session=False)
+
+            merged_groups += 1
+            duplicate_records += len(duplicates)
+
+        db.commit()
+
+        cache.delete_pattern("catalog:details:*")
+        cache.delete("catalog:stats")
+        _invalidate_student_exam_schedules()
+
+        total_remaining = db.query(Subject).count()
+        msg = f"Consolidation complete: merged {merged_groups} shared subject groups, removed {duplicate_records} duplicates across programs. {total_remaining} distinct subjects active."
+        log_activity(db, current_user.id, "SUBJECTS_CONSOLIDATE", msg)
+
+        return {
+            "message": msg,
+            "merged_groups": merged_groups,
+            "removed_count": duplicate_records,
+            "total_subjects": total_remaining,
+            "programs_linked": total_sp_added
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to consolidate shared subjects: {str(e)}")
 
 @router.put("/subjects/{subject_id}/duration")
 def update_subject_duration(
@@ -843,9 +1017,28 @@ def bulk_update_subject_durations(
 @router.get("/download-template")
 def download_template(db: Session = Depends(get_db), current_user: User = Depends(require_role(["admin"]))):
     """
-    Generate and stream the current curriculum data as an Excel file.
-    Falls back to sample template data if database is empty.
+    Generate and stream the curriculum template data as an Excel file.
+    Streams the master aligned school_curriculum.xlsx if available.
     """
+    import os
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    candidates = [
+        os.path.join(base_dir, "..", "..", "data", "import", "school_curriculum.xlsx"),
+        os.path.join(base_dir, "..", "..", "data", "import", "school_curriculum_sample_edited.xlsx"),
+        os.path.join(base_dir, "..", "..", "frontend", "public", "school_curriculum.xlsx"),
+    ]
+    file_path = next((p for p in candidates if os.path.exists(p)), None)
+    if file_path:
+        file_like = open(file_path, mode="rb")
+        return StreamingResponse(
+            file_like,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={
+                "Content-Disposition": 'attachment; filename="school_curriculum.xlsx"',
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+            }
+        )
+
     columns = ["Course", "Category", "Year Level", "Section", "Subject Code", "Subject Name", "Teacher Name", "Subject Category", "Exam Type"]
     
     rows = []
@@ -991,8 +1184,12 @@ def upload_catalog_excel(
         existing_sections[(s.name.upper(), s.course_id)] = s
     
     existing_subjects = {}
+    existing_shared_subjects = {}
     for sub in db.query(Subject).all():
-        existing_subjects[(sub.code.upper(), sub.course_id)] = sub
+        if sub.code:
+            existing_subjects[(sub.code.upper(), sub.course_id)] = sub
+        n_key = (" ".join(sub.name.strip().lower().split()) if sub.name else "", sub.year_level_id, sub.semester, sub.exam_type or "written")
+        existing_shared_subjects[n_key] = sub
 
     # For auto-generating code counters if codes are missing
     subj_code_counters = {}
@@ -1065,28 +1262,46 @@ def upload_catalog_excel(
                 continue
 
             # 1. Course
-            course_key = course_val.upper()
-            if course_key not in existing_courses:
-                # Validate category_val is a proper department type (College/SHS)
-                # It could be wrong (e.g. 'major'/'general' from subject category column mismatch)
-                VALID_DEPT_CATS = {"college", "shs", "senior high", "senior high school"}
-                if not category_val or str(category_val).lower() == 'nan' or category_val.lower() not in VALID_DEPT_CATS:
-                    if course_key in ["STEM", "ABM", "HUMSS", "HUMMS", "GAS", "DIGITAL ARTS", "CULINARY", "TOURISM", "IT-MAWDEV", "ICT"]:
-                        category_val = "SHS"
-                    elif course_key.startswith("BS") or course_key.startswith("BA") or course_key.startswith("BM"):
-                        category_val = "College"
-                    else:
-                        category_val = "College"
-                elif category_val.lower() in ("senior high", "senior high school"):
-                    category_val = "SHS"
-                
-                course_obj = Course(name=course_val, category=category_val)
-                db.add(course_obj)
-                db.flush()
-                existing_courses[course_key] = course_obj
-                stats["courses_created"] += 1
-            
-            course = existing_courses[course_key]
+            # 1. Course Resolution (single course, comma-separated courses, or 'College' / 'SHS')
+            raw_tokens = [c.strip() for c in re.split(r'[,/;]', course_val) if c.strip()]
+            resolved_courses = []
+            for token in raw_tokens:
+                t_key = token.upper()
+                if t_key in ("ALL COLLEGE", "COLLEGE", "ALL-COLLEGE", "GE"):
+                    college_courses = db.query(Course).filter(Course.category == "College").all()
+                    for cc in college_courses:
+                        if cc not in resolved_courses:
+                            resolved_courses.append(cc)
+                elif t_key in ("ALL SHS", "SHS", "ALL-SHS", "SENIOR HIGH"):
+                    shs_courses = db.query(Course).filter(Course.category == "SHS").all()
+                    for sc in shs_courses:
+                        if sc not in resolved_courses:
+                            resolved_courses.append(sc)
+                elif t_key in existing_courses:
+                    if existing_courses[t_key] not in resolved_courses:
+                        resolved_courses.append(existing_courses[t_key])
+                else:
+                    c_cat = category_val
+                    VALID_DEPT_CATS = {"college", "shs", "senior high", "senior high school"}
+                    if not c_cat or str(c_cat).lower() == 'nan' or c_cat.lower() not in VALID_DEPT_CATS:
+                        if t_key in ["STEM", "ABM", "HUMSS", "HUMMS", "GAS", "DIGITAL ARTS", "CULINARY", "TOURISM", "IT-MAWDEV", "ICT"]:
+                            c_cat = "SHS"
+                        else:
+                            c_cat = "College"
+                    elif c_cat.lower() in ("senior high", "senior high school"):
+                        c_cat = "SHS"
+
+                    course_obj = Course(name=token, category=c_cat)
+                    db.add(course_obj)
+                    db.flush()
+                    existing_courses[t_key] = course_obj
+                    resolved_courses.append(course_obj)
+                    stats["courses_created"] += 1
+
+            if not resolved_courses:
+                continue
+
+            course = resolved_courses[0]
 
             # 2. Year Level
             if not year_val or str(year_val).lower() == 'nan':
@@ -1142,7 +1357,8 @@ def upload_catalog_excel(
                 teacher = existing_teachers[teacher_key]
 
             # 5. Section
-            if not section_val or str(section_val).lower() == 'nan':
+            section_was_blank = not section_val or str(section_val).lower() == 'nan' or section_val.strip().lower() in ('all', 'all sections', '*')
+            if section_was_blank:
                 if course.category == 'College':
                     section_val = f"{course.name} {year_level.id}-{semester or 1}01"
                 else:
@@ -1177,7 +1393,22 @@ def upload_catalog_excel(
                 subj_cat_val = inferred_cat
 
             sub_key = (code_val.upper(), course.id)
-            if sub_key not in existing_subjects:
+            norm_name = " ".join(sub_name_val.strip().lower().split())
+            shared_key = (norm_name, year_level.id, semester, exam_type_val)
+
+            if shared_key in existing_shared_subjects:
+                # Reuse existing shared subject across programs
+                subject_obj = existing_shared_subjects[shared_key]
+                # Ensure SubjectProgram links this course
+                sp_exists = db.query(SubjectProgram).filter(
+                    SubjectProgram.subject_id == subject_obj.id,
+                    SubjectProgram.course_id == course.id
+                ).first()
+                if not sp_exists:
+                    db.add(SubjectProgram(subject_id=subject_obj.id, course_id=course.id))
+                    db.flush()
+                existing_subjects[sub_key] = subject_obj
+            elif sub_key not in existing_subjects:
                 subject_obj = Subject(
                     code=code_val,
                     name=sub_name_val,
@@ -1191,7 +1422,11 @@ def upload_catalog_excel(
                 )
                 db.add(subject_obj)
                 db.flush()
+                # Also add initial SubjectProgram link
+                db.add(SubjectProgram(subject_id=subject_obj.id, course_id=course.id))
+                db.flush()
                 existing_subjects[sub_key] = subject_obj
+                existing_shared_subjects[shared_key] = subject_obj
                 stats["subjects_created"] += 1
             else:
                 subject_obj = existing_subjects[sub_key]
@@ -1204,24 +1439,47 @@ def upload_catalog_excel(
                 subject_obj.category = subj_cat_val
                 db.flush()
             
-            subject = existing_subjects[sub_key]
+            subject = subject_obj
+
+            # Ensure SubjectProgram links all resolved courses!
+            for rc in resolved_courses:
+                sp_exists = db.query(SubjectProgram).filter(
+                    SubjectProgram.subject_id == subject_obj.id,
+                    SubjectProgram.course_id == rc.id
+                ).first()
+                if not sp_exists:
+                    db.add(SubjectProgram(subject_id=subject_obj.id, course_id=rc.id))
+            db.flush()
 
             # 7. TeacherTeaching Mapping
             if teacher:
-                teach_exists = db.query(TeacherTeaching).filter(
-                    TeacherTeaching.teacher_id == teacher.id,
-                    TeacherTeaching.subject_id == subject.id,
-                    TeacherTeaching.section_id == section.id
-                ).first()
-                if not teach_exists:
-                    teaching = TeacherTeaching(
-                        teacher_id=teacher.id,
-                        subject_id=subject.id,
-                        section_id=section.id
-                    )
-                    db.add(teaching)
-                    db.flush()
-                    stats["teaching_assignments"] += 1
+                target_sections = []
+                if section_was_blank or section_val.strip().lower() in ('all', 'all sections', '*'):
+                    for rc in resolved_courses:
+                        c_secs = db.query(Section).filter(
+                            Section.course_id == rc.id,
+                            Section.year_level_id == year_level.id,
+                            or_(Section.semester == semester, Section.semester.is_(None))
+                        ).all()
+                        target_sections.extend(c_secs)
+                else:
+                    target_sections = [section]
+
+                for t_sec in target_sections:
+                    teach_exists = db.query(TeacherTeaching).filter(
+                        TeacherTeaching.teacher_id == teacher.id,
+                        TeacherTeaching.subject_id == subject.id,
+                        TeacherTeaching.section_id == t_sec.id
+                    ).first()
+                    if not teach_exists:
+                        teaching = TeacherTeaching(
+                            teacher_id=teacher.id,
+                            subject_id=subject.id,
+                            section_id=t_sec.id
+                        )
+                        db.add(teaching)
+                        stats["teaching_assignments"] += 1
+                db.flush()
 
     try:
         # Re-link existing students whose section_name matches newly imported sections

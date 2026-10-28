@@ -18,6 +18,12 @@ import {
   PlusIcon,
   ArrowPathIcon,
   ExclamationCircleIcon,
+  ShieldCheckIcon,
+  InformationCircleIcon,
+  SparklesIcon,
+  CheckCircleIcon,
+  ExclamationTriangleIcon,
+  TableCellsIcon,
 } from "@heroicons/react/24/outline";
 import { useTheme } from "../context/themeStore";
 import ThemeToggle from "../components/ThemeToggle";
@@ -77,131 +83,429 @@ function StudentManual() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
   const [activeSubTab, setActiveSubTab] = useState("schedule");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const topics = [
-    { id: "schedule", label: "My Schedule Guide", icon: CalendarIcon },
-    { id: "rescheduling", label: "Reschedule Requests", icon: PencilIcon },
+    { id: "schedule", label: "Exam Timetable Guide", icon: CalendarIcon, badge: "Timetable" },
+    { id: "conflicts", label: "Conflict Detection", icon: ExclamationTriangleIcon, badge: "Clashes" },
+    { id: "rescheduling", label: "Smart Rescheduling", icon: SparklesIcon, badge: "Auto-Slot" },
+    { id: "tracking", label: "Tracking Requests", icon: CheckCircleIcon, badge: "Status" },
+    { id: "irregular", label: "Custom Schedule Builder", icon: TableCellsIcon, badge: "Irregular" },
+    { id: "chat", label: "Chat with Admins & Proctors", icon: ChatBubbleLeftRightIcon, badge: "Support" },
   ];
+
+  const filteredTopics = topics.filter(t =>
+    t.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    t.badge.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className={`p-6 rounded-2xl border ${isDark ? "bg-slate-800/40 border-slate-700" : "bg-gradient-to-r from-blue-500/10 to-indigo-500/10 border-blue-100"}`}>
-        <div className="flex items-center gap-4">
-          <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${isDark ? "bg-blue-500/20 text-blue-300" : "bg-blue-600 text-white shadow-md shadow-blue-500/20"}`}>
-            <BookOpenIcon className="w-6 h-6" />
+      {/* Header Banner */}
+      <div className={`p-6 sm:p-8 rounded-3xl border transition-all relative overflow-hidden ${
+        isDark
+          ? "bg-gradient-to-br from-slate-900/90 via-slate-800/80 to-blue-950/40 border-slate-700/60 shadow-xl"
+          : "bg-gradient-to-br from-blue-50/90 via-indigo-50/60 to-white border-blue-200/70 shadow-sm"
+      }`}>
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="flex items-start sm:items-center gap-4">
+            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-lg ${
+              isDark
+                ? "bg-blue-600/30 text-blue-400 border border-blue-500/30 shadow-blue-900/30"
+                : "bg-gradient-to-tr from-blue-600 to-indigo-600 text-white shadow-blue-500/25"
+            }`}>
+              <BookOpenIcon className="w-7 h-7" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className={`text-xl sm:text-2xl font-black tracking-tight ${isDark ? "text-white" : "text-slate-900"}`}>
+                  Student Portal Master Guide
+                </h2>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                  isDark ? "bg-blue-500/20 text-blue-300 border border-blue-500/30" : "bg-blue-100 text-blue-700"
+                }`}>
+                  Current Version
+                </span>
+              </div>
+              <p className={`text-xs sm:text-sm mt-1 max-w-2xl leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+                Learn how to read your examination timetable, resolve exam clashes with smart automated rescheduling, build customized irregular schedules, and chat with faculty.
+              </p>
+            </div>
           </div>
-          <div>
-            <h2 className={`text-xl font-bold tracking-tight ${isDark ? "text-white" : "text-slate-900"}`}>
-              Student Interactive Guide
-            </h2>
-            <p className={`text-sm mt-1 ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-              Learn how to customize your exam calendar, view schedules/rooms/proctors, and request exam reschedules for conflicts.
-            </p>
+
+          {/* Search Bar */}
+          <div className="relative min-w-[240px] sm:min-w-[280px]">
+            <MagnifyingGlassIcon className={`w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 ${isDark ? "text-slate-400" : "text-slate-500"}`} />
+            <input
+              type="text"
+              placeholder="Search student guide..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className={`w-full pl-9 pr-4 py-2 rounded-xl text-xs sm:text-sm font-medium border transition-all focus:outline-none focus:ring-2 ${
+                isDark
+                  ? "bg-slate-900/70 border-slate-700 text-white placeholder-slate-500 focus:ring-blue-500/50"
+                  : "bg-white border-slate-200 text-slate-900 placeholder-slate-400 focus:ring-blue-500/30 shadow-sm"
+              }`}
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              >
+                <XMarkIcon className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2 pb-2 border-b border-slate-200 dark:border-slate-700">
-        {topics.map((t) => {
+      {/* Sub-tab Navigation */}
+      <div className="flex overflow-x-auto no-scrollbar gap-2 pb-1 border-b border-slate-200/80 dark:border-slate-800">
+        {filteredTopics.map((t) => {
           const SubIcon = t.icon;
           const isSelected = activeSubTab === t.id;
           return (
             <button
               key={t.id}
               onClick={() => setActiveSubTab(t.id)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${isSelected
-                ? isDark
-                  ? "bg-blue-600 text-white"
-                  : "bg-blue-600 text-white shadow-md shadow-blue-500/25"
-                : isDark
-                  ? "text-slate-400 hover:bg-slate-800 hover:text-white"
-                  : "text-slate-600 hover:bg-blue-50 hover:text-blue-700"
-                }`}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all whitespace-nowrap shrink-0 group ${
+                isSelected
+                  ? isDark
+                    ? "bg-blue-600 text-white shadow-lg shadow-blue-900/40"
+                    : "bg-blue-600 text-white shadow-md shadow-blue-500/25"
+                  : isDark
+                    ? "text-slate-400 hover:bg-slate-800 hover:text-white"
+                    : "text-slate-600 hover:bg-blue-50 hover:text-blue-700"
+              }`}
             >
-              <SubIcon className="w-4 h-4" />
-              {t.label}
+              <SubIcon className={`w-4 h-4 transition-transform group-hover:scale-110 ${isSelected ? "text-white" : isDark ? "text-slate-400" : "text-slate-500"}`} />
+              <span>{t.label}</span>
+              <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-bold uppercase ${
+                isSelected
+                  ? "bg-white/20 text-white"
+                  : isDark
+                    ? "bg-slate-800 text-slate-400 group-hover:text-slate-200"
+                    : "bg-slate-100 text-slate-600"
+              }`}>
+                {t.badge}
+              </span>
             </button>
           );
         })}
       </div>
 
-      <div className={`p-6 md:p-8 rounded-2xl border transition-all ${isDark ? "bg-slate-800/20 border-slate-800" : "bg-white border-slate-200/60"}`}>
+      {/* Content Panels */}
+      <div className={`p-4 sm:p-7 md:p-8 rounded-3xl border transition-all ${
+        isDark ? "bg-slate-900/50 border-slate-800/80 backdrop-blur-xl" : "bg-white border-slate-200/70 shadow-sm"
+      }`}>
+        {/* TAB 1: Reading Your Exam Schedule */}
         {activeSubTab === "schedule" && (
           <div className="space-y-6">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-sm">1</div>
-              <h3 className={`text-lg font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Reading your Exam Schedule</h3>
+            <div className="flex items-center justify-between flex-wrap gap-3 pb-4 border-b border-slate-200 dark:border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-base shadow-sm">1</div>
+                <div>
+                  <h3 className={`text-lg sm:text-xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
+                    Reading Your Personalized Exam Schedule
+                  </h3>
+                  <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                    Exam Dates, Venues, Assigned Proctors, and Printing Options
+                  </p>
+                </div>
+              </div>
+              <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-500/10 text-blue-500 border border-blue-500/20">
+                Core Feature
+              </span>
             </div>
 
             <p className={`text-sm leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
-              The exam grid lists all the details you need for your exams. Here's a guide to each item on your list:
+              The <strong>My Schedule</strong> tab provides a complete, personalized timetable of all your scheduled examinations for the current term.
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className={`p-4 rounded-xl border ${isDark ? "bg-slate-900/40 border-slate-800" : "bg-slate-50 border-slate-100"}`}>
-                <h4 className={`font-bold text-sm mb-1.5 flex items-center gap-2 ${isDark ? "text-slate-200" : "text-slate-800"}`}>
-                  <ClockIcon className="w-4 h-4 text-blue-500" /> Exam Date & Time
+              <div className={`p-5 rounded-2xl border ${isDark ? "bg-slate-800/50 border-slate-700/60" : "bg-slate-50 border-slate-200/80"}`}>
+                <h4 className={`font-bold text-sm mb-2 flex items-center gap-2 ${isDark ? "text-slate-200" : "text-slate-800"}`}>
+                  <ClockIcon className="w-4 h-4 text-blue-500" /> Exam Date & Timeslot
                 </h4>
-                <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-                  Note if the exam is in the Morning or Afternoon. Make sure to arrive early.
+                <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+                  Displays the exact date, start time, and end time. Note whether your exam is in the Morning or Afternoon session and arrive at least 15 minutes early.
                 </p>
               </div>
-              <div className={`p-4 rounded-xl border ${isDark ? "bg-slate-900/40 border-slate-800" : "bg-slate-50 border-slate-100"}`}>
-                <h4 className={`font-bold text-sm mb-1.5 flex items-center gap-2 ${isDark ? "text-slate-200" : "text-slate-800"}`}>
-                  <MapPinIcon className="w-4 h-4 text-indigo-500" /> Exam Room
+
+              <div className={`p-5 rounded-2xl border ${isDark ? "bg-slate-800/50 border-slate-700/60" : "bg-slate-50 border-slate-200/80"}`}>
+                <h4 className={`font-bold text-sm mb-2 flex items-center gap-2 ${isDark ? "text-slate-200" : "text-slate-800"}`}>
+                  <MapPinIcon className="w-4 h-4 text-indigo-500" /> Room & Building Floor
                 </h4>
-                <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-                  The room code and building floor where your exam is scheduled.
+                <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+                  Lists the assigned classroom or laboratory (e.g., Computer Lab 1, Room 302, 3rd Floor). Special rescheduled exams may be assigned to the Consultation Area.
                 </p>
               </div>
-              <div className={`p-4 rounded-xl border ${isDark ? "bg-slate-900/40 border-slate-800" : "bg-slate-50 border-slate-100"}`}>
-                <h4 className={`font-bold text-sm mb-1.5 flex items-center gap-2 ${isDark ? "text-slate-200" : "text-slate-800"}`}>
-                  <CheckBadgeIcon className="w-4 h-4 text-emerald-500" /> Proctor Name
+
+              <div className={`p-5 rounded-2xl border ${isDark ? "bg-slate-800/50 border-slate-700/60" : "bg-slate-50 border-slate-200/80"}`}>
+                <h4 className={`font-bold text-sm mb-2 flex items-center gap-2 ${isDark ? "text-slate-200" : "text-slate-800"}`}>
+                  <CheckBadgeIcon className="w-4 h-4 text-emerald-500" /> Assigned Faculty Proctor
                 </h4>
-                <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-                  The faculty member supervising your exam session.
+                <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+                  Shows the faculty member appointed to supervise your examination room. You can also chat directly with your proctor via the in-app chat.
                 </p>
+              </div>
+            </div>
+
+            <div className={`p-4 rounded-xl border text-xs flex items-center gap-3 ${
+              isDark ? "bg-blue-950/20 border-blue-900/40 text-blue-200" : "bg-blue-50 border-blue-200/70 text-blue-800"
+            }`}>
+              <InformationCircleIcon className="w-5 h-5 shrink-0 text-blue-500" />
+              <span><strong>Course-Based Requests:</strong> If you are requesting schedules for a specific degree program or course, use the dropdown filters to dynamically switch views. Click <strong>Print / Export</strong> to download a PDF copy of your schedule.</span>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 2: Conflict Detection */}
+        {activeSubTab === "conflicts" && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between flex-wrap gap-3 pb-4 border-b border-slate-200 dark:border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center text-amber-600 dark:text-amber-400 font-bold text-base shadow-sm">2</div>
+                <div>
+                  <h3 className={`text-lg sm:text-xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
+                    Automated Conflict Detection & Exam Clashes
+                  </h3>
+                  <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                    Real-Time Detection of Overlapping Schedules and Back-to-Back Exam Clashes
+                  </p>
+                </div>
+              </div>
+              <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-500/10 text-amber-600 border border-amber-500/20">
+                Safety Net
+              </span>
+            </div>
+
+            <p className={`text-sm leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+              If you are an irregular student taking subjects from multiple sections, two of your exams might coincide in the same timeslot or fall with zero break time. The system's conflict detector immediately flags this.
+            </p>
+
+            <div className={`p-5 rounded-2xl border ${isDark ? "bg-red-950/20 border-red-900/40 text-red-200" : "bg-red-50 border-red-200/80 text-red-900"}`}>
+              <h4 className="font-bold text-sm mb-2 flex items-center gap-2">
+                <ExclamationTriangleIcon className="w-5 h-5 text-red-500" />
+                What happens when a clash is detected?
+              </h4>
+              <p className="text-xs leading-relaxed mb-3">
+                A prominent red <strong>"Conflict Detected"</strong> banner will appear at the top of your schedule. The conflicting exam cards will be highlighted in red with an explicit warning showing the clashing subject code and overlapping time.
+              </p>
+              <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-xs">
+                <strong>Instant Action:</strong> Click the <strong>Request Reschedule</strong> button located directly on the warning card to submit an automatic resolution petition.
               </div>
             </div>
           </div>
         )}
 
+        {/* TAB 3: Smart Rescheduling */}
         {activeSubTab === "rescheduling" && (
           <div className="space-y-6">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-sm">2</div>
-              <h3 className={`text-lg font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Requesting a Reschedule</h3>
+            <div className="flex items-center justify-between flex-wrap gap-3 pb-4 border-b border-slate-200 dark:border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold text-base shadow-sm">3</div>
+                <div>
+                  <h3 className={`text-lg sm:text-xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
+                    Smart Rescheduling & Automated Slot Assignment
+                  </h3>
+                  <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                    Intelligent Irregular Student Placement & Consultation Area Overflow Protocol
+                  </p>
+                </div>
+              </div>
+              <span className="px-3 py-1 rounded-full text-xs font-bold bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">
+                Smart Algorithm
+              </span>
             </div>
 
             <p className={`text-sm leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
-              If you have two exams scheduled in the same timeslot (a conflict/clash), a red "Conflict Detected" warning will show. You can click <strong>Request Reschedule</strong> to apply for an alternative date.
+              The current system version features an automated rescheduling engine designed specifically to eliminate the stress of finding open exam slots.
             </p>
 
-            <div className={`p-4 rounded-xl border ${isDark ? "bg-blue-950/20 border-blue-900/40 text-blue-200" : "bg-blue-50 border-blue-100 text-blue-800"} text-xs leading-relaxed`}>
-              <strong className="block text-sm mb-1 font-bold">Important Notes:</strong>
-              • Rescheduling is only allowed for valid scheduling conflicts, medical issues, or extreme emergencies.<br />
-              • Fill out the form completely, including your preferred new date and timeslot.<br />
-              • Check back under the "My Rescheduling Requests" section to track approvals.
+            <div className={`p-5 rounded-2xl border ${isDark ? "bg-indigo-950/20 border-indigo-900/40 text-indigo-200" : "bg-indigo-50 border-indigo-200 text-indigo-900"}`}>
+              <h4 className="font-bold text-sm mb-2 flex items-center gap-2">
+                <SparklesIcon className="w-5 h-5 text-indigo-500" />
+                How the Automated Slot Assignment Works for Irregular Students:
+              </h4>
+              <p className="text-xs leading-relaxed mb-3">
+                As an irregular student, you <strong>do not need to manually guess or select an examination time</strong>. When your petition is processed, the system automatically calculates the earliest valid, conflict-free time slot on your exam date according to these rules:
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs leading-relaxed">
+                <div className="p-3 rounded-xl bg-white/60 dark:bg-slate-900/60 border border-indigo-200/50 dark:border-indigo-900/50">
+                  <strong>Mandatory 15-Minute Break:</strong> Ensures a certified 15-minute cognitive rest interval between consecutive examinations so you are never rushed.
+                </div>
+                <div className="p-3 rounded-xl bg-white/60 dark:bg-slate-900/60 border border-indigo-200/50 dark:border-indigo-900/50">
+                  <strong>Room Capacity & Load Balance:</strong> Places you in the room with the fewest students to optimize personal workspace and safety.
+                </div>
+                <div className="p-3 rounded-xl bg-white/60 dark:bg-slate-900/60 border border-indigo-200/50 dark:border-indigo-900/50">
+                  <strong>Building Restriction Match:</strong> Validates that the new room remains within your academic department building.
+                </div>
+                <div className="p-3 rounded-xl bg-white/60 dark:bg-slate-900/60 border border-indigo-200/50 dark:border-indigo-900/50">
+                  <strong>After 5:00 PM Consultation Fallback:</strong> If no daytime slot fits before 5:00 PM due to full capacities, you are automatically rescheduled to 5:00 PM onwards in the <em>Consultation Area</em>, and the Admin will assign a proctor personally.
+                </div>
+              </div>
+            </div>
+
+            <div className={`p-4 rounded-2xl border ${isDark ? "bg-slate-800/50 border-slate-700/60" : "bg-slate-50 border-slate-200/80"} space-y-2 text-xs`}>
+              <strong className="block text-sm text-slate-800 dark:text-slate-200">How to Submit a Petition:</strong>
+              <p>• Click <strong>Request Reschedule</strong> on the conflicting subject.</p>
+              <p>• Provide a clear explanation of the clash or emergency reason.</p>
+              <p>• Upload supporting proof (screenshot of conflicting schedule, medical certificate, or official notice).</p>
+              <p>• Submit. Your request is routed to the Program Head for instant approval.</p>
             </div>
           </div>
         )}
 
-        {activeSubTab === "irregular" && (
+        {/* TAB 4: Tracking Requests */}
+        {activeSubTab === "tracking" && (
           <div className="space-y-6">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-sm">3</div>
-              <h3 className={`text-lg font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Customized Schedule Guide</h3>
+            <div className="flex items-center justify-between flex-wrap gap-3 pb-4 border-b border-slate-200 dark:border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center text-emerald-600 dark:text-emerald-400 font-bold text-base shadow-sm">4</div>
+                <div>
+                  <h3 className={`text-lg sm:text-xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
+                    Tracking Your Rescheduling Requests
+                  </h3>
+                  <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                    Live Status Badges, Newly Assigned Venues, and Administrator Feedback
+                  </p>
+                </div>
+              </div>
+              <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+                Status Board
+              </span>
             </div>
 
             <p className={`text-sm leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
-              If you are taking subjects from different sections or year levels (e.g., due to late enrollment or a customized curriculum), choosing the **Customized Schedule** option gives you access to the Custom Schedule builder.
+              Monitor the live progress of all submitted petitions directly on your dashboard under <strong>My Rescheduling Requests</strong>.
             </p>
 
-            <div className={`p-4 rounded-xl border ${isDark ? "bg-slate-900/40 border-slate-800 text-slate-300" : "bg-slate-50 border-slate-100"} text-xs space-y-2`}>
-              <p>• <strong>Step 1:</strong> Select your current degree program.</p>
-              <p>• <strong>Step 2:</strong> Use the subject builder to search for the subjects you are enrolled in.</p>
-              <p>• <strong>Step 3:</strong> Select the correct section for each subject (e.g., BSIT 3-201 or BSIT 2-202).</p>
-              <p>• <strong>Step 4:</strong> Click <strong>Save My Selections</strong>. The system will compile your personalized exam schedule.</p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className={`p-4 rounded-2xl border ${isDark ? "bg-slate-800/50 border-slate-700/60" : "bg-slate-50 border-slate-200/80"}`}>
+                <span className="px-2 py-0.5 rounded text-xs font-bold bg-amber-500/10 text-amber-500">PENDING</span>
+                <h4 className={`font-bold text-sm mt-2 mb-1 ${isDark ? "text-slate-200" : "text-slate-800"}`}>Under Review</h4>
+                <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+                  Your petition has been received and is waiting for Program Head evaluation and slot assignment.
+                </p>
+              </div>
+
+              <div className={`p-4 rounded-2xl border ${isDark ? "bg-slate-800/50 border-slate-700/60" : "bg-slate-50 border-slate-200/80"}`}>
+                <span className="px-2 py-0.5 rounded text-xs font-bold bg-emerald-500/10 text-emerald-500">APPROVED</span>
+                <h4 className={`font-bold text-sm mt-2 mb-1 ${isDark ? "text-slate-200" : "text-slate-800"}`}>Approved & Scheduled</h4>
+                <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+                  Your exam has been rescheduled! Your card will show the updated date, exact timeslot, and room number.
+                </p>
+              </div>
+
+              <div className={`p-4 rounded-2xl border ${isDark ? "bg-slate-800/50 border-slate-700/60" : "bg-slate-50 border-slate-200/80"}`}>
+                <span className="px-2 py-0.5 rounded text-xs font-bold bg-rose-500/10 text-rose-500">REJECTED</span>
+                <h4 className={`font-bold text-sm mt-2 mb-1 ${isDark ? "text-slate-200" : "text-slate-800"}`}>Petition Denied</h4>
+                <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+                  The request was declined (e.g. invalid proof). Read the administrator's attached remarks for explanation.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 5: Custom Schedule Builder */}
+        {activeSubTab === "irregular" && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between flex-wrap gap-3 pb-4 border-b border-slate-200 dark:border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/40 flex items-center justify-center text-purple-600 dark:text-purple-400 font-bold text-base shadow-sm">5</div>
+                <div>
+                  <h3 className={`text-lg sm:text-xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
+                    Customized Schedule Builder (For Irregular Students)
+                  </h3>
+                  <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                    Assemble a Unified Timetable across Multiple Sections & Year Levels
+                  </p>
+                </div>
+              </div>
+              <span className="px-3 py-1 rounded-full text-xs font-bold bg-purple-500/10 text-purple-600 border border-purple-500/20">
+                Irregular Helper
+              </span>
+            </div>
+
+            <p className={`text-sm leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+              If you are taking subjects outside a single cohort (e.g., cross-enrolled in 2nd year and 3rd year courses), the <strong>Customized Schedule</strong> builder allows you to compile an accurate master exam timetable.
+            </p>
+
+            <div className={`p-5 rounded-2xl border ${isDark ? "bg-slate-800/50 border-slate-700/60" : "bg-slate-50 border-slate-200/80"} space-y-3`}>
+              <h4 className={`font-bold text-sm ${isDark ? "text-slate-200" : "text-slate-800"}`}>Step-by-Step Instructions:</h4>
+              <ol className={`text-xs space-y-2.5 ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+                <li className="flex items-start gap-2">
+                  <span className="w-5 h-5 rounded-full bg-purple-500/10 text-purple-500 flex items-center justify-center font-bold text-[11px] shrink-0">1</span>
+                  <span><strong>Select Degree Program:</strong> Choose your enrolled college degree (e.g., BSIT, BSCS, BSHM) or SHS academic track.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="w-5 h-5 rounded-full bg-purple-500/10 text-purple-500 flex items-center justify-center font-bold text-[11px] shrink-0">2</span>
+                  <span><strong>Search & Pick Subjects:</strong> Use the subject search to select each course you are currently taking this semester.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="w-5 h-5 rounded-full bg-purple-500/10 text-purple-500 flex items-center justify-center font-bold text-[11px] shrink-0">3</span>
+                  <span><strong>Aligned Subjects Helper:</strong> The system automatically suggests matching sections for core curriculum courses.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="w-5 h-5 rounded-full bg-purple-500/10 text-purple-500 flex items-center justify-center font-bold text-[11px] shrink-0">4</span>
+                  <span><strong>Select Specific Section:</strong> For each subject, pick the exact section you attend (e.g., BSIT 3-201 vs BSIT 2-202).</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="w-5 h-5 rounded-full bg-purple-500/10 text-purple-500 flex items-center justify-center font-bold text-[11px] shrink-0">5</span>
+                  <span><strong>Save Selections:</strong> Click <strong>Save My Selections</strong>. Your unified timetable will generate with live conflict checks.</span>
+                </li>
+              </ol>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 6: In-App Chat Support */}
+        {activeSubTab === "chat" && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between flex-wrap gap-3 pb-4 border-b border-slate-200 dark:border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-base shadow-sm">6</div>
+                <div>
+                  <h3 className={`text-lg sm:text-xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
+                    Chat Support with Administrators & Proctors
+                  </h3>
+                  <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                    Real-Time Inquiries Regarding Rooms, Accommodations, and Petitions
+                  </p>
+                </div>
+              </div>
+              <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-500/10 text-blue-500 border border-blue-500/20">
+                Direct Contact
+              </span>
+            </div>
+
+            <p className={`text-sm leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+              Need help locating an exam room or following up on a pending rescheduling request? The built-in <strong>Chat</strong> tab connects you directly to Program Heads and faculty proctors.
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className={`p-4 rounded-2xl border ${isDark ? "bg-slate-800/50 border-slate-700/60" : "bg-slate-50 border-slate-200/80"}`}>
+                <h4 className={`font-bold text-xs uppercase tracking-wider text-blue-500 mb-1`}>1. Search Contacts</h4>
+                <p className={`text-xs leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+                  Click <strong>New Chat</strong> to search administrators or proctors assigned to your exams.
+                </p>
+              </div>
+
+              <div className={`p-4 rounded-2xl border ${isDark ? "bg-slate-800/50 border-slate-700/60" : "bg-slate-50 border-slate-200/80"}`}>
+                <h4 className={`font-bold text-xs uppercase tracking-wider text-blue-500 mb-1`}>2. Instant Replies</h4>
+                <p className={`text-xs leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+                  Receive real-time replies and notifications regarding room directions or petition approvals.
+                </p>
+              </div>
+
+              <div className={`p-4 rounded-2xl border ${isDark ? "bg-slate-800/50 border-slate-700/60" : "bg-slate-50 border-slate-200/80"}`}>
+                <h4 className={`font-bold text-xs uppercase tracking-wider text-blue-500 mb-1`}>3. Manage Messages</h4>
+                <p className={`text-xs leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+                  Edit sent messages or delete inquiries easily with full privacy and message controls.
+                </p>
+              </div>
             </div>
           </div>
         )}

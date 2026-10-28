@@ -23,6 +23,10 @@ import {
   MagnifyingGlassIcon,
   ChevronRightIcon,
   Bars3Icon,
+  ShieldCheckIcon,
+  InformationCircleIcon,
+  SparklesIcon,
+  ListBulletIcon,
 } from "@heroicons/react/24/outline";
 import { useTheme } from "../context/themeStore";
 import { useUser } from "../context/userStore";
@@ -36,142 +40,409 @@ import api from "../api";
 function ProctorManual() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
-  const [activeSubTab, setActiveSubTab] = useState("supervision");
+  const [activeSubTab, setActiveSubTab] = useState("assignments");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const topics = [
-    { id: "supervision", label: "Supervision Duties", icon: CalendarDaysIcon },
-    { id: "attendance", label: "Attendance Check-in", icon: CheckBadgeIcon },
-    { id: "schedule", label: "Teaching Schedule Uploads", icon: TableCellsIcon },
+    { id: "assignments", label: "My Assignments & Views", icon: CalendarDaysIcon, badge: "Dual View" },
+    { id: "attendance", label: "Attendance Check-in", icon: CheckBadgeIcon, badge: "Live Status" },
+    { id: "schedule", label: "Teaching Schedule Upload", icon: TableCellsIcon, badge: "Excel Ingest" },
+    { id: "consecutive", label: "Workload & 2-Duty Rule", icon: ShieldCheckIcon, badge: "Fairness" },
+    { id: "chat", label: "Chat Support", icon: ChatBubbleLeftRightIcon, badge: "Direct Msg" },
+    { id: "notifications", label: "Notification Alerts", icon: BellIcon, badge: "Real-time" },
   ];
+
+  const filteredTopics = topics.filter(t =>
+    t.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    t.badge.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className={`p-4 sm:p-6 rounded-2xl border ${isDark ? "bg-slate-800/40 border-slate-700" : "bg-gradient-to-r from-blue-500/10 to-indigo-500/10 border-blue-100"}`}>
-        <div className="flex items-center gap-3 sm:gap-4">
-          <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center shrink-0 ${isDark ? "bg-blue-500/20 text-blue-300" : "bg-blue-600 text-white shadow-md shadow-blue-500/20"}`}>
-            <BookOpenIcon className="w-5 h-5 sm:w-6 sm:h-6" />
+      {/* Header Banner */}
+      <div className={`p-6 sm:p-8 rounded-3xl border transition-all relative overflow-hidden ${
+        isDark
+          ? "bg-gradient-to-br from-slate-900/90 via-slate-800/80 to-blue-950/40 border-slate-700/60 shadow-xl"
+          : "bg-gradient-to-br from-blue-50/90 via-indigo-50/60 to-white border-blue-200/70 shadow-sm"
+      }`}>
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="flex items-start sm:items-center gap-4">
+            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-lg ${
+              isDark
+                ? "bg-blue-600/30 text-blue-400 border border-blue-500/30 shadow-blue-900/30"
+                : "bg-gradient-to-tr from-blue-600 to-indigo-600 text-white shadow-blue-500/25"
+            }`}>
+              <BookOpenIcon className="w-7 h-7" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className={`text-xl sm:text-2xl font-black tracking-tight ${isDark ? "text-white" : "text-slate-900"}`}>
+                  Faculty Proctor Operational Guide
+                </h2>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                  isDark ? "bg-blue-500/20 text-blue-300 border border-blue-500/30" : "bg-blue-100 text-blue-700"
+                }`}>
+                  Current Version
+                </span>
+              </div>
+              <p className={`text-xs sm:text-sm mt-1 max-w-2xl leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+                Learn how to view supervisory slots in Grid or List view, perform live room check-ins, upload teaching availability, and connect with administrators.
+              </p>
+            </div>
           </div>
-          <div>
-            <h2 className={`text-lg sm:text-xl font-bold tracking-tight ${isDark ? "text-white" : "text-slate-900"}`}>
-              Proctor Interactive Guide
-            </h2>
-            <p className={`text-xs sm:text-sm mt-1 ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-              Understand how to track your assigned sessions, execute exam check-ins, and upload teaching hours to avoid scheduling conflicts.
-            </p>
+
+          {/* Search Bar */}
+          <div className="relative min-w-[240px] sm:min-w-[280px]">
+            <MagnifyingGlassIcon className={`w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 ${isDark ? "text-slate-400" : "text-slate-500"}`} />
+            <input
+              type="text"
+              placeholder="Search proctor guide..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className={`w-full pl-9 pr-4 py-2 rounded-xl text-xs sm:text-sm font-medium border transition-all focus:outline-none focus:ring-2 ${
+                isDark
+                  ? "bg-slate-900/70 border-slate-700 text-white placeholder-slate-500 focus:ring-blue-500/50"
+                  : "bg-white border-slate-200 text-slate-900 placeholder-slate-400 focus:ring-blue-500/30 shadow-sm"
+              }`}
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              >
+                <XMarkIcon className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
         </div>
       </div>
 
-      <div className="flex overflow-x-auto no-scrollbar gap-2 pb-2 border-b border-slate-200 dark:border-slate-700">
-        {topics.map((t) => {
+      {/* Sub-tab Navigation */}
+      <div className="flex overflow-x-auto no-scrollbar gap-2 pb-1 border-b border-slate-200/80 dark:border-slate-800">
+        {filteredTopics.map((t) => {
           const SubIcon = t.icon;
           const isSelected = activeSubTab === t.id;
           return (
             <button
               key={t.id}
               onClick={() => setActiveSubTab(t.id)}
-              className={`flex items-center gap-2 px-3.5 sm:px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all whitespace-nowrap shrink-0 ${
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all whitespace-nowrap shrink-0 group ${
                 isSelected
                   ? isDark 
-                    ? "bg-blue-600 text-white" 
+                    ? "bg-blue-600 text-white shadow-lg shadow-blue-900/40" 
                     : "bg-blue-600 text-white shadow-md shadow-blue-500/25"
                   : isDark
                     ? "text-slate-400 hover:bg-slate-800 hover:text-white"
                     : "text-slate-600 hover:bg-blue-50 hover:text-blue-700"
               }`}
             >
-              <SubIcon className="w-4 h-4" />
-              {t.label}
+              <SubIcon className={`w-4 h-4 transition-transform group-hover:scale-110 ${isSelected ? "text-white" : isDark ? "text-slate-400" : "text-slate-500"}`} />
+              <span>{t.label}</span>
+              <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-bold uppercase ${
+                isSelected
+                  ? "bg-white/20 text-white"
+                  : isDark
+                    ? "bg-slate-800 text-slate-400 group-hover:text-slate-200"
+                    : "bg-slate-100 text-slate-600"
+              }`}>
+                {t.badge}
+              </span>
             </button>
           );
         })}
       </div>
 
-      <div className={`p-4 sm:p-6 md:p-8 rounded-2xl border transition-all ${isDark ? "bg-slate-800/20 border-slate-800" : "bg-white border-slate-200/60"}`}>
-        {activeSubTab === "supervision" && (
+      {/* Content Panels */}
+      <div className={`p-4 sm:p-7 md:p-8 rounded-3xl border transition-all ${
+        isDark ? "bg-slate-900/50 border-slate-800/80 backdrop-blur-xl" : "bg-white border-slate-200/70 shadow-sm"
+      }`}>
+        {/* TAB 1: Assignments & Views */}
+        {activeSubTab === "assignments" && (
           <div className="space-y-6">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-sm">1</div>
-              <h3 className={`text-lg font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Viewing Supervision Assignments</h3>
+            <div className="flex items-center justify-between flex-wrap gap-3 pb-4 border-b border-slate-200 dark:border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-base shadow-sm">1</div>
+                <div>
+                  <h3 className={`text-lg sm:text-xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
+                    Viewing Supervisory Assignments (Grid & List View)
+                  </h3>
+                  <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                    Comprehensive Examination Timetable, Room Locations, and Class Information
+                  </p>
+                </div>
+              </div>
+              <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-500/10 text-blue-500 border border-blue-500/20">
+                Core Feature
+              </span>
             </div>
             
             <p className={`text-sm leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
-              The **My Assignments** tab lists all the exam sessions you are scheduled to proctor. Each assignment contains the following details:
+              The <strong>My Assignments</strong> dashboard displays every exam session assigned to you by the Program Head. The current version includes both **Grid View** and **List View** with horizontal date scrolling controls.
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className={`p-4 rounded-xl border ${isDark ? "bg-slate-900/40 border-slate-800" : "bg-slate-50 border-slate-100"}`}>
-                <h4 className={`font-bold text-sm mb-1.5 flex items-center gap-2 ${isDark ? "text-slate-200" : "text-slate-800"}`}>
-                  <ClockIcon className="w-4 h-4 text-blue-500" /> Date & Time
+              <div className={`p-5 rounded-2xl border ${isDark ? "bg-slate-800/50 border-slate-700/60" : "bg-slate-50 border-slate-200/80"}`}>
+                <h4 className={`font-bold text-sm mb-2 flex items-center gap-2 ${isDark ? "text-slate-200" : "text-slate-800"}`}>
+                  <ClockIcon className="w-4 h-4 text-blue-500" /> Exam Date & Timeslot
                 </h4>
-                <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-                  The exact date and timeslot range (e.g. 7:30 AM - 9:00 AM) of the exam. Make sure to arrive 15 minutes before.
+                <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+                  Shows the exact date and timeslot range (e.g. 7:30 AM - 9:00 AM). The system guarantees start and end times match your declared faculty availability.
                 </p>
               </div>
-              <div className={`p-4 rounded-xl border ${isDark ? "bg-slate-900/40 border-slate-800" : "bg-slate-50 border-slate-100"}`}>
-                <h4 className={`font-bold text-sm mb-1.5 flex items-center gap-2 ${isDark ? "text-slate-200" : "text-slate-800"}`}>
-                  <MapPinIcon className="w-4 h-4 text-indigo-500" /> Location / Room
+
+              <div className={`p-5 rounded-2xl border ${isDark ? "bg-slate-800/50 border-slate-700/60" : "bg-slate-50 border-slate-200/80"}`}>
+                <h4 className={`font-bold text-sm mb-2 flex items-center gap-2 ${isDark ? "text-slate-200" : "text-slate-800"}`}>
+                  <MapPinIcon className="w-4 h-4 text-indigo-500" /> Room & Building Floor
                 </h4>
-                <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-                  The room (e.g., Computer Lab 1, Room 403) allocated for the exam. Check seating guidelines for the room.
+                <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+                  Lists the exact assigned venue (e.g., Computer Lab 1, Room 402, 4th Floor). If assigned to the <em>Consultation Area</em>, this is an irregular student rescheduled slot.
                 </p>
               </div>
-              <div className={`p-4 rounded-xl border ${isDark ? "bg-slate-900/40 border-slate-800" : "bg-slate-50 border-slate-100"}`}>
-                <h4 className={`font-bold text-sm mb-1.5 flex items-center gap-2 ${isDark ? "text-slate-200" : "text-slate-800"}`}>
-                  <BookOpenIcon className="w-4 h-4 text-emerald-500" /> Class Info
+
+              <div className={`p-5 rounded-2xl border ${isDark ? "bg-slate-800/50 border-slate-700/60" : "bg-slate-50 border-slate-200/80"}`}>
+                <h4 className={`font-bold text-sm mb-2 flex items-center gap-2 ${isDark ? "text-slate-200" : "text-slate-800"}`}>
+                  <BookOpenIcon className="w-4 h-4 text-emerald-500" /> Section & Headcount
                 </h4>
-                <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-                  The subject code, subject description, and the section (e.g., BSIT 3-201) you will be supervising.
+                <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+                  Subject code, descriptive title, section code (e.g., BSIT 3-201), and total enrolled student headcount to supervise.
                 </p>
               </div>
+            </div>
+
+            <div className={`p-4 rounded-xl border text-xs flex items-center gap-3 ${
+              isDark ? "bg-blue-950/20 border-blue-900/40 text-blue-200" : "bg-blue-50 border-blue-200/70 text-blue-800"
+            }`}>
+              <InformationCircleIcon className="w-5 h-5 shrink-0 text-blue-500" />
+              <span><strong>View Toggle:</strong> Click the <strong>List View</strong> button to view a compact chronological table, or <strong>Grid View</strong> for date-by-date matrix cards with smooth horizontal navigation.</span>
             </div>
           </div>
         )}
 
+        {/* TAB 2: Attendance Check-in */}
         {activeSubTab === "attendance" && (
           <div className="space-y-6">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-sm">2</div>
-              <h3 className={`text-lg font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Executing Attendance Check-ins</h3>
+            <div className="flex items-center justify-between flex-wrap gap-3 pb-4 border-b border-slate-200 dark:border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center text-emerald-600 dark:text-emerald-400 font-bold text-base shadow-sm">2</div>
+                <div>
+                  <h3 className={`text-lg sm:text-xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
+                    Executing Attendance Check-ins
+                  </h3>
+                  <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                    Live On-Site Verification and Program Head Monitoring Sync
+                  </p>
+                </div>
+              </div>
+              <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+                Mandatory Duty
+              </span>
             </div>
             
             <p className={`text-sm leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
-              To allow administrators to monitor live coverage of exams, you are required to perform a check-in upon arriving at the designated examination room.
+              To allow administrators to monitor live coverage of exams across all rooms, proctors are required to perform a digital check-in upon arriving at the designated examination room.
             </p>
 
-            <div className={`p-4 rounded-xl border ${isDark ? "bg-blue-950/20 border-blue-900/40 text-blue-200" : "bg-blue-50 border-blue-100 text-blue-800"} text-xs leading-relaxed`}>
-              <strong className="block text-sm mb-1 font-bold">Check-in Steps:</strong>
-              1. Open the <strong>My Assignments</strong> tab on your dashboard.<br />
-              2. Find the active assignment for the current timeslot.<br />
-              3. Click the <strong>Check In</strong> button. The status badge will change from "Pending" to "Checked In".<br />
-              4. The Program Head will instantly see your updated attendance status on their monitoring board.
+            <div className={`p-5 rounded-2xl border ${isDark ? "bg-slate-800/50 border-slate-700/60" : "bg-slate-50 border-slate-200/80"} space-y-3`}>
+              <h4 className={`font-bold text-sm ${isDark ? "text-slate-200" : "text-slate-800"}`}>Standard Check-in Procedure:</h4>
+              <ol className={`text-xs space-y-2.5 ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+                <li className="flex items-start gap-2">
+                  <span className="w-5 h-5 rounded-full bg-blue-500/10 text-blue-500 flex items-center justify-center font-bold text-[11px] shrink-0">1</span>
+                  <span><strong>Arrive 15 Minutes Early:</strong> Reach your assigned examination room 15 minutes before the exam start time to prepare materials and supervise seating.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="w-5 h-5 rounded-full bg-blue-500/10 text-blue-500 flex items-center justify-center font-bold text-[11px] shrink-0">2</span>
+                  <span><strong>Open My Assignments:</strong> On your mobile phone, tablet, or laptop, open the <strong>My Assignments</strong> tab.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="w-5 h-5 rounded-full bg-blue-500/10 text-blue-500 flex items-center justify-center font-bold text-[11px] shrink-0">3</span>
+                  <span><strong>Click "Check In":</strong> Locate the active exam card and click the green <strong>Check In</strong> button. The status badge will change from "Pending" to "Checked In".</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="w-5 h-5 rounded-full bg-blue-500/10 text-blue-500 flex items-center justify-center font-bold text-[11px] shrink-0">4</span>
+                  <span><strong>Live Sync:</strong> The Program Head's <em>Proctor Attendance Monitoring</em> board will immediately show your green checkmark, confirming the exam is covered.</span>
+                </li>
+              </ol>
+            </div>
+
+            <div className={`p-4 rounded-xl border text-xs ${isDark ? "bg-amber-950/20 border-amber-900/40 text-amber-300" : "bg-amber-50 border-amber-200 text-amber-800"}`}>
+              <strong>Emergency Absence Protocol:</strong> If you fall ill or cannot make it to an assigned exam, immediately notify the Program Head via the in-app <strong>Chat</strong> tab so an emergency substitute proctor can be dispatched.
             </div>
           </div>
         )}
 
+        {/* TAB 3: Teaching Schedule Upload */}
         {activeSubTab === "schedule" && (
           <div className="space-y-6">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-sm">3</div>
-              <h3 className={`text-lg font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Teaching Schedule Upload</h3>
+            <div className="flex items-center justify-between flex-wrap gap-3 pb-4 border-b border-slate-200 dark:border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold text-base shadow-sm">3</div>
+                <div>
+                  <h3 className={`text-lg sm:text-xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
+                    Teaching Schedule Upload & Availability Matrix
+                  </h3>
+                  <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                    Faculty Loading Spreadsheet Ingestion and Conflict Prevention
+                  </p>
+                </div>
+              </div>
+              <span className="px-3 py-1 rounded-full text-xs font-bold bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">
+                Setup
+              </span>
             </div>
             
             <p className={`text-sm leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
-              Uploading your schedule is crucial to ensure you aren't assigned to proctor during hours when you have classes to teach.
+              Uploading your official teaching schedule is essential to ensure the automated scheduler never assigns proctoring duties during hours when you have classes to teach.
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className={`p-4 rounded-xl border ${isDark ? "bg-slate-900/40 border-slate-800" : "bg-slate-50 border-slate-100"}`}>
-                <h4 className={`font-bold text-sm mb-1.5 ${isDark ? "text-slate-200" : "text-slate-800"}`}>How to Upload</h4>
-                <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-                  Go to the <strong>My Schedule</strong> tab, select your official faculty load Excel sheet, and click <strong>Confirm Upload</strong>. The system will parse the classrooms, class slots, and automatically block out those slots.
+              <div className={`p-5 rounded-2xl border ${isDark ? "bg-slate-800/50 border-slate-700/60" : "bg-slate-50 border-slate-200/80"}`}>
+                <h4 className={`font-bold text-sm mb-2 flex items-center gap-2 ${isDark ? "text-slate-200" : "text-slate-800"}`}>
+                  <ArrowUpTrayIcon className="w-4 h-4 text-indigo-500" />
+                  Excel Ingestion (.xlsx)
+                </h4>
+                <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+                  Navigate to <strong>My Schedule</strong>. Select your official faculty load Excel spreadsheet, and click <strong>Confirm Upload</strong>. The backend parses course sections, days, and timeslots.
                 </p>
               </div>
-              <div className={`p-4 rounded-xl border ${isDark ? "bg-slate-900/40 border-slate-800" : "bg-slate-50 border-slate-100"}`}>
-                <h4 className={`font-bold text-sm mb-1.5 ${isDark ? "text-slate-200" : "text-slate-800"}`}>Verification</h4>
-                <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-                  After a successful upload, your weekly teaching grid will be displayed underneath. Verify that all timeslots align correctly.
+
+              <div className={`p-5 rounded-2xl border ${isDark ? "bg-slate-800/50 border-slate-700/60" : "bg-slate-50 border-slate-200/80"}`}>
+                <h4 className={`font-bold text-sm mb-2 flex items-center gap-2 ${isDark ? "text-slate-200" : "text-slate-800"}`}>
+                  <TableCellsIcon className="w-4 h-4 text-emerald-500" />
+                  Weekly Availability Grid
+                </h4>
+                <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+                  After ingestion, your weekly calendar grid appears underneath. Blocked teaching slots are marked in blue, while available supervisory windows are open for exam assignments.
                 </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 4: Workload & 2-Consecutive Duty Rule */}
+        {activeSubTab === "consecutive" && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between flex-wrap gap-3 pb-4 border-b border-slate-200 dark:border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/40 flex items-center justify-center text-purple-600 dark:text-purple-400 font-bold text-base shadow-sm">4</div>
+                <div>
+                  <h3 className={`text-lg sm:text-xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
+                    Faculty Workload & The 2-Consecutive Duty Rule
+                  </h3>
+                  <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                    Institutional Safeguards Protecting Proctors from Fatigue
+                  </p>
+                </div>
+              </div>
+              <span className="px-3 py-1 rounded-full text-xs font-bold bg-purple-500/10 text-purple-600 border border-purple-500/20">
+                Faculty Welfare
+              </span>
+            </div>
+
+            <p className={`text-sm leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+              The scheduling engine is engineered with strict fairness constraints to ensure faculty members are not overburdened with excessive continuous proctoring duties.
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className={`p-5 rounded-2xl border ${isDark ? "bg-slate-800/50 border-slate-700/60" : "bg-slate-50 border-slate-200/80"}`}>
+                <h4 className={`font-bold text-sm mb-2 text-purple-500`}>2 Consecutive Proctoring Limit</h4>
+                <p className={`text-xs leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+                  No faculty member can be assigned more than <strong>2 consecutive exam timeslots</strong> in a single day. If you proctor Slot 1 and Slot 2, the algorithm is mathematically prohibited from assigning you Slot 3, ensuring a mandatory rest break.
+                </p>
+              </div>
+
+              <div className={`p-5 rounded-2xl border ${isDark ? "bg-slate-800/50 border-slate-700/60" : "bg-slate-50 border-slate-200/80"}`}>
+                <h4 className={`font-bold text-sm mb-2 text-indigo-500`}>Contractual Hours Enforcement</h4>
+                <p className={`text-xs leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+                  The system enforces each proctor's daily <strong>Start Time</strong> and <strong>End Time</strong>. If your contract ends at 4:30 PM, the scheduler will never schedule you for late afternoon or evening exam slots.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 5: In-App Chat Support */}
+        {activeSubTab === "chat" && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between flex-wrap gap-3 pb-4 border-b border-slate-200 dark:border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-base shadow-sm">5</div>
+                <div>
+                  <h3 className={`text-lg sm:text-xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
+                    In-App Chat Support & Directory
+                  </h3>
+                  <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                    Direct Real-Time Communication with Administration and Students
+                  </p>
+                </div>
+              </div>
+              <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-500/10 text-blue-500 border border-blue-500/20">
+                Direct Contact
+              </span>
+            </div>
+
+            <p className={`text-sm leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+              The <strong>Chat</strong> panel enables immediate communication between faculty proctors, Program Heads, and students without relying on external messaging apps.
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className={`p-4 rounded-2xl border ${isDark ? "bg-slate-800/50 border-slate-700/60" : "bg-slate-50 border-slate-200/80"}`}>
+                <h4 className={`font-bold text-xs uppercase tracking-wider text-blue-500 mb-1`}>1. Contact Directory</h4>
+                <p className={`text-xs leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+                  Click <strong>New Chat</strong> to search for administrators or students enrolled in your supervised sections.
+                </p>
+              </div>
+
+              <div className={`p-4 rounded-2xl border ${isDark ? "bg-slate-800/50 border-slate-700/60" : "bg-slate-50 border-slate-200/80"}`}>
+                <h4 className={`font-bold text-xs uppercase tracking-wider text-blue-500 mb-1`}>2. Edit & Delete</h4>
+                <p className={`text-xs leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+                  Hover over your sent messages to edit typos or delete messages with confirmation dialogs.
+                </p>
+              </div>
+
+              <div className={`p-4 rounded-2xl border ${isDark ? "bg-slate-800/50 border-slate-700/60" : "bg-slate-50 border-slate-200/80"}`}>
+                <h4 className={`font-bold text-xs uppercase tracking-wider text-blue-500 mb-1`}>3. Unread Badges</h4>
+                <p className={`text-xs leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+                  Real-time red badge counters keep you informed of incoming student inquiries or admin notices.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 6: Notifications & Alerts */}
+        {activeSubTab === "notifications" && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between flex-wrap gap-3 pb-4 border-b border-slate-200 dark:border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center text-amber-600 dark:text-amber-400 font-bold text-base shadow-sm">6</div>
+                <div>
+                  <h3 className={`text-lg sm:text-xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
+                    Notification Center & Live Action Alerts
+                  </h3>
+                  <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                    Immediate Alerts for New Timetable Releases and Emergency Re-assignments
+                  </p>
+                </div>
+              </div>
+              <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-500/10 text-amber-600 border border-amber-500/20">
+                Alerts
+              </span>
+            </div>
+
+            <p className={`text-sm leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+              The bell icon in the header rings with unread counters whenever a schedule event occurs. Floating banner alerts appear with direct buttons:
+            </p>
+
+            <div className={`p-4 rounded-2xl border flex items-center justify-between flex-wrap gap-3 ${
+              isDark ? "bg-slate-800/60 border-slate-700 text-slate-200" : "bg-slate-50 border-slate-200 text-slate-800"
+            }`}>
+              <div className="flex items-center gap-3">
+                <BellIcon className="w-5 h-5 text-amber-500" />
+                <span className="text-xs font-medium">New assignment scheduled for Finals Week in Computer Lab 1.</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="px-3 py-1 rounded-lg text-xs font-bold bg-blue-600 text-white">View Details</span>
+                <span className="p-1 rounded-lg text-slate-400"><XMarkIcon className="w-4 h-4" /></span>
               </div>
             </div>
           </div>

@@ -6,7 +6,8 @@ import {
   ArrowLeftStartOnRectangleIcon, 
   PaperAirplaneIcon,
   EnvelopeIcon,
-  ArrowPathIcon
+  ArrowPathIcon,
+  ShieldCheckIcon
 } from "@heroicons/react/24/outline";
 import api from "../api";
 import { useToast } from "../context/ToastContext";
@@ -64,8 +65,8 @@ export default function FirstTimePasswordChange({ user, onPasswordChanged, isDar
       showWarning("Please enter the verification code.");
       return;
     }
-    if (newPassword.length < 6) {
-      showWarning("Password must be at least 6 characters.");
+    if (newPassword.length < 8 || newPassword.length > 12) {
+      showWarning("Password must be between 8 and 12 characters.");
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -97,7 +98,7 @@ export default function FirstTimePasswordChange({ user, onPasswordChanged, isDar
     }
   };
 
-  const isFormValid = verificationCode.trim().length === 6 && newPassword.length >= 6 && confirmPassword.length >= 6;
+  const isFormValid = verificationCode.trim().length === 6 && newPassword.length >= 8 && newPassword.length <= 12 && confirmPassword.length >= 8 && confirmPassword.length <= 12;
 
   return (
     <div className={`min-h-screen w-full flex items-center justify-center p-4 transition-colors duration-300 ${
@@ -231,14 +232,25 @@ export default function FirstTimePasswordChange({ user, onPasswordChanged, isDar
 
             {/* New Password Input */}
             <div>
-              <label 
-                htmlFor="new-password"
-                className={`block text-xs font-semibold uppercase tracking-wider mb-1.5 ${
-                  isDark ? "text-slate-300" : "text-slate-700"
-                }`}
-              >
-                New Password
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label 
+                  htmlFor="new-password"
+                  className={`block text-xs font-semibold uppercase tracking-wider ${
+                    isDark ? "text-slate-300" : "text-slate-700"
+                  }`}
+                >
+                  New Password
+                </label>
+                <span className={`text-[11px] font-medium transition-colors ${
+                  newPassword.length >= 8 && newPassword.length <= 12
+                    ? "text-emerald-500 font-semibold"
+                    : newPassword.length > 0
+                    ? "text-amber-500"
+                    : isDark ? "text-slate-500" : "text-slate-400"
+                }`}>
+                  {newPassword.length}/12 chars (8–12 required)
+                </span>
+              </div>
               <div className="relative group">
                 <LockClosedIcon className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors ${
                   isDark ? "text-slate-500 group-focus-within:text-blue-400" : "text-slate-400 group-focus-within:text-blue-600"
@@ -246,9 +258,10 @@ export default function FirstTimePasswordChange({ user, onPasswordChanged, isDar
                 <input
                   id="new-password"
                   type={showNewPassword ? "text" : "password"}
-                  placeholder="At least 6 characters"
+                  placeholder="8 to 12 characters"
+                  maxLength={12}
                   value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
+                  onChange={(e) => setNewPassword(e.target.value.slice(0, 12))}
                   className={`w-full pl-11 pr-12 py-3 rounded-xl border text-sm outline-none transition ${
                     isDark
                       ? "bg-slate-950 border-slate-700 text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
@@ -271,14 +284,23 @@ export default function FirstTimePasswordChange({ user, onPasswordChanged, isDar
 
             {/* Confirm Password Input */}
             <div>
-              <label 
-                htmlFor="confirm-password"
-                className={`block text-xs font-semibold uppercase tracking-wider mb-1.5 ${
-                  isDark ? "text-slate-300" : "text-slate-700"
-                }`}
-              >
-                Confirm Password
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label 
+                  htmlFor="confirm-password"
+                  className={`block text-xs font-semibold uppercase tracking-wider ${
+                    isDark ? "text-slate-300" : "text-slate-700"
+                  }`}
+                >
+                  Confirm Password
+                </label>
+                {confirmPassword && (
+                  <span className={`text-[11px] font-medium transition-colors ${
+                    confirmPassword === newPassword ? "text-emerald-500 font-semibold" : "text-rose-500"
+                  }`}>
+                    {confirmPassword === newPassword ? "Passwords match" : "Does not match"}
+                  </span>
+                )}
+              </div>
               <div className="relative group">
                 <LockClosedIcon className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors ${
                   isDark ? "text-slate-500 group-focus-within:text-blue-400" : "text-slate-400 group-focus-within:text-blue-600"
@@ -287,8 +309,9 @@ export default function FirstTimePasswordChange({ user, onPasswordChanged, isDar
                   id="confirm-password"
                   type={showConfirmPassword ? "text" : "password"}
                   placeholder="Re-enter new password"
+                  maxLength={12}
                   value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  onChange={(e) => setConfirmPassword(e.target.value.slice(0, 12))}
                   className={`w-full pl-11 pr-12 py-3 rounded-xl border text-sm outline-none transition ${
                     isDark
                       ? "bg-slate-950 border-slate-700 text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
@@ -307,6 +330,18 @@ export default function FirstTimePasswordChange({ user, onPasswordChanged, isDar
                   {showConfirmPassword ? <EyeSlashIcon className="w-5 h-5" /> : <EyeIcon className="w-5 h-5" />}
                 </button>
               </div>
+            </div>
+
+            {/* Password Policy Hint */}
+            <div className={`p-3 rounded-xl text-xs border flex items-center gap-2.5 transition-colors ${
+              newPassword.length >= 8 && newPassword.length <= 12
+                ? isDark ? "bg-emerald-950/30 border-emerald-800/40 text-emerald-400" : "bg-emerald-50 border-emerald-200 text-emerald-700"
+                : isDark ? "bg-slate-950/60 border-slate-800 text-slate-400" : "bg-slate-50 border-slate-200 text-slate-600"
+            }`}>
+              <ShieldCheckIcon className={`w-4 h-4 shrink-0 ${
+                newPassword.length >= 8 && newPassword.length <= 12 ? "text-emerald-500" : "text-slate-400"
+              }`} />
+              <span>Password Policy: Must be <strong>8 to 12 characters</strong> only.</span>
             </div>
 
             {/* Actions */}

@@ -97,6 +97,19 @@ def time_to_minutes(t):
         return int(parts[0]) * 60 + int(parts[1])
     return t.hour * 60 + t.minute
 
+def parse_time_obj(val):
+    if not val:
+        return None
+    if isinstance(val, time):
+        return val
+    s = str(val).strip()
+    for fmt in ("%H:%M:%S", "%H:%M", "%I:%M %p", "%I:%M%p"):
+        try:
+            return datetime.strptime(s, fmt).time()
+        except ValueError:
+            pass
+    return None
+
 def intervals_cover(intervals, target_start, target_end):
     t_start = time_to_minutes(target_start)
     t_end = time_to_minutes(target_end)
@@ -357,9 +370,30 @@ def generate_exam_schedule(
 
     # 2. Fetch Resources for the specific department and semester
     report_progress(8, "Loading resources", "Fetching subjects, rooms, and distribution rules")
-    subjects_query = db.query(Subject).join(Course).filter(
+    from model import SubjectProgram
+    from sqlalchemy.orm import joinedload
+
+    if department in ("College", "SHS"):
+        dept_match = or_(
+            Subject.course.has(Course.category == department),
+            Subject.assigned_programs.any(SubjectProgram.course.has(Course.category == department)),
+            Subject.department_code == department,
+            Subject.course_id.is_(None)
+        )
+    else:
+        dept_match = or_(
+            Subject.course.has(or_(Course.category == department, Course.department_code == department)),
+            Subject.assigned_programs.any(SubjectProgram.course.has(or_(Course.category == department, Course.department_code == department))),
+            Subject.department_code == department,
+            Subject.course_id.is_(None)
+        )
+
+    subjects_query = db.query(Subject).options(
+        joinedload(Subject.course),
+        joinedload(Subject.assigned_programs).joinedload(SubjectProgram.course)
+    ).filter(
         Subject.exam_type == "written",
-        sub_dept_filter,
+        dept_match,
         Subject.semester == semester
     )
     if term and term != "All":
@@ -484,7 +518,15 @@ def generate_exam_schedule(
     subjects_per_section = {}
     for sec in sections:
         sec_yl = _get_section_year_level_id(sec)
-        subjects_per_section[sec.id] = sum(1 for sub in subjects if sub.course_id == sec.course_id and sub.year_level_id == sec_yl)
+        subjects_per_section[sec.id] = sum(
+            1 for sub in subjects
+            if (
+                sub.course_id == sec.course_id
+                or sec.course_id in {sp.course_id for sp in getattr(sub, "assigned_programs", [])}
+                or (not sub.course_id and not getattr(sub, "assigned_programs", []))
+            )
+            and sub.year_level_id == sec_yl
+        )
 
     # Fetch accurate student headcounts per section from User table
     from model import User, IrregularSelection
@@ -697,53 +739,150 @@ def generate_exam_schedule(
     # Pre-calculate involved sections and valid timeslots per group
     groups = []
     for (name_key, group_dur), sub_list in shared_subject_groups.items():
-        # Cluster sections by course cohort: (sub.course_id, sub.year_level_id)
-        # All sections within a course cohort (e.g. BSCpE 1-101, 1-102, 1-103, 1-104)
-        # must ALWAYS remain together in the exact same group so they are scheduled
-        # at the same timeslot and on the exact same floor.
+        # Check if any subject in this shared group has a fixed time slot configured
+        fixed_sub = next(
+            (
+                s for s in sub_list 
+                if getattr(s, "is_fixed_timeslot", False) 
+                and getattr(s, "fixed_day", None) 
+                and getattr(s, "fixed_start_time", None)
+            ),
+            None
+        )
+
         cohort_dict = {}
         for sub in sub_list:
-            secs = [sec for sec in sections if sec.course_id == sub.course_id and _get_section_year_level_id(sec) == sub.year_level_id]
-            if secs:
-                c_key = (sub.course_id, sub.year_level_id)
-                cohort_dict.setdefault(c_key, []).extend([(sec, sub) for sec in secs])
+            assigned_cids = {sp.course_id for sp in getattr(sub, "assigned_programs", [])}
+            if sub.course_id:
+                assigned_cids.add(sub.course_id)
+
+            if assigned_cids:
+                matching_secs = [sec for sec in sections if sec.course_id in assigned_cids and _get_section_year_level_id(sec) == sub.year_level_id]
+            else:
+                matching_secs = [sec for sec in sections if _get_section_year_level_id(sec) == sub.year_level_id]
+
+            for sec in matching_secs:
+                c_key = (sec.course_id, sub.year_level_id)
+                cohort_list = cohort_dict.setdefault(c_key, [])
+                if not any(existing_sec.id == sec.id for existing_sec, _ in cohort_list):
+                    cohort_list.append((sec, sub))
 
         if not cohort_dict:
             continue
 
-        for c_key, cohort_sections in cohort_dict.items():
-            sample_sec, sample_sub = cohort_sections[0]
-            classification = classify_subject(sample_sub.name, sample_sub.category)
-            import re
-            is_lit = sample_sub.category == "general" and (
-                "literature" in sample_sub.name.lower() or re.search(r"\blit\b", sample_sub.name.lower())
-            )
-            if is_lit:
-                classification = "MAJOR"
+        if fixed_sub:
+            f_day = fixed_sub.fixed_day
+            f_start = parse_time_obj(fixed_sub.fixed_start_time)
 
-            req_dur = subject_durations.get(sample_sub.id, group_dur)
-            allowed_slots = _allowed_slots_for_classification(classification, sample_sub.year_level_id, req_dur)
-            if not allowed_slots:
-                allowed_slots = {
-                    s for s in timeslots
-                    if ((s.end_time.hour * 60 + s.end_time.minute) - (s.start_time.hour * 60 + s.start_time.minute)) == req_dur
+            day_idx = min(max(1, f_day), len(exam_days)) - 1
+            target_date = exam_days[day_idx]
+
+            # All timeslots on target_date matching group duration
+            target_day_slots = [
+                ts for ts in timeslots
+                if ts.date == target_date
+                and ((ts.end_time.hour * 60 + ts.end_time.minute) - (ts.start_time.hour * 60 + ts.start_time.minute)) == group_dur
+            ]
+            target_day_slots.sort(key=lambda ts: (ts.start_time, ts.end_time))
+
+            if target_day_slots and f_start:
+                def _diff_m(t1, t2):
+                    return abs((t1.hour * 60 + t1.minute) - (t2.hour * 60 + t2.minute))
+
+                primary_slot = min(target_day_slots, key=lambda ts: _diff_m(ts.start_time, f_start))
+                p_idx = target_day_slots.index(primary_slot)
+                ordered_fixed_slots = target_day_slots[p_idx:]
+
+                # If room demand exceeds available slots on this day, spill over to subsequent days
+                for next_d in exam_days[day_idx + 1:]:
+                    next_day_slots = [
+                        ts for ts in timeslots
+                        if ts.date == next_d
+                        and ((ts.end_time.hour * 60 + ts.end_time.minute) - (ts.start_time.hour * 60 + ts.start_time.minute)) == group_dur
+                    ]
+                    next_day_slots.sort(key=lambda ts: (ts.start_time, ts.end_time))
+                    ordered_fixed_slots.extend(next_day_slots)
+            else:
+                ordered_fixed_slots = [
+                    ts for ts in timeslots
+                    if ((ts.end_time.hour * 60 + ts.end_time.minute) - (ts.start_time.hour * 60 + ts.start_time.minute)) == group_dur
+                ]
+
+            slot_limit = max(1, len(room_ids))
+            cur_slot_pos = 0
+            cur_slot_count = 0
+
+            for c_key, cohort_sections in cohort_dict.items():
+                sample_sec, sample_sub = cohort_sections[0]
+                classification = classify_subject(sample_sub.name, sample_sub.category)
+                req_dur = subject_durations.get(sample_sub.id, group_dur)
+                break_seconds_by_section = {
+                    sec.id: _break_after_exam(sub.category)
+                    for sec, sub in cohort_sections
+                }
+                course_name = sample_sec.course.name if (sample_sec and sample_sec.course) else (sample_sub.course.name if sample_sub.course else f"Course {c_key[0]}")
+
+                # Handle cohort split if a single cohort is larger than total room capacity
+                cohort_chunks = [cohort_sections[i:i + slot_limit] for i in range(0, len(cohort_sections), slot_limit)] or [cohort_sections]
+                for chunk_idx, chunk_secs in enumerate(cohort_chunks):
+                    chunk_len = len(chunk_secs)
+                    if cur_slot_count + chunk_len > slot_limit and cur_slot_count > 0:
+                        if cur_slot_pos + 1 < len(ordered_fixed_slots):
+                            cur_slot_pos += 1
+                            cur_slot_count = 0
+
+                    assigned_slot = ordered_fixed_slots[cur_slot_pos] if ordered_fixed_slots else None
+                    allowed_slot_ids = [assigned_slot.id] if assigned_slot else [s.id for s in timeslots]
+                    cur_slot_count += chunk_len
+
+                    g_suffix = f" pt{chunk_idx + 1}" if len(cohort_chunks) > 1 else ""
+                    g_name = f"{name_key} ({course_name} {sample_sub.year_level_id}){g_suffix}"
+                    groups.append({
+                        "name": g_name,
+                        "sections": chunk_secs,
+                        "allowed_slots": allowed_slot_ids,
+                        "classification": classification,
+                        "duration": req_dur,
+                        "break_seconds_by_section": break_seconds_by_section,
+                        "is_fixed": True,
+                        "fixed_slot_id": assigned_slot.id if assigned_slot else None,
+                    })
+        else:
+            # Not fixed to a specific timeslot: follow distribution rules
+            for c_key, cohort_sections in cohort_dict.items():
+                sample_sec, sample_sub = cohort_sections[0]
+                classification = classify_subject(sample_sub.name, sample_sub.category)
+                import re
+                is_lit = sample_sub.category == "general" and (
+                    "literature" in sample_sub.name.lower() or re.search(r"\blit\b", sample_sub.name.lower())
+                )
+                if is_lit:
+                    classification = "MAJOR"
+
+                req_dur = subject_durations.get(sample_sub.id, group_dur)
+                allowed_slots = _allowed_slots_for_classification(classification, sample_sub.year_level_id, req_dur)
+                if not allowed_slots:
+                    allowed_slots = {
+                        s for s in timeslots
+                        if ((s.end_time.hour * 60 + s.end_time.minute) - (s.start_time.hour * 60 + s.start_time.minute)) == req_dur
+                    }
+
+                break_seconds_by_section = {
+                    sec.id: _break_after_exam(sub.category)
+                    for sec, sub in cohort_sections
                 }
 
-            break_seconds_by_section = {
-                sec.id: _break_after_exam(sub.category)
-                for sec, sub in cohort_sections
-            }
-
-            course_name = sample_sub.course.name if sample_sub.course else f"Course {sample_sub.course_id}"
-            g_name = f"{name_key} ({course_name} {sample_sub.year_level_id})"
-            groups.append({
-                "name": g_name,
-                "sections": cohort_sections,
-                "allowed_slots": [s.id for s in allowed_slots],
-                "classification": classification,
-                "duration": req_dur,
-                "break_seconds_by_section": break_seconds_by_section,
-            })
+                course_name = sample_sec.course.name if (sample_sec and sample_sec.course) else (sample_sub.course.name if sample_sub.course else f"Course {c_key[0]}")
+                g_name = f"{name_key} ({course_name} {sample_sub.year_level_id})"
+                groups.append({
+                    "name": g_name,
+                    "sections": cohort_sections,
+                    "allowed_slots": [s.id for s in allowed_slots],
+                    "classification": classification,
+                    "duration": req_dur,
+                    "break_seconds_by_section": break_seconds_by_section,
+                    "is_fixed": False,
+                })
 
     # -------------------------
     # Preprocessing for Performance
@@ -904,9 +1043,9 @@ def generate_exam_schedule(
                 "sec_name": sec.name,
                 "sub_id": sub.id,
                 "sub_name": sub.name,
-                "course_id": sub.course_id,
-                "exam_dept": getattr(sub, "department_code", None) or course_id_to_dept.get(sub.course_id, "College"),
-                "year_level_id": sub.year_level_id,
+                "course_id": sec.course_id,
+                "exam_dept": getattr(sub, "department_code", None) or course_id_to_dept.get(sec.course_id, "College"),
+                "year_level_id": _get_section_year_level_id(sec) or sub.year_level_id,
                 "semester": sub.semester,
                 "subjects_per_section": subjects_per_section.get(sec.id, 0),
                 "preferred_room_id": sec.preferred_room_id,
@@ -922,7 +1061,7 @@ def generate_exam_schedule(
         for slot_id, slot_idx in timeslot_id_to_idx.items():
             sec_candidates = []
             for sec, sub in g["sections"]:
-                exam_dept = course_id_to_dept.get(sub.course_id, "College")
+                exam_dept = getattr(sub, "department_code", None) or course_id_to_dept.get(sec.course_id, "College")
                 candidates = []
                 for p_idx, pid in enumerate(proctor_ids):
                     if not proctor_slot_avail.get((p_idx, slot_idx)):
@@ -969,7 +1108,8 @@ def generate_exam_schedule(
             "section_ids_set": section_ids_set,
             "break_seconds_by_section": g["break_seconds_by_section"],
             "slot_proctors": slot_proctors,
-            "duration": g.get("duration", 75)
+            "duration": g.get("duration", 75),
+            "is_fixed": g.get("is_fixed", False),
         })
 
     preprocessed_groups.sort(
@@ -1353,6 +1493,8 @@ def generate_exam_schedule(
                 ))
 
                 for group_idx in group_indices:
+                    if preprocessed_groups[group_idx].get("is_fixed", False):
+                        continue
                     target_slot_idx = find_room_repair_target(repaired, demand_by_slot, group_idx, slot_idx, large_demand_by_slot)
                     if not target_slot_idx:
                         continue
@@ -1414,6 +1556,8 @@ def generate_exam_schedule(
                         continue
 
                     for g_idx, curr_slot in sorted_pairs:
+                        if preprocessed_groups[g_idx].get("is_fixed", False):
+                            continue
                         group = preprocessed_groups[g_idx]
                         curr_demand = group_room_demands[g_idx]
 

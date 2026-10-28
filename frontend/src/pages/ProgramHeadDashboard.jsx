@@ -28,6 +28,10 @@ import {
   UserGroupIcon,
   CheckBadgeIcon,
   ExclamationTriangleIcon,
+  TableCellsIcon,
+  ArrowDownTrayIcon,
+  CheckCircleIcon,
+  InformationCircleIcon,
 } from "@heroicons/react/24/outline";
 import ExamScheduler from "../components/ExamScheduler";
 import AddProctor from "../components/AddProctor";
@@ -1279,221 +1283,642 @@ function ProgramHeadManual() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
   const [activeSubTab, setActiveSubTab] = useState("generation");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const topics = [
-    { id: "generation", label: "Schedule Generation", icon: CalendarIcon },
-    { id: "rooms", label: "Room & Capacity Rules", icon: BuildingOffice2Icon },
-    { id: "proctors", label: "Proctor Management", icon: UsersIcon },
-    { id: "rescheduling", label: "Rescheduling Requests", icon: ClipboardDocumentListIcon },
-    { id: "rules", label: "Distribution Rules", icon: AdjustmentsHorizontalIcon },
+    { id: "generation", label: "Schedule Generator", icon: CalendarIcon, badge: "AI Engine" },
+    { id: "schedules", label: "Master Schedules & Export", icon: TableCellsIcon, badge: "Excel Export" },
+    { id: "durations", label: "Subject Durations", icon: ClockIcon, badge: "Allotted Time" },
+    { id: "rooms", label: "Room Management", icon: BuildingOffice2Icon, badge: "Capacities" },
+    { id: "proctors", label: "Proctors & Live Monitoring", icon: UsersIcon, badge: "Check-ins" },
+    { id: "rescheduling", label: "Rescheduling & Irregular", icon: ClipboardDocumentListIcon, badge: "Smart Auto" },
+    { id: "rules", label: "Distribution Rules", icon: AdjustmentsHorizontalIcon, badge: "Policies" },
+    { id: "data", label: "Data Ingestion & Rosters", icon: CircleStackIcon, badge: "Excel Ingest" },
+    { id: "chat_notif", label: "Chat & Notifications", icon: ChatBubbleLeftRightIcon, badge: "Real-time" },
   ];
+
+  const filteredTopics = topics.filter(t =>
+    t.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    t.badge.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <div className="space-y-6">
-      <div className={`p-6 rounded-2xl border ${isDark ? "bg-slate-800/40 border-slate-700" : "bg-gradient-to-r from-blue-500/10 to-indigo-500/10 border-blue-100"}`}>
-        <div className="flex items-center gap-4">
-          <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${isDark ? "bg-blue-500/20 text-blue-300" : "bg-blue-600 text-white shadow-md shadow-blue-500/20"}`}>
-            <BookOpenIcon className="w-6 h-6" />
+      {/* Header Banner */}
+      <div className={`p-6 sm:p-8 rounded-3xl border transition-all relative overflow-hidden ${
+        isDark
+          ? "bg-gradient-to-br from-slate-900/90 via-slate-800/80 to-blue-950/40 border-slate-700/60 shadow-xl"
+          : "bg-gradient-to-br from-blue-50/90 via-indigo-50/60 to-white border-blue-200/70 shadow-sm"
+      }`}>
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="flex items-start sm:items-center gap-4">
+            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-lg ${
+              isDark
+                ? "bg-blue-600/30 text-blue-400 border border-blue-500/30 shadow-blue-900/30"
+                : "bg-gradient-to-tr from-blue-600 to-indigo-600 text-white shadow-blue-500/25"
+            }`}>
+              <BookOpenIcon className="w-7 h-7" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className={`text-xl sm:text-2xl font-black tracking-tight ${isDark ? "text-white" : "text-slate-900"}`}>
+                  Program Head Master Manual
+                </h2>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                  isDark ? "bg-blue-500/20 text-blue-300 border border-blue-500/30" : "bg-blue-100 text-blue-700"
+                }`}>
+                  Current Version
+                </span>
+              </div>
+              <p className={`text-xs sm:text-sm mt-1 max-w-2xl leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+                Comprehensive operational guide covering the multi-generation Genetic Algorithm engine, dynamic room capacities, 2-consecutive proctor rules, irregular student auto-routing, and live attendance monitoring.
+              </p>
+            </div>
           </div>
-          <div>
-            <h2 className={`text-xl font-bold tracking-tight ${isDark ? "text-white" : "text-slate-900"}`}>
-              Program Head Interactive Guide
-            </h2>
-            <p className={`text-sm mt-1 ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-              Learn how to run the genetic algorithm, configure capacity constraints, set distribution rules, and manage proctoring assignments.
-            </p>
+
+          {/* Search Bar */}
+          <div className="relative min-w-[240px] sm:min-w-[280px]">
+            <MagnifyingGlassIcon className={`w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 ${isDark ? "text-slate-400" : "text-slate-500"}`} />
+            <input
+              type="text"
+              placeholder="Search guide topics..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className={`w-full pl-9 pr-4 py-2 rounded-xl text-xs sm:text-sm font-medium border transition-all focus:outline-none focus:ring-2 ${
+                isDark
+                  ? "bg-slate-900/70 border-slate-700 text-white placeholder-slate-500 focus:ring-blue-500/50"
+                  : "bg-white border-slate-200 text-slate-900 placeholder-slate-400 focus:ring-blue-500/30 shadow-sm"
+              }`}
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              >
+                <XMarkIcon className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
         </div>
       </div>
 
-      <div className="flex overflow-x-auto no-scrollbar gap-2 pb-2 border-b border-slate-200 dark:border-slate-700">
-        {topics.map((t) => {
+      {/* Topic Tabs */}
+      <div className="flex overflow-x-auto no-scrollbar gap-2 pb-1 border-b border-slate-200/80 dark:border-slate-800">
+        {filteredTopics.map((t) => {
           const SubIcon = t.icon;
           const isSelected = activeSubTab === t.id;
           return (
             <button
               key={t.id}
               onClick={() => setActiveSubTab(t.id)}
-              className={`flex items-center gap-2 px-3.5 sm:px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all whitespace-nowrap shrink-0 ${isSelected
-                ? isDark
-                  ? "bg-blue-600 text-white"
-                  : "bg-blue-600 text-white shadow-md shadow-blue-500/25"
-                : isDark
-                  ? "text-slate-400 hover:bg-slate-800 hover:text-white"
-                  : "text-slate-600 hover:bg-blue-50 hover:text-blue-700"
-                }`}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all whitespace-nowrap shrink-0 group ${
+                isSelected
+                  ? isDark
+                    ? "bg-blue-600 text-white shadow-lg shadow-blue-900/40"
+                    : "bg-blue-600 text-white shadow-md shadow-blue-500/25"
+                  : isDark
+                    ? "text-slate-400 hover:bg-slate-800 hover:text-white"
+                    : "text-slate-600 hover:bg-blue-50 hover:text-blue-700"
+              }`}
             >
-              <SubIcon className="w-4 h-4" />
-              {t.label}
+              <SubIcon className={`w-4 h-4 transition-transform group-hover:scale-110 ${isSelected ? "text-white" : isDark ? "text-slate-400" : "text-slate-500"}`} />
+              <span>{t.label}</span>
+              <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-bold uppercase ${
+                isSelected
+                  ? "bg-white/20 text-white"
+                  : isDark
+                    ? "bg-slate-800 text-slate-400 group-hover:text-slate-200"
+                    : "bg-slate-100 text-slate-600"
+              }`}>
+                {t.badge}
+              </span>
             </button>
           );
         })}
       </div>
 
-      <div className={`p-4 sm:p-6 md:p-8 rounded-2xl border transition-all ${isDark ? "bg-slate-800/20 border-slate-800" : "bg-white border-slate-200/60"}`}>
+      {/* Guide Content Display */}
+      <div className={`p-4 sm:p-7 md:p-8 rounded-3xl border transition-all ${
+        isDark ? "bg-slate-900/50 border-slate-800/80 backdrop-blur-xl" : "bg-white border-slate-200/70 shadow-sm"
+      }`}>
+        {/* TAB 1: Schedule Generation */}
         {activeSubTab === "generation" && (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-sm">1</div>
-              <h3 className={`text-lg font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Generating the Exam Schedule</h3>
+            <div className="flex items-center justify-between flex-wrap gap-3 pb-4 border-b border-slate-200 dark:border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-base shadow-sm">1</div>
+                <div>
+                  <h3 className={`text-lg sm:text-xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
+                    AI-Powered Schedule Generation
+                  </h3>
+                  <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                    Multi-Generation Genetic Algorithm Engine with Strict Hard & Soft Constraint Solvers
+                  </p>
+                </div>
+              </div>
+              <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-500/10 text-blue-500 border border-blue-500/20">
+                Core Module
+              </span>
             </div>
 
             <p className={`text-sm leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
-              The scheduling engine uses a multi-generation Genetic Algorithm (GA) to satisfy hard constraints (no student clashes, no proctor clashes) and optimize soft constraints (high-floor targets, balanced rooms).
+              The scheduling engine creates a conflict-free, multi-day examination timetable by evaluating millions of permutations against strict institutional constraints.
             </p>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className={`p-4 rounded-xl border ${isDark ? "bg-slate-900/40 border-slate-800" : "bg-slate-50 border-slate-100"}`}>
-                <h4 className={`font-bold text-sm mb-2 flex items-center gap-2 ${isDark ? "text-slate-200" : "text-slate-800"}`}>
-                  <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span> Steps to Run Generation
-                </h4>
-                <ul className={`text-xs space-y-2.5 ${isDark ? "text-slate-400" : "text-slate-600"}`}>
-                  <li className="flex items-start gap-2">
-                    <span className="text-blue-500 font-bold">•</span>
-                    <span>Navigate to <strong>Generate Schedule</strong>, select the academic <strong>Department</strong> (College/SHS).</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-blue-500 font-bold">•</span>
-                    <span>Set the <strong>Start Date</strong> and <strong>End Date</strong> for the exam cycle.</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-blue-500 font-bold">•</span>
-                    <span>Click <strong>Generate Schedule</strong> to start the GA optimization. A live progress bar will track each phase.</span>
-                  </li>
-                </ul>
+            {/* Step-by-Step Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className={`p-5 rounded-2xl border ${isDark ? "bg-slate-800/50 border-slate-700/60" : "bg-slate-50 border-slate-200/80"}`}>
+                <div className="flex items-center gap-2 mb-2 font-bold text-sm text-blue-500">
+                  <span className="w-6 h-6 rounded-lg bg-blue-500/10 flex items-center justify-center text-xs">A</span>
+                  Target Parameters
+                </div>
+                <p className={`text-xs leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+                  Choose the academic <strong>Department</strong> (College or Senior High School), the current <strong>Term</strong> (Midterm, Final), and the exact <strong>Start Date</strong> and <strong>End Date</strong> of the examination cycle.
+                </p>
               </div>
 
-              <div className={`p-4 rounded-xl border ${isDark ? "bg-slate-900/40 border-slate-800" : "bg-slate-50 border-slate-100"}`}>
-                <h4 className={`font-bold text-sm mb-2 flex items-center gap-2 ${isDark ? "text-slate-200" : "text-slate-800"}`}>
-                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span> Excluding Subjects
-                </h4>
-                <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-                  Use the search and multi-checkbox interface to exclude specific subjects (like online-only or practical subjects) from the auto-scheduler. Excluded subjects will be skipped.
+              <div className={`p-5 rounded-2xl border ${isDark ? "bg-slate-800/50 border-slate-700/60" : "bg-slate-50 border-slate-200/80"}`}>
+                <div className="flex items-center gap-2 mb-2 font-bold text-sm text-indigo-500">
+                  <span className="w-6 h-6 rounded-lg bg-indigo-500/10 flex items-center justify-center text-xs">B</span>
+                  Preferred Rooms & Exclusions
+                </div>
+                <p className={`text-xs leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+                  Override room auto-assignment by pinning specific rooms to sections (e.g., Computer Lab 1 for BSIT). Use the <strong>Exclude Subjects</strong> filter to skip online, OJT/practicum, or physical education courses.
                 </p>
-                <div className={`mt-3 p-3 rounded-lg border text-[11px] leading-relaxed flex gap-2 ${isDark ? "bg-amber-500/10 border-amber-500/20 text-amber-300" : "bg-amber-50 border-amber-100 text-amber-700"}`}>
-                  <span><strong>Important:</strong> Modifying options resets draft schedules. Publishes are immutable and will be visible to students and proctors immediately.</span>
+              </div>
+
+              <div className={`p-5 rounded-2xl border ${isDark ? "bg-slate-800/50 border-slate-700/60" : "bg-slate-50 border-slate-200/80"}`}>
+                <div className="flex items-center gap-2 mb-2 font-bold text-sm text-emerald-500">
+                  <span className="w-6 h-6 rounded-lg bg-emerald-500/10 flex items-center justify-center text-xs">C</span>
+                  GA Execution & Publishing
+                </div>
+                <p className={`text-xs leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+                  Click <strong>Generate Schedule</strong>. Watch live generation stages (Chromosome generation, crossover, mutation, fitness evaluation). Review the draft, then click <strong>Publish</strong> to release immutable schedules to proctors and students.
+                </p>
+              </div>
+            </div>
+
+            {/* Current Engine Rules Callout */}
+            <div className={`p-5 rounded-2xl border ${isDark ? "bg-blue-950/30 border-blue-900/50 text-blue-200" : "bg-blue-50 border-blue-200/70 text-blue-900"}`}>
+              <h4 className="font-bold text-sm flex items-center gap-2 mb-2">
+                <SparklesIcon className="w-4 h-4 text-blue-500" />
+                Active Scheduling Engine Rules (Current Version)
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs leading-relaxed">
+                <div className="flex items-start gap-2">
+                  <span className="text-blue-500 font-bold">•</span>
+                  <span><strong>Consecutive Breaks:</strong> Enforces configured mandatory break intervals (e.g. 15 or 30 minutes) between exams per section to prevent student mental fatigue.</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="text-blue-500 font-bold">•</span>
+                  <span><strong>2-Proctor Consecutive Limit:</strong> Faculty members cannot be scheduled for more than 2 consecutive exam slots, guaranteeing proctor rest periods.</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="text-blue-500 font-bold">•</span>
+                  <span><strong>Proctor Work Hours:</strong> Start and end teaching hours uploaded via faculty sheets are strictly respected; no duty is assigned outside availability.</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="text-blue-500 font-bold">•</span>
+                  <span><strong>Same-Floor Optimization:</strong> Greedy heuristic groups a section's exams on the same floor or building wing to eliminate unnecessary student rush.</span>
                 </div>
               </div>
             </div>
           </div>
         )}
 
-        {activeSubTab === "rooms" && (
+        {/* TAB 2: Master Schedules & Export */}
+        {activeSubTab === "schedules" && (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-sm">2</div>
-              <h3 className={`text-lg font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Room Allocation & Capacity Constraints</h3>
+            <div className="flex items-center justify-between flex-wrap gap-3 pb-4 border-b border-slate-200 dark:border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold text-base shadow-sm">2</div>
+                <div>
+                  <h3 className={`text-lg sm:text-xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
+                    Generated Schedules & Master Excel Export
+                  </h3>
+                  <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                    Interactive Timetable Views, Search Filters, and Institutional Spreadsheet Export
+                  </p>
+                </div>
+              </div>
+              <span className="px-3 py-1 rounded-full text-xs font-bold bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">
+                Reporting & Timetable
+              </span>
             </div>
 
             <p className={`text-sm leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
-              Each room in the system has a maximum seating capacity. If a section's enrollment exceeds a room's seat limit, the schedule might fail or violate student distancing rules.
+              The <strong>Generated Schedules</strong> console allows administrators to inspect published or draft schedules across all departments, sections, dates, and venues.
             </p>
 
-            <div className={`p-4 rounded-xl border ${isDark ? "bg-blue-950/20 border-blue-900/40 text-blue-200" : "bg-blue-50 border-blue-100 text-blue-800"} text-xs leading-relaxed flex gap-3`}>
-              <div>
-                <strong className="block text-sm mb-1 font-bold">How to resolve room capacity limits:</strong>
-                Before scheduling, go to the <strong>Generate Schedule</strong> dashboard. Next to each section (e.g. BSIT 3-201), use the <strong>Preferred Room</strong> dropdown to assign a specific room that accommodates the section size (e.g. Computer Lab 1 with capacity 40). The algorithm will attempt to reserve that room for all exam timeslots of that section, ensuring students are not cramped or split.
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className={`p-5 rounded-2xl border ${isDark ? "bg-slate-800/50 border-slate-700/60" : "bg-slate-50 border-slate-200/80"}`}>
+                <h4 className={`font-bold text-sm mb-2 flex items-center gap-2 ${isDark ? "text-slate-200" : "text-slate-800"}`}>
+                  <TableCellsIcon className="w-4 h-4 text-indigo-500" />
+                  Dual View Modes & Multi-Filters
+                </h4>
+                <ul className={`text-xs space-y-2.5 ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+                  <li className="flex items-start gap-2">
+                    <span className="text-indigo-500 font-bold">•</span>
+                    <span><strong>Grid / Matrix View:</strong> Visual time-block matrix showing exam distribution across dates and rooms at a glance.</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-indigo-500 font-bold">•</span>
+                    <span><strong>List / Table View:</strong> Compact chronological list ideal for auditing proctors, section names, and student headcounts.</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-indigo-500 font-bold">•</span>
+                    <span><strong>Dynamic Filters:</strong> Quickly filter by Date, Section, Proctor Name, Course Code, or Room Number.</span>
+                  </li>
+                </ul>
+              </div>
+
+              <div className={`p-5 rounded-2xl border ${isDark ? "bg-slate-800/50 border-slate-700/60" : "bg-slate-50 border-slate-200/80"}`}>
+                <h4 className={`font-bold text-sm mb-2 flex items-center gap-2 ${isDark ? "text-slate-200" : "text-slate-800"}`}>
+                  <ArrowDownTrayIcon className="w-4 h-4 text-emerald-500" />
+                  Master Excel Export (.xlsx)
+                </h4>
+                <p className={`text-xs leading-relaxed mb-3 ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+                  Click <strong>Export to Excel</strong> to generate an officially formatted, color-coded spreadsheet with separate sheets for College, SHS, and Proctor Duty Rosters.
+                </p>
+                <div className={`p-3 rounded-xl border text-[11px] leading-relaxed flex items-center gap-2 ${
+                  isDark ? "bg-emerald-950/20 border-emerald-900/40 text-emerald-300" : "bg-emerald-50 border-emerald-200 text-emerald-800"
+                }`}>
+                  <CheckCircleIcon className="w-4 h-4 shrink-0 text-emerald-500" />
+                  <span>Exports include timestamps, room numbers, proctor names, course descriptions, and total section student counts.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 3: Subject Durations */}
+        {activeSubTab === "durations" && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+            <div className="flex items-center justify-between flex-wrap gap-3 pb-4 border-b border-slate-200 dark:border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center text-amber-600 dark:text-amber-400 font-bold text-base shadow-sm">3</div>
+                <div>
+                  <h3 className={`text-lg sm:text-xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
+                    Subject Durations & Allotted Time
+                  </h3>
+                  <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                    Custom Examination Time Allocations per Course and Department
+                  </p>
+                </div>
+              </div>
+              <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-500/10 text-amber-600 border border-amber-500/20">
+                Time Settings
+              </span>
+            </div>
+
+            <p className={`text-sm leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+              Not all exams require standard 90-minute blocks. The <strong>Subject Management</strong> tab empowers Program Heads to tailor exact exam durations according to course intensity and institutional policy.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className={`p-4 rounded-2xl border ${isDark ? "bg-slate-800/50 border-slate-700/60" : "bg-slate-50 border-slate-200/80"}`}>
+                <span className="text-xs font-bold px-2 py-0.5 rounded bg-blue-500/10 text-blue-500">60 Minutes</span>
+                <h4 className={`font-bold text-sm mt-2 mb-1 ${isDark ? "text-slate-200" : "text-slate-800"}`}>General / Minor Courses</h4>
+                <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+                  Suitable for 1 to 2-unit introductory subjects, values education, or multiple-choice midterm assessments.
+                </p>
+              </div>
+
+              <div className={`p-4 rounded-2xl border ${isDark ? "bg-slate-800/50 border-slate-700/60" : "bg-slate-50 border-slate-200/80"}`}>
+                <span className="text-xs font-bold px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-500">90 Minutes (Standard)</span>
+                <h4 className={`font-bold text-sm mt-2 mb-1 ${isDark ? "text-slate-200" : "text-slate-800"}`}>Standard Lecture Courses</h4>
+                <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+                  Default allocation for 3-unit collegiate courses and standard SHS core academic subjects.
+                </p>
+              </div>
+
+              <div className={`p-4 rounded-2xl border ${isDark ? "bg-slate-800/50 border-slate-700/60" : "bg-slate-50 border-slate-200/80"}`}>
+                <span className="text-xs font-bold px-2 py-0.5 rounded bg-purple-500/10 text-purple-500">120 Minutes</span>
+                <h4 className={`font-bold text-sm mt-2 mb-1 ${isDark ? "text-slate-200" : "text-slate-800"}`}>Technical & Major Courses</h4>
+                <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+                  Assigned to rigorous majors, programming practicals, accounting problems, and engineering mathematics.
+                </p>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className={`p-4 rounded-xl border ${isDark ? "bg-slate-900/40 border-slate-800" : "bg-slate-50 border-slate-100"}`}>
-                <h4 className={`font-bold text-sm mb-1.5 ${isDark ? "text-slate-200" : "text-slate-800"}`}>Auto-Allocation (Default)</h4>
-                <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-                  If no room is preferred, the scheduler greedy-assigns rooms, preferring higher floor levels first and balancing loads across rooms.
-                </p>
+            <div className={`p-4 rounded-xl border text-xs ${isDark ? "bg-slate-800/40 border-slate-700 text-slate-300" : "bg-slate-50 border-slate-200 text-slate-700"}`}>
+              <strong>How to Edit:</strong> Go to <strong>Subject Management</strong> in the sidebar. Search for the subject code (e.g., `ITEC301`). Select the duration dropdown or enter custom minutes. Click <strong>Save Changes</strong>. The scheduling algorithm will automatically allocate timeslot blocks matching each subject's configured length.
+            </div>
+          </div>
+        )}
+
+        {/* TAB 4: Room Management */}
+        {activeSubTab === "rooms" && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+            <div className="flex items-center justify-between flex-wrap gap-3 pb-4 border-b border-slate-200 dark:border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/40 flex items-center justify-center text-purple-600 dark:text-purple-400 font-bold text-base shadow-sm">4</div>
+                <div>
+                  <h3 className={`text-lg sm:text-xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
+                    Room Management & Dynamic Seating Capacities
+                  </h3>
+                  <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                    Capacity Limits, Building Restrictions, and Consultation Overflow Room
+                  </p>
+                </div>
               </div>
-              <div className={`p-4 rounded-xl border ${isDark ? "bg-slate-900/40 border-slate-800" : "bg-slate-50 border-slate-100"}`}>
-                <h4 className={`font-bold text-sm mb-1.5 ${isDark ? "text-slate-200" : "text-slate-800"}`}>Preferred Allocation (Override)</h4>
-                <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-                  Specifying a preferred room tells the GA to schedule the section's exams in that room unless there's a scheduling conflict, in which case it dynamically falls back to an available room.
+              <span className="px-3 py-1 rounded-full text-xs font-bold bg-purple-500/10 text-purple-600 border border-purple-500/20">
+                Facility Setup
+              </span>
+            </div>
+
+            <p className={`text-sm leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+              Every examination room is registered with a maximum seating limit, floor level, and building designation. The scheduler dynamically balances student distribution to prevent room overcrowding.
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className={`p-5 rounded-2xl border ${isDark ? "bg-slate-800/50 border-slate-700/60" : "bg-slate-50 border-slate-200/80"}`}>
+                <h4 className={`font-bold text-sm mb-2 flex items-center gap-2 ${isDark ? "text-slate-200" : "text-slate-800"}`}>
+                  <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                  Dynamic Capacity Editing
+                </h4>
+                <p className={`text-xs leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+                  Program Heads can adjust room capacities in real-time under <strong>Room Management</strong>. When a section exceeds a room's seat limit, the system flags a capacity conflict and blocks the assignment.
+                </p>
+                <div className="mt-3 text-[11px] font-mono p-2 rounded bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300">
+                  Rule: Section Enrollment ≤ Room Seating Capacity
+                </div>
+              </div>
+
+              <div className={`p-5 rounded-2xl border ${isDark ? "bg-slate-800/50 border-slate-700/60" : "bg-slate-50 border-slate-200/80"}`}>
+                <h4 className={`font-bold text-sm mb-2 flex items-center gap-2 ${isDark ? "text-slate-200" : "text-slate-800"}`}>
+                  <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                  Building Restrictions & Consultation Area
+                </h4>
+                <p className={`text-xs leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+                  Rooms are partitioned by department buildings (e.g. Main College Building vs Annex). During manual rescheduling reviews, the system validates and rejects cross-building assignments.
+                </p>
+                <p className={`text-xs leading-relaxed mt-2 ${isDark ? "text-amber-300" : "text-amber-700"}`}>
+                  <strong>Consultation Area:</strong> Dedicated fallback venue used for after 5:00 PM overflow when no standard daytime slot fits an irregular student.
                 </p>
               </div>
             </div>
           </div>
         )}
 
+        {/* TAB 5: Proctor Management & Monitoring */}
         {activeSubTab === "proctors" && (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-sm">3</div>
-              <h3 className={`text-lg font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Proctor Management & Uploads</h3>
+            <div className="flex items-center justify-between flex-wrap gap-3 pb-4 border-b border-slate-200 dark:border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center text-emerald-600 dark:text-emerald-400 font-bold text-base shadow-sm">5</div>
+                <div>
+                  <h3 className={`text-lg sm:text-xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
+                    Proctor Management & Live Attendance Monitoring
+                  </h3>
+                  <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                    Availability Ingestion, 2-Consecutive Rules, and Real-Time Room Check-ins
+                  </p>
+                </div>
+              </div>
+              <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+                Staff Supervision
+              </span>
             </div>
 
             <p className={`text-sm leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
-              Proctors oversee examinations. To prevent assigning proctors during their teaching hours, you must upload their schedule from an Excel spreadsheet or define their availability.
+              Manage faculty proctoring duties fairly while monitoring on-site attendance during live exam days.
             </p>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className={`p-4 rounded-xl border ${isDark ? "bg-slate-900/40 border-slate-800" : "bg-slate-50 border-slate-100"}`}>
-                <h4 className={`font-bold text-sm mb-2 ${isDark ? "text-slate-200" : "text-slate-800"}`}>1. Excel Upload</h4>
-                <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-                  Go to <strong>Proctor Management</strong>. Use the file selector to upload the official faculty loading sheets. The backend parses classrooms, teacher courses, and schedules.
+              <div className={`p-4 rounded-2xl border ${isDark ? "bg-slate-800/50 border-slate-700/60" : "bg-slate-50 border-slate-200/80"}`}>
+                <h4 className={`font-bold text-sm mb-1.5 ${isDark ? "text-slate-200" : "text-slate-800"}`}>1. Ingest Teaching Loads</h4>
+                <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+                  Under <strong>Proctor Management</strong>, upload the faculty teaching load Excel sheet. The engine automatically marks teaching hours as unavailable so teachers are never double-booked.
                 </p>
               </div>
-              <div className={`p-4 rounded-xl border ${isDark ? "bg-slate-900/40 border-slate-800" : "bg-slate-50 border-slate-100"}`}>
-                <h4 className={`font-bold text-sm mb-2 ${isDark ? "text-slate-200" : "text-slate-800"}`}>2. Exclusions</h4>
-                <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-                  Toggle the "Exclude from scheduling" switch for specific teachers (e.g. part-time, administrative heads) so they aren't assigned supervising duties.
+
+              <div className={`p-4 rounded-2xl border ${isDark ? "bg-slate-800/50 border-slate-700/60" : "bg-slate-50 border-slate-200/80"}`}>
+                <h4 className={`font-bold text-sm mb-1.5 ${isDark ? "text-slate-200" : "text-slate-800"}`}>2. Exclusions & Limits</h4>
+                <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+                  Toggle exclusion switches for department heads or part-time staff. The system strictly caps assignments at <strong>2 consecutive duties</strong> and balances cumulative hours across the roster.
                 </p>
               </div>
-              <div className={`p-4 rounded-xl border ${isDark ? "bg-slate-900/40 border-slate-800" : "bg-slate-50 border-slate-100"}`}>
-                <h4 className={`font-bold text-sm mb-2 ${isDark ? "text-slate-200" : "text-slate-800"}`}>3. Check-ins</h4>
-                <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-                  Monitor proctor attendance in real time on the <strong>Proctor Monitoring</strong> tab. Check-ins are marked by proctors through their respective dashboard.
+
+              <div className={`p-4 rounded-2xl border ${isDark ? "bg-slate-800/50 border-slate-700/60" : "bg-slate-50 border-slate-200/80"}`}>
+                <h4 className={`font-bold text-sm mb-1.5 ${isDark ? "text-slate-200" : "text-slate-800"}`}>3. Live Check-In Board</h4>
+                <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+                  The <strong>Proctor Monitoring</strong> board displays active rooms in real-time. Badges update instantly when proctors click "Check In" on their devices. Program Heads can confirm attendance or reassign an emergency substitute.
                 </p>
               </div>
             </div>
           </div>
         )}
 
+        {/* TAB 6: Rescheduling & Irregular Students */}
         {activeSubTab === "rescheduling" && (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-sm">4</div>
-              <h3 className={`text-lg font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Rescheduling Requests</h3>
+            <div className="flex items-center justify-between flex-wrap gap-3 pb-4 border-b border-slate-200 dark:border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-rose-100 dark:bg-rose-900/40 flex items-center justify-center text-rose-600 dark:text-rose-400 font-bold text-base shadow-sm">6</div>
+                <div>
+                  <h3 className={`text-lg sm:text-xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
+                    Rescheduling Requests & Irregular Student Engine
+                  </h3>
+                  <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                    Conflict Detection, Smart Auto-Assignment, 5:00 PM Consultation Area, and Manual Review
+                  </p>
+                </div>
+              </div>
+              <span className="px-3 py-1 rounded-full text-xs font-bold bg-rose-500/10 text-rose-600 border border-rose-500/20">
+                Conflict Resolution
+              </span>
             </div>
 
             <p className={`text-sm leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
-              Students who experience an exam clash (e.g. irregular schedules where two exams fall in the same timeslot) will submit a Rescheduling Request with supporting files.
+              When irregular curriculum enrollments produce overlapping exams, students submit rescheduling petitions with supporting documentation. The system provides both automated and manual resolution pathways.
             </p>
 
-            <div className={`p-4 rounded-xl border ${isDark ? "bg-slate-900/40 border-slate-800" : "bg-slate-50 border-slate-100"} text-xs space-y-3`}>
-              <h4 className={`font-bold text-sm ${isDark ? "text-slate-200" : "text-slate-800"}`}>Workflow:</h4>
-              <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center justify-between text-slate-500">
-                <span className="flex-1 text-center py-2 px-3 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-lg font-bold">1. View Pending</span>
-                <span className="text-slate-400 text-center sm:block hidden">→</span>
-                <span className="flex-1 text-center py-2 px-3 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 rounded-lg font-bold">2. Check Proofs</span>
-                <span className="text-slate-400 text-center sm:block hidden">→</span>
-                <span className="flex-1 text-center py-2 px-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-lg font-bold">3. Approve / Deny</span>
-              </div>
-              <p className={`pt-2 leading-relaxed ${isDark ? "text-slate-400" : "text-slate-600"}`}>
-                Each request lists the student's name, email, details of conflict, and uploaded proof. You can add feedback notes before hitting **Approve** or **Reject**. Approved students will automatically be assigned their requested rescheduled timeslot.
+            <div className={`p-5 rounded-2xl border ${isDark ? "bg-rose-950/20 border-rose-900/40 text-rose-200" : "bg-rose-50 border-rose-200/70 text-rose-900"}`}>
+              <h4 className="font-bold text-sm mb-2 flex items-center gap-2">
+                <SparklesIcon className="w-4 h-4 text-rose-500" />
+                Irregular Student Smart Auto-Assignment Workflow
+              </h4>
+              <p className="text-xs leading-relaxed mb-3">
+                When an irregular student submits a conflict request, clicking <strong>Approve</strong> triggers the automated placement engine:
               </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs leading-relaxed">
+                <div>
+                  <strong>1. Earliest Conflict-Free Timeslot:</strong> Finds the next available slot on the scheduled date, guaranteeing a mandatory 15-minute gap from any other exam the student is taking.
+                </div>
+                <div>
+                  <strong>2. Room Capacity & Load Balancing:</strong> Evaluates room occupancy and assigns the student to a room with the lowest headcount within capacity limits.
+                </div>
+                <div>
+                  <strong>3. Building Restriction Match:</strong> Ensures the exam is kept within the student's designated department building.
+                </div>
+                <div>
+                  <strong>4. After 5:00 PM Consultation Fallback:</strong> If no daytime slot fits before 5:00 PM, the system automatically schedules the exam to 5:00 PM in the Consultation Area without a proctor, notifying the Admin to personally assign an examiner.
+                </div>
+              </div>
+            </div>
+
+            {/* Manual Review Callout */}
+            <div className={`p-4 rounded-xl border text-xs ${isDark ? "bg-slate-800/40 border-slate-700 text-slate-300" : "bg-slate-50 border-slate-200 text-slate-700"}`}>
+              <h5 className="font-bold text-sm mb-1 text-blue-500">Manual Review Option:</h5>
+              Program Heads can click <strong>Manual Review</strong> to inspect conflicting subjects, select a custom date, pick an alternate room, and view attached medical or institutional proof. The system validates building restrictions and room capacity before letting you save.
             </div>
           </div>
         )}
 
+        {/* TAB 7: Distribution Rules */}
         {activeSubTab === "rules" && (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-sm">5</div>
-              <h3 className={`text-lg font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Distribution Rules</h3>
+            <div className="flex items-center justify-between flex-wrap gap-3 pb-4 border-b border-slate-200 dark:border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-cyan-100 dark:bg-cyan-900/40 flex items-center justify-center text-cyan-600 dark:text-cyan-400 font-bold text-base shadow-sm">7</div>
+                <div>
+                  <h3 className={`text-lg sm:text-xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
+                    Distribution Rules Engine
+                  </h3>
+                  <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                    Curriculum Subject Balancing, Session Directives, and Maximum Daily Loads
+                  </p>
+                </div>
+              </div>
+              <span className="px-3 py-1 rounded-full text-xs font-bold bg-cyan-500/10 text-cyan-600 border border-cyan-500/20">
+                Institutional Policy
+              </span>
             </div>
 
             <p className={`text-sm leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
-              Distribute exams logically to balance student workload. For example, ensure SHS Grade 11 exams only occur in the morning session, or major subjects are distributed over specific weekdays.
+              Configure academic scheduling policies that the Genetic Algorithm optimizes as hard and soft constraints.
             </p>
 
-            <div className={`p-4 rounded-xl border ${isDark ? "bg-slate-900/40 border-slate-800" : "bg-slate-50 border-slate-100"}`}>
-              <h4 className={`font-bold text-sm mb-2 ${isDark ? "text-slate-200" : "text-slate-800"}`}>How to Configure Rules</h4>
-              <ul className={`text-xs space-y-2 ${isDark ? "text-slate-400" : "text-slate-600"}`}>
-                <li>• Go to the <strong>Distribution Rules</strong> tab in the sidebar.</li>
-                <li>• Add a new rule by specifying the Subject Category (major / general / shs-core etc.).</li>
-                <li>• Select the allowable days (e.g. Mon, Wed, Fri only).</li>
-                <li>• Select the permissible session (e.g. morning, afternoon, or any session).</li>
-                <li>• The genetic algorithm constraints evaluator will read these rules and penalize/exclude placements violating these criteria.</li>
-              </ul>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className={`p-5 rounded-2xl border ${isDark ? "bg-slate-800/50 border-slate-700/60" : "bg-slate-50 border-slate-200/80"}`}>
+                <h4 className={`font-bold text-sm mb-2 flex items-center gap-2 ${isDark ? "text-slate-200" : "text-slate-800"}`}>
+                  <AdjustmentsHorizontalIcon className="w-4 h-4 text-cyan-500" />
+                  Subject Category Distribution
+                </h4>
+                <ul className={`text-xs space-y-2 ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+                  <li>• <strong>General Education (GE):</strong> Constrain GE subjects to morning sessions across Day 1 to Day 3.</li>
+                  <li>• <strong>Major Subjects:</strong> Spread heavy technical courses across non-adjacent days to prevent exam stacking.</li>
+                  <li>• <strong>SHS Core Subjects:</strong> Dedicate morning time blocks for core subjects and afternoon for specialized strands.</li>
+                </ul>
+              </div>
+
+              <div className={`p-5 rounded-2xl border ${isDark ? "bg-slate-800/50 border-slate-700/60" : "bg-slate-50 border-slate-200/80"}`}>
+                <h4 className={`font-bold text-sm mb-2 flex items-center gap-2 ${isDark ? "text-slate-200" : "text-slate-800"}`}>
+                  <ClockIcon className="w-4 h-4 text-cyan-500" />
+                  Daily Student Load Caps
+                </h4>
+                <p className={`text-xs leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+                  Set the <strong>Maximum Exams Per Day</strong> (default: 2 or 3). The algorithm heavily penalizes schedules that force students into 4 consecutive examinations in one day.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 8: Data Ingestion & Section Rosters */}
+        {activeSubTab === "data" && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+            <div className="flex items-center justify-between flex-wrap gap-3 pb-4 border-b border-slate-200 dark:border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-teal-100 dark:bg-teal-900/40 flex items-center justify-center text-teal-600 dark:text-teal-400 font-bold text-base shadow-sm">8</div>
+                <div>
+                  <h3 className={`text-lg sm:text-xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
+                    Data Ingestion & Section Rosters
+                  </h3>
+                  <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                    Bulk Excel Ingestion for Curricula, Proctors, Students, and Printable Attendance Sheets
+                  </p>
+                </div>
+              </div>
+              <span className="px-3 py-1 rounded-full text-xs font-bold bg-teal-500/10 text-teal-600 border border-teal-500/20">
+                Data Management
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className={`p-4 rounded-2xl border ${isDark ? "bg-slate-800/50 border-slate-700/60" : "bg-slate-50 border-slate-200/80"}`}>
+                <h4 className={`font-bold text-xs uppercase tracking-wider text-teal-500 mb-1`}>1. Curriculum Catalog</h4>
+                <p className={`text-xs leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+                  Under <strong>Data Import</strong>, upload the official course catalog with course codes, units, and year levels.
+                </p>
+              </div>
+
+              <div className={`p-4 rounded-2xl border ${isDark ? "bg-slate-800/50 border-slate-700/60" : "bg-slate-50 border-slate-200/80"}`}>
+                <h4 className={`font-bold text-xs uppercase tracking-wider text-teal-500 mb-1`}>2. Proctor Accounts</h4>
+                <p className={`text-xs leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+                  Under <strong>Proctor Accounts</strong>, bulk ingest proctor credentials, departments, and contracted hours via Excel.
+                </p>
+              </div>
+
+              <div className={`p-4 rounded-2xl border ${isDark ? "bg-slate-800/50 border-slate-700/60" : "bg-slate-50 border-slate-200/80"}`}>
+                <h4 className={`font-bold text-xs uppercase tracking-wider text-teal-500 mb-1`}>3. Student Accounts</h4>
+                <p className={`text-xs leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+                  Under <strong>Student Accounts</strong>, upload enrollment sheets. The system automatically tags regular and irregular students.
+                </p>
+              </div>
+
+              <div className={`p-4 rounded-2xl border ${isDark ? "bg-slate-800/50 border-slate-700/60" : "bg-slate-50 border-slate-200/80"}`}>
+                <h4 className={`font-bold text-xs uppercase tracking-wider text-teal-500 mb-1`}>4. Section List</h4>
+                <p className={`text-xs leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+                  Open <strong>Section List</strong> to inspect enrolled students per section and export official room attendance sign-in sheets.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 9: Chat & Notifications */}
+        {activeSubTab === "chat_notif" && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+            <div className="flex items-center justify-between flex-wrap gap-3 pb-4 border-b border-slate-200 dark:border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-base shadow-sm">9</div>
+                <div>
+                  <h3 className={`text-lg sm:text-xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
+                    In-App Chat Support & Notification Broadcasts
+                  </h3>
+                  <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                    Real-Time Messaging with Faculty Proctors and Students
+                  </p>
+                </div>
+              </div>
+              <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-500/10 text-blue-500 border border-blue-500/20">
+                Direct Communications
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className={`p-5 rounded-2xl border ${isDark ? "bg-slate-800/50 border-slate-700/60" : "bg-slate-50 border-slate-200/80"}`}>
+                <h4 className={`font-bold text-sm mb-2 flex items-center gap-2 ${isDark ? "text-slate-200" : "text-slate-800"}`}>
+                  <ChatBubbleLeftRightIcon className="w-4 h-4 text-blue-500" />
+                  Live Chat Directory
+                </h4>
+                <ul className={`text-xs space-y-2.5 ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+                  <li className="flex items-start gap-2">
+                    <span className="text-blue-500 font-bold">•</span>
+                    <span><strong>Directory Search:</strong> Start a conversation with any enrolled student or faculty proctor by searching their name.</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-blue-500 font-bold">•</span>
+                    <span><strong>Rich Controls:</strong> Edit sent messages, delete messages, or clear chat history with modal confirmations.</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-blue-500 font-bold">•</span>
+                    <span><strong>Badge Counters:</strong> Unread notification badges on the navigation bar alert you to incoming questions in real-time.</span>
+                  </li>
+                </ul>
+              </div>
+
+              <div className={`p-5 rounded-2xl border ${isDark ? "bg-slate-800/50 border-slate-700/60" : "bg-slate-50 border-slate-200/80"}`}>
+                <h4 className={`font-bold text-sm mb-2 flex items-center gap-2 ${isDark ? "text-slate-200" : "text-slate-800"}`}>
+                  <BellIcon className="w-4 h-4 text-blue-500" />
+                  System Announcements & Alerts
+                </h4>
+                <p className={`text-xs leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+                  Publishing an exam timetable or approving a rescheduling petition automatically generates in-app notifications and email alerts to all affected users, ensuring instant synchronization.
+                </p>
+              </div>
             </div>
           </div>
         )}

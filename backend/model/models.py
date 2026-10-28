@@ -86,6 +86,10 @@ class Subject(Base):
     duration_minutes = Column(Integer, default=75, nullable=False)
     term = Column(String, default="All", nullable=True)
     department_code = Column(String, ForeignKey("departments.code"), nullable=True)
+    is_fixed_timeslot = Column(Boolean, default=False, nullable=False)
+    fixed_day = Column(Integer, nullable=True)
+    fixed_start_time = Column(Time, nullable=True)
+    fixed_end_time = Column(Time, nullable=True)
     
     department_rel = relationship("Department", back_populates="subjects", foreign_keys=[department_code])
     assigned_programs = relationship("SubjectProgram", back_populates="subject", cascade="all, delete-orphan")

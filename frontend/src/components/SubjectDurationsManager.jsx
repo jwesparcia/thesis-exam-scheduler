@@ -14,6 +14,7 @@ import {
   TagIcon,
   CheckIcon,
   ClockIcon,
+  ArrowsPointingInIcon,
 } from "@heroicons/react/24/outline";
 import { useTheme } from "../context/themeStore";
 import { useToast } from "../context/ToastContext";
@@ -21,6 +22,45 @@ import api from "../api";
 
 const COLLEGE_TERMS = ["All", "Prelim", "Midterm", "Pre-Final", "Final"];
 const SHS_TERMS = ["All", "ST1", "ST2", "T1"];
+
+const formatTime12 = (timeStr) => {
+  if (!timeStr) return "";
+  const parts = String(timeStr).split(":");
+  let h = parseInt(parts[0], 10);
+  const m = parts[1] || "00";
+  if (isNaN(h)) return timeStr;
+  const ampm = h >= 12 ? "PM" : "AM";
+  h = h % 12;
+  if (h === 0) h = 12;
+  return `${String(h).padStart(2, "0")}:${m} ${ampm}`;
+};
+
+const addMinutesToTime = (timeStr, minutes) => {
+  if (!timeStr) return "08:45";
+  const [hStr, mStr] = String(timeStr).split(":");
+  const totalMin = (parseInt(hStr, 10) || 0) * 60 + (parseInt(mStr, 10) || 0) + (parseInt(minutes, 10) || 75);
+  const newH = Math.floor(totalMin / 60) % 24;
+  const newM = totalMin % 60;
+  return `${String(newH).padStart(2, "0")}:${String(newM).padStart(2, "0")}`;
+};
+
+const getStandardSlotsForDuration = (durMins) => {
+  const dur = parseInt(durMins, 10) || 75;
+  const breakMin = 15;
+  const startHour = 7;
+  const startMin = 30;
+  const endLimitMin = 18 * 60; // 6:00 PM
+  const slots = [];
+  let cur = startHour * 60 + startMin;
+  while (cur + dur <= endLimitMin) {
+    const end = cur + dur;
+    const startStr = `${String(Math.floor(cur / 60)).padStart(2, "0")}:${String(cur % 60).padStart(2, "0")}`;
+    const endStr = `${String(Math.floor(end / 60)).padStart(2, "0")}:${String(end % 60).padStart(2, "0")}`;
+    slots.push({ start: startStr, end: endStr });
+    cur = end + breakMin;
+  }
+  return slots;
+};
 
 // ─── Add / Edit Subject Modal ─────────────────────────────────────────────────
 function SubjectModal({ open, onClose, onSave, courses, yearLevels, departments = [], initial }) {
@@ -31,6 +71,7 @@ function SubjectModal({ open, onClose, onSave, courses, yearLevels, departments 
     code: "", name: "", course_id: "", year_level_id: "",
     semester: 1, term: "All", category: "major", exam_type: "written", duration_minutes: 75,
     department_code: "", program_ids: [],
+    is_fixed_timeslot: false, fixed_day: 1, fixed_start_time: "07:30", fixed_end_time: "08:45",
   });
   const [saving, setSaving] = useState(false);
   const nameRef = useRef(null);
@@ -60,6 +101,10 @@ function SubjectModal({ open, onClose, onSave, courses, yearLevels, departments 
           duration_minutes: initial.duration_minutes || 75,
           department_code: initial.department_code || (initial.course_category === "SHS" ? "SHS" : "GE"),
           program_ids: initialPrograms,
+          is_fixed_timeslot: Boolean(initial.is_fixed_timeslot),
+          fixed_day: initial.fixed_day || 1,
+          fixed_start_time: initial.fixed_start_time || "07:30",
+          fixed_end_time: initial.fixed_end_time || addMinutesToTime(initial.fixed_start_time || "07:30", initial.duration_minutes || 75),
         });
       } else {
         const defaultDept = departments.length > 0 ? departments[0].code : "GE";
@@ -67,6 +112,7 @@ function SubjectModal({ open, onClose, onSave, courses, yearLevels, departments 
           code: "", name: "", course_id: "", year_level_id: "", semester: 1, term: "All",
           category: "major", exam_type: "written", duration_minutes: 75,
           department_code: defaultDept, program_ids: [],
+          is_fixed_timeslot: false, fixed_day: 1, fixed_start_time: "07:30", fixed_end_time: "08:45",
         });
       }
       setSaving(false);
@@ -99,6 +145,10 @@ function SubjectModal({ open, onClose, onSave, courses, yearLevels, departments 
         duration_minutes: Number(form.duration_minutes),
         department_code: form.department_code || null,
         program_ids: progIds,
+        is_fixed_timeslot: Boolean(form.is_fixed_timeslot),
+        fixed_day: form.is_fixed_timeslot ? Number(form.fixed_day) : null,
+        fixed_start_time: form.is_fixed_timeslot ? form.fixed_start_time : null,
+        fixed_end_time: form.is_fixed_timeslot ? form.fixed_end_time : null,
       });
       onClose();
     } catch { } finally { setSaving(false); }
@@ -203,6 +253,50 @@ function SubjectModal({ open, onClose, onSave, courses, yearLevels, departments 
             <p className={`text-[11px] ${isDark ? "text-slate-400" : "text-slate-500"}`}>
               Assign this subject to multiple programs/courses when shared across curricula (e.g., General Education subjects).
             </p>
+            {/* Quick bulk selection buttons */}
+            <div className="flex flex-wrap items-center gap-1.5 pb-1">
+              <button
+                type="button"
+                onClick={() => {
+                  const collegeIds = courses.filter((c) => c.category === "College").map((c) => c.id);
+                  const primaryId = form.course_id ? Number(form.course_id) : null;
+                  const combined = Array.from(new Set([...form.program_ids, ...collegeIds, ...(primaryId ? [primaryId] : [])]));
+                  set("program_ids", combined);
+                }}
+                className={`px-2 py-0.5 rounded text-[10px] font-semibold border transition ${
+                  isDark ? "bg-slate-700 hover:bg-slate-600 text-slate-200 border-slate-600" : "bg-white hover:bg-slate-100 text-slate-700 border-slate-300 shadow-sm"
+                }`}
+              >
+                + All College
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const shsIds = courses.filter((c) => c.category === "SHS").map((c) => c.id);
+                  const primaryId = form.course_id ? Number(form.course_id) : null;
+                  const combined = Array.from(new Set([...form.program_ids, ...shsIds, ...(primaryId ? [primaryId] : [])]));
+                  set("program_ids", combined);
+                }}
+                className={`px-2 py-0.5 rounded text-[10px] font-semibold border transition ${
+                  isDark ? "bg-slate-700 hover:bg-slate-600 text-slate-200 border-slate-600" : "bg-white hover:bg-slate-100 text-slate-700 border-slate-300 shadow-sm"
+                }`}
+              >
+                + All SHS
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const primaryId = form.course_id ? Number(form.course_id) : null;
+                  set("program_ids", primaryId ? [primaryId] : []);
+                }}
+                className={`px-2 py-0.5 rounded text-[10px] font-semibold border transition ${
+                  isDark ? "hover:bg-slate-700 text-slate-400 border-slate-700" : "hover:bg-slate-100 text-slate-500 border-slate-300"
+                }`}
+              >
+                Reset
+              </button>
+            </div>
+
             <div className="max-h-32 overflow-y-auto grid grid-cols-2 gap-1.5 pt-1">
               {courses.map((c) => {
                 const isPrimary = String(form.course_id) === String(c.id);
@@ -279,7 +373,18 @@ function SubjectModal({ open, onClose, onSave, courses, yearLevels, departments 
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2">
               <label className={lbl}>Exam Duration</label>
-              <select value={form.duration_minutes} onChange={(e) => set("duration_minutes", e.target.value)} className={inp}>
+              <select
+                value={form.duration_minutes}
+                onChange={(e) => {
+                  const newDur = Number(e.target.value);
+                  setForm((f) => ({
+                    ...f,
+                    duration_minutes: newDur,
+                    fixed_end_time: addMinutesToTime(f.fixed_start_time, newDur),
+                  }));
+                }}
+                className={inp}
+              >
                 <option value={60}>1h 00m (60 mins)</option>
                 <option value={75}>1h 15m (75 mins - Standard)</option>
                 <option value={90}>1h 30m (90 mins)</option>
@@ -288,6 +393,166 @@ function SubjectModal({ open, onClose, onSave, courses, yearLevels, departments 
                 <option value={180}>3h 00m (180 mins)</option>
               </select>
             </div>
+          </div>
+
+          {/* Time Slot Scheduling Policy */}
+          <div className={`p-4 rounded-xl border space-y-3.5 ${
+            isDark ? "bg-slate-800/60 border-slate-700" : "bg-slate-50 border-slate-200"
+          }`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <ClockIcon className="w-4 h-4 text-blue-500" />
+                <span className={`text-xs font-bold uppercase tracking-wider ${isDark ? "text-slate-200" : "text-slate-700"}`}>
+                  Time Slot Scheduling Policy
+                </span>
+              </div>
+              {form.is_fixed_timeslot && (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                  Fixed Slot Active
+                </span>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => set("is_fixed_timeslot", false)}
+                className={`p-3 rounded-xl border text-left transition flex flex-col justify-between ${
+                  !form.is_fixed_timeslot
+                    ? isDark
+                      ? "bg-blue-950/40 border-blue-500 text-white shadow-sm ring-1 ring-blue-500/30"
+                      : "bg-blue-50 border-blue-500 text-blue-950 shadow-sm ring-1 ring-blue-500/30"
+                    : isDark
+                      ? "bg-slate-800/40 border-slate-700 text-slate-400 hover:border-slate-600"
+                      : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center ${
+                    !form.is_fixed_timeslot ? "border-blue-500 bg-blue-500" : "border-slate-400"
+                  }`}>
+                    {!form.is_fixed_timeslot && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                  </span>
+                  <span className="text-xs font-bold">Follow Distribution Rules</span>
+                </div>
+                <p className="text-[11px] mt-1.5 opacity-80 leading-snug">
+                  Automatic scheduling adhering to GE/Major rules across Days 1–4.
+                </p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => set("is_fixed_timeslot", true)}
+                className={`p-3 rounded-xl border text-left transition flex flex-col justify-between ${
+                  form.is_fixed_timeslot
+                    ? isDark
+                      ? "bg-amber-950/40 border-amber-500 text-white shadow-sm ring-1 ring-amber-500/30"
+                      : "bg-amber-50 border-amber-500 text-amber-950 shadow-sm ring-1 ring-amber-500/30"
+                    : isDark
+                      ? "bg-slate-800/40 border-slate-700 text-slate-400 hover:border-slate-600"
+                      : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center ${
+                    form.is_fixed_timeslot ? "border-amber-500 bg-amber-500" : "border-slate-400"
+                  }`}>
+                    {form.is_fixed_timeslot && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                  </span>
+                  <span className="text-xs font-bold">Fixed Time Slot</span>
+                </div>
+                <p className="text-[11px] mt-1.5 opacity-80 leading-snug">
+                  Strictly schedule on a specific day & time slot. Excess sections spill over to next slot.
+                </p>
+              </button>
+            </div>
+
+            {form.is_fixed_timeslot && (
+              <div className={`p-3.5 rounded-xl border space-y-3.5 animate-in fade-in duration-200 ${
+                isDark ? "bg-slate-900/60 border-slate-700" : "bg-white border-slate-200"
+              }`}>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className={lbl}>Exam Day <span className="text-red-500">*</span></label>
+                    <select
+                      value={form.fixed_day}
+                      onChange={(e) => set("fixed_day", Number(e.target.value))}
+                      className={inp}
+                    >
+                      <option value={1}>Exam Day 1</option>
+                      <option value={2}>Exam Day 2</option>
+                      <option value={3}>Exam Day 3</option>
+                      <option value={4}>Exam Day 4</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className={lbl}>Start Time <span className="text-red-500">*</span></label>
+                    <input
+                      type="time"
+                      value={form.fixed_start_time}
+                      onChange={(e) => {
+                        const newStart = e.target.value;
+                        set("fixed_start_time", newStart);
+                        set("fixed_end_time", addMinutesToTime(newStart, form.duration_minutes));
+                      }}
+                      className={inp}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className={lbl}>End Time <span className="text-red-500">*</span></label>
+                    <input
+                      type="time"
+                      value={form.fixed_end_time}
+                      onChange={(e) => set("fixed_end_time", e.target.value)}
+                      className={inp}
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* Quick preset chips */}
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+                    Standard Presets ({form.duration_minutes}m duration)
+                  </label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {getStandardSlotsForDuration(form.duration_minutes).map((slot, sIdx) => {
+                      const isSelected = form.fixed_start_time === slot.start && form.fixed_end_time === slot.end;
+                      return (
+                        <button
+                          key={sIdx}
+                          type="button"
+                          onClick={() => {
+                            set("fixed_start_time", slot.start);
+                            set("fixed_end_time", slot.end);
+                          }}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition ${
+                            isSelected
+                              ? "bg-amber-500 text-white border-amber-600 shadow-sm"
+                              : isDark
+                                ? "bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700"
+                                : "bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200"
+                          }`}
+                        >
+                          {formatTime12(slot.start)} - {formatTime12(slot.end)}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Room Overflow Policy Note */}
+                <div className={`p-2.5 rounded-lg text-[11px] leading-relaxed flex items-start gap-2 ${
+                  isDark ? "bg-amber-950/20 text-amber-300/90 border border-amber-800/40" : "bg-amber-50/80 text-amber-900 border border-amber-200"
+                }`}>
+                  <span className="font-bold text-amber-500 mt-0.5">Room Policy:</span>
+                  <span>
+                    When sections for this subject exceed total available exam rooms in this slot (e.g. shared GE subjects taken by all programs), the scheduler will fill this slot to capacity and automatically spill excess sections into the <strong>next consecutive time slot</strong>.
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className={`p-3 rounded-xl border text-xs ${isDark ? "bg-blue-950/20 border-blue-800/40 text-blue-300" : "bg-blue-50 border-blue-200 text-blue-700"}`}>
@@ -335,9 +600,27 @@ export default function SubjectDurationsManager() {
   const [yearFilter, setYearFilter] = useState("All");
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [termFilter, setTermFilter] = useState("All");
+  const [slotPolicyFilter, setSlotPolicyFilter] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [bulkDuration, setBulkDuration] = useState(75);
   const [modal, setModal] = useState({ open: false, subject: null });
+  const [consolidating, setConsolidating] = useState(false);
+
+  const handleConsolidateShared = async () => {
+    if (!window.confirm("Consolidate shared subjects across programs? Identical minor/GE and common major subjects will be merged into single master records with multi-program assignments. All section teaching assignments and exams will be safely preserved.")) {
+      return;
+    }
+    setConsolidating(true);
+    try {
+      const res = await api.post("/catalog/subjects/consolidate-shared");
+      showSuccess(res.data?.message || "Consolidated shared subjects successfully!");
+      await fetchSubjects();
+    } catch (err) {
+      showError(err.response?.data?.detail || "Failed to consolidate subjects");
+    } finally {
+      setConsolidating(false);
+    }
+  };
 
   const fetchMetadata = async () => {
     try {
@@ -475,6 +758,8 @@ export default function SubjectDurationsManager() {
     if (yearFilter !== "All" && sub.year_level_name !== yearFilter) return false;
     if (categoryFilter !== "All" && sub.category !== categoryFilter) return false;
     if (termFilter !== "All" && sub.term !== termFilter) return false;
+    if (slotPolicyFilter === "fixed" && !sub.is_fixed_timeslot) return false;
+    if (slotPolicyFilter === "auto" && sub.is_fixed_timeslot) return false;
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       if (!sub.name.toLowerCase().includes(q) &&
@@ -483,15 +768,16 @@ export default function SubjectDurationsManager() {
           !(sub.department_code || "").toLowerCase().includes(q)) return false;
     }
     return true;
-  }), [subjects, departmentFilter, courseFilter, yearFilter, categoryFilter, termFilter, searchQuery]);
+  }), [subjects, departmentFilter, courseFilter, yearFilter, categoryFilter, termFilter, slotPolicyFilter, searchQuery]);
 
   const stats = useMemo(() => {
-    let major = 0, minor = 0, d75 = 0, d120 = 0;
+    let major = 0, minor = 0, d75 = 0, d120 = 0, fixedCount = 0;
     subjects.forEach((s) => {
       if (s.category === "major") major++; else minor++;
       if (s.duration_minutes === 75) d75++; else if (s.duration_minutes === 120) d120++;
+      if (s.is_fixed_timeslot) fixedCount++;
     });
-    return { major, minor, d75, d120, total: subjects.length };
+    return { major, minor, d75, d120, fixedCount, total: subjects.length };
   }, [subjects]);
 
   const courseNames = useMemo(() => {
@@ -534,21 +820,38 @@ export default function SubjectDurationsManager() {
             Set subject category (major/minor), exam term, and duration. Schedule generation uses <strong>term</strong> to filter which subjects to include.
           </p>
         </div>
-        <button
-          onClick={() => setModal({ open: true, subject: null })}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold shadow transition"
-        >
-          <PlusIcon className="w-4 h-4" /> Add Subject
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleConsolidateShared}
+            disabled={consolidating}
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-semibold border transition ${
+              isDark
+                ? "bg-purple-950/40 text-purple-300 border-purple-800/60 hover:bg-purple-900/40"
+                : "bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100 shadow-sm"
+            } disabled:opacity-50`}
+            title="Merge duplicate shared subjects into single multi-program entries and link across all sections"
+          >
+            <ArrowsPointingInIcon className={`w-4 h-4 ${consolidating ? "animate-spin" : ""}`} />
+            {consolidating ? "Consolidating..." : "Consolidate Shared"}
+          </button>
+          <button
+            onClick={() => setModal({ open: true, subject: null })}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold shadow transition"
+          >
+            <PlusIcon className="w-4 h-4" /> Add Subject
+          </button>
+        </div>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         {[
           { label: "Total Subjects", value: stats.total, color: "text-slate-700 dark:text-slate-200" },
           { label: "Major Subjects", value: stats.major, color: "text-indigo-600 dark:text-indigo-400" },
-          { label: "GE / Minor", value: stats.minor, color: "text-slate-500 dark:text-slate-400" },
+          { label: "GE / Minor", value: stats.minor, color: "text-purple-600 dark:text-purple-400" },
           { label: "75-min Standard", value: stats.d75, color: "text-blue-600 dark:text-blue-400" },
+          { label: "Fixed Time Slots", value: stats.fixedCount, color: "text-amber-600 dark:text-amber-400" },
         ].map((s) => (
           <div key={s.label} className={`p-4 rounded-2xl border ${isDark ? "bg-slate-800/60 border-slate-700" : "bg-white border-slate-200 shadow-sm"}`}>
             <div className={`text-2xl font-bold ${s.color}`}>{s.value}</div>
@@ -639,7 +942,7 @@ export default function SubjectDurationsManager() {
             <ArrowPathIcon className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
           </button>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 pt-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 pt-4">
           <div><label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Department</label>
             <select value={departmentFilter} onChange={(e) => setDepartmentFilter(e.target.value)} className={selectCls}>
               <option value="All">All Departments</option>
@@ -670,6 +973,13 @@ export default function SubjectDurationsManager() {
           <div><label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Term</label>
             <select value={termFilter} onChange={(e) => setTermFilter(e.target.value)} className={selectCls}>
               {allTermsInData.map((t) => <option key={t} value={t}>{t === "All" ? "All Terms" : t}</option>)}
+            </select>
+          </div>
+          <div><label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Time Slot Policy</label>
+            <select value={slotPolicyFilter} onChange={(e) => setSlotPolicyFilter(e.target.value)} className={selectCls}>
+              <option value="All">All Policies</option>
+              <option value="fixed">Fixed Slot Only</option>
+              <option value="auto">Auto (Rules) Only</option>
             </select>
           </div>
         </div>
@@ -749,6 +1059,27 @@ export default function SubjectDurationsManager() {
                         </select>
                       </label>
                     </div>
+                    <div className={`p-2.5 rounded-lg border text-xs flex items-center justify-between ${
+                      sub.is_fixed_timeslot
+                        ? isDark ? "bg-amber-950/20 border-amber-800/40 text-amber-300" : "bg-amber-50 border-amber-200 text-amber-900"
+                        : isDark ? "bg-slate-800/40 border-slate-700 text-slate-400" : "bg-slate-50 border-slate-200 text-slate-600"
+                    }`}>
+                      <div className="flex items-center gap-1.5">
+                        <ClockIcon className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                        <span className="font-semibold">
+                          {sub.is_fixed_timeslot
+                            ? `Fixed Slot: Day ${sub.fixed_day || 1} • ${formatTime12(sub.fixed_start_time)} - ${formatTime12(sub.fixed_end_time)}`
+                            : "Policy: Auto (Follows distribution rules)"}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setModal({ open: true, subject: sub })}
+                        className="text-[11px] font-bold text-blue-500 hover:underline shrink-0"
+                      >
+                        Change
+                      </button>
+                    </div>
                     <div className="flex flex-wrap gap-2 border-t border-slate-200 pt-3 dark:border-slate-700">
                       {hasChanges && (
                         <button onClick={() => handleSaveIndividual(sub)} disabled={savingId === sub.id} className="min-h-11 flex-1 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50">
@@ -763,7 +1094,7 @@ export default function SubjectDurationsManager() {
               })}
             </div>
             <div className="hidden overflow-x-auto md:block">
-            <table className="w-full min-w-[900px] text-left text-xs border-collapse">
+            <table className="w-full min-w-[1040px] text-left text-xs border-collapse">
               <thead className={`sticky top-0 z-10 text-[11px] font-bold uppercase tracking-wider border-b ${
                 isDark ? "bg-slate-800/90 text-slate-400 border-slate-700 backdrop-blur-md" : "bg-slate-50 text-slate-500 border-slate-200"
               }`}>
@@ -776,6 +1107,7 @@ export default function SubjectDurationsManager() {
                   <th className="py-3 px-4">Category</th>
                   <th className="py-3 px-4">Exam Term</th>
                   <th className="py-3 px-4">Duration</th>
+                  <th className="py-3 px-4">Time Slot Policy</th>
                   <th className="py-3 px-4 text-right">Actions</th>
                 </tr>
               </thead>
@@ -805,8 +1137,8 @@ export default function SubjectDurationsManager() {
                           {sub.department_code || sub.course_category || "—"}
                         </span>
                         {sub.program_names && sub.program_names.length > 1 && (
-                          <div className="text-[10px] text-slate-400 mt-0.5" title={sub.program_names.join(", ")}>
-                            +{sub.program_names.length - 1} more program{sub.program_names.length > 2 ? "s" : ""}
+                          <div className="text-[10px] text-purple-600 dark:text-purple-400 font-semibold mt-0.5" title={sub.program_names.join(", ")}>
+                            Shared ({sub.program_names.length} programs)
                           </div>
                         )}
                       </td>
@@ -847,6 +1179,41 @@ export default function SubjectDurationsManager() {
                           <option value={150}>2:30h</option>
                           <option value={180}>3:00h</option>
                         </select>
+                      </td>
+                      <td className="py-3 px-4 whitespace-nowrap">
+                        {sub.is_fixed_timeslot ? (
+                          <button
+                            type="button"
+                            onClick={() => setModal({ open: true, subject: sub })}
+                            className={`inline-flex flex-col items-start px-2.5 py-1 rounded-xl text-left transition border ${
+                              isDark
+                                ? "bg-amber-950/30 hover:bg-amber-900/40 text-amber-300 border-amber-800/60"
+                                : "bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-200"
+                            }`}
+                            title="Click to edit fixed slot"
+                          >
+                            <div className="flex items-center gap-1 font-bold text-[10px] uppercase tracking-wider">
+                              <ClockIcon className="w-3 h-3 text-amber-500" />
+                              <span>Day {sub.fixed_day || 1}</span>
+                            </div>
+                            <div className="text-[11px] font-semibold mt-0.5">
+                              {formatTime12(sub.fixed_start_time)} – {formatTime12(sub.fixed_end_time)}
+                            </div>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setModal({ open: true, subject: sub })}
+                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[10px] font-semibold border transition ${
+                              isDark
+                                ? "bg-slate-800/60 hover:bg-slate-700/60 text-slate-400 border-slate-700"
+                                : "bg-slate-100 hover:bg-slate-200 text-slate-600 border-slate-200"
+                            }`}
+                            title="Click to set fixed slot"
+                          >
+                            <span>Auto (Rules)</span>
+                          </button>
+                        )}
                       </td>
                       <td className="py-3 px-4 text-right whitespace-nowrap">
                         <div className="flex items-center justify-end gap-1.5">

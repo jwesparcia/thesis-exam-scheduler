@@ -379,3 +379,27 @@ with engine.connect() as conn:
     else:
         print(f"SHS Semester 3 subjects verified ({shs_sem3_count} subjects found).")
 
+    # Check if subjects table has fixed time slot columns
+    fixed_cols = [
+        ("is_fixed_timeslot", "BOOLEAN DEFAULT FALSE"),
+        ("fixed_day", "INTEGER NULL"),
+        ("fixed_start_time", "TIME NULL"),
+        ("fixed_end_time", "TIME NULL"),
+    ]
+    for col_name, col_type in fixed_cols:
+        col_check = conn.execute(text(f"""
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name='subjects' AND column_name='{col_name}';
+        """)).fetchone()
+        if not col_check:
+            print(f"Column '{col_name}' not found in table 'subjects'. Adding column...")
+            conn.execute(text(f"""
+                ALTER TABLE subjects 
+                ADD COLUMN {col_name} {col_type};
+            """))
+            conn.commit()
+            print(f"Migration successful! Column '{col_name}' added to table 'subjects'.")
+        else:
+            print(f"Column '{col_name}' already exists in table 'subjects'.")
+
