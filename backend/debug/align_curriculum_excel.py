@@ -104,24 +104,19 @@ def generate_aligned_curriculum():
         if df.empty:
             continue
 
-        # Group rows by (clean_name, year_level)
-        groups = defaultdict(list)
+        row_idx = 2
         for _, row in df.iterrows():
             sub_name = clean_str(row.get("Subject Name"))
             if not sub_name:
                 continue
+            course_val = clean_str(row.get("Course"))
             year_val = clean_str(row.get("Year Level"))
-            exam_type_val = clean_str(row.get("Exam Type"))
-            groups[(sub_name.lower(), year_val.lower())].append(row)
+            section_val = clean_str(row.get("Section"))
+            code_val = clean_str(row.get("Subject Code"))
+            teacher_val = clean_str(row.get("Teacher Name"))
 
-        row_idx = 2
-        for (norm_name, norm_yl), sub_rows in groups.items():
-            sample = sub_rows[0]
-            sub_name = clean_str(sample.get("Subject Name"))
-            year_val = clean_str(sample.get("Year Level"))
-            
             # Determine Category (College / SHS)
-            cat_val = clean_str(sample.get("Category"))
+            cat_val = clean_str(row.get("Category"))
             if "grade" in year_val.lower() or "shs" in cat_val.lower():
                 cat_val = "SHS"
             else:
@@ -129,71 +124,26 @@ def generate_aligned_curriculum():
 
             # Determine exam_type and subject category
             inferred_exam_type, inferred_cat = classify_subject(sub_name)
-            subj_cat = clean_str(sample.get("Subject Category")).lower()
+            subj_cat = clean_str(row.get("Subject Category")).lower()
             if not subj_cat or subj_cat == "nan":
                 subj_cat = inferred_cat
             elif inferred_cat == "general":
-                # Ensure GE subjects are general
                 subj_cat = "general"
 
-            exam_type = clean_str(sample.get("Exam Type")).lower()
+            exam_type = clean_str(row.get("Exam Type")).lower()
             if not exam_type or exam_type == "nan":
                 exam_type = inferred_exam_type
             elif inferred_exam_type == "practical":
                 exam_type = "practical"
 
-            # Courses
-            courses_set = set()
-            teachers_set = set()
-            codes_set = set()
-            for r in sub_rows:
-                c_val = clean_str(r.get("Course"))
-                if c_val:
-                    for token in re.split(r'[,/;]', c_val):
-                        if token.strip():
-                            courses_set.add(token.strip())
-                t_val = clean_str(r.get("Teacher Name"))
-                if t_val:
-                    teachers_set.add(t_val)
-                cd_val = clean_str(r.get("Subject Code"))
-                if cd_val:
-                    codes_set.add(cd_val)
-
-            # Sort courses logically
-            order_map = {"BSIT": 1, "BSCS": 2, "BSCpE": 3, "BSTM": 4, "BSHM": 5, "BSA": 6, "BSPsych": 7, "STEM": 11, "ABM": 12, "HUMMS": 13, "Culinary": 14, "Digital Arts": 15, "IT-MAWDEV": 16}
-            sorted_courses = sorted(courses_set, key=lambda c: order_map.get(c, 99))
-            
-            # If all 7 college courses take it and it's general, mark as "College" or list them
-            if cat_val == "College" and len(sorted_courses) >= 6 and subj_cat == "general":
-                course_display = "College"
-            elif cat_val == "SHS" and len(sorted_courses) >= 5 and subj_cat == "general":
-                course_display = "SHS"
-            elif len(sorted_courses) > 1:
-                course_display = ", ".join(sorted_courses)
-            elif sorted_courses:
-                course_display = sorted_courses[0]
-            else:
-                course_display = clean_str(sample.get("Course"))
-
-            # Code
-            if codes_set:
-                code_display = sorted(codes_set)[0]
-            else:
-                code_display = clean_str(sample.get("Subject Code"))
-
-            teacher_display = ", ".join(sorted(teachers_set)) if teachers_set else clean_str(sample.get("Teacher Name"))
-
-            # Section: Set to "ALL" so it applies to all sections of these courses!
-            section_display = "ALL"
-
             row_data = [
-                course_display,
+                course_val,
                 cat_val,
                 year_val,
-                section_display,
-                code_display,
+                section_val,
+                code_val,
                 sub_name,
-                teacher_display,
+                teacher_val,
                 subj_cat,
                 exam_type
             ]

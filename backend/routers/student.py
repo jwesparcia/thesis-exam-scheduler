@@ -305,10 +305,19 @@ def submit_reschedule_request(
         scheduled_exams = get_irregular_schedule_exams(
             current_user,
             db,
-            include_rescheduled_sources=True,
+            include_rescheduled_sources=False,
         )
         scheduled_ids = {scheduled_exam.id for scheduled_exam in scheduled_exams}
         if exam.id not in scheduled_ids:
+            # Check if this exam was already rescheduled and approved
+            already_rescheduled = db.query(ReschedulingRequest).filter(
+                ReschedulingRequest.exam_id == exam.id,
+                ReschedulingRequest.school_email == current_user.email,
+                ReschedulingRequest.status == "approved",
+                ReschedulingRequest.rescheduled_exam_id.isnot(None),
+            ).first()
+            if already_rescheduled:
+                raise HTTPException(status_code=400, detail="This exam has already been successfully rescheduled.")
             raise HTTPException(status_code=403, detail="Unauthorized: this exam is not in your selected schedule")
         existing_request = db.query(ReschedulingRequest).filter(
             ReschedulingRequest.exam_id == exam.id,
@@ -334,6 +343,24 @@ def submit_reschedule_request(
                 conflicting_exams.append(scheduled_exam)
         if not conflicting_exams:
             raise HTTPException(status_code=400, detail="Irregular students can only reschedule an exam that conflicts with their schedule")
+
+        # Major vs Minor Conflict Rule:
+        # When there is a conflict between major and minor subjects, only the minor subject needs to be rescheduled.
+        exam_cat = (exam.subject.category or "").lower().strip() if exam.subject else ""
+        has_conflicting_minor = any(
+            (peer.subject.category or "").lower().strip() in ("minor", "general")
+            for peer in conflicting_exams
+            if peer.subject
+        )
+        if exam_cat == "major" and has_conflicting_minor:
+            raise HTTPException(
+                status_code=400,
+                detail="When there is a conflict between major and minor subjects, only the minor subject needs to be rescheduled."
+            )
+
+        # Check if an active conflicting exam in the current slot already has a pending or approved request.
+        # If there were 3 conflicts at the same time and one was successfully rescheduled (moved away),
+        # the remaining active conflicting exams can now be rescheduled.
         conflicting_exam_ids = [peer.id for peer in conflicting_exams]
         handled_conflict = db.query(ReschedulingRequest).filter(
             ReschedulingRequest.school_email == current_user.email,
@@ -343,11 +370,40 @@ def submit_reschedule_request(
         if handled_conflict:
             raise HTTPException(
                 status_code=400,
-                detail="This conflict already has a pending or approved rescheduling request. Only one exam in the conflict can be moved.",
+                detail="This conflict already has a pending rescheduling request. Once one exam is successfully rescheduled, the remaining conflict schedule can be accepted.",
             )
     else:
         if exam.section and exam.section.name != current_user.section_name:
             raise HTTPException(status_code=403, detail="Unauthorized: section mismatch")
+        # For regular students, enforce the major vs minor rule if section exams conflict
+        exam_timeslot = exam.timeslot
+        if exam_timeslot:
+            section_exams = db.query(Exam).options(
+                joinedload(Exam.timeslot),
+                joinedload(Exam.subject),
+            ).filter(
+                Exam.status == "posted",
+                Exam.section.has(name=current_user.section_name),
+                Exam.id != exam.id,
+            ).all()
+            conflicting_exams = [
+                e for e in section_exams
+                if e.timeslot
+                and e.timeslot.date == exam_timeslot.date
+                and exam_timeslot.start_time < e.timeslot.end_time
+                and e.timeslot.start_time < exam_timeslot.end_time
+            ]
+            exam_cat = (exam.subject.category or "").lower().strip() if exam.subject else ""
+            has_conflicting_minor = any(
+                (peer.subject.category or "").lower().strip() in ("minor", "general")
+                for peer in conflicting_exams
+                if peer.subject
+            )
+            if exam_cat == "major" and has_conflicting_minor:
+                raise HTTPException(
+                    status_code=400,
+                    detail="When there is a conflict between major and minor subjects, only the minor subject needs to be rescheduled."
+                )
     
     def parse_date(s):
         return datetime.strptime(s, "%Y-%m-%d").date() if s else None

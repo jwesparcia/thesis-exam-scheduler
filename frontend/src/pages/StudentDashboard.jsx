@@ -1550,21 +1550,49 @@ export default function StudentDashboard() {
     return freeIntervals.filter(interval => interval[0] >= conflictEndMins);
   };
 
-  const canIrregularReschedule = (exam) => {
-    if (!exam) return false;
+  const getRescheduleEligibility = (exam) => {
+    if (!exam) return { canReschedule: false, reason: "" };
     const conflictingExams = exams.filter((peer) =>
       peer.id !== exam.id &&
       peer.exam_date === exam.exam_date &&
       parseTime12(exam.start_time) < parseTime12(peer.end_time) &&
       parseTime12(peer.start_time) < parseTime12(exam.end_time)
     );
-    if (conflictingExams.length === 0) return false;
-    const conflictExamIds = new Set([exam.id, ...conflictingExams.map((peer) => peer.id)]);
-    const conflictAlreadyHandled = myRequests.some((request) =>
-      conflictExamIds.has(request.exam_id) && ["pending", "approved"].includes(request.status)
+    if (conflictingExams.length === 0) {
+      return { canReschedule: false, reason: "Available only for eligible exam conflicts." };
+    }
+
+    // Rule: When there is conflict between major and minor subjects, only the minor subject needs to be rescheduled
+    const isExamMajor = (exam.category || "").toLowerCase() === "major";
+    const hasConflictingMinor = conflictingExams.some(
+      (peer) => (peer.category || "").toLowerCase() !== "major"
     );
-    if (conflictAlreadyHandled) return false;
-    return true;
+    if (isExamMajor && hasConflictingMinor) {
+      return {
+        canReschedule: false,
+        reason: "Major subjects cannot be rescheduled when conflicting with a minor subject. Please reschedule the minor subject."
+      };
+    }
+
+    const isIrregular = user?.student_type === "irregular";
+    if (isIrregular) {
+      const conflictExamIds = new Set([exam.id, ...conflictingExams.map((peer) => peer.id)]);
+      const conflictAlreadyHandled = myRequests.some((request) =>
+        conflictExamIds.has(request.exam_id) && ["pending", "approved"].includes(request.status)
+      );
+      if (conflictAlreadyHandled) {
+        return {
+          canReschedule: false,
+          reason: "This conflict already has a pending or approved rescheduling request."
+        };
+      }
+    }
+
+    return { canReschedule: true, reason: "" };
+  };
+
+  const canIrregularReschedule = (exam) => {
+    return getRescheduleEligibility(exam).canReschedule;
   };
 
   const getIrregularRescheduleSuggestions = (exam) => {
@@ -1810,8 +1838,8 @@ export default function StudentDashboard() {
       {examList.map((exam) => {
         const conflictingExams = conflictingExamsById.get(exam.id) || [];
         const isConflicting = conflictingExams.length > 0;
-        const isIrregular = user?.student_type === "irregular";
-        const canReschedule = isIrregular ? canIrregularReschedule(exam) : isConflicting;
+        const eligibility = getRescheduleEligibility(exam);
+        const canReschedule = isConflicting && eligibility.canReschedule;
 
         return (
           <article
@@ -1900,7 +1928,7 @@ export default function StudentDashboard() {
               </button>
               {!canReschedule && (
                 <p className={`mt-2 text-center text-xs ${isDark ? "text-slate-500" : "text-slate-400"}`}>
-                  Available only for eligible exam conflicts.
+                  {eligibility.reason || "Available only for eligible exam conflicts."}
                 </p>
               )}
             </div>
@@ -2249,8 +2277,8 @@ export default function StudentDashboard() {
                           {processedExams.map((exam) => {
                             const conflictingExams = conflictingExamsById.get(exam.id) || [];
                             const isConflicting = conflictingExams.length > 0;
-                            const isIrregular = user?.student_type === "irregular";
-                            const canReschedule = isIrregular ? canIrregularReschedule(exam) : isConflicting;
+                            const eligibility = getRescheduleEligibility(exam);
+                            const canReschedule = isConflicting && eligibility.canReschedule;
                             return (
                               <tr key={exam.id} className={`${isDark ? "hover:bg-slate-700/30" : "hover:bg-slate-50"} transition ${isConflicting ? (isDark ? "bg-rose-950/20 border-l-4 border-rose-500" : "bg-rose-50/70 border-l-4 border-rose-500") : ""}`}>
                                 <td className="px-4 sm:px-6 py-3 sm:py-4">
@@ -2280,7 +2308,7 @@ export default function StudentDashboard() {
                                 <td className="px-4 sm:px-6 py-3 sm:py-4">
                                   <div className="group relative">
                                     <button onClick={() => { if (!canReschedule) return; openRescheduleRequest(exam); }} disabled={!canReschedule} className={`px-3 py-1.5 rounded-xl text-xs font-bold transition shadow-sm ${canReschedule ? (isDark ? "bg-rose-600 hover:bg-rose-700 text-white" : "bg-rose-600 hover:bg-rose-700 text-white shadow-sm") : (isDark ? "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed" : "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed")}`}>Request Reschedule</button>
-                                    {!canReschedule && <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-slate-800 text-white text-xs rounded-xl shadow-lg opacity-0 group-hover:opacity-100 transition pointer-events-none z-10 border border-slate-700">Rescheduling is only available for eligible exam conflicts.</div>}
+                                    {!canReschedule && <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 p-2 bg-slate-800 text-white text-xs rounded-xl shadow-lg opacity-0 group-hover:opacity-100 transition pointer-events-none z-10 border border-slate-700">{eligibility.reason || "Rescheduling is only available for eligible exam conflicts."}</div>}
                                   </div>
                                 </td>
                               </tr>
@@ -2318,8 +2346,8 @@ export default function StudentDashboard() {
                                   {sectionExams.map((exam) => {
                                     const conflictingExams = conflictingExamsById.get(exam.id) || [];
                                     const isConflicting = conflictingExams.length > 0;
-                                    const isIrregular = user?.student_type === "irregular";
-                                    const canReschedule = isIrregular ? canIrregularReschedule(exam) : isConflicting;
+                                    const eligibility = getRescheduleEligibility(exam);
+                                    const canReschedule = isConflicting && eligibility.canReschedule;
                                     return (
                                       <tr key={exam.id} className={`${isDark ? "hover:bg-slate-800/40" : "hover:bg-slate-50/80"} transition ${isConflicting ? (isDark ? "bg-rose-950/20 border-l-4 border-rose-500" : "bg-rose-50/70 border-l-4 border-rose-500") : ""}`}>
                                         <td className={`px-4 sm:px-6 py-3.5 border-t ${isDark ? "border-slate-800" : "border-slate-200"}`}><div className={`font-bold ${isDark ? "text-slate-100" : "text-slate-900"}`}>{exam.subject_name}</div><div className={`text-xs font-mono font-medium ${isDark ? "text-slate-400" : "text-slate-500"}`}>{exam.subject_code}</div>{isConflicting && <div className={`mt-1.5 p-2 rounded-lg text-[11px] font-medium border ${isDark ? "bg-rose-950/40 text-rose-300 border-rose-800/60" : "bg-rose-50 text-rose-700 border-rose-200"}`}><div className="font-bold uppercase tracking-wider flex items-center gap-1"><ExclamationCircleIcon className="w-3.5 h-3.5" /> CONFLICT DETECTED</div>{conflictingExams.map((peer) => <div key={peer.id} className="mt-0.5">Overlaps with {peer.subject_name} ({peer.category || "uncategorized"}) · {peer.start_time} - {peer.end_time}</div>)}</div>}</td>
@@ -2327,7 +2355,7 @@ export default function StudentDashboard() {
                                         <td className={`px-4 sm:px-6 py-3.5 border-t ${isDark ? "border-slate-800" : "border-slate-200"}`}><div className={`flex items-center gap-1.5 font-medium ${isDark ? "text-slate-200" : "text-slate-800"}`}><CalendarIcon className="w-3.5 h-3.5 text-blue-500" />{formatDate(exam.exam_date)}</div><div className={`flex items-center gap-1.5 mt-1 text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}><ClockIcon className="w-3.5 h-3.5 text-purple-500" />{exam.start_time} - {exam.end_time}</div></td>
                                         <td className={`px-4 sm:px-6 py-3.5 border-t ${isDark ? "border-slate-800" : "border-slate-200"}`}><div className="flex items-center gap-1.5"><MapPinIcon className={`w-3.5 h-3.5 ${isDark ? "text-slate-400" : "text-slate-500"}`} /><span className={`px-2 py-0.5 rounded text-xs font-medium ${isDark ? "bg-slate-800 text-slate-200 border border-slate-700" : "bg-slate-100 text-slate-700 border border-slate-200"}`}>{exam.room}</span></div><div className={`mt-1 text-[11px] ${isDark ? "text-slate-400" : "text-slate-500"}`}>{exam.course_name} • {exam.year_level}</div></td>
                                         <td className={`px-4 sm:px-6 py-3.5 border-t ${isDark ? "border-slate-800" : "border-slate-200"}`}><div className={`flex items-center gap-1.5 ${isDark ? "text-slate-300" : "text-slate-700"}`}><CheckBadgeIcon className="w-3.5 h-3.5 text-emerald-500" /><span className="text-xs sm:text-sm font-medium">{exam.proctor || "Unassigned"}</span></div></td>
-                                        <td className={`px-4 sm:px-6 py-3.5 border-t ${isDark ? "border-slate-800" : "border-slate-200"}`}><div className="group relative"><button onClick={() => { if (!canReschedule) return; openRescheduleRequest(exam); }} disabled={!canReschedule} className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${canReschedule ? "bg-rose-600 hover:bg-rose-700 text-white shadow-sm cursor-pointer" : isDark ? "bg-slate-800 text-slate-500 border border-slate-700/60 cursor-not-allowed" : "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed"}`}>Request Reschedule</button>{!canReschedule && <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition pointer-events-none z-10 text-center">Rescheduling is only available for eligible exam conflicts.</div>}</div></td>
+                                        <td className={`px-4 sm:px-6 py-3.5 border-t ${isDark ? "border-slate-800" : "border-slate-200"}`}><div className="group relative"><button onClick={() => { if (!canReschedule) return; openRescheduleRequest(exam); }} disabled={!canReschedule} className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${canReschedule ? "bg-rose-600 hover:bg-rose-700 text-white shadow-sm cursor-pointer" : isDark ? "bg-slate-800 text-slate-500 border border-slate-700/60 cursor-not-allowed" : "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed"}`}>Request Reschedule</button>{!canReschedule && <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 p-2 bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition pointer-events-none z-10 text-center">{eligibility.reason || "Rescheduling is only available for eligible exam conflicts."}</div>}</div></td>
                                       </tr>
                                     );
                                   })}
