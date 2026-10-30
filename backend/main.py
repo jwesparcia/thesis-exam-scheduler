@@ -46,6 +46,11 @@ def on_startup():
                 GROUP BY LOWER(category_type)
                 ON CONFLICT (category_type) DO NOTHING
             """))
+            _conn.execute(_text("""
+                UPDATE subjects
+                SET category = 'general'
+                WHERE LOWER(TRIM(name)) = 'understanding the self' AND category != 'general'
+            """))
             _conn.commit()
         print("Chat database soft-delete columns migration successful!")
     except Exception as e:

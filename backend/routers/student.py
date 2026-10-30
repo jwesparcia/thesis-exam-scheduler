@@ -67,27 +67,44 @@ def get_irregular_schedule_exams(
     if not selections:
         return []
 
+    selected_subject_ids = [selection.subject_id for selection in selections]
     selected_subjects = db.query(Subject).filter(
-        Subject.id.in_([selection.subject_id for selection in selections])
+        Subject.id.in_(selected_subject_ids)
     ).all()
-    matching_subjects = db.query(Subject).filter(
-        Subject.name.in_([subject.name for subject in selected_subjects]),
-        Subject.exam_type == "written",
-    ).all()
-    matching_ids_by_name = {}
-    for subject in matching_subjects:
-        matching_ids_by_name.setdefault(subject.name, []).append(subject.id)
+    selected_names = [subject.name for subject in selected_subjects if subject.name]
+    selected_codes = [subject.code for subject in selected_subjects if subject.code]
 
-    selected_subject_by_id = {subject.id: subject for subject in selected_subjects}
     from sqlalchemy import or_
+    matching_subjects = db.query(Subject).filter(
+        or_(
+            Subject.name.in_(selected_names),
+            Subject.code.in_(selected_codes),
+            Subject.id.in_(selected_subject_ids),
+        )
+    ).all()
+
+    subject_id_to_matching_ids = {}
+    for sub in selected_subjects:
+        sub_name_norm = (sub.name or "").strip().lower()
+        matching_ids = [
+            m.id for m in matching_subjects
+            if ((m.name or "").strip().lower() == sub_name_norm and sub_name_norm)
+            or (m.code and sub.code and m.code == sub.code)
+            or m.id == sub.id
+        ]
+        if sub.id not in matching_ids:
+            matching_ids.append(sub.id)
+        subject_id_to_matching_ids[sub.id] = matching_ids
+
     conditions = []
     for selection in selections:
-        subject = selected_subject_by_id.get(selection.subject_id)
-        matching_ids = matching_ids_by_name.get(subject.name, []) if subject else []
-        if matching_ids:
+        matching_ids = subject_id_to_matching_ids.get(selection.subject_id) or [selection.subject_id]
+        if selection.section_id is not None:
             conditions.append(
                 (Exam.subject_id.in_(matching_ids)) & (Exam.section_id == selection.section_id)
             )
+        else:
+            conditions.append(Exam.subject_id.in_(matching_ids))
     if not conditions:
         return []
 
@@ -599,20 +616,26 @@ def get_available_subjects(
     written subjects across all courses so irregular students can pick freely.
     """
     from collections import defaultdict
-    from model import TeacherTeaching
+    from sqlalchemy import or_
+    from model import TeacherTeaching, SubjectProgram
 
     # course_id=0 is a sentinel meaning "all programs" sent from the frontend.
     # A real course filter is only applied when a positive course_id is given.
     target_course_id = course_id if (course_id is not None and course_id > 0) else None
 
-    # Base query for written subjects
+    # Base query for written subjects (including shared subjects via SubjectProgram)
     query = (
         db.query(Subject)
-        .options(joinedload(Subject.course))
+        .options(joinedload(Subject.course), joinedload(Subject.assigned_programs))
         .filter(Subject.exam_type == "written")
     )
     if target_course_id:
-        query = query.filter(Subject.course_id == target_course_id)
+        query = query.filter(
+            or_(
+                Subject.course_id == target_course_id,
+                Subject.assigned_programs.any(SubjectProgram.course_id == target_course_id),
+            )
+        )
 
     subjects = query.all()
 
@@ -653,21 +676,27 @@ def get_available_subjects(
         for sec in ex_query.all():
             sec_dict[sec.id] = sec.name
 
-        # 3. Fallback ONLY if no sections found in TeacherTeaching or Exam for this subject
-        if not sec_dict:
-            sec_q = db.query(Section)
-            if sub.course_id and sub.year_level_id:
-                sec_q = sec_q.filter(Section.course_id == sub.course_id, Section.year_level_id == sub.year_level_id)
-            elif sub.course_id:
-                sec_q = sec_q.filter(Section.course_id == sub.course_id)
-            elif sub.year_level_id:
-                sec_q = sec_q.filter(Section.year_level_id == sub.year_level_id)
+        # 3. Include curriculum-aligned sections across all assigned programs (Course + YearLevel + Semester)
+        assigned_cids = {sp.course_id for sp in getattr(sub, "assigned_programs", []) if sp.course_id}
+        if sub.course_id:
+            assigned_cids.add(sub.course_id)
 
-            if target_course_id:
-                sec_q = sec_q.filter(Section.course_id == target_course_id)
+        sec_q = db.query(Section)
+        if assigned_cids and sub.year_level_id:
+            sec_q = sec_q.filter(Section.course_id.in_(assigned_cids), Section.year_level_id == sub.year_level_id)
+        elif assigned_cids:
+            sec_q = sec_q.filter(Section.course_id.in_(assigned_cids))
+        elif sub.year_level_id:
+            sec_q = sec_q.filter(Section.year_level_id == sub.year_level_id)
 
-            for sec in sec_q.all():
-                sec_dict[sec.id] = sec.name
+        if sub.semester is not None:
+            sec_q = sec_q.filter(or_(Section.semester == sub.semester, Section.semester.is_(None)))
+
+        if target_course_id:
+            sec_q = sec_q.filter(Section.course_id == target_course_id)
+
+        for sec in sec_q.all():
+            sec_dict[sec.id] = sec.name
 
         # Add to subject_map sections list
         for s_id, s_name in sec_dict.items():

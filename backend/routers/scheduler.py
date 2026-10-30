@@ -45,8 +45,14 @@ def generate_exam_schedule(payload: dict = Body(...), db: Session = Depends(get_
         Section.year_level_id == year_level_id,
         or_(Section.semester == semester, Section.semester.is_(None))
     ).all()
+    from model import SubjectProgram
     subjects = db.query(Subject).filter(
-        Subject.course_id == course_id,
+        or_(
+            Subject.course_id == course_id,
+            Subject.id.in_(
+                db.query(SubjectProgram.subject_id).filter(SubjectProgram.course_id == course_id)
+            )
+        ),
         Subject.year_level_id == year_level_id,
         Subject.semester == semester
     ).all()

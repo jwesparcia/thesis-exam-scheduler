@@ -13,19 +13,26 @@ def list_year_levels(db: Session):
 # --- Get Sections + Subjects for course/year/semester ---
 def get_course_year_sem_details(course_id: int, year_level_id: int, semester: int, db: Session):
     from sqlalchemy import or_
+    from model import SubjectProgram
     sections = db.query(Section).filter(
         Section.course_id == course_id,
         Section.year_level_id == year_level_id,
         or_(Section.semester == semester, Section.semester.is_(None))
     ).all()
 
+    subjects = db.query(Subject).filter(
+        or_(
+            Subject.course_id == course_id,
+            Subject.id.in_(
+                db.query(SubjectProgram.subject_id).filter(SubjectProgram.course_id == course_id)
+            )
+        ),
+        Subject.year_level_id == year_level_id,
+        Subject.semester == semester
+    ).all()
+
     result = []
     for section in sections:
-        subjects = db.query(Subject).filter_by(
-            course_id=course_id,
-            year_level_id=year_level_id,
-            semester=semester
-        ).all()
 
         subjects_data = [
             {

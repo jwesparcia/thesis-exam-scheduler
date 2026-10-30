@@ -308,6 +308,18 @@ bstm_subjects = {
             "Professional Tour Guiding",
             "Transportation Management",
         ]
+    },
+    4: {
+        1: [
+            "The Contemporary World",
+            "Euthenics 2",
+            "Rizal's Life and Works",
+            "Cruise and Heritage Tourism",
+            "Research in Tourism",
+        ],
+        2: [
+            "BSTM Practicum (600 hours)",
+        ]
     }
 }
 
@@ -458,6 +470,18 @@ bsa_subjects = {
             "Accounting for Government and Non-profit Organizations",
             "Accounting for Special Transactions",
             "Auditing and Assurance: Concepts and Applications 2",
+        ]
+    },
+    4: {
+        1: [
+            "Euthenics 2",
+            "Auditing and Assurance: Specialized Industries",
+            "Operations Auditing and Valuation Concepts",
+            "Integrated Accounting Course 1 (FAR & AFAR)",
+            "Integrated Accounting Course 2 (MAS & Auditing)",
+        ],
+        2: [
+            "BSA Accounting Internship (600 hours)",
         ]
     }
 }
@@ -758,6 +782,20 @@ bacomm_subjects = {
         3: [
             ("OJTC1001", "Internship (300 Hours OJT)"),
         ]
+    },
+    4: {
+        1: [
+            ("ACOM1015", "Communication Thesis 1"),
+            ("ACOM1016", "Integrated Marketing Communications"),
+            ("ACOM1017", "Cross-Cultural Communication"),
+            ("ACOM1018", "Organizational Communication"),
+            ("GEDC1046", "World Literature"),
+        ],
+        2: [
+            ("ACOM1019", "Communication Thesis 2"),
+            ("ACOM1020", "Communication Management and Entrepreneurship"),
+            ("ACOM1021", "Knowledge Management"),
+        ]
     }
 }
 
@@ -847,14 +885,14 @@ def classify_subject(name: str):
     # General Education subjects
     general_keywords = [
         "Oral Communication", "General Mathematics", "21st Century Literature",
-        "Reading and Writing", "Statistics and Probability", "Understanding Self",
+        "Reading and Writing", "Statistics and Probability", "Understanding the Self", "Understanding Self", "Understanding Culture, Society",
         "Contemporary World", "Purposive Communication", "Ethics", "Art Appreciation",
         "Komunikasyon at Pananaliksik", "Pagbasa at Pagsusuri", "Personal Development",
         "Philosophy", "Literature", "Media and Information Literacy",
         "Euthenics", "National Service Training Program", "ROTC", "P.E./PATHFIT",
         "Physical Education", "Readings in Philippine History", "Rizal", "Philippine Popular Culture",
-        "The Entrepreneurial Mind", "Mathematics in the Modern World", "Science, Technology, and Society",
-        "Great Books", "Foreign Language", "General Physics", "General Chemistry", "General Biology"
+        "The Entrepreneurial Mind", "Mathematics in the Modern World", "Science, Technology, and Society", "Science, Technology",
+        "Great Books", "Foreign Language", "General Physics", "General Chemistry", "General Biology", "Disaster Readiness", "Earth Science", "Physical Science", "Earth and Life Science", "Filipino sa Piling Larangan"
     ]
     if name.startswith("GE") or any(keyword in name for keyword in general_keywords):
         category = "general"

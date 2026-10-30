@@ -143,13 +143,13 @@ def classify_subject(name: str):
     # General Education subjects
     general_keywords = [
         "oral communication", "general mathematics", "21st century literature",
-        "reading and writing", "statistics and probability", "understanding self",
+        "reading and writing", "statistics and probability", "understanding the self", "understanding self", "understanding culture, society",
         "contemporary world", "purposive communication", "ethics", "art appreciation",
         "komunikasyon at pananaliksik", "pagbasa at pagsusuri", "personal development",
         "philosophy", "literature", "media and information literacy",
         "rotc", "readings in philippine history", "rizal", "philippine popular culture",
-        "the entrepreneurial mind", "mathematics in the modern world", "science, technology, and society",
-        "great books", "foreign language", "general physics", "general chemistry", "general biology"
+        "the entrepreneurial mind", "mathematics in the modern world", "science, technology, and society", "science, technology",
+        "great books", "foreign language", "general physics", "general chemistry", "general biology", "disaster readiness", "earth science", "physical science", "earth and life science", "filipino sa piling larangan"
     ]
     if name_lower.startswith("ge") or any(keyword in name_lower for keyword in general_keywords):
         category = "general"
@@ -1191,6 +1191,25 @@ def upload_catalog_excel(
         n_key = (" ".join(sub.name.strip().lower().split()) if sub.name else "", sub.year_level_id, sub.semester, sub.exam_type or "written")
         existing_shared_subjects[n_key] = sub
 
+    valid_dept_codes = {d.code for d in db.query(Department).all() if d.code}
+    course_dept_lookup = {
+        "BSIT": "ICT", "BSCS": "ICT", "BSCPE": "ICT",
+        "BSTM": "THM", "BSHM": "THM",
+        "BSA": "BM",
+        "BSPSYCH": "AS", "BMMA": "AS", "BACOMM": "AS",
+        "BSCRIM": "CRIM",
+        "STEM": "SHS", "ABM": "SHS", "HUMMS": "SHS", "HUMSS": "SHS",
+        "CULINARY": "SHS", "DIGITAL ARTS": "SHS", "IT-MAWDEV": "SHS", "TOURISM": "SHS",
+    }
+    existing_sp_pairs = {
+        (sp.subject_id, sp.course_id)
+        for sp in db.query(SubjectProgram.subject_id, SubjectProgram.course_id).all()
+    }
+    existing_tt_triples = {
+        (tt.teacher_id, tt.subject_id, tt.section_id)
+        for tt in db.query(TeacherTeaching.teacher_id, TeacherTeaching.subject_id, TeacherTeaching.section_id).all()
+    }
+
     # For auto-generating code counters if codes are missing
     subj_code_counters = {}
 
@@ -1291,7 +1310,9 @@ def upload_catalog_excel(
                     elif c_cat.lower() in ("senior high", "senior high school"):
                         c_cat = "SHS"
 
-                    course_obj = Course(name=token, category=c_cat)
+                    mapped_dept = course_dept_lookup.get(t_key, "SHS" if c_cat == "SHS" else None)
+                    c_dept = mapped_dept if mapped_dept in valid_dept_codes else None
+                    course_obj = Course(name=token, category=c_cat, department_code=c_dept)
                     db.add(course_obj)
                     db.flush()
                     existing_courses[t_key] = course_obj
@@ -1364,13 +1385,14 @@ def upload_catalog_excel(
                 else:
                     section_val = f"{course.name}-{year_level.id}A"
             
+            sec_semester = None if course.category == 'SHS' else semester
             sec_key = (section_val.upper(), course.id)
             if sec_key not in existing_sections:
                 section_obj = Section(
                     name=section_val,
                     course_id=course.id,
                     year_level_id=year_level.id,
-                    semester=semester
+                    semester=sec_semester
                 )
                 db.add(section_obj)
                 db.flush()
@@ -1378,19 +1400,24 @@ def upload_catalog_excel(
                 stats["sections_created"] += 1
             
             section = existing_sections[sec_key]
+            if course.category == 'SHS' and section.semester is not None:
+                section.semester = None
 
             # 6. Subject
             if not code_val or str(code_val).lower() == 'nan':
                 subj_code_counters[course.id] = subj_code_counters.get(course.id, 0) + 1
                 code_val = f"{course.name[:2].upper()}{year_level.id}{semester or 1}{subj_code_counters[course.id]:02d}"
 
+            inferred_exam_type, inferred_cat = classify_subject(sub_name_val)
             if not exam_type_val or str(exam_type_val).lower() == 'nan':
-                exam_type_val, inferred_cat = classify_subject(sub_name_val)
-                if not subj_cat_val or str(subj_cat_val).lower() == 'nan':
-                    subj_cat_val = inferred_cat
-            elif not subj_cat_val or str(subj_cat_val).lower() == 'nan':
-                _, inferred_cat = classify_subject(sub_name_val)
+                exam_type_val = inferred_exam_type
+            if not subj_cat_val or str(subj_cat_val).lower() == 'nan':
                 subj_cat_val = inferred_cat
+            elif inferred_cat == "general" and " ".join(sub_name_val.strip().lower().split()) == "understanding the self":
+                subj_cat_val = "general"
+
+            cand_sub_dept = "GE" if (subj_cat_val == "general" and course.category == "College") else (course.department_code or ("SHS" if course.category == "SHS" else None))
+            sub_dept_code = cand_sub_dept if cand_sub_dept in valid_dept_codes else None
 
             sub_key = (code_val.upper(), course.id)
             norm_name = " ".join(sub_name_val.strip().lower().split())
@@ -1399,14 +1426,14 @@ def upload_catalog_excel(
             if shared_key in existing_shared_subjects:
                 # Reuse existing shared subject across programs
                 subject_obj = existing_shared_subjects[shared_key]
+                if subj_cat_val == "general" and subject_obj.category != "general":
+                    subject_obj.category = "general"
+                    if "GE" in valid_dept_codes and course.category == "College":
+                        subject_obj.department_code = "GE"
                 # Ensure SubjectProgram links this course
-                sp_exists = db.query(SubjectProgram).filter(
-                    SubjectProgram.subject_id == subject_obj.id,
-                    SubjectProgram.course_id == course.id
-                ).first()
-                if not sp_exists:
+                if (subject_obj.id, course.id) not in existing_sp_pairs:
                     db.add(SubjectProgram(subject_id=subject_obj.id, course_id=course.id))
-                    db.flush()
+                    existing_sp_pairs.add((subject_obj.id, course.id))
                 existing_subjects[sub_key] = subject_obj
             elif sub_key not in existing_subjects:
                 subject_obj = Subject(
@@ -1418,13 +1445,15 @@ def upload_catalog_excel(
                     teacher_id=teacher.id if teacher else None,
                     exam_type=exam_type_val,
                     category=subj_cat_val,
-                    duration_minutes=120 if (course.name == "BSA" and subj_cat_val == "major") else 75
+                    duration_minutes=120 if (course.name == "BSA" and subj_cat_val == "major") else 75,
+                    department_code=sub_dept_code
                 )
                 db.add(subject_obj)
                 db.flush()
                 # Also add initial SubjectProgram link
-                db.add(SubjectProgram(subject_id=subject_obj.id, course_id=course.id))
-                db.flush()
+                if (subject_obj.id, course.id) not in existing_sp_pairs:
+                    db.add(SubjectProgram(subject_id=subject_obj.id, course_id=course.id))
+                    existing_sp_pairs.add((subject_obj.id, course.id))
                 existing_subjects[sub_key] = subject_obj
                 existing_shared_subjects[shared_key] = subject_obj
                 stats["subjects_created"] += 1
@@ -1437,19 +1466,16 @@ def upload_catalog_excel(
                     subject_obj.teacher_id = teacher.id
                 subject_obj.exam_type = exam_type_val
                 subject_obj.category = subj_cat_val
-                db.flush()
+                if sub_dept_code and not subject_obj.department_code:
+                    subject_obj.department_code = sub_dept_code
             
             subject = subject_obj
 
             # Ensure SubjectProgram links all resolved courses!
             for rc in resolved_courses:
-                sp_exists = db.query(SubjectProgram).filter(
-                    SubjectProgram.subject_id == subject_obj.id,
-                    SubjectProgram.course_id == rc.id
-                ).first()
-                if not sp_exists:
+                if (subject_obj.id, rc.id) not in existing_sp_pairs:
                     db.add(SubjectProgram(subject_id=subject_obj.id, course_id=rc.id))
-            db.flush()
+                    existing_sp_pairs.add((subject_obj.id, rc.id))
 
             # 7. TeacherTeaching Mapping
             if teacher:
@@ -1466,20 +1492,16 @@ def upload_catalog_excel(
                     target_sections = [section]
 
                 for t_sec in target_sections:
-                    teach_exists = db.query(TeacherTeaching).filter(
-                        TeacherTeaching.teacher_id == teacher.id,
-                        TeacherTeaching.subject_id == subject.id,
-                        TeacherTeaching.section_id == t_sec.id
-                    ).first()
-                    if not teach_exists:
+                    tt_key = (teacher.id, subject.id, t_sec.id)
+                    if tt_key not in existing_tt_triples:
                         teaching = TeacherTeaching(
                             teacher_id=teacher.id,
                             subject_id=subject.id,
                             section_id=t_sec.id
                         )
                         db.add(teaching)
+                        existing_tt_triples.add(tt_key)
                         stats["teaching_assignments"] += 1
-                db.flush()
 
     try:
         # Re-link existing students whose section_name matches newly imported sections
@@ -1544,34 +1566,132 @@ def upload_students_excel(
     # Hash default password once to avoid performance issues
     default_pw_hash = bcrypt.hashpw("student123".encode(), bcrypt.gensalt()).decode()
 
-    courses_cache = {c.name.upper(): c.id for c in db.query(Course).all()}
-    sections_cache = {s.name.upper(): s for s in db.query(Section).all()}
+    import random
+    import re
+    from model import IrregularSelection, SubjectProgram
+
+    courses_cache = {c.name.upper(): c.id for c in db.query(Course).all() if c.name}
+    course_category_map = {c.id: c.category for c in db.query(Course).all()}
+    sections_cache = {" ".join(s.name.split()).upper(): s for s in db.query(Section).all() if s.name}
     existing_users_cache = {u.email: u for u in db.query(User).filter(User.role == "student").all()}
+    year_levels_by_name = {yl.name.upper(): yl.id for yl in db.query(YearLevel).all() if yl.name}
 
     # Identify student ID column and subject columns
     id_col = next((c for c in df.columns if c in ["STUDENT ID", "ID NUMBER", "STUDENT NUMBER", "STUDENT_ID", "ID"]), None)
     subject_cols = [c for c in df.columns if c.startswith("SUBJECT") or c.startswith("SUBJ")]
 
-    # Pre-cache subjects and sections for irregular subject mapping
-    all_db_subjects = db.query(Subject).all()
-    subjects_by_course_and_name = {(s.course_id, s.name.lower()): s for s in all_db_subjects}
-    subjects_by_course_and_code = {(s.course_id, s.code.lower()): s for s in all_db_subjects if s.code}
+    def norm_sub_key(text: str) -> str:
+        return " ".join(str(text).strip().lower().split())
+
+    def norm_sub_amp_key(text: str) -> str:
+        return norm_sub_key(str(text).replace("&", " and "))
+
+    def infer_section_year_and_sem(sec_name_str: str):
+        if not sec_name_str:
+            return None, None
+        s_clean = " ".join(str(sec_name_str).strip().split())
+        # College format e.g. "BSCS 1-102", "BSA 1-202", "BMMA 1-104"
+        m_col = re.search(r'(\d)\s*-\s*([123])\d{2}\b', s_clean)
+        if m_col:
+            y_num = int(m_col.group(1))
+            sem_num = int(m_col.group(2))
+            yl_label = {1: "1ST YEAR", 2: "2ND YEAR", 3: "3RD YEAR", 4: "4TH YEAR"}.get(y_num)
+            yl_id = year_levels_by_name.get(yl_label) if yl_label else None
+            return yl_id, sem_num
+        # SHS format e.g. "STEM-5A", "ABM-6B", or "Grade 11" / "Grade 12"
+        s_upper = s_clean.upper()
+        if "GRADE 11" in s_upper or re.search(r'-\s*5[A-Z]\b', s_upper) or re.search(r'\b11[- ]', s_upper):
+            return year_levels_by_name.get("GRADE 11"), None
+        if "GRADE 12" in s_upper or re.search(r'-\s*6[A-Z]\b', s_upper) or re.search(r'\b12[- ]', s_upper):
+            return year_levels_by_name.get("GRADE 12"), None
+        return None, None
+
+    # Pre-cache subjects (including multi-program SubjectProgram links) and sections
+    all_db_subjects = db.query(Subject).options(joinedload(Subject.assigned_programs)).all()
+    for s in all_db_subjects:
+        if s.name and norm_sub_key(s.name) == "understanding the self" and s.category != "general":
+            s.category = "general"
+
+    subject_course_ids_map = {}
+    subjects_by_course_and_name = {}
+    subjects_by_course_and_code = {}
     subjects_list_by_name = {}
     subjects_list_by_code = {}
+
+    def _append_unique(mapping, key, obj):
+        bucket = mapping.setdefault(key, [])
+        if all(existing.id != obj.id for existing in bucket):
+            bucket.append(obj)
+
     for s in all_db_subjects:
-        subjects_list_by_name.setdefault(s.name.lower(), []).append(s)
+        cids = {sp.course_id for sp in getattr(s, "assigned_programs", []) if sp.course_id}
+        if s.course_id:
+            cids.add(s.course_id)
+        subject_course_ids_map[s.id] = cids
+
+        if s.name:
+            for k in {norm_sub_key(s.name), norm_sub_amp_key(s.name)}:
+                _append_unique(subjects_list_by_name, k, s)
+                for cid in cids:
+                    _append_unique(subjects_by_course_and_name, (cid, k), s)
         if s.code:
-            subjects_list_by_code.setdefault(s.code.lower(), []).append(s)
+            ck = norm_sub_key(s.code)
+            _append_unique(subjects_list_by_code, ck, s)
+            for cid in cids:
+                _append_unique(subjects_by_course_and_code, (cid, ck), s)
 
     sections_by_course = {}
-    for s in db.query(Section).all():
+    for s in sorted(db.query(Section).all(), key=lambda x: x.name or ""):
         sections_by_course.setdefault(s.course_id, []).append(s)
-    all_sections = list(sections_cache.values())
-    # Map course_id -> department category ("SHS" or "College") for cross-dept guard
-    course_category_map = {c.id: c.category for c in db.query(Course).all()}
-    
-    from model import IrregularSelection
-    import re
+    all_sections = sorted(list(sections_cache.values()), key=lambda x: x.name or "")
+
+    existing_teaching_pairs = {
+        (tt.subject_id, tt.section_id)
+        for tt in db.query(TeacherTeaching.subject_id, TeacherTeaching.section_id).all()
+    }
+    existing_exam_pairs = {
+        (ex.subject_id, ex.section_id)
+        for ex in db.query(Exam.subject_id, Exam.section_id).all()
+    }
+
+    def resolve_or_create_section(sec_str: str, fallback_course_id: Optional[int] = None):
+        if not sec_str:
+            return None
+        norm_sec = " ".join(str(sec_str).strip().split())
+        sec_key = norm_sec.upper()
+        sec_obj = sections_cache.get(sec_key)
+        if sec_obj:
+            if sec_obj.year_level_id is None or sec_obj.semester is None:
+                inf_yl, inf_sem = infer_section_year_and_sem(sec_obj.name)
+                if sec_obj.year_level_id is None and inf_yl is not None:
+                    sec_obj.year_level_id = inf_yl
+                if sec_obj.semester is None and inf_sem is not None:
+                    sec_obj.semester = inf_sem
+            return sec_obj
+
+        resolved_cid = fallback_course_id
+        if resolved_cid is None:
+            for c_upper in sorted(courses_cache.keys(), key=len, reverse=True):
+                if sec_key.startswith(c_upper + " ") or sec_key.startswith(c_upper + "-"):
+                    resolved_cid = courses_cache[c_upper]
+                    break
+        if resolved_cid is None:
+            return None
+
+        inf_yl, inf_sem = infer_section_year_and_sem(norm_sec)
+        new_sec = Section(
+            name=norm_sec,
+            course_id=resolved_cid,
+            year_level_id=inf_yl,
+            semester=inf_sem,
+        )
+        db.add(new_sec)
+        db.flush()
+        sections_cache[sec_key] = new_sec
+        sections_by_course.setdefault(resolved_cid, []).append(new_sec)
+        sections_by_course[resolved_cid].sort(key=lambda x: x.name or "")
+        all_sections.append(new_sec)
+        return new_sec
 
     # We will process in batches to be fast
     for index, row in df.iterrows():
@@ -1612,7 +1732,8 @@ def upload_students_excel(
             new_course = Course(name=course_name, category=cat_val)
             db.add(new_course)
             db.flush()
-            courses_cache[course_name.upper()] = new_course.id
+            courses_cache[course_key] = new_course.id
+            course_category_map[new_course.id] = cat_val
             course_id = new_course.id
 
         # Determine section and student type
@@ -1633,15 +1754,8 @@ def upload_students_excel(
 
         sec_name = None
         if section_name and section_name.lower() not in ["nan", "none", "n/a", "irregular", ""]:
-            sec_obj = sections_cache.get(section_name.upper())
-            if not sec_obj:
-                # Create section if not found
-                new_sec = Section(name=section_name, course_id=course_id)
-                db.add(new_sec)
-                db.flush()
-                sections_cache[section_name.upper()] = new_sec
-                sec_name = section_name
-            else:
+            sec_obj = resolve_or_create_section(section_name, fallback_course_id=course_id)
+            if sec_obj:
                 sec_name = sec_obj.name
                 # Ensure course ID matches the section's course
                 if not course_id:
@@ -1678,6 +1792,50 @@ def upload_students_excel(
         # Auto-enroll irregular student subjects from Excel subject and section columns
         if student_type == "irregular" and subject_cols and target_student:
             db.query(IrregularSelection).filter(IrregularSelection.user_id == target_student.id).delete(synchronize_session=False)
+            seen_sel_pairs = set()
+
+            def subject_matches_dept(sub, dept):
+                cids = subject_course_ids_map.get(sub.id, set())
+                if not cids:
+                    return True
+                return any(course_category_map.get(cid, "College") == dept for cid in cids)
+
+            def get_sec_yl_sem(sec):
+                sec_yl = sec.year_level_id
+                sec_sem = sec.semester
+                if sec_yl is None or sec_sem is None:
+                    inf_yl, inf_sem = infer_section_year_and_sem(sec.name)
+                    if sec_yl is None:
+                        sec_yl = inf_yl
+                    if sec_sem is None:
+                        sec_sem = inf_sem
+                return sec_yl, sec_sem
+
+            def section_fits(sub, sec):
+                if (sub.id, sec.id) in existing_exam_pairs or (sub.id, sec.id) in existing_teaching_pairs:
+                    return True
+                sub_cids = subject_course_ids_map.get(sub.id, set())
+                sec_yl, sec_sem = get_sec_yl_sem(sec)
+                return (
+                    (not sub_cids or sec.course_id in sub_cids)
+                    and (sub.year_level_id is None or sec_yl is None or sec_yl == sub.year_level_id)
+                    and (sub.semester is None or sec_sem is None or sec_sem == sub.semester)
+                )
+
+            def ensure_subject_course_link(sub, cid):
+                if not cid:
+                    return
+                cids = subject_course_ids_map.setdefault(sub.id, set())
+                if cid not in cids:
+                    sp_exists = db.query(SubjectProgram).filter(
+                        SubjectProgram.subject_id == sub.id,
+                        SubjectProgram.course_id == cid,
+                    ).first()
+                    if not sp_exists:
+                        db.add(SubjectProgram(subject_id=sub.id, course_id=cid))
+                        db.flush()
+                    cids.add(cid)
+
             for sc in subject_cols:
                 val = str(row[sc]).strip() if pd.notna(row[sc]) else ""
                 if not val or val.lower() in ["nan", "none", "n/a", ""]:
@@ -1703,7 +1861,7 @@ def upload_students_excel(
                 if not target_sec_name and "(" in val and ")" in val:
                     m = re.search(r"\((.*?)\)", val)
                     if m:
-                        potential_sec = m.group(1).strip()
+                        potential_sec = " ".join(m.group(1).strip().split())
                         if potential_sec.upper() in sections_cache:
                             target_sec_name = potential_sec
                             clean_sub_val = val[:val.index("(")].strip()
@@ -1711,75 +1869,113 @@ def upload_students_excel(
                 # Determine the student's own department type (SHS or College)
                 student_dept = course_category_map.get(course_id, "College")
 
-                # ── Subject Matching & Department/Major Guard ────────────────────
-                # 1. First priority: subject belonging to the student's own course
-                matched_sub = (
-                    subjects_by_course_and_name.get((course_id, clean_sub_val.lower())) or
-                    subjects_by_course_and_code.get((course_id, clean_sub_val.lower())) or
-                    subjects_by_course_and_name.get((course_id, val.lower())) or
-                    subjects_by_course_and_code.get((course_id, val.lower()))
-                )
+                cand_sec = resolve_or_create_section(target_sec_name) if target_sec_name else None
+                if cand_sec and course_category_map.get(cand_sec.course_id, "College") != student_dept:
+                    cand_sec = None  # Strictly block SHS <-> College cross-department sections
 
-                # 2. If not found in own course, search same-department subjects
-                #    RULE:
-                #    - Cross-department (SHS <-> College) is STRICTLY PROHIBITED.
-                #    - Major subjects MUST be aligned to student's own course (cannot take major of another course).
-                #    - Minor/General subjects can be taken cross-course within the same department.
-                if not matched_sub:
-                    candidates = (
-                        subjects_list_by_name.get(clean_sub_val.lower(), []) +
-                        subjects_list_by_code.get(clean_sub_val.lower(), []) +
-                        subjects_list_by_name.get(val.lower(), []) +
-                        subjects_list_by_code.get(val.lower(), [])
-                    )
-                    for cand in candidates:
-                        cand_dept = course_category_map.get(cand.course_id, "College")
-                        if cand_dept != student_dept:
-                            continue  # Cross-department strictly blocked
-                        if cand.category == "major" and cand.course_id != course_id:
-                            continue  # Major subject of another course blocked
-                        # Minor/general subject in same department accepted!
-                        matched_sub = cand
-                        break
+                # ── Subject Matching (supports shared SubjectProgram & cross-course irregulars) ──
+                lookup_keys = []
+                for k in (
+                    norm_sub_key(clean_sub_val),
+                    norm_sub_amp_key(clean_sub_val),
+                    norm_sub_key(val),
+                    norm_sub_amp_key(val),
+                ):
+                    if k and k not in lookup_keys:
+                        lookup_keys.append(k)
+
+                all_candidates = []
+                seen_cand_ids = set()
+
+                def add_cands(items):
+                    for item in items:
+                        if item.id not in seen_cand_ids and subject_matches_dept(item, student_dept):
+                            seen_cand_ids.add(item.id)
+                            all_candidates.append(item)
+
+                # 1. Student's own course (including SubjectProgram links)
+                for k in lookup_keys:
+                    add_cands(subjects_by_course_and_name.get((course_id, k), []))
+                    add_cands(subjects_by_course_and_code.get((course_id, k), []))
+
+                # 2. Pinned section's course (if cross-course within same school department)
+                if cand_sec and cand_sec.course_id and cand_sec.course_id != course_id:
+                    for k in lookup_keys:
+                        add_cands(subjects_by_course_and_name.get((cand_sec.course_id, k), []))
+                        add_cands(subjects_by_course_and_code.get((cand_sec.course_id, k), []))
+
+                # 3. Any same-department subject (general or major) matching name or code
+                for k in lookup_keys:
+                    add_cands(subjects_list_by_name.get(k, []))
+                    add_cands(subjects_list_by_code.get(k, []))
+
+                # Expand with any same-name subject variants across years/semesters in the same dept
+                for existing_c in list(all_candidates):
+                    if existing_c.name:
+                        add_cands(subjects_list_by_name.get(norm_sub_key(existing_c.name), []))
+                        add_cands(subjects_list_by_name.get(norm_sub_amp_key(existing_c.name), []))
                 # ────────────────────────────────────────────────────────────────
 
-                if matched_sub:
-                    # The scheduler only creates an exam for a subject in a section when both
-                    # share the same course, year level, and semester. Resolve to such a pair,
-                    # otherwise the irregular student would never see an exam for it.
-                    def section_fits(sub, sec):
-                        return (
-                            sec.course_id == sub.course_id
-                            and sec.year_level_id == sub.year_level_id
-                            and (sec.semester is None or sec.semester == sub.semester)
-                        )
-
-                    same_name_subs = [
-                        s for s in subjects_list_by_name.get(matched_sub.name.lower(), [])
-                        if course_category_map.get(s.course_id, "College") == student_dept
-                        and (s.category != "major" or s.course_id == course_id)
-                    ] or [matched_sub]
-
+                if all_candidates:
+                    matched_sub = None
                     chosen_sec = None
-                    if target_sec_name and target_sec_name.upper() in sections_cache:
-                        cand_sec = sections_cache[target_sec_name.upper()]
-                        # Only accept the pinned section if it belongs to same dept
-                        sec_dept = course_category_map.get(cand_sec.course_id, "College")
-                        if sec_dept == student_dept:
-                            # Prefer the same-named subject that this section actually takes
-                            fitting_sub = next((s for s in same_name_subs if section_fits(s, cand_sec)), None)
-                            if fitting_sub:
-                                matched_sub = fitting_sub
-                                chosen_sec = cand_sec
 
-                    if not chosen_sec:
-                        # Pick a section that actually takes this subject (same course/year/semester).
-                        # An irregular student can legitimately have multiple subjects in the same section.
-                        offering_secs = [
-                            s for s in sections_by_course.get(matched_sub.course_id, [])
-                            if section_fits(matched_sub, s)
-                        ]
-                        if not offering_secs:
+                    if cand_sec:
+                        # 1. Exact fit: cand_sec's course, year, and semester offer this subject
+                        fitting_sub = next((s for s in all_candidates if section_fits(s, cand_sec)), None)
+                        if fitting_sub:
+                            matched_sub = fitting_sub
+                            chosen_sec = cand_sec
+                        else:
+                            # 2. If cand_sec's course offers this subject in a different year/semester,
+                            #    align to an offering section of cand_sec's course
+                            course_sub = next(
+                                (s for s in all_candidates if cand_sec.course_id in subject_course_ids_map.get(s.id, set())),
+                                None,
+                            )
+                            if course_sub:
+                                matched_sub = course_sub
+                                course_offering_secs = [
+                                    s for s in sections_by_course.get(cand_sec.course_id, [])
+                                    if section_fits(course_sub, s)
+                                ]
+                                chosen_sec = course_offering_secs[0] if course_offering_secs else cand_sec
+                            else:
+                                # 3. Course was not in SubjectProgram yet (e.g. partial curriculum upload):
+                                #    match by year/semester, link SubjectProgram, and keep pinned section
+                                sec_yl, sec_sem = get_sec_yl_sem(cand_sec)
+                                yl_sem_sub = next(
+                                    (
+                                        s for s in all_candidates
+                                        if (s.year_level_id is None or sec_yl is None or sec_yl == s.year_level_id)
+                                        and (s.semester is None or sec_sem is None or sec_sem == s.semester)
+                                    ),
+                                    all_candidates[0],
+                                )
+                                matched_sub = yl_sem_sub
+                                chosen_sec = cand_sec
+                                ensure_subject_course_link(matched_sub, cand_sec.course_id)
+                    else:
+                        matched_sub = all_candidates[0]
+                        # Prefer an offering section in the student's own course, then any assigned program
+                        preferred_cids = []
+                        if course_id in subject_course_ids_map.get(matched_sub.id, set()):
+                            preferred_cids.append(course_id)
+                        if matched_sub.course_id and matched_sub.course_id not in preferred_cids:
+                            preferred_cids.append(matched_sub.course_id)
+                        for cid in sorted(subject_course_ids_map.get(matched_sub.id, set())):
+                            if cid not in preferred_cids:
+                                preferred_cids.append(cid)
+
+                        offering_secs = []
+                        for cid in preferred_cids:
+                            offering_secs = [
+                                s for s in sections_by_course.get(cid, [])
+                                if section_fits(matched_sub, s)
+                            ]
+                            if offering_secs:
+                                break
+                        if not offering_secs and matched_sub.course_id:
                             offering_secs = sections_by_course.get(matched_sub.course_id, [])
                         if not offering_secs:
                             offering_secs = [
@@ -1788,12 +1984,15 @@ def upload_students_excel(
                             ]
                         chosen_sec = offering_secs[0] if offering_secs else None
 
-                    new_sel = IrregularSelection(
-                        user_id=target_student.id,
-                        subject_id=matched_sub.id,
-                        section_id=chosen_sec.id if chosen_sec else None
-                    )
-                    db.add(new_sel)
+                    sel_pair = (matched_sub.id, chosen_sec.id if chosen_sec else None)
+                    if sel_pair not in seen_sel_pairs:
+                        seen_sel_pairs.add(sel_pair)
+                        new_sel = IrregularSelection(
+                            user_id=target_student.id,
+                            subject_id=matched_sub.id,
+                            section_id=chosen_sec.id if chosen_sec else None
+                        )
+                        db.add(new_sel)
             cache.delete(f"exam_schedule:irregular:{target_student.id}")
 
     try:
