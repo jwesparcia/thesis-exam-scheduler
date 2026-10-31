@@ -546,7 +546,24 @@ def generate_exam_schedule(
     db.flush()
 
     date_map = {d: i + 1 for i, d in enumerate(exam_days)}
-    posted_exams = db.query(Exam).filter(Exam.status == "posted").all()
+    # Filter posted exams to only those OUTSIDE the current generation scope.
+    # Posted exams in other departments/semesters/terms genuinely share rooms and
+    # proctors and must not be conflicted with. But posted exams in the CURRENT
+    # (department, semester, term) scope are being superseded by this run, so they
+    # must not block rooms, sections, or proctors.
+    from sqlalchemy import not_, and_
+    if term and term != "All":
+        current_scope_cond = and_(cat_filter, Exam.semester == semester, Exam.term == term)
+    else:
+        current_scope_cond = and_(cat_filter, Exam.semester == semester)
+
+    posted_exams = (
+        db.query(Exam)
+        .outerjoin(Course, Exam.course_id == Course.id)
+        .filter(Exam.status == "posted")
+        .filter(not_(current_scope_cond))
+        .all()
+    )
     for e in posted_exams:
         if e.timeslot:
             timeslot_map[e.timeslot.id] = e.timeslot
