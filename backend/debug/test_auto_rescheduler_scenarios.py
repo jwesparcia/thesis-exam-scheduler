@@ -247,26 +247,36 @@ def run_all_tests():
         # -------------------------------------------------------------
         # TEST 4: Room Capacity Restriction (Full Room Overflow)
         # If Room B is also filled to capacity (e.g. 40 students),
-        # neither Room A nor Room B can accommodate.
-        # Search must advance to NEXT time slot!
+        # neither Room A nor Room B can accommodate at 14:15-15:30.
+        # Search must advance to the NEXT regular exam time slot (15:30-16:45)!
         # -------------------------------------------------------------
-        print("\n--- TEST 4: Room Full Capacity Overflow & Advance to Next Slot ---")
+        print("\n--- TEST 4: Room Full Capacity Overflow & Advance to Next Regular Slot ---")
         # Increase Room B's exam section count to 40 (full!)
         # And Room A's exam section count to 40 (full!)
         sec_light.student_count = 40
         sec_heavy.student_count = 40
+        ts_next_reg = Timeslot(date=test_date, start_time=time(15, 30), end_time=time(16, 45))
+        sec_next_reg = Section(name="SEC_NEXT_REG", student_count=22)
+        db.add_all([ts_next_reg, sec_next_reg])
+        db.flush()
+        created_ts_ids.append(ts_next_reg.id)
+        exam_next_reg = Exam(subject_id=subj_slot2.id, section_id=sec_next_reg.id, room_id=room_a.id, timeslot_id=ts_next_reg.id, status="posted")
+        db.add(exam_next_reg)
         db.commit()
+        created_exam_ids.append(exam_next_reg.id)
 
         # With candidate_rooms=[room_a, room_b] both full at 14:15-15:30:
-        # Search advances past 14:15-15:30 to 15:45 (after 15:30 + 15m break)!
-        # At 15:45 Room A and Room B are empty, so it picks 15:45 - 17:00!
+        # Search advances past 14:15-15:30 to the next regular exam slot 15:30 - 16:45!
         result4 = find_earliest_auto_schedule(req1, db, candidate_rooms=[room_a, room_b])
         print(f"Test 4 Result: Start={result4.get('start_time')}, End={result4.get('end_time')}, Room={result4.get('room_name')}")
         assert result4["start_time"] == time(15, 30), f"Expected 15:30, got {result4['start_time']}"
         assert result4["end_time"] == time(16, 45), f"Expected 16:45, got {result4['end_time']}"
-        print("[PASS] TEST 4: Advanced past full slot to earliest available slot (15:30 - 16:45)!")
+        assert result4["room_id"] == room_a.id
+        assert result4["assigned_student_count"] == 22
+        print("[PASS] TEST 4: Advanced past full slot to next regular exam slot (15:30 - 16:45)!")
 
-        # Reset section student counts
+        # Reset section student counts & remove temporary next regular slot before Test 5
+        db.delete(exam_next_reg)
         sec_light.student_count = 5
         sec_heavy.student_count = 30
         db.commit()

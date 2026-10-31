@@ -8,7 +8,7 @@ from typing import List, Optional
 from datetime import datetime, time, timedelta
 from .auth import get_current_user, require_role
 from utils.logging import log_activity
-from services.auto_rescheduler import get_assigned_student_count_for_room
+from services.auto_rescheduler import get_assigned_student_count_for_room, get_solo_rescheduled_exam_ids
 
 router = APIRouter(prefix="/student", tags=["Student"])
 
@@ -113,13 +113,21 @@ def get_irregular_schedule_exams(
         ReschedulingRequest.status == "approved",
         ReschedulingRequest.rescheduled_exam_id.isnot(None),
     ).all()]
+    solo_rescheduled_ids = get_solo_rescheduled_exam_ids(db)
     query = db.query(Exam).options(
         joinedload(Exam.subject),
         joinedload(Exam.timeslot),
+        joinedload(Exam.room),
+        joinedload(Exam.section),
+        joinedload(Exam.course),
+        joinedload(Exam.year_level),
+        joinedload(Exam.proctor),
     ).filter(
         Exam.status == "posted",
         or_(*conditions),
     )
+    if solo_rescheduled_ids:
+        query = query.filter(~Exam.id.in_(solo_rescheduled_ids))
     if rescheduled_source_ids and not include_rescheduled_sources:
         query = query.filter(~Exam.id.in_(rescheduled_source_ids))
     results = query.all()
@@ -129,6 +137,11 @@ def get_irregular_schedule_exams(
             .options(
                 joinedload(Exam.subject),
                 joinedload(Exam.timeslot),
+                joinedload(Exam.room),
+                joinedload(Exam.section),
+                joinedload(Exam.course),
+                joinedload(Exam.year_level),
+                joinedload(Exam.proctor),
             )
             .join(ReschedulingRequest, ReschedulingRequest.rescheduled_exam_id == Exam.id)
             .filter(
@@ -176,7 +189,8 @@ def get_student_exams(
             return waited
         # Fallback: populate ourselves if the lock holder failed
 
-    exams = (
+    solo_rescheduled_ids = get_solo_rescheduled_exam_ids(db)
+    exams_q = (
         db.query(Exam)
         .options(
             joinedload(Exam.subject),
@@ -189,6 +203,11 @@ def get_student_exams(
         )
         .filter(Exam.status == "posted")
         .filter(Exam.section.has(name=current_user.section_name))
+    )
+    if solo_rescheduled_ids:
+        exams_q = exams_q.filter(~Exam.id.in_(solo_rescheduled_ids))
+    exams = (
+        exams_q
         .join(Exam.timeslot)
         .order_by(Timeslot.date, Timeslot.start_time)
         .all()
@@ -208,13 +227,16 @@ def get_student_conflicts(
     else:
         if not current_user.section_name:
             return []
-        exams = (
+        solo_rescheduled_ids = get_solo_rescheduled_exam_ids(db)
+        reg_conf_q = (
             db.query(Exam)
             .options(joinedload(Exam.timeslot))
             .filter(Exam.status == "posted")
             .filter(Exam.section.has(name=current_user.section_name))
-            .all()
         )
+        if solo_rescheduled_ids:
+            reg_conf_q = reg_conf_q.filter(~Exam.id.in_(solo_rescheduled_ids))
+        exams = reg_conf_q.all()
     
     conflicts = []
     for i, e1 in enumerate(exams):

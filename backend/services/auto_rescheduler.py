@@ -1,12 +1,12 @@
 """
 Service for automatically assigning examination times and rooms for irregular student rescheduling requests.
 Enforces:
-- 15-minute break between consecutive exams.
-- Configured exam durations (subject duration or default allotted time).
-- School operating hours (daily_start_time and daily_end_time from SystemSetting).
-- Existing scheduling rules (DistributionRule).
-- Skipping occupied candidate slots and conflict-free validation against student's complete schedule.
-- Room capacity validation and load-balancing room selection (lowest assigned student count first).
+- Joining active regular examination schedules on the next conflict-free time slot.
+- Skipping occupied time slots in the irregular student's complete schedule until a free slot is found.
+- Configured exam durations (subject duration or default allotted time) and break settings.
+- School operating hours (daily_start_time and daily_end_time from SystemSetting), with 5:00 PM Consultation Area fallback.
+- Room capacity validation and load-balancing room selection (lowest assigned student count among active exam rooms first).
+- Supervising proctor inheritance from the joined regular exam session.
 - Concurrency protection via row-level locking.
 """
 
@@ -284,6 +284,80 @@ def check_scheduling_rules(
     return True
 
 
+def get_solo_rescheduled_exam_ids(db: Session) -> Set[int]:
+    """
+    Return IDs of Exam rows created specifically as solo rescheduled exams
+    for individual student rescheduling requests (rescheduled_exam_id != exam_id).
+    """
+    return {
+        row[0]
+        for row in db.query(ReschedulingRequest.rescheduled_exam_id)
+        .filter(
+            ReschedulingRequest.rescheduled_exam_id.isnot(None),
+            ReschedulingRequest.rescheduled_exam_id != ReschedulingRequest.exam_id,
+        )
+        .all()
+    }
+
+
+def get_configured_break_minutes(db: Session) -> int:
+    """
+    Retrieve configured break duration in minutes from ExamBreakSetting.
+    Defaults to 0 when break_seconds == 0 (back-to-back regular slots).
+    """
+    rows = db.query(ExamBreakSetting).all()
+    if rows:
+        max_sec = max(int(r.break_seconds or 0) for r in rows)
+        return max(0, max_sec // 60)
+    return 0
+
+
+def find_host_regular_exam(
+    room_id: int,
+    target_date: date,
+    start_t: time,
+    end_t: time,
+    db: Session,
+    exclude_exam_ids: Optional[Set[int]] = None,
+) -> Optional[Exam]:
+    """
+    Find the active regular section exam running in room_id during [start_t, end_t] on target_date.
+    """
+    exclude_ids = set(exclude_exam_ids) if exclude_exam_ids else set()
+    exclude_ids.update(get_solo_rescheduled_exam_ids(db))
+    q = (
+        db.query(Exam)
+        .options(
+            joinedload(Exam.subject),
+            joinedload(Exam.section),
+            joinedload(Exam.proctor),
+            joinedload(Exam.timeslot),
+        )
+        .join(Timeslot, Exam.timeslot_id == Timeslot.id)
+        .filter(
+            Exam.room_id == room_id,
+            Exam.section_id.isnot(None),
+            Timeslot.date == target_date,
+            Timeslot.start_time < end_t,
+            start_t < Timeslot.end_time,
+        )
+    )
+    if exclude_ids:
+        q = q.filter(~Exam.id.in_(exclude_ids))
+    candidates = q.all()
+    if not candidates:
+        return None
+    # Prefer the exam whose timeslot starts at start_t and has an assigned proctor
+    candidates.sort(
+        key=lambda e: (
+            0 if (e.timeslot and e.timeslot.start_time == start_t) else 1,
+            0 if e.proctor_id is not None else 1,
+            e.id,
+        )
+    )
+    return candidates[0]
+
+
 def get_assigned_student_count_for_room(
     room_id: int,
     target_date: date,
@@ -296,19 +370,23 @@ def get_assigned_student_count_for_room(
     Calculate the total number of students taking examinations in a room during
     a specific examination period [start_t, end_t] on target_date.
     """
-    exclude_ids = exclude_exam_ids or set()
+    exclude_ids = set(exclude_exam_ids) if exclude_exam_ids else set()
 
-    # Find source exam IDs of approved requests that were moved to other sessions
-    moved_source_ids = {
+    # Only exclude standalone (non-section) source exams that moved to a different exam row;
+    # regular section exams keep their regular students in the original room!
+    moved_solo_source_ids = {
         row[0]
         for row in db.query(ReschedulingRequest.exam_id)
+        .join(Exam, ReschedulingRequest.exam_id == Exam.id)
         .filter(
             ReschedulingRequest.status == "approved",
             ReschedulingRequest.rescheduled_exam_id.isnot(None),
+            ReschedulingRequest.rescheduled_exam_id != ReschedulingRequest.exam_id,
+            Exam.section_id.is_(None),
         )
         .all()
     }
-    exclude_ids.update(moved_source_ids)
+    exclude_ids.update(moved_solo_source_ids)
 
     # Active exams in this room overlapping in time
     exams_in_room = (
@@ -331,12 +409,14 @@ def get_assigned_student_count_for_room(
     if not exams_in_room:
         return 0
 
-    # Rescheduled exams map to irregular student count
+    # Solo rescheduled exams map to irregular student count (1 per approved request)
     rescheduled_exam_counts: Dict[int, int] = {}
     rescheduled_records = (
         db.query(ReschedulingRequest.rescheduled_exam_id)
         .filter(
             ReschedulingRequest.status == "approved",
+            ReschedulingRequest.rescheduled_exam_id.isnot(None),
+            ReschedulingRequest.rescheduled_exam_id != ReschedulingRequest.exam_id,
             ReschedulingRequest.rescheduled_exam_id.in_([e.id for e in exams_in_room]),
         )
         .all()
@@ -362,22 +442,11 @@ def find_earliest_auto_schedule(
     candidate_rooms: Optional[List[Room]] = None
 ) -> Dict[str, Any]:
     """
-    Search for the earliest valid conflict-free examination time slot and room combination.
-    Returns:
-    {
-        "success": bool,
-        "date": date,
-        "date_formatted": str,
-        "start_time": time,
-        "end_time": time,
-        "time_formatted": str,
-        "room_id": int,
-        "room_name": str,
-        "room_capacity": int,
-        "assigned_student_count": int,
-        "remaining_capacity": int,
-        "message": str
-    }
+    Search for the next conflict-free regular examination time slot and room combination
+    so the irregular student joins an active regular exam session.
+    If the next regular time slot is occupied in the irregular student's schedule,
+    it skips that slot and checks subsequent regular time slots until a free slot is found.
+    Falls back to 5:00 PM onwards in the Consultation Area when all daytime slots are occupied/full.
     """
     student = db.query(User).filter(User.email == request.school_email).first()
     if not student:
@@ -432,7 +501,7 @@ def find_earliest_auto_schedule(
             if orig_start < p_ts.end_time and p_ts.start_time < orig_end:
                 conflicting_exams.append(peer)
 
-    # If conflicting exam found, earliest slot begins after conflicting exam ends + 15m break
+    # Earliest next slot begins immediately after the conflicting exam finishes
     if conflicting_exams:
         conflict_end = max(peer.timeslot.end_time for peer in conflicting_exams)
     elif orig_end:
@@ -440,16 +509,18 @@ def find_earliest_auto_schedule(
     else:
         conflict_end = school_start
 
-    # Earliest eligible start time begins 15 minutes after conflicting examination
-    earliest_candidate_dt = datetime.combine(target_date, conflict_end) + timedelta(minutes=MANDATORY_BREAK_MINUTES)
+    configured_break_minutes = get_configured_break_minutes(db)
+    configured_break_td = timedelta(minutes=configured_break_minutes)
+
     school_start_dt = datetime.combine(target_date, school_start)
     school_end_dt = datetime.combine(target_date, school_end)
+    dur_td = timedelta(minutes=duration_minutes)
 
+    # Fallback clock-stepping break (used only when no regular section exams exist on target_date)
+    earliest_candidate_dt = datetime.combine(target_date, conflict_end) + timedelta(minutes=MANDATORY_BREAK_MINUTES)
     if earliest_candidate_dt < school_start_dt:
         earliest_candidate_dt = school_start_dt
-
     curr_dt = earliest_candidate_dt
-    dur_td = timedelta(minutes=duration_minutes)
     break_td = timedelta(minutes=MANDATORY_BREAK_MINUTES)
 
     # Sort student's same-day exams chronologically
@@ -474,115 +545,303 @@ def find_earliest_auto_schedule(
         )
 
     all_rooms = [r for r in base_rooms if is_room_allowed_for_category(r, course_category)]
+    allowed_room_ids = {r.id for r in all_rooms if r.id is not None}
+    room_by_id = {r.id: r for r in all_rooms if r.id is not None}
 
     # If an irregular student explicitly requested 5:00 PM onwards, skip the daytime search
     pref_t = parse_time_value(request.preferred_start_time)
     if not (pref_t and pref_t >= time(17, 0)):
-        # Main time-slot search loop (within daytime operating hours)
-        while curr_dt + dur_td <= school_end_dt:
-            cand_start_dt = curr_dt
-            cand_end_dt = curr_dt + dur_td
-            cand_start = cand_start_dt.time()
-            cand_end = cand_end_dt.time()
+        solo_rescheduled_ids = get_solo_rescheduled_exam_ids(db)
 
-            # Step 1: Check student's complete examination schedule and 15-minute breaks
-            student_conflict = False
-            for peer in same_day_student_exams:
-                p_ts = peer.timeslot
-                p_start_dt = datetime.combine(target_date, p_ts.start_time)
-                p_end_dt = datetime.combine(target_date, p_ts.end_time)
-
-                # A. Direct overlap
-                if cand_start_dt < p_end_dt and p_start_dt < cand_end_dt:
-                    # Skip to after this occupied slot maintaining 15-minute break
-                    curr_dt = p_end_dt + break_td
-                    student_conflict = True
-                    break
-
-                # B. Break violation when candidate follows peer exam
-                if p_end_dt <= cand_start_dt and (cand_start_dt - p_end_dt) < break_td:
-                    curr_dt = p_end_dt + break_td
-                    student_conflict = True
-                    break
-
-                # C. Break violation when candidate precedes peer exam
-                if cand_end_dt <= p_start_dt and (p_start_dt - cand_end_dt) < break_td:
-                    # Candidate cannot fit before peer without violating 15-min break; skip past peer
-                    curr_dt = p_end_dt + break_td
-                    student_conflict = True
-                    break
-
-            if student_conflict:
-                continue
-
-            # Step 2: Check existing scheduling rules (DistributionRule)
-            if not check_scheduling_rules(exam, target_date, cand_start, cand_end, db):
-                curr_dt += timedelta(minutes=15)
-                continue
-
-            # Step 3: Find available room with sufficient seating capacity
-            # Prioritize lowest assigned student count during this period,
-            # using remaining capacity and room-allocation rules as additional considerations.
-            eligible_rooms = []
-            for r in all_rooms:
-                room_cap = r.capacity or 40
-                assigned_count = get_assigned_student_count_for_room(
-                    r.id,
-                    target_date,
-                    cand_start,
-                    cand_end,
-                    db,
-                    exclude_exam_ids={exam.id}
+        # ---------------------------------------------------------------------
+        # Primary Strategy: Join the Next Conflict-Free Regular Exam Time Slot
+        # Step through actual regular section exam time slots on target_date.
+        # If the irregular student already has a scheduled exam in a candidate
+        # regular time slot, skip it until a free regular time slot is found.
+        # Joining a room whose regular class is taking a different subject is
+        # expected and allowed so the irregular student sits in an active
+        # supervised examination room.
+        # ---------------------------------------------------------------------
+        regular_day_exams: List[Exam] = []
+        if allowed_room_ids:
+            reg_q = (
+                db.query(Exam)
+                .options(
+                    joinedload(Exam.timeslot),
+                    joinedload(Exam.subject),
+                    joinedload(Exam.section),
+                    joinedload(Exam.proctor),
                 )
+                .join(Timeslot, Exam.timeslot_id == Timeslot.id)
+                .filter(
+                    Timeslot.date == target_date,
+                    Exam.room_id.in_(allowed_room_ids),
+                    Exam.section_id.isnot(None),
+                    Exam.id != exam.id,
+                    or_(Exam.status == "posted", Exam.status == exam.status),
+                )
+            )
+            if solo_rescheduled_ids:
+                reg_q = reg_q.filter(~Exam.id.in_(solo_rescheduled_ids))
+            regular_day_exams = reg_q.all()
 
-                # Seating capacity check: must fit existing students + 1 irregular student
-                if assigned_count + 1 <= room_cap:
-                    remaining_cap = room_cap - (assigned_count + 1)
-                    is_dept_preferred = 0 if (
-                        r.name in dept_room_names
-                        or r.department == course_category
-                        or (course_category == "College" and (r.building == "B" or (r.name and r.name.startswith("B"))))
-                        or (course_category == "SHS" and (r.building == "C" or (r.name and r.name.startswith("C"))))
-                    ) else 1
+        if regular_day_exams:
+            min_regular_start_dt = max(
+                school_start_dt,
+                datetime.combine(target_date, conflict_end) + configured_break_td,
+            )
+            regular_slot_starts = sorted({
+                re.timeslot.start_time
+                for re in regular_day_exams
+                if re.timeslot and re.timeslot.start_time < time(17, 0)
+            })
 
-                    # Priority tuple:
-                    # 1. Lowest number of students assigned (load balancing)
-                    # 2. Preferred department room
-                    # 3. Higher remaining capacity
-                    # 4. Room name alphabetical
-                    sort_key = (
-                        assigned_count,
-                        is_dept_preferred,
-                        -remaining_cap,
-                        r.name,
+            orig_subj_name = (exam.subject.name or "").strip().lower() if exam.subject else ""
+            orig_subj_code = (exam.subject.code or "").strip().lower() if exam.subject else ""
+
+            for slot_start in regular_slot_starts:
+                cand_start_dt = datetime.combine(target_date, slot_start)
+                if cand_start_dt < min_regular_start_dt:
+                    continue
+
+                cand_end_dt = cand_start_dt + dur_td
+                if cand_end_dt > school_end_dt:
+                    continue
+
+                cand_start = cand_start_dt.time()
+                cand_end = cand_end_dt.time()
+
+                # Check if the irregular student already has an exam in this time slot
+                student_conflict = False
+                for peer in same_day_student_exams:
+                    p_ts = peer.timeslot
+                    if not p_ts:
+                        continue
+                    p_start_dt = datetime.combine(target_date, p_ts.start_time)
+                    p_end_dt = datetime.combine(target_date, p_ts.end_time)
+
+                    # Direct overlap in irregular student's schedule -> skip this time slot
+                    if cand_start_dt < p_end_dt and p_start_dt < cand_end_dt:
+                        student_conflict = True
+                        break
+
+                    # Respect configured break if ExamBreakSetting > 0
+                    if configured_break_td > timedelta(0):
+                        if p_end_dt <= cand_start_dt and (cand_start_dt - p_end_dt) < configured_break_td:
+                            student_conflict = True
+                            break
+                        if cand_end_dt <= p_start_dt and (p_start_dt - cand_end_dt) < configured_break_td:
+                            student_conflict = True
+                            break
+
+                if student_conflict:
+                    continue
+
+                # Evaluate active regular exam rooms running at this time slot
+                eligible_active_rooms = []
+                seen_slot_rooms: Set[int] = set()
+                for host_exam in regular_day_exams:
+                    h_ts = host_exam.timeslot
+                    if not h_ts or host_exam.room_id is None:
+                        continue
+                    # Host regular exam must be active at cand_start
+                    if not (h_ts.start_time <= cand_start < h_ts.end_time):
+                        continue
+                    if host_exam.room_id in seen_slot_rooms:
+                        continue
+
+                    r = room_by_id.get(host_exam.room_id)
+                    if not r:
+                        continue
+
+                    # If irregular exam extends slightly past host exam, ensure another regular exam
+                    # doesn't start in the same room before cand_end
+                    if cand_end > h_ts.end_time:
+                        next_room_overlap = any(
+                            other.id != host_exam.id
+                            and other.room_id == r.id
+                            and other.timeslot
+                            and other.timeslot.start_time < cand_end
+                            and h_ts.end_time <= other.timeslot.start_time
+                            for other in regular_day_exams
+                        )
+                        if next_room_overlap:
+                            continue
+
+                    seen_slot_rooms.add(r.id)
+                    room_cap = r.capacity or 40
+                    assigned_count = get_assigned_student_count_for_room(
+                        r.id,
+                        target_date,
+                        cand_start,
+                        cand_end,
+                        db,
+                        exclude_exam_ids={exam.id},
                     )
-                    eligible_rooms.append((sort_key, r, assigned_count, room_cap, remaining_cap))
 
-            if eligible_rooms:
-                eligible_rooms.sort(key=lambda item: item[0])
-                _, best_room, assigned_students, room_capacity, remaining_cap = eligible_rooms[0]
+                    # Must be an active regular session with spare capacity for +1 student
+                    if assigned_count > 0 and assigned_count + 1 <= room_cap:
+                        remaining_cap = room_cap - (assigned_count + 1)
+                        full_coverage = 0 if cand_end <= h_ts.end_time else 1
+                        is_dept_preferred = 0 if (
+                            r.name in dept_room_names
+                            or r.department == course_category
+                            or (course_category == "College" and (r.building == "B" or (r.name and r.name.startswith("B"))))
+                            or (course_category == "SHS" and (r.building == "C" or (r.name and r.name.startswith("C"))))
+                        ) else 1
 
-                return {
-                    "success": True,
-                    "date": target_date,
-                    "date_formatted": target_date.strftime("%A, %B %d, %Y"),
-                    "start_time": cand_start,
-                    "end_time": cand_end,
-                    "time_formatted": f"{cand_start.strftime('%I:%M %p')} - {cand_end.strftime('%I:%M %p')}",
-                    "room_id": best_room.id,
-                    "room_name": best_room.name,
-                    "room_capacity": room_capacity,
-                    "assigned_student_count": assigned_students,
-                    "remaining_capacity": remaining_cap,
-                    "is_consultation": False,
-                    "message": (
-                        f"Earliest conflict-free slot found: {cand_start.strftime('%I:%M %p')} - {cand_end.strftime('%I:%M %p')} "
-                        f"in Room {best_room.name} ({assigned_students} students currently assigned, {remaining_cap} seats remaining)."
-                    ),
-                }
+                        host_subj_name = (host_exam.subject.name or "").strip().lower() if host_exam.subject else ""
+                        host_subj_code = (host_exam.subject.code or "").strip().lower() if host_exam.subject else ""
+                        same_subject = 0 if (
+                            (exam.subject_id and host_exam.subject_id == exam.subject_id)
+                            or (orig_subj_code and orig_subj_code == host_subj_code)
+                            or (orig_subj_name and orig_subj_name == host_subj_name)
+                        ) else 1
 
-            # If no suitable room available for this slot, continue searching next time slot
-            curr_dt += timedelta(minutes=15)
+                        # Priority tuple:
+                        # 1. Host exam covers full duration
+                        # 2. Lowest student count in active regular exam room (load balancing)
+                        # 3. Preferred department room
+                        # 4. Same subject tie-breaker (different subjects are completely allowed)
+                        # 5. Higher remaining capacity
+                        # 6. Room name alphabetical
+                        sort_key = (
+                            full_coverage,
+                            assigned_count,
+                            is_dept_preferred,
+                            same_subject,
+                            -remaining_cap,
+                            r.name,
+                        )
+                        eligible_active_rooms.append(
+                            (sort_key, r, host_exam, assigned_count, room_cap, remaining_cap)
+                        )
+
+                if eligible_active_rooms:
+                    eligible_active_rooms.sort(key=lambda item: item[0])
+                    _, best_room, best_host, assigned_students, room_capacity, remaining_cap = eligible_active_rooms[0]
+                    joined_sec = best_host.section.name if best_host.section else None
+                    joined_subj = best_host.subject.name if best_host.subject else None
+                    joined_code = best_host.subject.code if best_host.subject else None
+                    proctor_name = best_host.proctor.name if best_host.proctor else None
+                    session_desc = f" joining {joined_sec}" + (f" ({joined_subj})" if joined_subj else "") if joined_sec else ""
+
+                    return {
+                        "success": True,
+                        "date": target_date,
+                        "date_formatted": target_date.strftime("%A, %B %d, %Y"),
+                        "start_time": cand_start,
+                        "end_time": cand_end,
+                        "time_formatted": f"{cand_start.strftime('%I:%M %p')} - {cand_end.strftime('%I:%M %p')}",
+                        "room_id": best_room.id,
+                        "room_name": best_room.name,
+                        "room_capacity": room_capacity,
+                        "assigned_student_count": assigned_students,
+                        "remaining_capacity": remaining_cap,
+                        "joined_regular_exam": True,
+                        "host_exam_id": best_host.id,
+                        "joined_section_name": joined_sec,
+                        "joined_subject_code": joined_code,
+                        "joined_subject_name": joined_subj,
+                        "proctor_id": best_host.proctor_id,
+                        "proctor_name": proctor_name,
+                        "is_consultation": False,
+                        "message": (
+                            f"Joined next conflict-free regular exam slot: {cand_start.strftime('%I:%M %p')} - {cand_end.strftime('%I:%M %p')} "
+                            f"in Room {best_room.name}{session_desc} ({assigned_students} students currently assigned, {remaining_cap} seats remaining)."
+                        ),
+                    }
+        else:
+            # Fallback search loop ONLY when no regular section exams exist on target_date
+            # (e.g., standalone synthetic test fixtures).
+            while curr_dt + dur_td <= school_end_dt:
+                cand_start_dt = curr_dt
+                cand_end_dt = curr_dt + dur_td
+                cand_start = cand_start_dt.time()
+                cand_end = cand_end_dt.time()
+
+                student_conflict = False
+                for peer in same_day_student_exams:
+                    p_ts = peer.timeslot
+                    p_start_dt = datetime.combine(target_date, p_ts.start_time)
+                    p_end_dt = datetime.combine(target_date, p_ts.end_time)
+
+                    if cand_start_dt < p_end_dt and p_start_dt < cand_end_dt:
+                        curr_dt = p_end_dt + break_td
+                        student_conflict = True
+                        break
+
+                    if p_end_dt <= cand_start_dt and (cand_start_dt - p_end_dt) < break_td:
+                        curr_dt = p_end_dt + break_td
+                        student_conflict = True
+                        break
+
+                    if cand_end_dt <= p_start_dt and (p_start_dt - cand_end_dt) < break_td:
+                        curr_dt = p_end_dt + break_td
+                        student_conflict = True
+                        break
+
+                if student_conflict:
+                    continue
+
+                if not check_scheduling_rules(exam, target_date, cand_start, cand_end, db):
+                    curr_dt += timedelta(minutes=15)
+                    continue
+
+                eligible_rooms = []
+                for r in all_rooms:
+                    room_cap = r.capacity or 40
+                    assigned_count = get_assigned_student_count_for_room(
+                        r.id,
+                        target_date,
+                        cand_start,
+                        cand_end,
+                        db,
+                        exclude_exam_ids={exam.id}
+                    )
+
+                    if assigned_count + 1 <= room_cap:
+                        remaining_cap = room_cap - (assigned_count + 1)
+                        is_dept_preferred = 0 if (
+                            r.name in dept_room_names
+                            or r.department == course_category
+                            or (course_category == "College" and (r.building == "B" or (r.name and r.name.startswith("B"))))
+                            or (course_category == "SHS" and (r.building == "C" or (r.name and r.name.startswith("C"))))
+                        ) else 1
+
+                        sort_key = (
+                            assigned_count,
+                            is_dept_preferred,
+                            -remaining_cap,
+                            r.name,
+                        )
+                        eligible_rooms.append((sort_key, r, assigned_count, room_cap, remaining_cap))
+
+                if eligible_rooms:
+                    eligible_rooms.sort(key=lambda item: item[0])
+                    _, best_room, assigned_students, room_capacity, remaining_cap = eligible_rooms[0]
+
+                    return {
+                        "success": True,
+                        "date": target_date,
+                        "date_formatted": target_date.strftime("%A, %B %d, %Y"),
+                        "start_time": cand_start,
+                        "end_time": cand_end,
+                        "time_formatted": f"{cand_start.strftime('%I:%M %p')} - {cand_end.strftime('%I:%M %p')}",
+                        "room_id": best_room.id,
+                        "room_name": best_room.name,
+                        "room_capacity": room_capacity,
+                        "assigned_student_count": assigned_students,
+                        "remaining_capacity": remaining_cap,
+                        "joined_regular_exam": False,
+                        "is_consultation": False,
+                        "message": (
+                            f"Earliest conflict-free slot found: {cand_start.strftime('%I:%M %p')} - {cand_end.strftime('%I:%M %p')} "
+                            f"in Room {best_room.name} ({assigned_students} students currently assigned, {remaining_cap} seats remaining)."
+                        ),
+                    }
+
+                curr_dt += timedelta(minutes=15)
 
     # -------------------------------------------------------------------------
     # 5:00 PM Onwards: Consultation Area Automatic Placement
@@ -600,17 +859,18 @@ def find_earliest_auto_schedule(
     if pref_t and pref_t >= time(17, 0):
         consult_start_dt = datetime.combine(target_date, pref_t)
     else:
+        consult_min_dt = datetime.combine(target_date, conflict_end) + configured_break_td
         consult_start_dt = datetime.combine(target_date, time(17, 0))
-        if earliest_candidate_dt > consult_start_dt:
-            consult_start_dt = earliest_candidate_dt
+        if consult_min_dt > consult_start_dt:
+            consult_start_dt = consult_min_dt
 
-    # Ensure mandatory 15-minute break from any exam ending near or after 17:00
+    # Ensure configured break from any exam ending near or after 17:00
     for peer in same_day_student_exams:
         p_ts = peer.timeslot
-        if p_ts:
+        if p_ts and configured_break_td > timedelta(0):
             p_end_dt = datetime.combine(target_date, p_ts.end_time)
-            if p_end_dt <= consult_start_dt and (consult_start_dt - p_end_dt) < break_td:
-                consult_start_dt = p_end_dt + break_td
+            if p_end_dt <= consult_start_dt and (consult_start_dt - p_end_dt) < configured_break_td:
+                consult_start_dt = p_end_dt + configured_break_td
 
     # Avoid conflict with any evening exams for this student
     while True:
@@ -624,17 +884,18 @@ def find_earliest_auto_schedule(
             p_start_dt = datetime.combine(target_date, p_ts.start_time)
             p_end_dt = datetime.combine(target_date, p_ts.end_time)
             if c_start < p_end_dt and p_start_dt < c_end:
-                consult_start_dt = p_end_dt + break_td
+                consult_start_dt = p_end_dt + configured_break_td
                 conflict_found = True
                 break
-            if p_end_dt <= c_start and (c_start - p_end_dt) < break_td:
-                consult_start_dt = p_end_dt + break_td
-                conflict_found = True
-                break
-            if c_end <= p_start_dt and (p_start_dt - c_end) < break_td:
-                consult_start_dt = p_end_dt + break_td
-                conflict_found = True
-                break
+            if configured_break_td > timedelta(0):
+                if p_end_dt <= c_start and (c_start - p_end_dt) < configured_break_td:
+                    consult_start_dt = p_end_dt + configured_break_td
+                    conflict_found = True
+                    break
+                if c_end <= p_start_dt and (p_start_dt - c_end) < configured_break_td:
+                    consult_start_dt = p_end_dt + configured_break_td
+                    conflict_found = True
+                    break
         if not conflict_found:
             break
 
@@ -664,6 +925,7 @@ def find_earliest_auto_schedule(
         "room_capacity": room_cap,
         "assigned_student_count": assigned_count,
         "remaining_capacity": remaining_cap,
+        "joined_regular_exam": False,
         "is_consultation": True,
         "message": (
             f"Rescheduled for 5:00 PM onwards: {c_start_t.strftime('%I:%M %p')} - {c_end_t.strftime('%I:%M %p')} "
@@ -791,29 +1053,38 @@ def apply_auto_reschedule(
         db.flush()
 
     # 7. Create the rescheduled Exam instance
-    assigned_proctor_id = orig_exam.proctor_id
+    host_exam = None
+    assigned_proctor_id = None
     if assigned_start >= time(17, 0) or chosen_room.name == "Consultation Area":
         # 5:00 PM onwards in Consultation Area: automatically without proctoring assignment
         # because the admin will assign it personally.
         assigned_proctor_id = None
-    elif assigned_proctor_id:
-        from utils.scheduler import validate_proctor_availability
-        is_avail, _ = validate_proctor_availability(db, assigned_proctor_id, assigned_date, assigned_start, assigned_end)
-        if not is_avail:
-            assigned_proctor_id = None
-        else:
-            # Check maximum 2 consecutive assignments rule
-            existing_p_exams = (
-                db.query(Exam)
-                .join(Timeslot)
-                .filter(
-                    Exam.proctor_id == assigned_proctor_id,
-                    Exam.id != orig_exam.id,
-                    Timeslot.date == assigned_date
+    else:
+        # Inherit the supervising proctor from the active regular exam running in chosen_room
+        host_exam = find_host_regular_exam(
+            assigned_room_id,
+            assigned_date,
+            assigned_start,
+            assigned_end,
+            db,
+            exclude_exam_ids={orig_exam.id},
+        )
+        if host_exam and host_exam.proctor_id is not None:
+            assigned_proctor_id = host_exam.proctor_id
+        elif orig_exam.proctor_id:
+            from utils.scheduler import validate_proctor_availability
+            is_avail, _ = validate_proctor_availability(db, orig_exam.proctor_id, assigned_date, assigned_start, assigned_end)
+            if is_avail:
+                existing_p_exams = (
+                    db.query(Exam)
+                    .join(Timeslot)
+                    .filter(
+                        Exam.proctor_id == orig_exam.proctor_id,
+                        Exam.id != orig_exam.id,
+                        Timeslot.date == assigned_date
+                    )
+                    .all()
                 )
-                .all()
-            )
-            if existing_p_exams:
                 cand_st_m = assigned_start.hour * 60 + assigned_start.minute
                 cand_et_m = assigned_end.hour * 60 + assigned_end.minute
                 sim_intervals = [
@@ -833,8 +1104,8 @@ def apply_auto_reschedule(
                         streak = 1
                     prev_e = e
                     max_streak = max(max_streak, streak)
-                if max_streak > 2:
-                    assigned_proctor_id = None
+                if max_streak <= 2:
+                    assigned_proctor_id = orig_exam.proctor_id
 
     assigned_exam = Exam(
         subject_id=orig_exam.subject_id,
@@ -861,8 +1132,9 @@ def apply_auto_reschedule(
 
     # 9. Notify student
     student_user_id = student.id if student else None
+    is_consult = bool(assigned_start >= time(17, 0) or chosen_room.name == "Consultation Area")
     room_desc = "Consultation Area" if chosen_room.name == "Consultation Area" else f"Room {chosen_room.name}"
-    proctor_note = " (Supervising proctor to be assigned personally by Admin)" if assigned_proctor_id is None else ""
+    proctor_note = " (Supervising proctor to be assigned personally by Admin)" if is_consult and assigned_proctor_id is None else ""
     notification = Notification(
         user_id=student_user_id,
         message=(
@@ -899,6 +1171,10 @@ def apply_auto_reschedule(
         "room_capacity": chosen_room.capacity,
         "assigned_student_count": schedule_result["assigned_student_count"],
         "remaining_capacity": schedule_result["remaining_capacity"],
-        "is_consultation": bool(assigned_start >= time(17, 0) or chosen_room.name == "Consultation Area"),
+        "joined_regular_exam": bool(schedule_result.get("joined_regular_exam")),
+        "joined_section_name": schedule_result.get("joined_section_name") or (host_exam.section.name if host_exam and host_exam.section else None),
+        "joined_subject_name": schedule_result.get("joined_subject_name") or (host_exam.subject.name if host_exam and host_exam.subject else None),
+        "is_consultation": is_consult,
         "proctor_id": assigned_proctor_id,
+        "proctor_name": host_exam.proctor.name if (host_exam and host_exam.proctor and assigned_proctor_id == host_exam.proctor_id) else schedule_result.get("proctor_name"),
     }

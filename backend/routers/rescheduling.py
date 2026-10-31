@@ -10,6 +10,7 @@ from utils.logging import log_activity
 from services.auto_rescheduler import (
     find_earliest_auto_schedule,
     apply_auto_reschedule,
+    find_host_regular_exam,
     get_assigned_student_count_for_room,
     get_reschedule_student_category,
     is_room_allowed_for_category,
@@ -479,15 +480,17 @@ def review_request(request_id: int, update: ReschedulingRequestUpdate, db: Sessi
                     assigned_room_id = consultation_room.id
                     # 5:00 PM onwards in Consultation Area: without proctoring assignment
                     assigned_proctor_id = update.proctor_id if update.proctor_id else None
-                    if not assigned_proctor_id and exam.proctor_id:
-                        is_valid, _ = validate_proctor_availability(
-                            db,
-                            proctor_id=exam.proctor_id,
-                            target_date=request.preferred_date,
-                            target_start=request.preferred_start_time,
-                            target_end=request.preferred_end_time
-                        )
-                        assigned_proctor_id = exam.proctor_id if is_valid else None
+                elif not assigned_proctor_id and assigned_room_id:
+                    host_exam = find_host_regular_exam(
+                        assigned_room_id,
+                        request.preferred_date,
+                        request.preferred_start_time,
+                        request.preferred_end_time,
+                        db,
+                        exclude_exam_ids={exam.id},
+                    )
+                    if host_exam and host_exam.proctor_id is not None:
+                        assigned_proctor_id = host_exam.proctor_id
 
                 assigned_exam = Exam(
                     subject_id=exam.subject_id,

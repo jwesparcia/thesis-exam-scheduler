@@ -163,16 +163,20 @@ def get_exams(
     if user_role == "student":
         # Students can only view posted exams
         query = query.filter(Exam.status == "posted")
+        from services.auto_rescheduler import get_solo_rescheduled_exam_ids
+        solo_rescheduled_ids = get_solo_rescheduled_exam_ids(db)
         if current_user.student_type == "regular":
             if current_user.section_name:
                 query = query.filter(Exam.section.has(name=current_user.section_name))
+                if solo_rescheduled_ids:
+                    query = query.filter(~Exam.id.in_(solo_rescheduled_ids))
             else:
                 return []
         elif current_user.student_type == "irregular":
-            from model import IrregularSelection
-            sel_subject_ids = [s.subject_id for s in db.query(IrregularSelection.subject_id).filter(IrregularSelection.user_id == current_user.id).all()]
-            if sel_subject_ids:
-                query = query.filter(Exam.subject_id.in_(sel_subject_ids))
+            from .student import get_irregular_schedule_exams
+            irreg_exam_ids = [e.id for e in get_irregular_schedule_exams(current_user, db)]
+            if irreg_exam_ids:
+                query = query.filter(Exam.id.in_(irreg_exam_ids))
             else:
                 return []
     elif user_role in ["proctor", "teacher"]:
@@ -703,6 +707,14 @@ def get_room_status(
             conflict_key = (exam.room_id, exam.timeslot_id)
             conflict_map.setdefault(conflict_key, []).append(exam)
 
+    def _exam_headcount_for_room(ex: Exam) -> int:
+        if ex.id in rescheduled_exam_ids:
+            return rescheduled_student_counts.get(ex.id, 1)
+        sec_cnt = getattr(ex.section, "student_count", None) if ex.section else None
+        if not sec_cnt and ex.section and section_student_counts:
+            sec_cnt = section_student_counts.get(ex.section.name)
+        return sec_cnt or 35
+
     conflict_exam_ids = set()
     conflicts = []
     for conflict_exams in conflict_map.values():
@@ -711,6 +723,13 @@ def get_room_status(
         first_exam = conflict_exams[0]
         # Consultation Area is a shared area designed for multiple concurrent irregular consultation exams
         if first_exam.room and first_exam.room.name == "Consultation Area":
+            continue
+        # Irregular sit-in exams (rescheduled_exam_id) intentionally share a room with one regular
+        # section exam; only flag a conflict if >= 2 regular exams share the slot or capacity is exceeded.
+        regular_in_group = [ex for ex in conflict_exams if ex.id not in rescheduled_exam_ids]
+        room_cap = (first_exam.room.capacity if first_exam.room and first_exam.room.capacity else 40)
+        total_headcount = sum(_exam_headcount_for_room(ex) for ex in conflict_exams)
+        if len(regular_in_group) <= 1 and total_headcount <= room_cap:
             continue
         for exam in conflict_exams:
             conflict_exam_ids.add(exam.id)
@@ -736,6 +755,11 @@ def get_room_status(
                     continue
                 if e1.timeslot.date == e2.timeslot.date:
                     if max(e1.timeslot.start_time, e2.timeslot.start_time) < min(e1.timeslot.end_time, e2.timeslot.end_time):
+                        pair_regular = [ex for ex in (e1, e2) if ex.id not in rescheduled_exam_ids]
+                        room_cap = (e1.room.capacity if e1.room and e1.room.capacity else 40)
+                        pair_headcount = _exam_headcount_for_room(e1) + _exam_headcount_for_room(e2)
+                        if len(pair_regular) <= 1 and pair_headcount <= room_cap:
+                            continue
                         conflict_exam_ids.add(e1.id)
                         conflict_exam_ids.add(e2.id)
                         conflicts.append({

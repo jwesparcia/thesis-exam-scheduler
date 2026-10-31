@@ -2590,7 +2590,7 @@ export default function StudentDashboard() {
                           Automatic Time & Room Assignment
                         </h5>
                         <p className={`text-xs mt-1 leading-relaxed ${isDark ? "text-emerald-300/90" : "text-emerald-700"}`}>
-                          As an irregular student, you do not need to manually select an examination time. The system will automatically calculate the earliest valid, conflict-free time slot on your scheduled exam date, ensuring the mandatory 15-minute break between exams, school operating hours, and optimal room capacity with load balancing. If no daytime slot fits before 5:00 PM, you will automatically be rescheduled to 5:00 PM onwards in the Consultation Area without a proctoring assignment, as the Admin will assign the proctor personally.
+                          As an irregular student, you do not need to manually select an examination time. The system will automatically place your exam into the next regular examination time slot on your scheduled exam date—skipping any time slots where you already have a scheduled exam until it finds a conflict-free regular session with available seating. Joining a regular class taking a different subject is normal so you can take your exam inside an active proctored room. If all daytime slots before 5:00 PM are occupied in your schedule, you will automatically be scheduled at 5:00 PM onwards in the Consultation Area (proctor assigned personally by Admin).
                         </p>
                       </div>
                     </div>

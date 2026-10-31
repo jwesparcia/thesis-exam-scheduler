@@ -399,16 +399,22 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
                           )}
                           Capacity: {req.auto_assignment.room_capacity} seats
                         </div>
+                        {req.auto_assignment.joined_section_name && (
+                          <div className={`text-[11px] mt-1 font-medium ${isDark ? "text-emerald-300/90" : "text-emerald-700"}`}>
+                            Joining: {req.auto_assignment.joined_section_name}
+                            {req.auto_assignment.joined_subject_name ? ` (${req.auto_assignment.joined_subject_name})` : ""}
+                          </div>
+                        )}
                       </div>
                       <div className={`p-3 rounded-xl border ${isDark ? "bg-slate-900/70 border-slate-800" : "bg-white border-emerald-100"}`}>
                         <span className={`text-[11px] block uppercase font-bold tracking-wider ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-                          {req.auto_assignment.is_consultation ? "Proctoring" : "Room Load Balancing"}
+                          {req.auto_assignment.is_consultation ? "Proctoring" : "Regular Session Sit-In"}
                         </span>
                         <span className={`font-bold block mt-1 ${isDark ? "text-white" : "text-slate-900"}`}>
                           {req.auto_assignment.is_consultation ? "Admin Personal Assignment" : `${req.auto_assignment.assigned_student_count} student(s) scheduled`}
                         </span>
                         <div className={`text-xs font-semibold mt-0.5 ${isDark ? "text-emerald-300" : "text-emerald-700"}`}>
-                          {req.auto_assignment.is_consultation ? "Without proctor assignment" : `${req.auto_assignment.remaining_capacity} seats available`}
+                          {req.auto_assignment.is_consultation ? "Without proctor assignment" : `${req.auto_assignment.remaining_capacity} seats available${req.auto_assignment.proctor_name ? ` · Proctor: ${req.auto_assignment.proctor_name}` : ""}`}
                         </div>
                       </div>
                     </div>
