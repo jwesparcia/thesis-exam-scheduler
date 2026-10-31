@@ -11,6 +11,9 @@ const INITIAL_GENERATION_PROGRESS = {
   detail: "",
 };
 
+const toLocalISODate = (d) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
 export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChange }) {
   const { theme } = useTheme();
   const isDark = theme === "dark";
@@ -638,12 +641,21 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
                       type="date"
                       value={startDate}
                       onChange={(e) => {
-                        setStartDate(e.target.value);
-                        if (e.target.value && !endDate) {
-                          const d = new Date(e.target.value);
-                          d.setDate(d.getDate() + 3);
-                          setEndDate(d.toISOString().split('T')[0]);
+                        const picked = e.target.value;
+                        if (!picked) {
+                          setStartDate("");
+                          return;
                         }
+                        // Always auto-assign the end date (3 exam days after start), skipping Sundays
+                        const d = new Date(`${picked}T00:00:00`);
+                        if (d.getDay() === 0) d.setDate(d.getDate() + 1); // Sunday start -> Monday
+                        setStartDate(toLocalISODate(d));
+                        let remaining = 3;
+                        while (remaining > 0) {
+                          d.setDate(d.getDate() + 1);
+                          if (d.getDay() !== 0) remaining -= 1;
+                        }
+                        setEndDate(toLocalISODate(d));
                       }}
                       className={`rounded-xl p-3 w-full border focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all ${isDark
                         ? "bg-slate-800 text-slate-100 border-slate-700"
@@ -658,7 +670,16 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
                     <input
                       type="date"
                       value={endDate}
-                      onChange={(e) => setEndDate(e.target.value)}
+                      onChange={(e) => {
+                        const picked = e.target.value;
+                        if (!picked) {
+                          setEndDate("");
+                          return;
+                        }
+                        const d = new Date(`${picked}T00:00:00`);
+                        if (d.getDay() === 0) d.setDate(d.getDate() - 1); // Sunday end -> Saturday
+                        setEndDate(toLocalISODate(d));
+                      }}
                       className={`rounded-xl p-3 w-full border focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all ${isDark
                         ? "bg-slate-800 text-slate-100 border-slate-700"
                         : "bg-slate-50 text-slate-800 border-slate-200"

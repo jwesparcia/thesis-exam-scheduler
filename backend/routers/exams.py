@@ -6,6 +6,7 @@ from core import get_db, cache
 from core.cache import TTL_ROOMS, TTL_EXAM_COUNT
 from model import Exam, Subject, Section, Room, Timeslot, Course, YearLevel, Teacher, User, Notification, Proctor, ReschedulingRequest, Department
 from utils.scheduler import generate_exam_schedule, validate_proctor_availability
+from utils.errors import humanize_error
 from datetime import datetime, time
 from threading import Lock
 from typing import Optional
@@ -217,6 +218,23 @@ def get_exams(
     query = query.join(Exam.timeslot).order_by(Timeslot.date, Timeslot.start_time)
 
     exams = query.all()
+
+    # Admin/program-head views: a newly generated draft supersedes the currently posted
+    # exams of the same (course, semester, term). The old posted exams stay live for
+    # students/proctors until the new schedule is posted, but are hidden here so the
+    # list shows only the latest generated schedule.
+    if user_role in ["admin", "program_head"] and not status:
+        draft_scopes = {
+            (e.course_id, e.semester, e.term)
+            for e in exams
+            if e.status in ("draft", "saved")
+        }
+        if draft_scopes:
+            exams = [
+                e for e in exams
+                if e.status != "posted" or (e.course_id, e.semester, e.term) not in draft_scopes
+            ]
+
     print(f"[DEBUG] Found {len(exams)} exams")
     
     if not exams:
@@ -985,12 +1003,15 @@ async def generate_schedule(
                        f"Please delete or overwrite the existing schedule first."
             )
 
-        # --- If overwriting: delete existing exams for this dept/semester first ---
+        # --- If overwriting: replace only unposted (draft/saved) exams. ---
+        # Posted exams stay live for students/proctors until the admin posts the new
+        # schedule. Deletions are only flushed here, so a failed or cancelled generation
+        # rolls back and the previous draft is preserved.
         if force_overwrite and existing_count > 0:
             exams_to_delete = (
                 db.query(Exam)
                 .join(Course, Exam.course_id == Course.id)
-                .filter(gen_dept_cond, Exam.semester == semester)
+                .filter(gen_dept_cond, Exam.semester == semester, Exam.status != "posted")
                 .all()
             )
             exams_to_delete_ids = [e.id for e in exams_to_delete]
@@ -1077,11 +1098,11 @@ async def generate_schedule(
                     "failed",
                     current_progress.get("percent", 0),
                     "Generation failed",
-                    str(e),
+                    humanize_error(e, "Schedule generation failed"),
                 )
         if isinstance(e, HTTPException):
             raise e
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=humanize_error(e, "Schedule generation failed"))
         
 class UpdateExamRequest(BaseModel):
     room_id: Optional[int] = None
@@ -1521,6 +1542,37 @@ def post_exams(
             return {"message": "All exam schedules are already posted and active!"}
             
         raise HTTPException(status_code=404, detail="No draft or saved exams found to post")
+
+    # Posting a new schedule retires the previously posted one for the same scope
+    # (same courses, semester and term). Old posted exams were intentionally kept
+    # live until this moment.
+    draft_ids = {e.id for e in latest_drafts}
+    scope_course_ids = {e.course_id for e in latest_drafts if e.course_id}
+    scope_terms = {e.term for e in latest_drafts}
+    if scope_course_ids:
+        old_posted_query = db.query(Exam).filter(
+            Exam.status == "posted",
+            Exam.semester == semester,
+            Exam.course_id.in_(scope_course_ids),
+            Exam.id.notin_(draft_ids),
+        )
+        if scope_terms == {None}:
+            old_posted_query = old_posted_query.filter(Exam.term.is_(None))
+        else:
+            old_posted_query = old_posted_query.filter(Exam.term.in_([t for t in scope_terms if t is not None]))
+        old_posted = old_posted_query.all()
+        old_posted_ids = [e.id for e in old_posted]
+        if old_posted_ids:
+            from model import ReschedulingRequest
+            db.query(ReschedulingRequest).filter(
+                or_(
+                    ReschedulingRequest.exam_id.in_(old_posted_ids),
+                    ReschedulingRequest.rescheduled_exam_id.in_(old_posted_ids),
+                )
+            ).delete(synchronize_session=False)
+            for old_exam in old_posted:
+                db.delete(old_exam)
+            db.flush()
 
     for exam in latest_drafts:
         exam.status = "posted"

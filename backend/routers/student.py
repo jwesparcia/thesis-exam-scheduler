@@ -67,34 +67,36 @@ def get_irregular_schedule_exams(
     if not selections:
         return []
 
-    selected_subject_ids = [selection.subject_id for selection in selections]
-    selected_subjects = db.query(Subject).filter(
-        Subject.id.in_(selected_subject_ids)
-    ).all()
-    selected_names = [subject.name for subject in selected_subjects if subject.name]
-    selected_codes = [subject.code for subject in selected_subjects if subject.code]
+    def _norm_subj_name(val):
+        return " ".join(str(val or "").replace("&", " and ").strip().lower().split())
+
+    def _norm_subj_code(val):
+        c = " ".join(str(val or "").strip().lower().split())
+        return "" if c in {"", "-", "n/a", "none", "nan"} else c
+
+    selected_subject_ids = [selection.subject_id for selection in selections if selection.subject_id is not None]
+    all_subj_rows = db.query(Subject.id, Subject.code, Subject.name).all()
+    subj_row_by_id = {r[0]: r for r in all_subj_rows}
 
     from sqlalchemy import or_
-    matching_subjects = db.query(Subject).filter(
-        or_(
-            Subject.name.in_(selected_names),
-            Subject.code.in_(selected_codes),
-            Subject.id.in_(selected_subject_ids),
-        )
-    ).all()
-
     subject_id_to_matching_ids = {}
-    for sub in selected_subjects:
-        sub_name_norm = (sub.name or "").strip().lower()
+    for sid in set(selected_subject_ids):
+        sub_row = subj_row_by_id.get(sid)
+        if not sub_row:
+            subject_id_to_matching_ids[sid] = [sid]
+            continue
+        _, s_code, s_name = sub_row
+        sub_name_norm = _norm_subj_name(s_name)
+        sub_code_norm = _norm_subj_code(s_code)
         matching_ids = [
-            m.id for m in matching_subjects
-            if ((m.name or "").strip().lower() == sub_name_norm and sub_name_norm)
-            or (m.code and sub.code and m.code == sub.code)
-            or m.id == sub.id
+            m_id for m_id, m_code, m_name in all_subj_rows
+            if m_id == sid
+            or (sub_name_norm and _norm_subj_name(m_name) == sub_name_norm)
+            or (sub_code_norm and _norm_subj_code(m_code) == sub_code_norm)
         ]
-        if sub.id not in matching_ids:
-            matching_ids.append(sub.id)
-        subject_id_to_matching_ids[sub.id] = matching_ids
+        if sid not in matching_ids:
+            matching_ids.append(sid)
+        subject_id_to_matching_ids[sid] = matching_ids
 
     conditions = []
     for selection in selections:

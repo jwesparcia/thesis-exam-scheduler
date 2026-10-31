@@ -1,3 +1,4 @@
+import { friendlyText } from "../utils/friendlyError";
 import React, { createContext, useContext, useState, useCallback } from "react";
 
 const ToastContext = createContext();
@@ -44,7 +45,7 @@ export const ToastProvider = ({ children }) => {
 };
 
 const ToastItem = ({ message, type, onClose }) => {
-    const messageText = (() => {
+    const rawMessageText = (() => {
         if (typeof message === "string") return message;
         if (Array.isArray(message)) {
             return message.map((item) => typeof item === "string" ? item : item?.msg || JSON.stringify(item)).join("; ");
@@ -60,6 +61,7 @@ const ToastItem = ({ message, type, onClose }) => {
         }
         return String(message ?? "");
     })();
+    const messageText = type === "error" ? friendlyText(rawMessageText) : rawMessageText;
 
     const getStyles = () => {
         switch (type) {

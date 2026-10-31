@@ -1,9 +1,11 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useDeferredValue, useCallback } from "react";
 import {
   MagnifyingGlassIcon,
   UserGroupIcon,
   ChevronDownIcon,
   ChevronUpIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
   ArrowPathIcon,
   ExclamationTriangleIcon,
   TagIcon,
@@ -31,6 +33,24 @@ const STATUS_STYLES = {
   },
 };
 
+function escapeHtml(str) {
+  return String(str ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function getInitials(name) {
+  const parts = String(name || "?").trim().split(/\s+/);
+  return parts
+    .slice(0, 2)
+    .map((n) => n[0] || "")
+    .join("")
+    .toUpperCase();
+}
+
 export default function SectionStudentList() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
@@ -45,90 +65,221 @@ export default function SectionStudentList() {
   const [filterStatus, setFilterStatus] = useState("all"); // "all" | "posted" | "draft"
   const [filterType, setFilterType] = useState("all");     // "all" | "regular" | "irregular"
 
-  // Expand/collapse per exam
+  // Deferred search queries keep input typing lag-free even across 3,000+ exams
+  const deferredSearchExam = useDeferredValue(searchExam);
+  const deferredSearchStudent = useDeferredValue(searchStudent);
+
+  // Pagination & expansion state (cards start collapsed so 2M+ DOM nodes are never mounted at once)
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
   const [expandedExams, setExpandedExams] = useState({});
 
+  // Avoid mounting duplicate hidden mobile + desktop tables simultaneously
+  const [isDesktop, setIsDesktop] = useState(() =>
+    typeof window !== "undefined" ? window.matchMedia("(min-width: 768px)").matches : true
+  );
+
   useEffect(() => {
-    fetchData();
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(min-width: 768px)");
+    const handler = (e) => setIsDesktop(e.matches);
+    if (mq.addEventListener) {
+      mq.addEventListener("change", handler);
+      return () => mq.removeEventListener("change", handler);
+    }
+    mq.addListener(handler);
+    return () => mq.removeListener(handler);
   }, []);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.get("/catalog/exams/attendance-roster");
-      setExams(res.data);
-      // Auto-expand posted exams that have students
-      const expanded = {};
-      res.data.forEach((exam) => {
-        if (exam.status === "posted" && exam.student_count > 0) {
-          expanded[exam.exam_id] = true;
-        }
+      const res = await api.get("/catalog/exams/attendance-roster", {
+        params: { compact: true },
       });
-      setExpandedExams(expanded);
+      const payload = res.data;
+
+      let hydratedExams = [];
+      if (payload && payload.compact && payload.students_by_id && Array.isArray(payload.exams)) {
+        const studentLookup = {};
+        for (const [idKey, s] of Object.entries(payload.students_by_id)) {
+          studentLookup[idKey] = {
+            ...s,
+            _initials: getInitials(s.name),
+            _search: `${s.name || ""} ${s.email || ""} ${s.student_id || ""}`.toLowerCase(),
+          };
+        }
+        hydratedExams = payload.exams.map((exam) => {
+          const students = (exam.student_ids || [])
+            .map((sid) => studentLookup[String(sid)])
+            .filter(Boolean);
+          const regCount =
+            typeof exam.regular_count === "number"
+              ? exam.regular_count
+              : students.reduce((acc, s) => acc + (s.student_type === "regular" ? 1 : 0), 0);
+          const irrCount =
+            typeof exam.irregular_count === "number"
+              ? exam.irregular_count
+              : students.reduce((acc, s) => acc + (s.student_type === "irregular" ? 1 : 0), 0);
+          return {
+            ...exam,
+            students,
+            regular_count: regCount,
+            irregular_count: irrCount,
+            _search: `${exam.subject_name || ""} ${exam.subject_code || ""} ${exam.section_name || ""} ${exam.room || ""} ${exam.course_name || ""}`.toLowerCase(),
+          };
+        });
+      } else if (Array.isArray(payload)) {
+        hydratedExams = payload.map((exam) => {
+          const students = (exam.students || []).map((s) => ({
+            ...s,
+            _initials: getInitials(s.name),
+            _search: `${s.name || ""} ${s.email || ""} ${s.student_id || ""}`.toLowerCase(),
+          }));
+          const regCount =
+            typeof exam.regular_count === "number"
+              ? exam.regular_count
+              : students.reduce((acc, s) => acc + (s.student_type === "regular" ? 1 : 0), 0);
+          const irrCount =
+            typeof exam.irregular_count === "number"
+              ? exam.irregular_count
+              : students.reduce((acc, s) => acc + (s.student_type === "irregular" ? 1 : 0), 0);
+          return {
+            ...exam,
+            students,
+            regular_count: regCount,
+            irregular_count: irrCount,
+            _search: `${exam.subject_name || ""} ${exam.subject_code || ""} ${exam.section_name || ""} ${exam.room || ""} ${exam.course_name || ""}`.toLowerCase(),
+          };
+        });
+      }
+
+      setExams(hydratedExams);
+      setExpandedExams({});
+      setCurrentPage(1);
     } catch (err) {
       console.error("Error fetching attendance roster:", err);
       setError("Failed to load exam roster. Please try again.");
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const toggleExam = (examId) =>
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  // Reset pagination to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [deferredSearchExam, deferredSearchStudent, filterStatus, filterType, pageSize]);
+
+  const toggleExam = useCallback((examId) => {
     setExpandedExams((prev) => ({ ...prev, [examId]: !prev[examId] }));
+  }, []);
 
-  const expandAll = () => {
-    const expanded = {};
-    filteredExams.forEach((e) => (expanded[e.exam_id] = true));
-    setExpandedExams(expanded);
+  // Derived filtered list (fast pre-indexed string checks)
+  const filteredExams = useMemo(() => {
+    const examQ = deferredSearchExam.trim().toLowerCase();
+    const studentQ = deferredSearchStudent.trim().toLowerCase();
+    const hasStudentFilter = Boolean(studentQ) || filterType !== "all";
+
+    const result = [];
+    for (let i = 0; i < exams.length; i += 1) {
+      const exam = exams[i];
+      if (filterStatus !== "all" && exam.status !== filterStatus) continue;
+      if (examQ && !exam._search.includes(examQ)) continue;
+
+      if (!hasStudentFilter) {
+        result.push({
+          ...exam,
+          displayStudents: exam.students,
+          displayRegCount: exam.regular_count,
+          displayIrrCount: exam.irregular_count,
+        });
+        continue;
+      }
+
+      // Fast skip when filtering by type without student text query
+      if (!studentQ) {
+        if (filterType === "regular" && exam.regular_count === 0) continue;
+        if (filterType === "irregular" && exam.irregular_count === 0) continue;
+      }
+
+      const displayStudents = [];
+      let dReg = 0;
+      let dIrr = 0;
+      const srcStudents = exam.students;
+      for (let j = 0; j < srcStudents.length; j += 1) {
+        const s = srcStudents[j];
+        if (filterType !== "all" && s.student_type !== filterType) continue;
+        if (studentQ && !s._search.includes(studentQ)) continue;
+        displayStudents.push(s);
+        if (s.student_type === "irregular") dIrr += 1;
+        else dReg += 1;
+      }
+
+      if (displayStudents.length > 0) {
+        result.push({
+          ...exam,
+          displayStudents,
+          displayRegCount: dReg,
+          displayIrrCount: dIrr,
+        });
+      }
+    }
+    return result;
+  }, [exams, deferredSearchExam, deferredSearchStudent, filterStatus, filterType]);
+
+  // Pagination slice
+  const totalPages = Math.max(1, Math.ceil(filteredExams.length / pageSize));
+  const safePage = Math.min(currentPage, totalPages);
+  const pageStartIndex = (safePage - 1) * pageSize;
+  const paginatedExams = useMemo(
+    () => filteredExams.slice(pageStartIndex, pageStartIndex + pageSize),
+    [filteredExams, pageStartIndex, pageSize]
+  );
+
+  // Expand only current page's exams to keep DOM light and responsive
+  const expandCurrentPage = () => {
+    setExpandedExams((prev) => {
+      const next = { ...prev };
+      paginatedExams.forEach((e) => {
+        next[e.exam_id] = true;
+      });
+      return next;
+    });
   };
 
   const collapseAll = () => setExpandedExams({});
 
-  // Derived filtered list
-  const filteredExams = useMemo(() => {
-    return exams
-      .filter((exam) => {
-        if (filterStatus !== "all" && exam.status !== filterStatus) return false;
-        if (
-          searchExam &&
-          !exam.subject_name.toLowerCase().includes(searchExam.toLowerCase()) &&
-          !exam.subject_code.toLowerCase().includes(searchExam.toLowerCase()) &&
-          !exam.section_name.toLowerCase().includes(searchExam.toLowerCase())
-        )
-          return false;
-        return true;
-      })
-      .map((exam) => {
-        const displayStudents = exam.students.filter((s) => {
-          const matchType = filterType === "all" || s.student_type === filterType;
-          const matchSearch =
-            !searchStudent ||
-            s.name.toLowerCase().includes(searchStudent.toLowerCase()) ||
-            s.email.toLowerCase().includes(searchStudent.toLowerCase()) ||
-            s.student_id.toLowerCase().includes(searchStudent.toLowerCase());
-          return matchType && matchSearch;
-        });
-        return { ...exam, displayStudents };
-      })
-      .filter((exam) => {
-        // When filtering students, only show exams with matches
-        if (searchStudent || filterType !== "all") return exam.displayStudents.length > 0;
-        return true;
-      });
-  }, [exams, searchExam, searchStudent, filterStatus, filterType]);
+  // Summary stats (memoized)
+  const { totalExams, postedExams, totalStudentSlots } = useMemo(() => {
+    let posted = 0;
+    let slots = 0;
+    for (let i = 0; i < exams.length; i += 1) {
+      if (exams[i].status === "posted") posted += 1;
+      slots += exams[i].student_count || 0;
+    }
+    return {
+      totalExams: exams.length,
+      postedExams: posted,
+      totalStudentSlots: slots,
+    };
+  }, [exams]);
 
-  // Summary stats
-  const totalExams = exams.length;
-  const postedExams = exams.filter((e) => e.status === "posted").length;
-  const totalStudentSlots = useMemo(
-    () => exams.reduce((a, e) => a + e.student_count, 0),
-    [exams]
-  );
+  const matchedStudentCount = useMemo(() => {
+    if (!deferredSearchStudent.trim() && filterType === "all") return 0;
+    return filteredExams.reduce((acc, e) => acc + (e.displayStudents?.length ?? 0), 0);
+  }, [filteredExams, deferredSearchStudent, filterType]);
 
-  // Print a single exam roster
+  // Print a single exam attendance / signature sheet
   const handlePrint = (exam) => {
-    const students = exam.displayStudents ?? exam.students;
+    // When printing an exam card found via student search, print the full exam roster
+    // unless a specific student type filter (Regular/Irregular) was selected.
+    const students =
+      filterType === "all" ? exam.students : (exam.displayStudents ?? exam.students);
     const fontSize = Math.max(4, Math.min(10, 420 / Math.max(students.length, 1)));
     const cellPadding = Math.max(0.5, Math.min(4, 160 / Math.max(students.length, 1)));
     const rows = students
@@ -136,8 +287,8 @@ export default function SectionStudentList() {
         (s, i) => `
         <tr>
           <td>${i + 1}</td>
-          <td>${s.name}</td>
-          <td>${s.student_id || "—"}</td>
+          <td>${escapeHtml(s.name)}</td>
+          <td>${escapeHtml(s.student_id || "—")}</td>
           <td>${s.student_type === "irregular" ? "Irregular" : "Regular"}</td>
           <td style="width:120px;border-bottom:1px solid #ccc;"></td>
         </tr>`
@@ -170,21 +321,21 @@ export default function SectionStudentList() {
         <main id="sheet"><div id="fit-content">
         <h2>Exam Attendance Roster</h2>
         <div class="meta">
-          <strong>${exam.subject_code} — ${exam.subject_name}</strong><br/>
-          Section: ${exam.section_name} &nbsp;|&nbsp;
-          Room: ${exam.room} &nbsp;|&nbsp;
-          Date: ${exam.exam_date} &nbsp;|&nbsp;
-          Time: ${exam.start_time} – ${exam.end_time}
+          <strong>${escapeHtml(exam.subject_code)} — ${escapeHtml(exam.subject_name)}</strong><br/>
+          Section: ${escapeHtml(exam.section_name)}${exam.is_rescheduled ? " (Rescheduled)" : ""} &nbsp;|&nbsp;
+          Room: ${escapeHtml(exam.room)} &nbsp;|&nbsp;
+          Date: ${escapeHtml(exam.exam_date)} &nbsp;|&nbsp;
+          Time: ${escapeHtml(exam.start_time)} – ${escapeHtml(exam.end_time)}
         </div>
         <table>
           <thead>
             <tr>
-              <th>#</th><th>Name</th><th>Student ID</th><th>Type</th><th>Signature</th>
+              <th style="width:40px;">#</th><th>Name</th><th style="width:140px;">Student ID</th><th style="width:95px;">Type</th><th style="width:160px;">Signature</th>
             </tr>
           </thead>
           <tbody>${rows}</tbody>
         </table>
-        <div class="footer">Generated: ${new Date().toLocaleString()} — Total: ${students.length} student(s)</div>
+        <div class="footer">Generated: ${escapeHtml(new Date().toLocaleString())} — Total: ${students.length} student(s)</div>
         </div></main>
         <script>
           requestAnimationFrame(() => {
@@ -197,9 +348,11 @@ export default function SectionStudentList() {
       </body></html>`;
 
     const win = window.open("", "_blank");
-    win.document.write(html);
-    win.document.close();
-    win.focus();
+    if (win) {
+      win.document.write(html);
+      win.document.close();
+      win.focus();
+    }
   };
 
   if (loading) {
@@ -234,6 +387,8 @@ export default function SectionStudentList() {
     );
   }
 
+  const autoExpandForStudentSearch = Boolean(deferredSearchStudent.trim());
+
   return (
     <div className="space-y-6">
       {/* Header Banner */}
@@ -263,7 +418,7 @@ export default function SectionStudentList() {
               Section List
             </h2>
             <p className={`text-sm mt-0.5 ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-              View students attending each scheduled exam — regular students of the section plus irregular students who selected that subject
+              View students attending each scheduled exam — regular students of the section plus irregular students scheduled in that specific section and subject
             </p>
           </div>
         </div>
@@ -273,21 +428,21 @@ export default function SectionStudentList() {
           {[
             {
               label: "Total Exams",
-              value: totalExams,
+              value: totalExams.toLocaleString(),
               icon: BookOpenIcon,
               color: isDark ? "text-white" : "text-slate-900",
               bg: isDark ? "bg-slate-800/60 border-slate-700/50" : "bg-white/70 border-white/80",
             },
             {
               label: "Posted",
-              value: postedExams,
+              value: postedExams.toLocaleString(),
               icon: CheckCircleIcon,
               color: "text-emerald-500",
               bg: isDark ? "bg-emerald-900/20 border-emerald-900/30" : "bg-emerald-50 border-emerald-100",
             },
             {
               label: "Total Student Slots",
-              value: totalStudentSlots,
+              value: totalStudentSlots.toLocaleString(),
               icon: AcademicCapIcon,
               color: "text-violet-500",
               bg: isDark ? "bg-violet-900/20 border-violet-900/30" : "bg-violet-50 border-violet-100",
@@ -321,7 +476,7 @@ export default function SectionStudentList() {
           />
           <input
             type="text"
-            placeholder="Search subject or section…"
+            placeholder="Search subject, section, or room…"
             value={searchExam}
             onChange={(e) => setSearchExam(e.target.value)}
             className={`w-full pl-9 pr-9 py-2.5 rounded-xl text-sm border outline-none transition-all focus:ring-2 focus:ring-violet-500/40 ${
@@ -428,16 +583,30 @@ export default function SectionStudentList() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <select
+            value={pageSize}
+            onChange={(e) => setPageSize(Number(e.target.value))}
+            aria-label="Exams per page"
+            className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold border outline-none ${
+              isDark
+                ? "bg-slate-800 border-slate-700 text-slate-300"
+                : "bg-white border-slate-200 text-slate-600"
+            }`}
+          >
+            <option value={25}>25 / page</option>
+            <option value={50}>50 / page</option>
+            <option value={100}>100 / page</option>
+          </select>
           <button
-            onClick={expandAll}
+            onClick={expandCurrentPage}
             className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
               isDark
                 ? "border-slate-700 text-slate-400 hover:text-white hover:border-slate-600"
                 : "border-slate-200 text-slate-500 hover:text-slate-700 hover:border-slate-300"
             }`}
           >
-            Expand All
+            Expand Page
           </button>
           <button
             onClick={collapseAll}
@@ -464,16 +633,30 @@ export default function SectionStudentList() {
       </div>
 
       {/* Count */}
-      <p className={`text-xs font-medium ${isDark ? "text-slate-500" : "text-slate-400"}`}>
-        Showing {filteredExams.length} exam{filteredExams.length !== 1 ? "s" : ""}
-        {(searchStudent || filterType !== "all")
-          ? ` · ${filteredExams.reduce((a, e) => a + (e.displayStudents?.length ?? 0), 0)} student(s) matched`
-          : ""}
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className={`text-xs font-medium ${isDark ? "text-slate-500" : "text-slate-400"}`}>
+          {filteredExams.length === 0
+            ? "Showing 0 exams"
+            : `Showing ${pageStartIndex + 1}–${Math.min(
+                pageStartIndex + pageSize,
+                filteredExams.length
+              )} of ${filteredExams.length.toLocaleString()} exam${
+                filteredExams.length !== 1 ? "s" : ""
+              }`}
+          {deferredSearchStudent.trim() || filterType !== "all"
+            ? ` · ${matchedStudentCount.toLocaleString()} student slot(s) matched`
+            : ""}
+        </p>
+        {totalPages > 1 && (
+          <p className={`text-xs font-medium ${isDark ? "text-slate-500" : "text-slate-400"}`}>
+            Page {safePage} of {totalPages}
+          </p>
+        )}
+      </div>
 
-      {/* Exam Cards */}
+      {/* Exam Cards (Paginated) */}
       <div className="space-y-3">
-        {filteredExams.length === 0 ? (
+        {paginatedExams.length === 0 ? (
           <div
             className={`flex flex-col items-center justify-center py-16 rounded-2xl border ${
               isDark ? "border-slate-800 bg-slate-800/30" : "border-slate-200 bg-slate-50"
@@ -487,17 +670,17 @@ export default function SectionStudentList() {
             </p>
           </div>
         ) : (
-          filteredExams.map((exam) => {
-            const isExpanded = !!expandedExams[exam.exam_id];
+          paginatedExams.map((exam) => {
+            const isExpanded = Boolean(expandedExams[exam.exam_id]) || autoExpandForStudentSearch;
             const students = exam.displayStudents ?? exam.students;
-            const regCount = students.filter((s) => s.student_type === "regular").length;
-            const irrCount = students.filter((s) => s.student_type === "irregular").length;
+            const regCount = exam.displayRegCount ?? exam.regular_count ?? 0;
+            const irrCount = exam.displayIrrCount ?? exam.irregular_count ?? 0;
             const statusStyle = STATUS_STYLES[exam.status] || STATUS_STYLES.draft;
 
             return (
               <div
                 key={exam.exam_id}
-                className={`rounded-2xl border overflow-hidden transition-all duration-200 ${
+                className={`rounded-2xl border overflow-hidden transition-colors duration-150 ${
                   isDark ? "border-slate-700/60 bg-slate-800/40" : "border-slate-200 bg-white"
                 } ${isExpanded ? "shadow-lg" : "hover:shadow-sm"}`}
               >
@@ -531,7 +714,7 @@ export default function SectionStudentList() {
                     </div>
 
                     <div className="min-w-0 flex-1">
-                      {/* Subject name + section */}
+                      {/* Subject name + status */}
                       <div className="flex flex-wrap items-center gap-2">
                         <p className={`font-bold text-sm ${isDark ? "text-white" : "text-slate-900"}`}>
                           {exam.subject_name}
@@ -543,6 +726,17 @@ export default function SectionStudentList() {
                         >
                           {exam.status}
                         </span>
+                        {exam.is_rescheduled && (
+                          <span
+                            className={`text-[11px] font-bold px-2 py-0.5 rounded-full border ${
+                              isDark
+                                ? "bg-purple-900/30 text-purple-300 border-purple-800/50"
+                                : "bg-purple-50 text-purple-700 border-purple-200"
+                            }`}
+                          >
+                            Rescheduled
+                          </span>
+                        )}
                       </div>
 
                       {/* Meta row */}
@@ -598,7 +792,7 @@ export default function SectionStudentList() {
                     </div>
                   </div>
 
-                  {/* Right side: count + expand + print */}
+                  {/* Right side: count + print + expand */}
                   <div
                     className="flex items-center gap-2 shrink-0"
                     onClick={(e) => e.stopPropagation()}
@@ -638,7 +832,7 @@ export default function SectionStudentList() {
                   </div>
                 </div>
 
-                {/* Student Table */}
+                {/* Student Table (lazy-mounted only when expanded) */}
                 {isExpanded && (
                   <div
                     className={`min-w-0 border-t ${
@@ -653,127 +847,139 @@ export default function SectionStudentList() {
                       >
                         No students will take this exam
                       </div>
-                    ) : (
-                      <>
-                      <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-700/40">
+                    ) : !isDesktop ? (
+                      <div className="divide-y divide-slate-100 dark:divide-slate-700/40">
                         {students.map((student, idx) => (
                           <article key={student.id} className="space-y-3 p-4">
                             <div className="flex items-start gap-3">
-                              <span className={`pt-1 text-xs font-medium ${isDark ? "text-slate-500" : "text-slate-400"}`}>{idx + 1}</span>
+                              <span className={`pt-1 text-xs font-medium ${isDark ? "text-slate-500" : "text-slate-400"}`}>
+                                {idx + 1}
+                              </span>
                               <div className="min-w-0 flex-1">
-                                <h4 className={`break-words font-semibold ${isDark ? "text-slate-100" : "text-slate-800"}`}>{student.name}</h4>
-                                <p className={`mt-0.5 break-all font-mono text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>{student.student_id || "No student ID"}</p>
+                                <h4 className={`break-words font-semibold ${isDark ? "text-slate-100" : "text-slate-800"}`}>
+                                  {student.name}
+                                </h4>
+                                <p className={`mt-0.5 break-all font-mono text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                                  {student.student_id || "No student ID"}
+                                </p>
                               </div>
-                              <span className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-semibold ${student.student_type === "irregular"
-                                ? isDark ? "border-amber-800/50 bg-amber-900/30 text-amber-300" : "border-amber-200 bg-amber-50 text-amber-700"
-                                : isDark ? "border-blue-800/50 bg-blue-900/30 text-blue-300" : "border-blue-200 bg-blue-50 text-blue-700"
-                                }`}>
+                              <span
+                                className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-semibold ${
+                                  student.student_type === "irregular"
+                                    ? isDark
+                                      ? "border-amber-800/50 bg-amber-900/30 text-amber-300"
+                                      : "border-amber-200 bg-amber-50 text-amber-700"
+                                    : isDark
+                                    ? "border-blue-800/50 bg-blue-900/30 text-blue-300"
+                                    : "border-blue-200 bg-blue-50 text-blue-700"
+                                }`}
+                              >
                                 {student.student_type === "irregular" ? "Irregular" : "Regular"}
                               </span>
                             </div>
-                            <div className={`ml-6 h-8 rounded border-b ${isDark ? "border-slate-600" : "border-slate-300"}`} aria-label="Signature line" />
+                            <div
+                              className={`ml-6 h-8 rounded border-b ${isDark ? "border-slate-600" : "border-slate-300"}`}
+                              aria-label="Signature line"
+                            />
                           </article>
                         ))}
                       </div>
-                      <table className="hidden w-full min-w-[720px] text-sm md:table">
-                        <thead>
-                          <tr
-                            className={`text-xs uppercase tracking-wider font-semibold border-b ${
-                              isDark
-                                ? "bg-slate-800/80 border-slate-700 text-slate-300"
-                                : "bg-slate-100/90 border-slate-200 text-slate-700"
-                            }`}
-                          >
-                            <th className="text-left px-5 py-3 w-10">#</th>
-                            <th className="text-left px-5 py-3">Student Name</th>
-                            <th className="text-left px-4 py-3">Student ID</th>
-                            <th className="text-left px-4 py-3">Type</th>
-                            <th className="text-left px-4 py-3">Signature</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {students.map((student, idx) => (
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full min-w-[720px] text-sm">
+                          <thead>
                             <tr
-                              key={student.id}
-                              className={`border-t transition-colors ${
+                              className={`text-xs uppercase tracking-wider font-semibold border-b ${
                                 isDark
-                                  ? "border-slate-700/40 hover:bg-slate-700/20"
-                                  : "border-slate-100 hover:bg-slate-50/80"
+                                  ? "bg-slate-800/80 border-slate-700 text-slate-300"
+                                  : "bg-slate-100/90 border-slate-200 text-slate-700"
                               }`}
                             >
-                              <td
-                                className={`px-5 py-3 text-xs font-semibold ${
-                                  isDark ? "text-slate-400" : "text-slate-500"
+                              <th className="text-left px-5 py-3 w-10">#</th>
+                              <th className="text-left px-5 py-3">Student Name</th>
+                              <th className="text-left px-4 py-3">Student ID</th>
+                              <th className="text-left px-4 py-3">Type</th>
+                              <th className="text-left px-4 py-3">Signature</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {students.map((student, idx) => (
+                              <tr
+                                key={student.id}
+                                className={`border-t transition-colors ${
+                                  isDark
+                                    ? "border-slate-700/40 hover:bg-slate-700/20"
+                                    : "border-slate-100 hover:bg-slate-50/80"
                                 }`}
                               >
-                                {idx + 1}
-                              </td>
-                              <td className="px-5 py-3">
-                                <div className="flex items-center gap-2.5">
-                                  <div
-                                    className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
-                                      student.student_type === "irregular"
-                                        ? isDark
-                                          ? "bg-amber-900/40 text-amber-300 border border-amber-800/40"
-                                          : "bg-amber-100 text-amber-800 border border-amber-200"
-                                        : isDark
-                                        ? "bg-blue-900/40 text-blue-300 border border-blue-800/40"
-                                        : "bg-blue-100 text-blue-800 border border-blue-200"
-                                    }`}
-                                  >
-                                    {(student.name || "?")
-                                      .split(" ")
-                                      .map((n) => n[0])
-                                      .slice(0, 2)
-                                      .join("")
-                                      .toUpperCase()}
-                                  </div>
-                                  <span
-                                    className={`font-semibold ${
-                                      isDark ? "text-slate-100" : "text-slate-900"
-                                    }`}
-                                  >
-                                    {student.name}
-                                  </span>
-                                </div>
-                              </td>
-                              <td
-                                className={`px-4 py-3 font-mono text-xs font-semibold ${
-                                  isDark ? "text-slate-300" : "text-slate-700"
-                                }`}
-                              >
-                                {student.student_id || (
-                                  <span className="italic opacity-40">—</span>
-                                )}
-                              </td>
-                              <td className="px-4 py-3">
-                                <span
-                                  className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full border ${
-                                    student.student_type === "irregular"
-                                      ? isDark
-                                        ? "bg-amber-900/30 text-amber-300 border-amber-800/50"
-                                        : "bg-amber-50 text-amber-700 border-amber-200"
-                                      : isDark
-                                      ? "bg-blue-900/30 text-blue-300 border-blue-800/50"
-                                      : "bg-blue-50 text-blue-700 border-blue-200"
+                                <td
+                                  className={`px-5 py-3 text-xs font-semibold ${
+                                    isDark ? "text-slate-400" : "text-slate-500"
                                   }`}
                                 >
-                                  <TagIcon className="w-2.5 h-2.5" />
-                                  {student.student_type === "irregular" ? "Irregular" : "Regular"}
-                                </span>
-                              </td>
-                              <td className="px-4 py-3">
-                                <div
-                                  className={`h-7 w-28 rounded border-b ${
-                                    isDark ? "border-slate-600" : "border-slate-300"
+                                  {idx + 1}
+                                </td>
+                                <td className="px-5 py-3">
+                                  <div className="flex items-center gap-2.5">
+                                    <div
+                                      className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
+                                        student.student_type === "irregular"
+                                          ? isDark
+                                            ? "bg-amber-900/40 text-amber-300 border border-amber-800/40"
+                                            : "bg-amber-100 text-amber-800 border border-amber-200"
+                                          : isDark
+                                          ? "bg-blue-900/40 text-blue-300 border border-blue-800/40"
+                                          : "bg-blue-100 text-blue-800 border border-blue-200"
+                                      }`}
+                                    >
+                                      {student._initials || getInitials(student.name)}
+                                    </div>
+                                    <span
+                                      className={`font-semibold ${
+                                        isDark ? "text-slate-100" : "text-slate-900"
+                                      }`}
+                                    >
+                                      {student.name}
+                                    </span>
+                                  </div>
+                                </td>
+                                <td
+                                  className={`px-4 py-3 font-mono text-xs font-semibold ${
+                                    isDark ? "text-slate-300" : "text-slate-700"
                                   }`}
-                                />
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                      </>
+                                >
+                                  {student.student_id || (
+                                    <span className="italic opacity-40">—</span>
+                                  )}
+                                </td>
+                                <td className="px-4 py-3">
+                                  <span
+                                    className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full border ${
+                                      student.student_type === "irregular"
+                                        ? isDark
+                                          ? "bg-amber-900/30 text-amber-300 border-amber-800/50"
+                                          : "bg-amber-50 text-amber-700 border-amber-200"
+                                        : isDark
+                                        ? "bg-blue-900/30 text-blue-300 border-blue-800/50"
+                                        : "bg-blue-50 text-blue-700 border-blue-200"
+                                    }`}
+                                  >
+                                    <TagIcon className="w-2.5 h-2.5" />
+                                    {student.student_type === "irregular" ? "Irregular" : "Regular"}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3">
+                                  <div
+                                    className={`h-7 w-28 rounded border-b ${
+                                      isDark ? "border-slate-600" : "border-slate-300"
+                                    }`}
+                                  />
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
                     )}
                   </div>
                 )}
@@ -782,6 +988,72 @@ export default function SectionStudentList() {
           })
         )}
       </div>
+
+      {/* Pagination Footer */}
+      {totalPages > 1 && (
+        <div
+          className={`flex flex-wrap items-center justify-between gap-3 px-4 py-3 rounded-2xl border ${
+            isDark ? "bg-slate-800/40 border-slate-700/60" : "bg-white border-slate-200"
+          }`}
+        >
+          <span className={`text-xs font-medium ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+            Page {safePage} of {totalPages} ({filteredExams.length.toLocaleString()} exams)
+          </span>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setCurrentPage(1)}
+              disabled={safePage <= 1}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
+                isDark
+                  ? "border-slate-700 text-slate-300 hover:bg-slate-700"
+                  : "border-slate-200 text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              First
+            </button>
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={safePage <= 1}
+              className={`p-1.5 rounded-lg border transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
+                isDark
+                  ? "border-slate-700 text-slate-300 hover:bg-slate-700"
+                  : "border-slate-200 text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              <ChevronLeftIcon className="w-4 h-4" />
+            </button>
+            <span
+              className={`px-3 py-1 rounded-lg text-xs font-bold ${
+                isDark ? "bg-violet-900/40 text-violet-300" : "bg-violet-50 text-violet-700"
+              }`}
+            >
+              {safePage}
+            </span>
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={safePage >= totalPages}
+              className={`p-1.5 rounded-lg border transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
+                isDark
+                  ? "border-slate-700 text-slate-300 hover:bg-slate-700"
+                  : "border-slate-200 text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              <ChevronRightIcon className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setCurrentPage(totalPages)}
+              disabled={safePage >= totalPages}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
+                isDark
+                  ? "border-slate-700 text-slate-300 hover:bg-slate-700"
+                  : "border-slate-200 text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              Last
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

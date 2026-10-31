@@ -347,6 +347,18 @@ export default function GeneratedExamSchedules({ isGenerating }) {
         }
     }, [selectedDept]);
 
+    // Show a schedule by default: pre-select the first course and year level of the
+    // department so generated schedules appear without manual filtering.
+    useEffect(() => {
+        if (filteredCourses.length > 0 && !filteredCourses.some(c => String(c.id) === String(courseId))) {
+            setCourseId(String(filteredCourses[0].id));
+        }
+        if (filteredYears.length > 0 && !filteredYears.some(y => String(y.id) === String(yearId))) {
+            setYearId(String(filteredYears[0].id));
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedDept, courses, years]);
+
     const examsBySection = exams.reduce((groups, exam) => {
         if (!groups[exam.section_name]) groups[exam.section_name] = [];
         groups[exam.section_name].push(exam);

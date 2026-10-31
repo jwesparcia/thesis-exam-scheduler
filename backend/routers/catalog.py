@@ -18,6 +18,7 @@ from model import (
 )
 from routers.auth import require_role, get_current_user
 from utils.logging import log_activity
+from utils.errors import humanize_error
 from datetime import datetime, time
 from pydantic import BaseModel
 
@@ -206,18 +207,37 @@ def get_year_levels(db: Session = Depends(get_db), current_user: User = Depends(
 
 @router.get("/exams/attendance-roster")
 def get_exams_attendance_roster(
+    compact: bool = Query(False),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(["admin", "program_head"]))
 ):
     """
     Returns all generated exams with their attendance roster (students who will take each exam).
     For each exam:
-    - Regular students: User.section_name == exam.section.name
-    - Irregular students: IrregularSelection where section_id == exam.section_id
-      AND their selected subject_id shares the same subject name as the exam subject
-    Students are sorted alphabetically by name.
+    - Regular students: User.section_name matches exam.section.name (and student_type == 'regular')
+    - Irregular students: Included ONLY when they have an active schedule in that exact
+      (section, subject) pair via IrregularSelection (and have not rescheduled away from that exam),
+      or on their approved rescheduled exam sheet.
+    Supports compact=true dictionary compression to avoid duplicating ~95k student objects over HTTP.
     """
     from sqlalchemy.orm import joinedload as jl
+
+    use_compact = bool(isinstance(compact, bool) and compact)
+
+    def _norm_sec(val: Optional[str]) -> str:
+        return " ".join(str(val or "").strip().split()).upper()
+
+    def _norm_subj_name(val: Optional[str]) -> str:
+        return " ".join(str(val or "").replace("&", " and ").strip().lower().split())
+
+    def _norm_subj_code(val: Optional[str]) -> str:
+        c = " ".join(str(val or "").strip().lower().split())
+        return "" if c in {"", "-", "n/a", "none", "nan"} else c
+
+    def _last_name_key(s_dict: dict):
+        name_val = (s_dict.get("name") or "").strip()
+        parts = name_val.split()
+        return (parts[-1].lower() if parts else "", name_val.lower())
 
     exams = (
         db.query(Exam)
@@ -234,41 +254,128 @@ def get_exams_attendance_roster(
         .all()
     )
 
-    # Pre-fetch all student users
-    all_students = db.query(User).filter(User.role == "student").all()
-    student_by_id = {s.id: s for s in all_students}
-    student_by_email = {s.email: s for s in all_students}
+    # Lightweight column query instead of instantiating 12,000+ full User ORM models
+    student_rows = (
+        db.query(
+            User.id,
+            User.name,
+            User.email,
+            User.student_id,
+            User.student_type,
+            User.section_name,
+        )
+        .filter(User.role == "student")
+        .all()
+    )
 
-    # Build map: section_name -> list of regular students
+    student_by_id = {}
+    student_by_email = {}
+    student_by_num = {}
     regular_map = {}
-    for student in all_students:
-        if student.student_type == "regular" and student.section_name:
-            regular_map.setdefault(student.section_name, []).append(student)
 
-    # Pre-fetch all irregular selections with subject info
-    # map: (section_id, subject_name) -> set of user_ids
+    for sid, sname, semail, snum, stype, ssec in student_rows:
+        sec_clean = (ssec or "").strip()
+        is_irreg = (str(stype or "").strip().lower() == "irregular") or (sec_clean.lower() == "irregular")
+        eff_type = "irregular" if is_irreg else "regular"
+        s_dict = {
+            "id": sid,
+            "name": sname or "",
+            "email": semail or "",
+            "student_id": snum or "",
+            "student_type": eff_type,
+        }
+        student_by_id[sid] = s_dict
+        if semail:
+            student_by_email[semail.strip().lower()] = s_dict
+        if snum:
+            student_by_num[str(snum).strip()] = s_dict
+
+        if eff_type == "regular" and sec_clean and sec_clean.lower() not in {"irregular", "nan", "none", "n/a"}:
+            regular_map.setdefault(_norm_sec(sec_clean), []).append(s_dict)
+
+    # Pre-sort each regular section's roster ONCE (368 sections instead of 2,800 exams)
+    for sec_k in regular_map:
+        regular_map[sec_k].sort(key=_last_name_key)
+
+    # Pre-fetch section names and subject metadata via lightweight column tuples
     from model import Subject as SubjectModel
-    all_subjects = db.query(SubjectModel).all()
-    subject_name_by_id = {s.id: s.name for s in all_subjects}
+    sec_norm_by_id = {
+        sec_id: _norm_sec(sec_nm)
+        for sec_id, sec_nm in db.query(Section.id, Section.name).all()
+    }
+    subj_meta_by_id = {
+        sub_id: (_norm_subj_code(sub_cd), _norm_subj_name(sub_nm))
+        for sub_id, sub_cd, sub_nm in db.query(SubjectModel.id, SubjectModel.code, SubjectModel.name).all()
+    }
 
-    all_selections = db.query(IrregularSelection).all()
-    # Build map: (section_id, subject_name) -> set of user_ids
-    irr_map = {}
-    for sel in all_selections:
-        subj_name = subject_name_by_id.get(sel.subject_id, "")
-        key = (sel.section_id, subj_name.lower().strip())
-        irr_map.setdefault(key, set()).add(sel.user_id)
+    # Index irregular selections strictly by (specific section, specific subject)
+    irr_by_sec_and_subj_id = {}
+    irr_by_sec_and_subj_name = {}
+    irr_by_sec_and_subj_code = {}
 
-    consultation_requests = db.query(ReschedulingRequest).filter(
-        ReschedulingRequest.status == "approved",
-        ReschedulingRequest.rescheduled_exam_id.isnot(None),
+    selection_rows = db.query(
+        IrregularSelection.user_id,
+        IrregularSelection.subject_id,
+        IrregularSelection.section_id,
     ).all()
-    consultation_request_by_exam = {req.rescheduled_exam_id: req for req in consultation_requests}
-    consultation_emails_by_source_exam = {}
-    for req in consultation_requests:
-        consultation_emails_by_source_exam.setdefault(req.exam_id, set()).add(req.school_email)
+
+    for uid, sel_subj_id, sel_sec_id in selection_rows:
+        if sel_sec_id is None or sel_subj_id is None:
+            continue
+        s_dict = student_by_id.get(uid)
+        if not s_dict or s_dict["student_type"] != "irregular":
+            continue
+
+        sec_keys = {f"id:{sel_sec_id}"}
+        sec_nm_key = sec_norm_by_id.get(sel_sec_id)
+        if sec_nm_key:
+            sec_keys.add(sec_nm_key)
+
+        s_code_norm, s_name_norm = subj_meta_by_id.get(sel_subj_id, ("", ""))
+        for sk in sec_keys:
+            irr_by_sec_and_subj_id.setdefault((sk, sel_subj_id), set()).add(uid)
+            if s_name_norm:
+                irr_by_sec_and_subj_name.setdefault((sk, s_name_norm), set()).add(uid)
+            if s_code_norm:
+                irr_by_sec_and_subj_code.setdefault((sk, s_code_norm), set()).add(uid)
+
+    # Approved rescheduling requests (supports multiple students per rescheduled_exam_id)
+    approved_reqs = (
+        db.query(
+            ReschedulingRequest.exam_id,
+            ReschedulingRequest.rescheduled_exam_id,
+            ReschedulingRequest.school_email,
+            ReschedulingRequest.student_id,
+        )
+        .filter(
+            ReschedulingRequest.status == "approved",
+            ReschedulingRequest.rescheduled_exam_id.isnot(None),
+        )
+        .all()
+    )
+
+    rescheduled_students_by_target_exam = {}
+    rescheduled_out_uids_by_source_exam = {}
+
+    for src_exam_id, target_exam_id, req_email, req_snum in approved_reqs:
+        # Resolve student via normalized email or student_id
+        s_dict = None
+        if req_email:
+            s_dict = student_by_email.get(req_email.strip().lower())
+        if not s_dict and req_snum:
+            s_dict = student_by_num.get(str(req_snum).strip())
+        if not s_dict:
+            continue
+
+        if target_exam_id != src_exam_id:
+            target_bucket = rescheduled_students_by_target_exam.setdefault(target_exam_id, {})
+            target_bucket[s_dict["id"]] = s_dict
+            if src_exam_id is not None:
+                rescheduled_out_uids_by_source_exam.setdefault(src_exam_id, set()).add(s_dict["id"])
 
     result = []
+    referenced_students = {}
+
     for exam in exams:
         section = exam.section
         subject = exam.subject
@@ -277,70 +384,75 @@ def get_exams_attendance_roster(
         course = exam.course
         year_level = exam.year_level
 
-        # Build time/date strings
         if timeslot:
             day_name = timeslot.date.strftime("%A")
             date_str = timeslot.date.strftime("%B %d, %Y")
             full_date = f"{day_name}, {date_str}"
             start_time = timeslot.start_time.strftime("%I:%M %p")
             end_time = timeslot.end_time.strftime("%I:%M %p")
+            start_24h = timeslot.start_time.strftime("%H:%M:%S")
             date_iso = timeslot.date.isoformat()
         else:
             full_date = "Unscheduled"
             start_time = "-"
             end_time = "-"
+            start_24h = "99:99:99"
             date_iso = None
 
         section_name = section.name if section else ""
-        consultation_request = consultation_request_by_exam.get(exam.id)
-        if consultation_request:
-            student = student_by_email.get(consultation_request.school_email)
-            all_students_list = [{
-                "id": student.id,
-                "name": student.name,
-                "email": student.email,
-                "student_id": student.student_id or "",
-                "student_type": "irregular",
-            }] if student else []
+        is_solo_rescheduled = exam.id in rescheduled_students_by_target_exam
+
+        if is_solo_rescheduled:
+            resched_list = sorted(
+                rescheduled_students_by_target_exam[exam.id].values(),
+                key=_last_name_key,
+            )
+            all_students_list = resched_list
+            reg_count = sum(1 for s in resched_list if s["student_type"] == "regular")
+            irr_count = sum(1 for s in resched_list if s["student_type"] == "irregular")
         else:
-            reg_students = regular_map.get(section_name, [])
-            reg_list = [
-                {
-                    "id": s.id,
-                    "name": s.name,
-                    "email": s.email,
-                    "student_id": s.student_id or "",
-                    "student_type": "regular",
-                }
-                for s in reg_students
-            ]
+            sec_key = _norm_sec(section_name) if section_name else ""
+            reg_list = regular_map.get(sec_key, []) if sec_key else []
+            moved_out_uids = rescheduled_out_uids_by_source_exam.get(exam.id, set())
+            if moved_out_uids and reg_list:
+                reg_list = [s for s in reg_list if s["id"] not in moved_out_uids]
 
-            # Irregular students who selected this subject for this section
+            # Irregular students who have a schedule in THIS specific section AND THIS specific subject
             irr_list = []
-            if section and subject:
-                exam_subj_name = (subject.name or "").lower().strip()
-                key = (section.id, exam_subj_name)
-                irr_user_ids = irr_map.get(key, set())
-                for uid in irr_user_ids:
-                    s = student_by_id.get(uid)
-                    if s:
-                        irr_list.append({
-                            "id": s.id,
-                            "name": s.name,
-                            "email": s.email,
-                            "student_id": s.student_id or "",
-                            "student_type": "irregular",
-                        })
+            if section and subject and timeslot is not None:
+                matched_irr_uids = set()
+                lookup_sec_keys = [f"id:{section.id}"]
+                if sec_key:
+                    lookup_sec_keys.append(sec_key)
 
-            rescheduled_emails = consultation_emails_by_source_exam.get(exam.id, set())
-            if rescheduled_emails:
-                irr_list = [student for student in irr_list if student["email"] not in rescheduled_emails]
+                ex_name_norm = _norm_subj_name(subject.name)
+                ex_code_norm = _norm_subj_code(subject.code)
 
-            # Alphabetical sort by last name (last word of the full name)
-            def last_name_key(s):
-                parts = (s["name"] or "").strip().split()
-                return parts[-1].lower() if parts else ""
-            all_students_list = sorted(reg_list + irr_list, key=last_name_key)
+                for sk in lookup_sec_keys:
+                    matched_irr_uids.update(irr_by_sec_and_subj_id.get((sk, subject.id), ()))
+                    if ex_name_norm:
+                        matched_irr_uids.update(irr_by_sec_and_subj_name.get((sk, ex_name_norm), ()))
+                    if ex_code_norm:
+                        matched_irr_uids.update(irr_by_sec_and_subj_code.get((sk, ex_code_norm), ()))
+
+                if moved_out_uids:
+                    matched_irr_uids -= moved_out_uids
+
+                for uid in matched_irr_uids:
+                    s_dict = student_by_id.get(uid)
+                    if s_dict:
+                        irr_list.append(s_dict)
+
+            reg_count = len(reg_list)
+            irr_count = len(irr_list)
+            if irr_list:
+                all_students_list = sorted(reg_list + irr_list, key=_last_name_key)
+            else:
+                all_students_list = reg_list
+
+        if use_compact:
+            for s in all_students_list:
+                referenced_students[str(s["id"])] = s
 
         result.append({
             "exam_id": exam.id,
@@ -357,15 +469,52 @@ def get_exams_attendance_roster(
             "date_iso": date_iso,
             "start_time": start_time,
             "end_time": end_time,
+            "is_rescheduled": is_solo_rescheduled,
+            "regular_count": reg_count,
+            "irregular_count": irr_count,
+            "_sort_time": start_24h,
             "student_count": len(all_students_list),
             "students": all_students_list,
         })
 
-    # Sort by date, then time, then section
+    # Sort chronologically by date, 24h start time, then section
     def sort_key(e):
-        return (e["date_iso"] or "9999", e["start_time"], e["section_name"])
+        return (e["date_iso"] or "9999", e["_sort_time"], e["section_name"])
 
     result.sort(key=sort_key)
+    for e in result:
+        e.pop("_sort_time", None)
+
+    if use_compact:
+        compact_exams = []
+        for e in result:
+            compact_exams.append({
+                "exam_id": e["exam_id"],
+                "subject_code": e["subject_code"],
+                "subject_name": e["subject_name"],
+                "section_name": e["section_name"],
+                "course_name": e["course_name"],
+                "year_level": e["year_level"],
+                "semester": e["semester"],
+                "term": e["term"],
+                "status": e["status"],
+                "room": e["room"],
+                "exam_date": e["exam_date"],
+                "date_iso": e["date_iso"],
+                "start_time": e["start_time"],
+                "end_time": e["end_time"],
+                "is_rescheduled": e["is_rescheduled"],
+                "regular_count": e["regular_count"],
+                "irregular_count": e["irregular_count"],
+                "student_count": e["student_count"],
+                "student_ids": [s["id"] for s in e["students"]],
+            })
+        return {
+            "compact": True,
+            "students_by_id": referenced_students,
+            "exams": compact_exams,
+        }
+
     return result
 
 
@@ -921,7 +1070,7 @@ def consolidate_shared_subjects(
         }
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Failed to consolidate shared subjects: {str(e)}")
+        raise HTTPException(status_code=500, detail=humanize_error(e, "Failed to consolidate shared subjects"))
 
 @router.put("/subjects/{subject_id}/duration")
 def update_subject_duration(
@@ -1149,7 +1298,7 @@ def upload_catalog_excel(
         contents = file.file.read()
         xl = pd.ExcelFile(io.BytesIO(contents))
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Invalid Excel file: {str(e)}")
+        raise HTTPException(status_code=400, detail="The uploaded file could not be read. Make sure it is a valid Excel (.xlsx) file that is not open or corrupted.")
 
     if clear_existing:
         try:
@@ -1158,7 +1307,7 @@ def upload_catalog_excel(
             log_activity(db, current_user.id, "CURRICULUM_CLEAR_DATA", "Cleared curriculum catalog tables for re-upload.")
         except Exception as e:
             db.rollback()
-            raise HTTPException(status_code=500, detail=f"Failed to clear existing data: {str(e)}")
+            raise HTTPException(status_code=500, detail=humanize_error(e, "Failed to clear existing data"))
 
     stats = {
         "courses_created": 0,
@@ -1514,7 +1663,7 @@ def upload_catalog_excel(
         log_activity(db, current_user.id, "CURRICULUM_UPLOAD", f"Uploaded curriculum Excel. Imported details: {str(stats)}")
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Database commit error: {str(e)}")
+        raise HTTPException(status_code=500, detail=humanize_error(e, "Database commit error"))
 
     # ── invalidate catalog caches ─────────────────────────────────────
     cache.invalidate_catalog()
@@ -1534,7 +1683,7 @@ def upload_students_excel(
         contents = file.file.read()
         df = pd.read_excel(io.BytesIO(contents))
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Invalid Excel file: {str(e)}")
+        raise HTTPException(status_code=400, detail="The uploaded file could not be read. Make sure it is a valid Excel (.xlsx) file that is not open or corrupted.")
 
     # Clean columns
     df.columns = [str(col).strip().upper() for col in df.columns]
@@ -1555,7 +1704,7 @@ def upload_students_excel(
                 log_activity(db, current_user.id, "STUDENTS_CLEAR_DATA", "Cleared existing student accounts.")
         except Exception as e:
             db.rollback()
-            raise HTTPException(status_code=500, detail=f"Failed to clear existing students: {str(e)}")
+            raise HTTPException(status_code=500, detail=humanize_error(e, "Failed to clear existing students"))
 
     stats = {
         "created": 0,
@@ -2001,7 +2150,7 @@ def upload_students_excel(
             log_activity(db, current_user.id, "STUDENTS_IMPORT", f"Imported: {stats['created']} created, {stats['updated']} updated.")
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Database transaction error: {str(e)}")
+        raise HTTPException(status_code=500, detail=humanize_error(e, "Database transaction error"))
 
     # ── invalidate student-related caches ─────────────────────────────
     cache.delete(_KEY_STUDENT_STATS)
@@ -2185,7 +2334,7 @@ def clear_catalog_data(
         return {"message": "Curriculum data deleted successfully! Student accounts were not affected."}
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Failed to delete curriculum: {str(e)}")
+        raise HTTPException(status_code=500, detail=humanize_error(e, "Failed to delete curriculum"))
 
 @router.post("/clear-students")
 def clear_student_accounts_endpoint(
@@ -2207,7 +2356,7 @@ def clear_student_accounts_endpoint(
         return {"message": f"Successfully deleted {count} student account(s)!"}
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Failed to clear student accounts: {str(e)}")
+        raise HTTPException(status_code=500, detail=humanize_error(e, "Failed to clear student accounts"))
 
 
 # -------------------------------------------------------------
@@ -2345,7 +2494,7 @@ def upload_proctors_excel(
         contents = file.file.read()
         df = pd.read_excel(io.BytesIO(contents))
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Invalid Excel file: {str(e)}")
+        raise HTTPException(status_code=400, detail="The uploaded file could not be read. Make sure it is a valid Excel (.xlsx) file that is not open or corrupted.")
 
     df.columns = [str(col).strip().upper() for col in df.columns]
 
@@ -2366,7 +2515,7 @@ def upload_proctors_excel(
             log_activity(db, current_user.id, "PROCTORS_CLEAR_DATA", "Cleared existing proctor accounts before import.")
         except Exception as e:
             db.rollback()
-            raise HTTPException(status_code=500, detail=f"Failed to clear existing proctors: {str(e)}")
+            raise HTTPException(status_code=500, detail=humanize_error(e, "Failed to clear existing proctors"))
 
     stats = {
         "created": 0,
@@ -2459,7 +2608,7 @@ def upload_proctors_excel(
         }
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Failed to save proctors: {str(e)}")
+        raise HTTPException(status_code=500, detail=humanize_error(e, "Failed to save proctors"))
 
 @router.delete("/proctors/{user_id}")
 def delete_proctor_account_endpoint(
@@ -2503,7 +2652,7 @@ def clear_proctor_accounts_endpoint(
         return {"message": f"Successfully deleted {count} proctor account(s)!"}
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Failed to clear proctor accounts: {str(e)}")
+        raise HTTPException(status_code=500, detail=humanize_error(e, "Failed to clear proctor accounts"))
 
 @router.get("/download-proctors-dummy")
 def download_proctors_dummy(current_user: User = Depends(require_role(["admin"]))):

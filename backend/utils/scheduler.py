@@ -366,7 +366,9 @@ def generate_exam_schedule(
         ).delete(synchronize_session=False)
     for draft in drafts_to_delete:
         db.delete(draft)
-    db.commit()
+    # Flush only: old drafts are removed atomically with the final commit of the new
+    # schedule, so a failed/cancelled generation keeps the previous draft intact.
+    db.flush()
 
     # 2. Fetch Resources for the specific department and semester
     report_progress(8, "Loading resources", "Fetching subjects, rooms, and distribution rules")
