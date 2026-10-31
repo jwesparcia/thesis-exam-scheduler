@@ -163,9 +163,9 @@ export default function FirstTimePasswordChange({ user, onPasswordChanged, isDar
                   <h3 className={`text-xs font-semibold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-500"}`}>
                     Registered Email
                   </h3>
-                  <p className={`text-sm font-bold mt-0.5 truncate ${isDark ? "text-slate-200" : "text-slate-800"}`}>
+                  <div className={`text-sm font-bold mt-0.5 truncate ${isDark ? "text-slate-200" : "text-slate-800"}`}>
                     {user?.email}
-                  </p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -184,8 +184,7 @@ export default function FirstTimePasswordChange({ user, onPasswordChanged, isDar
                     ? "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed" 
                     : "bg-slate-200 text-slate-400 border border-slate-200 cursor-not-allowed"
                   : "bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white shadow-sm hover:shadow-md"
-              }`}
-            >
+              }`} aria-label="Action button">
               {sendingCode ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
@@ -241,7 +240,7 @@ export default function FirstTimePasswordChange({ user, onPasswordChanged, isDar
                 >
                   New Password
                 </label>
-                <span className={`text-[11px] font-medium transition-colors ${
+                <span className={`text-xs font-medium transition-colors ${
                   newPassword.length >= 8 && newPassword.length <= 12
                     ? "text-emerald-500 font-semibold"
                     : newPassword.length > 0
@@ -294,7 +293,7 @@ export default function FirstTimePasswordChange({ user, onPasswordChanged, isDar
                   Confirm Password
                 </label>
                 {confirmPassword && (
-                  <span className={`text-[11px] font-medium transition-colors ${
+                  <span className={`text-xs font-medium transition-colors ${
                     confirmPassword === newPassword ? "text-emerald-500 font-semibold" : "text-rose-500"
                   }`}>
                     {confirmPassword === newPassword ? "Passwords match" : "Does not match"}

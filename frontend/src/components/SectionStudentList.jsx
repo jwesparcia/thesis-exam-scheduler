@@ -455,7 +455,7 @@ export default function SectionStudentList() {
                 className={`${stat.bg} rounded-xl p-3 text-center border flex flex-col items-center gap-1`}
               >
                 <Icon className={`w-4 h-4 ${stat.color} opacity-60`} />
-                <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
+                <div className={`text-2xl font-bold ${stat.color}`}>{stat.value}</div>
                 <p className={`text-xs font-medium ${isDark ? "text-slate-400" : "text-slate-500"}`}>
                   {stat.label}
                 </p>
@@ -483,13 +483,11 @@ export default function SectionStudentList() {
               isDark
                 ? "bg-slate-800 border-slate-700 text-white placeholder:text-slate-500"
                 : "bg-white border-slate-200 text-slate-900 placeholder:text-slate-400"
-            }`}
-          />
+            }`} aria-label="Search subject, section, or room" />
           {searchExam && (
             <button
               onClick={() => setSearchExam("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2"
-            >
+              className="absolute right-3 top-1/2 -translate-y-1/2" aria-label="Clear search">
               <XMarkIcon className="w-4 h-4 text-slate-400 hover:text-slate-600" />
             </button>
           )}
@@ -511,13 +509,11 @@ export default function SectionStudentList() {
               isDark
                 ? "bg-slate-800 border-slate-700 text-white placeholder:text-slate-500"
                 : "bg-white border-slate-200 text-slate-900 placeholder:text-slate-400"
-            }`}
-          />
+            }`} aria-label="Search student name / ID / email" />
           {searchStudent && (
             <button
               onClick={() => setSearchStudent("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2"
-            >
+              className="absolute right-3 top-1/2 -translate-y-1/2" aria-label="Clear search">
               <XMarkIcon className="w-4 h-4 text-slate-400 hover:text-slate-600" />
             </button>
           )}
@@ -625,8 +621,7 @@ export default function SectionStudentList() {
               isDark
                 ? "border-slate-700 text-slate-400 hover:text-white hover:border-slate-600"
                 : "border-slate-200 text-slate-400 hover:text-slate-700 hover:border-slate-300"
-            }`}
-          >
+            }`} aria-label="Refresh">
             <ArrowPathIcon className="w-4 h-4" />
           </button>
         </div>
@@ -700,7 +695,7 @@ export default function SectionStudentList() {
                   <div className="flex items-start gap-3 min-w-0 flex-1">
                     {/* Subject icon */}
                     <div
-                      className={`mt-0.5 w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-[10px] font-black ${
+                      className={`mt-0.5 w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-xs font-black ${
                         isExpanded
                           ? isDark
                             ? "bg-violet-600/30 text-violet-300"
@@ -716,11 +711,11 @@ export default function SectionStudentList() {
                     <div className="min-w-0 flex-1">
                       {/* Subject name + status */}
                       <div className="flex flex-wrap items-center gap-2">
-                        <p className={`font-bold text-sm ${isDark ? "text-white" : "text-slate-900"}`}>
+                        <div className={`font-bold text-sm ${isDark ? "text-white" : "text-slate-900"}`}>
                           {exam.subject_name}
-                        </p>
+                        </div>
                         <span
-                          className={`text-[11px] font-bold px-2 py-0.5 rounded-full border ${
+                          className={`text-xs font-bold px-2 py-0.5 rounded-full border ${
                             isDark ? statusStyle.dark : statusStyle.light
                           }`}
                         >
@@ -728,7 +723,7 @@ export default function SectionStudentList() {
                         </span>
                         {exam.is_rescheduled && (
                           <span
-                            className={`text-[11px] font-bold px-2 py-0.5 rounded-full border ${
+                            className={`text-xs font-bold px-2 py-0.5 rounded-full border ${
                               isDark
                                 ? "bg-purple-900/30 text-purple-300 border-purple-800/50"
                                 : "bg-purple-50 text-purple-700 border-purple-200"
@@ -767,7 +762,7 @@ export default function SectionStudentList() {
                       <div className="flex items-center gap-2 mt-2 flex-wrap">
                         {regCount > 0 && (
                           <span
-                            className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+                            className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
                               isDark ? "bg-blue-900/40 text-blue-300" : "bg-blue-50 text-blue-600"
                             }`}
                           >
@@ -776,7 +771,7 @@ export default function SectionStudentList() {
                         )}
                         {irrCount > 0 && (
                           <span
-                            className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+                            className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
                               isDark ? "bg-amber-900/40 text-amber-300" : "bg-amber-50 text-amber-600"
                             }`}
                           >
@@ -784,7 +779,7 @@ export default function SectionStudentList() {
                           </span>
                         )}
                         {students.length === 0 && (
-                          <span className={`text-[11px] ${isDark ? "text-slate-600" : "text-slate-400"}`}>
+                          <span className={`text-xs ${isDark ? "text-slate-600" : "text-slate-400"}`}>
                             No students
                           </span>
                         )}
@@ -811,8 +806,7 @@ export default function SectionStudentList() {
                         isDark
                           ? "text-slate-500 hover:text-violet-300 hover:bg-violet-900/30"
                           : "text-slate-400 hover:text-violet-600 hover:bg-violet-50"
-                      }`}
-                    >
+                      }`} aria-label="Print attendance sheet">
                       <PrinterIcon className="w-4 h-4" />
                     </button>
                     <button
@@ -821,8 +815,7 @@ export default function SectionStudentList() {
                         isDark
                           ? "text-slate-500 hover:text-white hover:bg-slate-700"
                           : "text-slate-400 hover:text-slate-700 hover:bg-slate-100"
-                      }`}
-                    >
+                      }`} aria-label={isExpanded ? "Collapse student list" : "Expand student list"}>
                       {isExpanded ? (
                         <ChevronUpIcon className={`w-4 h-4 ${isDark ? "text-violet-400" : "text-violet-600"}`} />
                       ) : (
@@ -922,7 +915,7 @@ export default function SectionStudentList() {
                                 <td className="px-5 py-3">
                                   <div className="flex items-center gap-2.5">
                                     <div
-                                      className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
+                                      className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
                                         student.student_type === "irregular"
                                           ? isDark
                                             ? "bg-amber-900/40 text-amber-300 border border-amber-800/40"
@@ -954,7 +947,7 @@ export default function SectionStudentList() {
                                 </td>
                                 <td className="px-4 py-3">
                                   <span
-                                    className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full border ${
+                                    className={`inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full border ${
                                       student.student_type === "irregular"
                                         ? isDark
                                           ? "bg-amber-900/30 text-amber-300 border-amber-800/50"
@@ -1018,8 +1011,7 @@ export default function SectionStudentList() {
                 isDark
                   ? "border-slate-700 text-slate-300 hover:bg-slate-700"
                   : "border-slate-200 text-slate-600 hover:bg-slate-50"
-              }`}
-            >
+              }`} aria-label="Previous page">
               <ChevronLeftIcon className="w-4 h-4" />
             </button>
             <span
@@ -1036,8 +1028,7 @@ export default function SectionStudentList() {
                 isDark
                   ? "border-slate-700 text-slate-300 hover:bg-slate-700"
                   : "border-slate-200 text-slate-600 hover:bg-slate-50"
-              }`}
-            >
+              }`} aria-label="Next page">
               <ChevronRightIcon className="w-4 h-4" />
             </button>
             <button

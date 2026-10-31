@@ -175,7 +175,7 @@ function SubjectModal({ open, onClose, onSave, courses, yearLevels, departments 
               {isEdit ? "Edit Subject" : "Add New Subject"}
             </h2>
           </div>
-          <button onClick={onClose} className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white">
+          <button onClick={onClose} className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white" aria-label="Close modal">
             <XMarkIcon className="w-5 h-5" />
           </button>
         </div>
@@ -183,18 +183,18 @@ function SubjectModal({ open, onClose, onSave, courses, yearLevels, departments 
         <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4 max-h-[75vh] overflow-y-auto">
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2">
-              <label className={lbl}>Subject Name <span className="text-red-500">*</span></label>
+              <label className={lbl} htmlFor="subjectdurationsmanager-field-1">Subject Name <span className="text-red-500">*</span></label>
               <input ref={nameRef} type="text" value={form.name} onChange={(e) => set("name", e.target.value)}
-                placeholder="e.g. Fundamentals of Accounting" className={inp} required />
+                placeholder="e.g. Fundamentals of Accounting" className={inp} required id="subjectdurationsmanager-field-1" aria-label="Subject Name" />
             </div>
             <div>
-              <label className={lbl}>Subject Code</label>
+              <label className={lbl} htmlFor="subjectdurationsmanager-field-2">Subject Code</label>
               <input type="text" value={form.code} onChange={(e) => set("code", e.target.value)}
-                placeholder="Auto-generated if blank" className={inp} />
+                placeholder="Auto-generated if blank" className={inp} id="subjectdurationsmanager-field-2" aria-label="Subject Code" />
             </div>
             <div>
-              <label className={lbl}>Exam Type</label>
-              <select value={form.exam_type} onChange={(e) => set("exam_type", e.target.value)} className={inp}>
+              <label className={lbl} htmlFor="subjectdurationsmanager-field-3">Exam Type</label>
+              <select value={form.exam_type} onChange={(e) => set("exam_type", e.target.value)} className={inp} id="subjectdurationsmanager-field-3" aria-label="Exam Type">
                 <option value="written">Written</option>
                 <option value="practical">Practical (No Exam)</option>
               </select>
@@ -203,13 +203,12 @@ function SubjectModal({ open, onClose, onSave, courses, yearLevels, departments 
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={lbl}>Department / Program Group <span className="text-red-500">*</span></label>
+              <label className={lbl} htmlFor="subjectdurationsmanager-field-4">Department / Program Group <span className="text-red-500">*</span></label>
               <select
                 value={form.department_code}
                 onChange={(e) => set("department_code", e.target.value)}
                 className={inp}
-                required
-              >
+                required id="subjectdurationsmanager-field-4" aria-label="Department / Program Group">
                 <option value="">Select Department...</option>
                 {departments.map((dept) => (
                   <option key={dept.code} value={dept.code}>
@@ -219,7 +218,7 @@ function SubjectModal({ open, onClose, onSave, courses, yearLevels, departments 
               </select>
             </div>
             <div>
-              <label className={lbl}>Primary Course / Strand <span className="text-red-500">*</span></label>
+              <label className={lbl} htmlFor="subjectdurationsmanager-field-5">Primary Course / Strand <span className="text-red-500">*</span></label>
               <select
                 value={form.course_id}
                 onChange={(e) => {
@@ -230,8 +229,7 @@ function SubjectModal({ open, onClose, onSave, courses, yearLevels, departments 
                   }
                 }}
                 className={inp}
-                required
-              >
+                required id="subjectdurationsmanager-field-5" aria-label="Primary Course / Strand">
                 <option value="">Select course...</option>
                 {courses.map((c) => (
                   <option key={c.id} value={c.id}>{c.name} ({c.category})</option>
@@ -243,14 +241,14 @@ function SubjectModal({ open, onClose, onSave, courses, yearLevels, departments 
           {/* Multiple Program Assignment (Shared / GE Subjects) */}
           <div className={`p-3.5 rounded-xl border text-xs space-y-2 ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-slate-50 border-slate-200"}`}>
             <div className="flex items-center justify-between">
-              <label className={`font-bold uppercase tracking-wider text-[11px] ${isDark ? "text-slate-300" : "text-slate-700"}`}>
+              <div className={`font-bold uppercase tracking-wider text-xs ${isDark ? "text-slate-300" : "text-slate-700"}`}>
                 Multi-Program Assignment (Shared / GE Subjects)
-              </label>
-              <span className="text-[10px] text-slate-400">
+              </div>
+              <span className="text-xs text-slate-400">
                 {form.program_ids.length} program{form.program_ids.length !== 1 ? "s" : ""} assigned
               </span>
             </div>
-            <p className={`text-[11px] ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+            <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
               Assign this subject to multiple programs/courses when shared across curricula (e.g., General Education subjects).
             </p>
             {/* Quick bulk selection buttons */}
@@ -263,7 +261,7 @@ function SubjectModal({ open, onClose, onSave, courses, yearLevels, departments 
                   const combined = Array.from(new Set([...form.program_ids, ...collegeIds, ...(primaryId ? [primaryId] : [])]));
                   set("program_ids", combined);
                 }}
-                className={`px-2 py-0.5 rounded text-[10px] font-semibold border transition ${
+                className={`px-2 py-0.5 rounded text-xs font-semibold border transition ${
                   isDark ? "bg-slate-700 hover:bg-slate-600 text-slate-200 border-slate-600" : "bg-white hover:bg-slate-100 text-slate-700 border-slate-300 shadow-sm"
                 }`}
               >
@@ -277,7 +275,7 @@ function SubjectModal({ open, onClose, onSave, courses, yearLevels, departments 
                   const combined = Array.from(new Set([...form.program_ids, ...shsIds, ...(primaryId ? [primaryId] : [])]));
                   set("program_ids", combined);
                 }}
-                className={`px-2 py-0.5 rounded text-[10px] font-semibold border transition ${
+                className={`px-2 py-0.5 rounded text-xs font-semibold border transition ${
                   isDark ? "bg-slate-700 hover:bg-slate-600 text-slate-200 border-slate-600" : "bg-white hover:bg-slate-100 text-slate-700 border-slate-300 shadow-sm"
                 }`}
               >
@@ -289,7 +287,7 @@ function SubjectModal({ open, onClose, onSave, courses, yearLevels, departments 
                   const primaryId = form.course_id ? Number(form.course_id) : null;
                   set("program_ids", primaryId ? [primaryId] : []);
                 }}
-                className={`px-2 py-0.5 rounded text-[10px] font-semibold border transition ${
+                className={`px-2 py-0.5 rounded text-xs font-semibold border transition ${
                   isDark ? "hover:bg-slate-700 text-slate-400 border-slate-700" : "hover:bg-slate-100 text-slate-500 border-slate-300"
                 }`}
               >
@@ -330,15 +328,15 @@ function SubjectModal({ open, onClose, onSave, courses, yearLevels, departments 
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={lbl}>Year Level</label>
-              <select value={form.year_level_id} onChange={(e) => set("year_level_id", e.target.value)} className={inp}>
+              <label className={lbl} htmlFor="subjectdurationsmanager-field-6">Year Level</label>
+              <select value={form.year_level_id} onChange={(e) => set("year_level_id", e.target.value)} className={inp} id="subjectdurationsmanager-field-6" aria-label="Year Level">
                 <option value="">Select year...</option>
                 {filteredYears.map((y) => (<option key={y.id} value={y.id}>{y.name}</option>))}
               </select>
             </div>
             <div>
-              <label className={lbl}>Semester</label>
-              <select value={form.semester} onChange={(e) => set("semester", e.target.value)} className={inp}>
+              <label className={lbl} htmlFor="subjectdurationsmanager-field-7">Semester</label>
+              <select value={form.semester} onChange={(e) => set("semester", e.target.value)} className={inp} id="subjectdurationsmanager-field-7" aria-label="Semester">
                 <option value={1}>1st Semester</option>
                 <option value={2}>2nd Semester</option>
                 {isSHS && <option value={3}>3rd Semester</option>}
@@ -348,21 +346,21 @@ function SubjectModal({ open, onClose, onSave, courses, yearLevels, departments 
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={lbl}>Category</label>
+              <label className={lbl} htmlFor="subjectdurationsmanager-field-8">Category</label>
               <select value={form.category} onChange={(e) => {
                 const cat = e.target.value;
                 set("category", cat);
                 if (cat === "general" && !form.department_code) {
                   set("department_code", "GE");
                 }
-              }} className={inp}>
+              }} className={inp} id="subjectdurationsmanager-field-8" aria-label="Category">
                 <option value="major">Major Subject</option>
                 <option value="general">General Education / Minor</option>
               </select>
             </div>
             <div>
-              <label className={lbl}>Exam Term</label>
-              <select value={form.term} onChange={(e) => set("term", e.target.value)} className={inp}>
+              <label className={lbl} htmlFor="subjectdurationsmanager-field-9">Exam Term</label>
+              <select value={form.term} onChange={(e) => set("term", e.target.value)} className={inp} id="subjectdurationsmanager-field-9" aria-label="Exam Term">
                 {termOptions.map((t) => (
                   <option key={t} value={t}>{t === "All" ? "All Terms" : t}</option>
                 ))}
@@ -372,7 +370,7 @@ function SubjectModal({ open, onClose, onSave, courses, yearLevels, departments 
 
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2">
-              <label className={lbl}>Exam Duration</label>
+              <label className={lbl} htmlFor="subjectdurationsmanager-field-10">Exam Duration</label>
               <select
                 value={form.duration_minutes}
                 onChange={(e) => {
@@ -383,8 +381,7 @@ function SubjectModal({ open, onClose, onSave, courses, yearLevels, departments 
                     fixed_end_time: addMinutesToTime(f.fixed_start_time, newDur),
                   }));
                 }}
-                className={inp}
-              >
+                className={inp} id="subjectdurationsmanager-field-10" aria-label="Exam Duration">
                 <option value={60}>1h 00m (60 mins)</option>
                 <option value={75}>1h 15m (75 mins - Standard)</option>
                 <option value={90}>1h 30m (90 mins)</option>
@@ -407,7 +404,7 @@ function SubjectModal({ open, onClose, onSave, courses, yearLevels, departments 
                 </span>
               </div>
               {form.is_fixed_timeslot && (
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                <span className="px-2 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-amber-500/10 text-amber-500 border border-amber-500/20">
                   Fixed Slot Active
                 </span>
               )}
@@ -435,7 +432,7 @@ function SubjectModal({ open, onClose, onSave, courses, yearLevels, departments 
                   </span>
                   <span className="text-xs font-bold">Follow Distribution Rules</span>
                 </div>
-                <p className="text-[11px] mt-1.5 opacity-80 leading-snug">
+                <p className="text-xs mt-1.5 opacity-80 leading-snug">
                   Automatic scheduling adhering to GE/Major rules across Days 1–4.
                 </p>
               </button>
@@ -461,7 +458,7 @@ function SubjectModal({ open, onClose, onSave, courses, yearLevels, departments 
                   </span>
                   <span className="text-xs font-bold">Fixed Time Slot</span>
                 </div>
-                <p className="text-[11px] mt-1.5 opacity-80 leading-snug">
+                <p className="text-xs mt-1.5 opacity-80 leading-snug">
                   Strictly schedule on a specific day & time slot. Excess sections spill over to next slot.
                 </p>
               </button>
@@ -473,12 +470,11 @@ function SubjectModal({ open, onClose, onSave, courses, yearLevels, departments 
               }`}>
                 <div className="grid grid-cols-3 gap-3">
                   <div>
-                    <label className={lbl}>Exam Day <span className="text-red-500">*</span></label>
+                    <label className={lbl} htmlFor="subjectdurationsmanager-field-11">Exam Day <span className="text-red-500">*</span></label>
                     <select
                       value={form.fixed_day}
                       onChange={(e) => set("fixed_day", Number(e.target.value))}
-                      className={inp}
-                    >
+                      className={inp} id="subjectdurationsmanager-field-11" aria-label="Exam Day">
                       <option value={1}>Exam Day 1</option>
                       <option value={2}>Exam Day 2</option>
                       <option value={3}>Exam Day 3</option>
@@ -486,7 +482,7 @@ function SubjectModal({ open, onClose, onSave, courses, yearLevels, departments 
                     </select>
                   </div>
                   <div>
-                    <label className={lbl}>Start Time <span className="text-red-500">*</span></label>
+                    <label className={lbl} htmlFor="subjectdurationsmanager-field-12">Start Time <span className="text-red-500">*</span></label>
                     <input
                       type="time"
                       value={form.fixed_start_time}
@@ -496,26 +492,24 @@ function SubjectModal({ open, onClose, onSave, courses, yearLevels, departments 
                         set("fixed_end_time", addMinutesToTime(newStart, form.duration_minutes));
                       }}
                       className={inp}
-                      required
-                    />
+                      required id="subjectdurationsmanager-field-12" aria-label="Start Time" />
                   </div>
                   <div>
-                    <label className={lbl}>End Time <span className="text-red-500">*</span></label>
+                    <label className={lbl} htmlFor="subjectdurationsmanager-field-13">End Time <span className="text-red-500">*</span></label>
                     <input
                       type="time"
                       value={form.fixed_end_time}
                       onChange={(e) => set("fixed_end_time", e.target.value)}
                       className={inp}
-                      required
-                    />
+                      required id="subjectdurationsmanager-field-13" aria-label="End Time" />
                   </div>
                 </div>
 
                 {/* Quick preset chips */}
                 <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+                  <div className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">
                     Standard Presets ({form.duration_minutes}m duration)
-                  </label>
+                  </div>
                   <div className="flex flex-wrap gap-1.5">
                     {getStandardSlotsForDuration(form.duration_minutes).map((slot, sIdx) => {
                       const isSelected = form.fixed_start_time === slot.start && form.fixed_end_time === slot.end;
@@ -527,7 +521,7 @@ function SubjectModal({ open, onClose, onSave, courses, yearLevels, departments 
                             set("fixed_start_time", slot.start);
                             set("fixed_end_time", slot.end);
                           }}
-                          className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition ${
+                          className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition ${
                             isSelected
                               ? "bg-amber-500 text-white border-amber-600 shadow-sm"
                               : isDark
@@ -543,7 +537,7 @@ function SubjectModal({ open, onClose, onSave, courses, yearLevels, departments 
                 </div>
 
                 {/* Room Overflow Policy Note */}
-                <div className={`p-2.5 rounded-lg text-[11px] leading-relaxed flex items-start gap-2 ${
+                <div className={`p-2.5 rounded-lg text-xs leading-relaxed flex items-start gap-2 ${
                   isDark ? "bg-amber-950/20 text-amber-300/90 border border-amber-800/40" : "bg-amber-50/80 text-amber-900 border border-amber-200"
                 }`}>
                   <span className="font-bold text-amber-500 mt-0.5">Room Policy:</span>
@@ -805,7 +799,7 @@ export default function SubjectDurationsManager() {
       "Pre-Final": "bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-300 border border-amber-300 dark:border-amber-800/60",
       Final: "bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300 border border-rose-300 dark:border-rose-800/60",
     };
-    return `px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider inline-flex items-center justify-center ${
+    return `px-2 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider inline-flex items-center justify-center ${
       map[t] || (isDark ? "bg-slate-800 text-slate-300 border border-slate-700" : "bg-slate-100 text-slate-700 border border-slate-300")
     }`;
   };
@@ -911,7 +905,7 @@ export default function SubjectDurationsManager() {
             </div>
             <p className={`text-xs leading-relaxed mb-3 ${isDark ? "text-slate-400" : "text-slate-500"}`}>Apply custom duration to all <strong>filtered</strong> subjects.</p>
             <select value={bulkDuration} onChange={(e) => setBulkDuration(Number(e.target.value))}
-              className={`w-full px-3 py-1.5 rounded-xl text-xs font-semibold border outline-none transition ${isDark ? "bg-slate-800 border-slate-700 text-white" : "bg-slate-50 border-slate-200 text-slate-800"}`}>
+              className={`w-full px-3 py-1.5 rounded-xl text-xs font-semibold border outline-none transition ${isDark ? "bg-slate-800 border-slate-700 text-white" : "bg-slate-50 border-slate-200 text-slate-800"}`} aria-label="Bulk Exam Duration">
               <option value={60}>1h 00m (60 mins)</option>
               <option value={75}>1h 15m (75 mins — Standard)</option>
               <option value={90}>1h 30m (90 mins)</option>
@@ -934,17 +928,17 @@ export default function SubjectDurationsManager() {
             <MagnifyingGlassIcon className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
             <input type="text" placeholder="Search subject by name or code..."
               value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-              className={`w-full pl-10 pr-4 py-2 rounded-xl text-sm border outline-none transition ${isDark ? "bg-slate-800 border-slate-700 text-white focus:border-blue-500" : "bg-slate-50 border-slate-200 text-slate-900 focus:border-blue-500"}`} />
+              className={`w-full pl-10 pr-4 py-2 rounded-xl text-sm border outline-none transition ${isDark ? "bg-slate-800 border-slate-700 text-white focus:border-blue-500" : "bg-slate-50 border-slate-200 text-slate-900 focus:border-blue-500"}`} aria-label="Search subject by name or code" />
           </div>
           <button onClick={fetchSubjects} disabled={loading}
             className={`p-2 rounded-xl border transition ${isDark ? "text-slate-400 hover:text-white border-slate-700 hover:bg-slate-700" : "text-slate-400 hover:text-slate-700 border-slate-200 hover:bg-slate-50"}`}
-            title="Refresh">
+            title="Refresh" aria-label="Refresh">
             <ArrowPathIcon className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
           </button>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 pt-4">
-          <div><label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Department</label>
-            <select value={departmentFilter} onChange={(e) => setDepartmentFilter(e.target.value)} className={selectCls}>
+          <div><label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1" htmlFor="subjectdurationsmanager-field-14">Department</label>
+            <select value={departmentFilter} onChange={(e) => setDepartmentFilter(e.target.value)} className={selectCls} id="subjectdurationsmanager-field-14" aria-label="Department">
               <option value="All">All Departments</option>
               {departments.map((d) => (
                 <option key={d.code} value={d.code}>{d.name} ({d.code})</option>
@@ -953,30 +947,30 @@ export default function SubjectDurationsManager() {
               <option value="SHS">All Senior High</option>
             </select>
           </div>
-          <div><label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Course</label>
-            <select value={courseFilter} onChange={(e) => setCourseFilter(e.target.value)} className={selectCls}>
+          <div><label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1" htmlFor="subjectdurationsmanager-field-15">Course</label>
+            <select value={courseFilter} onChange={(e) => setCourseFilter(e.target.value)} className={selectCls} id="subjectdurationsmanager-field-15" aria-label="Course">
               <option value="All">All Courses</option>
               {courseNames.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
             </select>
           </div>
-          <div><label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Year Level</label>
-            <select value={yearFilter} onChange={(e) => setYearFilter(e.target.value)} className={selectCls}>
+          <div><label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1" htmlFor="subjectdurationsmanager-field-16">Year Level</label>
+            <select value={yearFilter} onChange={(e) => setYearFilter(e.target.value)} className={selectCls} id="subjectdurationsmanager-field-16" aria-label="Year Level">
               <option value="All">All Years</option>
               {yearLevels.map((y) => <option key={y.id} value={y.name}>{y.name}</option>)}
             </select>
           </div>
-          <div><label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Category</label>
-            <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className={selectCls}>
+          <div><label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1" htmlFor="subjectdurationsmanager-field-17">Category</label>
+            <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className={selectCls} id="subjectdurationsmanager-field-17" aria-label="Category">
               <option value="All">All</option><option value="major">Major</option><option value="general">GE / Minor</option>
             </select>
           </div>
-          <div><label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Term</label>
-            <select value={termFilter} onChange={(e) => setTermFilter(e.target.value)} className={selectCls}>
+          <div><label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1" htmlFor="subjectdurationsmanager-field-18">Term</label>
+            <select value={termFilter} onChange={(e) => setTermFilter(e.target.value)} className={selectCls} id="subjectdurationsmanager-field-18" aria-label="Term">
               {allTermsInData.map((t) => <option key={t} value={t}>{t === "All" ? "All Terms" : t}</option>)}
             </select>
           </div>
-          <div><label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Time Slot Policy</label>
-            <select value={slotPolicyFilter} onChange={(e) => setSlotPolicyFilter(e.target.value)} className={selectCls}>
+          <div><label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1" htmlFor="subjectdurationsmanager-field-19">Time Slot Policy</label>
+            <select value={slotPolicyFilter} onChange={(e) => setSlotPolicyFilter(e.target.value)} className={selectCls} id="subjectdurationsmanager-field-19" aria-label="Time Slot Policy">
               <option value="All">All Policies</option>
               <option value="fixed">Fixed Slot Only</option>
               <option value="auto">Auto (Rules) Only</option>
@@ -1075,7 +1069,7 @@ export default function SubjectDurationsManager() {
                       <button
                         type="button"
                         onClick={() => setModal({ open: true, subject: sub })}
-                        className="text-[11px] font-bold text-blue-500 hover:underline shrink-0"
+                        className="text-xs font-bold text-blue-500 hover:underline shrink-0"
                       >
                         Change
                       </button>
@@ -1095,7 +1089,7 @@ export default function SubjectDurationsManager() {
             </div>
             <div className="hidden overflow-x-auto md:block">
             <table className="w-full min-w-[1040px] text-left text-xs border-collapse">
-              <thead className={`sticky top-0 z-10 text-[11px] font-bold uppercase tracking-wider border-b ${
+              <thead className={`sticky top-0 z-10 text-xs font-bold uppercase tracking-wider border-b ${
                 isDark ? "bg-slate-800/90 text-slate-400 border-slate-700 backdrop-blur-md" : "bg-slate-50 text-slate-500 border-slate-200"
               }`}>
                 <tr>
@@ -1124,10 +1118,10 @@ export default function SubjectDurationsManager() {
                     <tr key={sub.id} className={`transition-colors ${isDark ? "hover:bg-slate-700/20" : "hover:bg-slate-50/70"} ${hasChanges ? (isDark ? "bg-amber-900/10" : "bg-amber-50/60") : ""}`}>
                       <td className="py-3 px-4 max-w-[240px] whitespace-normal">
                         <div className={`font-semibold break-words ${isDark ? "text-slate-100" : "text-slate-800"}`}>{sub.name}</div>
-                        <div className="text-[10px] text-slate-400">{sub.code}</div>
+                        <div className="text-xs text-slate-400">{sub.code}</div>
                       </td>
                       <td className="py-3 px-4 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border ${
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wide border ${
                           sub.department_code === "GE"
                             ? "bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800"
                             : sub.department_code === "ICT"
@@ -1137,41 +1131,41 @@ export default function SubjectDurationsManager() {
                           {sub.department_code || sub.course_category || "—"}
                         </span>
                         {sub.program_names && sub.program_names.length > 1 && (
-                          <div className="text-[10px] text-purple-600 dark:text-purple-400 font-semibold mt-0.5" title={sub.program_names.join(", ")}>
+                          <div className="text-xs text-purple-600 dark:text-purple-400 font-semibold mt-0.5" title={sub.program_names.join(", ")}>
                             Shared ({sub.program_names.length} programs)
                           </div>
                         )}
                       </td>
                       <td className="py-3 px-4 whitespace-nowrap">
                         <span className={`font-semibold ${isDark ? "text-slate-300" : "text-slate-700"}`}>{sub.course_name}</span>
-                        <div className="text-[10px] text-slate-400">{sub.course_category}</div>
+                        <div className="text-xs text-slate-400">{sub.course_category}</div>
                       </td>
                       <td className="py-3 px-4 text-slate-500 dark:text-slate-400 whitespace-nowrap">{sub.year_level_name || "—"}</td>
                       <td className="py-3 px-4 text-slate-500 dark:text-slate-400 whitespace-nowrap">{sub.semester}</td>
                       <td className="py-3 px-4 whitespace-nowrap">
                         <select value={dCat} onChange={(e) => setLocalCategories((p) => ({ ...p, [sub.id]: e.target.value }))}
-                          className={`px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider border outline-none transition cursor-pointer ${
+                          className={`px-2 py-1 rounded-lg text-xs font-bold uppercase tracking-wider border outline-none transition cursor-pointer ${
                             dCat === "major"
                               ? "bg-indigo-50 dark:bg-indigo-900/20 border-indigo-300 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300"
                               : isDark ? "bg-slate-800 border-slate-700 text-slate-400" : "bg-slate-100 border-slate-200 text-slate-600"
-                          }`}>
+                          }`} aria-label="Subject Category">
                           <option value="major">Major</option>
                           <option value="general">GE/Minor</option>
                         </select>
                       </td>
                       <td className="py-3 px-4 whitespace-nowrap">
                         <select value={dTerm} onChange={(e) => setLocalTerms((p) => ({ ...p, [sub.id]: e.target.value }))}
-                          className={`px-2 py-1 rounded-lg text-[10px] font-bold border outline-none transition cursor-pointer ${isDark ? "bg-slate-800 border-slate-700 text-slate-200" : "bg-white border-slate-200 text-slate-700"}`}>
+                          className={`px-2 py-1 rounded-lg text-xs font-bold border outline-none transition cursor-pointer ${isDark ? "bg-slate-800 border-slate-700 text-slate-200" : "bg-white border-slate-200 text-slate-700"}`} aria-label="Subject Exam Term">
                           {termOpts.map((t) => <option key={t} value={t}>{t === "All" ? "All Terms" : t}</option>)}
                         </select>
                       </td>
                       <td className="py-3 px-4 whitespace-nowrap">
                         <select value={dDur} onChange={(e) => setLocalDurations((p) => ({ ...p, [sub.id]: Number(e.target.value) }))}
-                          className={`px-2 py-1 rounded-lg text-[10px] font-semibold border outline-none transition cursor-pointer ${
+                          className={`px-2 py-1 rounded-lg text-xs font-semibold border outline-none transition cursor-pointer ${
                             dDur === 120 ? "border-purple-400 bg-purple-50/50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300"
                               : dDur === 75 ? "border-blue-400 bg-blue-50/50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300"
                               : isDark ? "bg-slate-800 border-slate-700 text-white" : "bg-white border-slate-200 text-slate-800"
-                          }`}>
+                          }`} aria-label="Subject Exam Duration">
                           <option value={60}>1:00h</option>
                           <option value={75}>1:15h</option>
                           <option value={90}>1:30h</option>
@@ -1192,11 +1186,11 @@ export default function SubjectDurationsManager() {
                             }`}
                             title="Click to edit fixed slot"
                           >
-                            <div className="flex items-center gap-1 font-bold text-[10px] uppercase tracking-wider">
+                            <div className="flex items-center gap-1 font-bold text-xs uppercase tracking-wider">
                               <ClockIcon className="w-3 h-3 text-amber-500" />
                               <span>Day {sub.fixed_day || 1}</span>
                             </div>
-                            <div className="text-[11px] font-semibold mt-0.5">
+                            <div className="text-xs font-semibold mt-0.5">
                               {formatTime12(sub.fixed_start_time)} – {formatTime12(sub.fixed_end_time)}
                             </div>
                           </button>
@@ -1204,7 +1198,7 @@ export default function SubjectDurationsManager() {
                           <button
                             type="button"
                             onClick={() => setModal({ open: true, subject: sub })}
-                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[10px] font-semibold border transition ${
+                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-semibold border transition ${
                               isDark
                                 ? "bg-slate-800/60 hover:bg-slate-700/60 text-slate-400 border-slate-700"
                                 : "bg-slate-100 hover:bg-slate-200 text-slate-600 border-slate-200"
@@ -1225,12 +1219,12 @@ export default function SubjectDurationsManager() {
                           )}
                           <button onClick={() => setModal({ open: true, subject: sub })}
                             className={`p-1.5 rounded-lg transition ${isDark ? "text-slate-400 hover:text-white hover:bg-slate-700" : "text-slate-400 hover:text-slate-700 hover:bg-slate-100"}`}
-                            title="Edit">
+                            title="Edit" aria-label="Edit">
                             <PencilIcon className="w-3.5 h-3.5" />
                           </button>
                           <button onClick={() => handleDelete(sub)} disabled={deletingId === sub.id}
                             className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition disabled:opacity-40"
-                            title="Delete">
+                            title="Delete" aria-label="Delete">
                             {deletingId === sub.id ? <ArrowPathIcon className="w-3.5 h-3.5 animate-spin" /> : <TrashIcon className="w-3.5 h-3.5" />}
                           </button>
                         </div>
@@ -1247,9 +1241,9 @@ export default function SubjectDurationsManager() {
 
       {/* Term legend */}
       <div className={`p-4 rounded-2xl border ${isDark ? "bg-slate-800/30 border-slate-700/60" : "bg-slate-50 border-slate-200"}`}>
-        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+        <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
           <TagIcon className="w-3.5 h-3.5" /> Term Guide — Schedule Generation Filters Subjects By This
-        </p>
+        </div>
         <div className="flex flex-wrap gap-2">
           {["All", "Prelim", "Midterm", "Pre-Final", "Final", "ST1", "ST2", "T1"].map((t) => (
             <span key={t} className={termBadgeCls(t)}>

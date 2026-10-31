@@ -209,8 +209,7 @@ export default function Login() {
                     ? "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed"
                     : "bg-slate-200 text-slate-400 border border-slate-200 cursor-not-allowed"
                   : "bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white shadow-blue-600/20 hover:shadow-md active:scale-[0.99]"
-              }`}
-            >
+              }`} aria-label="Action button">
               {loading ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>

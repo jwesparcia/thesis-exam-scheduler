@@ -472,9 +472,9 @@ export default function GeneratedExamSchedules({ isGenerating }) {
 
                 {/* Step 1: Select Department */}
                 <div className={`rounded-2xl p-4 sm:p-6 border mb-6 sm:mb-8 transition-all ${isDark ? "bg-slate-850 border-slate-750 shadow-xs" : "bg-white border-slate-200 shadow-xs"}`}>
-                    <label className={`block text-xs sm:text-sm font-semibold mb-4 sm:mb-6 ${isDark ? "text-blue-300" : "text-blue-800"}`}>
+                    <div className={`block text-xs sm:text-sm font-semibold mb-4 sm:mb-6 ${isDark ? "text-blue-300" : "text-blue-800"}`}>
                         1. Choose Academic Level to View Schedules
-                    </label>
+                    </div>
                     <div className="flex gap-3 sm:gap-4">
                         <button
                             type="button"
@@ -524,8 +524,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                 {/* Select Course / Strand */}
                                 <div className="space-y-2">
                                     <label
-                                        className={`block text-xs font-semibold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-600"}`}
-                                    >
+                                        className={`block text-xs font-semibold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-600"}`} htmlFor="generatedexamschedules-field-1">
                                         {selectedDept === "SHS" ? "Strand" : "Course"}
                                     </label>
                                     <select
@@ -534,8 +533,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                         className={`border rounded-xl cursor-pointer p-3 w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all ${isDark
                                             ? "bg-slate-800 text-slate-100 border-slate-700"
                                             : "bg-slate-50 text-slate-800 border-slate-200"
-                                            }`}
-                                    >
+                                            }`} id="generatedexamschedules-field-1" aria-label="Course or Strand">
                                         <option value="">{selectedDept === "SHS" ? "Choose a strand" : "Choose a course"}</option>
                                         {filteredCourses.map((c) => (
                                             <option key={c.id} value={c.id}>
@@ -548,8 +546,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                 {/* Select Year / Grade */}
                                 <div className="space-y-2">
                                     <label
-                                        className={`block text-xs font-semibold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-600"}`}
-                                    >
+                                        className={`block text-xs font-semibold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-600"}`} htmlFor="generatedexamschedules-field-2">
                                         {selectedDept === "SHS" ? "Grade" : "Year Level"}
                                     </label>
                                     <select
@@ -558,8 +555,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                         className={`border rounded-xl p-3 w-full cursor-pointer focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all ${isDark
                                             ? "bg-slate-800 text-slate-100 border-slate-700"
                                             : "bg-slate-50 text-slate-800 border-slate-200"
-                                            }`}
-                                    >
+                                            }`} id="generatedexamschedules-field-2" aria-label="Year Level or Grade">
                                         <option value="">{selectedDept === "SHS" ? "Choose a grade" : "Choose a year"}</option>
                                         {filteredYears.map((y) => (
                                             <option key={y.id} value={y.id}>
@@ -572,8 +568,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                 {/* Select Semester */}
                                 <div className="space-y-2">
                                     <label
-                                        className={`block text-xs font-semibold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-600"}`}
-                                    >
+                                        className={`block text-xs font-semibold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-600"}`} htmlFor="generatedexamschedules-field-3">
                                         Semester
                                     </label>
                                     <select
@@ -582,8 +577,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                         className={`border rounded-xl p-3 w-full cursor-pointer focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all ${isDark
                                             ? "bg-slate-800 text-slate-100 border-slate-700"
                                             : "bg-slate-50 text-slate-800 border-slate-200"
-                                            }`}
-                                    >
+                                            }`} id="generatedexamschedules-field-3" aria-label="Semester">
                                         <option value={1}>1st Semester</option>
                                         <option value={2}>2nd Semester</option>
                                         {selectedDept === "SHS" && (
@@ -595,8 +589,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                 {/* Select Term */}
                                 <div className="space-y-2">
                                     <label
-                                        className={`block text-xs font-semibold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-600"}`}
-                                    >
+                                        className={`block text-xs font-semibold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-600"}`} htmlFor="generatedexamschedules-field-4">
                                         Exam Term
                                     </label>
                                     <select
@@ -605,8 +598,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                         className={`border rounded-xl p-3 w-full cursor-pointer focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all ${isDark
                                             ? "bg-slate-800 text-slate-100 border-slate-700"
                                             : "bg-slate-50 text-slate-800 border-slate-200"
-                                            }`}
-                                    >
+                                            }`} id="generatedexamschedules-field-4" aria-label="Exam Term">
                                         {selectedDept === "SHS" ? (
                                             <>
                                                 <option value="ST1">Summative Test 1 (ST1)</option>
@@ -645,13 +637,13 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                             ) : (!courseId || !yearId) ? (
                                 <div className={`p-12 text-center rounded-3xl border-2 border-dashed ${isDark ? "border-slate-800 text-slate-400 bg-slate-850/20" : "border-slate-200 text-slate-500 bg-slate-50/50"}`}>
                                     <DocumentTextIcon className="w-16 h-16 mx-auto mb-4 opacity-20 text-blue-500" />
-                                    <p className="text-xl font-bold mb-2">Ready to view schedules?</p>
+                                    <div className="text-xl font-bold mb-2">Ready to view schedules?</div>
                                     <p className="text-sm">Please select a {selectedDept === "SHS" ? "strand and grade" : "course and year level"} above to reveal the exam timetable.</p>
                                 </div>
                             ) : exams.length === 0 ? (
                                 <div className={`p-12 text-center rounded-3xl border-2 border-dashed ${isDark ? "border-slate-800 text-slate-400 bg-slate-850/20" : "border-slate-200 text-slate-500 bg-slate-50/50"}`}>
                                     <CalendarDaysIcon className="w-16 h-16 mx-auto mb-4 opacity-20 text-blue-500" />
-                                    <p className="text-xl font-bold mb-2">No schedules found</p>
+                                    <div className="text-xl font-bold mb-2">No schedules found</div>
                                     <p className="text-sm">We couldn't find any generated exams for this selection. Try adjusting your filters or generate a new schedule in the first tab.</p>
                                 </div>
                             ) : (
@@ -682,7 +674,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                                 >
                                                     <div className="flex items-start justify-between gap-3">
                                                         <div className="min-w-0">
-                                                            <p className={`break-words text-xs font-bold font-mono ${isDark ? "text-slate-400" : "text-slate-500"}`}>{exam.subject_code}</p>
+                                                            <div className={`break-words text-xs font-bold font-mono ${isDark ? "text-slate-400" : "text-slate-500"}`}>{exam.subject_code}</div>
                                                             <h4 className={`mt-1 break-words font-semibold ${isDark ? "text-slate-100" : "text-slate-900"}`}>{exam.subject_name}</h4>
                                                         </div>
                                                         <span className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-bold uppercase ${
@@ -915,7 +907,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                 ) : (
                     <div className={`p-10 sm:p-20 text-center rounded-3xl border-2 border-dashed ${isDark ? "border-slate-800 bg-slate-850/20 text-slate-400" : "border-slate-200 bg-slate-50/50 text-slate-500"}`}>
                         <CalendarDaysIcon className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 opacity-20 text-blue-500" />
-                        <p className="text-lg sm:text-xl font-bold mb-2 text-slate-900 dark:text-slate-100">Welcome to Schedule Viewer</p>
+                        <div className="text-lg sm:text-xl font-bold mb-2 text-slate-900 dark:text-slate-100">Welcome to Schedule Viewer</div>
                         <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">Select an academic level above to filter and view generated schedules.</p>
                     </div>
                 )}
@@ -1139,15 +1131,14 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                             <button
                                 type="button"
                                 onClick={() => setEditingExam(null)}
-                                className={`p-1.5 rounded-lg transition ${isDark ? "hover:bg-slate-800 text-slate-400" : "hover:bg-slate-100 text-slate-500"}`}
-                            >
+                                className={`p-1.5 rounded-lg transition ${isDark ? "hover:bg-slate-800 text-slate-400" : "hover:bg-slate-100 text-slate-500"}`} aria-label="Close modal">
                                 <XMarkIcon className="w-5 h-5" />
                             </button>
                         </div>
 
                         <form onSubmit={handleSaveEdit} className="space-y-4">
                             <div>
-                                <label className={`block text-xs font-semibold uppercase tracking-wider mb-1.5 ${isDark ? "text-slate-300" : "text-slate-700"}`}>
+                                <label className={`block text-xs font-semibold uppercase tracking-wider mb-1.5 ${isDark ? "text-slate-300" : "text-slate-700"}`} htmlFor="generatedexamschedules-field-5">
                                     Timeslot & Date
                                 </label>
                                 <select
@@ -1157,8 +1148,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                         isDark
                                             ? "bg-slate-800 border-slate-700 text-slate-100 focus:border-blue-500"
                                             : "bg-slate-50 border-slate-200 text-slate-900 focus:border-blue-600"
-                                    }`}
-                                >
+                                    }`} id="generatedexamschedules-field-5" aria-label="Timeslot & Date">
                                     <option value="">-- Keep Current Timeslot ({editingExam.exam_date} {editingExam.start_time}) --</option>
                                     {availableTimeslots.map((ts) => (
                                         <option key={ts.id} value={ts.id}>
@@ -1169,7 +1159,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                             </div>
 
                             <div>
-                                <label className={`block text-xs font-semibold uppercase tracking-wider mb-1.5 ${isDark ? "text-slate-300" : "text-slate-700"}`}>
+                                <label className={`block text-xs font-semibold uppercase tracking-wider mb-1.5 ${isDark ? "text-slate-300" : "text-slate-700"}`} htmlFor="generatedexamschedules-field-6">
                                     Examination Room
                                 </label>
                                 <select
@@ -1179,8 +1169,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                         isDark
                                             ? "bg-slate-800 border-slate-700 text-slate-100 focus:border-blue-500"
                                             : "bg-slate-50 border-slate-200 text-slate-900 focus:border-blue-600"
-                                    }`}
-                                >
+                                    }`} id="generatedexamschedules-field-6" aria-label="Examination Room">
                                     <option value="">-- Unassigned / No Room --</option>
                                     {availableRooms.map((r) => (
                                         <option key={r.id} value={r.id}>
@@ -1191,9 +1180,9 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                             </div>
 
                             <div className="relative" ref={proctorDropdownRef}>
-                                <label className={`block text-xs font-semibold uppercase tracking-wider mb-1.5 ${isDark ? "text-slate-300" : "text-slate-700"}`}>
+                                <div className={`block text-xs font-semibold uppercase tracking-wider mb-1.5 ${isDark ? "text-slate-300" : "text-slate-700"}`}>
                                     Assigned Proctor
-                                </label>
+                                </div>
                                 
                                 {/* Dropdown Trigger Button */}
                                 <button
@@ -1266,14 +1255,12 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                                         isDark
                                                             ? "bg-slate-800 border-slate-700 text-slate-100 placeholder-slate-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                                                             : "bg-white border-slate-200 text-slate-900 placeholder-slate-400 focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
-                                                    }`}
-                                                />
+                                                    }`} aria-label="Search eligible proctor name" />
                                                 {proctorSearchQuery && (
                                                     <button
                                                         type="button"
                                                         onClick={() => setProctorSearchQuery("")}
-                                                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                                                    >
+                                                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200" aria-label="Clear search">
                                                         <XMarkIcon className="w-3.5 h-3.5" />
                                                     </button>
                                                 )}
@@ -1340,7 +1327,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                                             <div className="flex items-center gap-2 truncate">
                                                                 <span className="truncate">{p.name}</span>
                                                                 {p.department && (
-                                                                    <span className={`text-[10px] uppercase font-semibold px-1.5 py-0.5 rounded border shrink-0 ${
+                                                                    <span className={`text-xs uppercase font-semibold px-1.5 py-0.5 rounded border shrink-0 ${
                                                                         isDark
                                                                             ? "bg-slate-800 text-slate-300 border-slate-700"
                                                                             : "bg-slate-100 text-slate-600 border-slate-200"
@@ -1349,7 +1336,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                                                     </span>
                                                                 )}
                                                                 {p.is_current && (
-                                                                    <span className="text-[10px] font-medium text-emerald-500 dark:text-emerald-400 shrink-0">
+                                                                    <span className="text-xs font-medium text-emerald-500 dark:text-emerald-400 shrink-0">
                                                                         (Current)
                                                                     </span>
                                                                 )}
@@ -1363,13 +1350,13 @@ export default function GeneratedExamSchedules({ isGenerating }) {
 
                                         {/* Dropdown Footer: Eligible Count */}
                                         {!loadingEligibleProctors && (
-                                            <div className={`px-3 py-1.5 text-[11px] border-t flex items-center justify-between ${
+                                            <div className={`px-3 py-1.5 text-xs border-t flex items-center justify-between ${
                                                 isDark ? "border-slate-750 bg-slate-900/60 text-slate-400" : "border-slate-100 bg-slate-50/60 text-slate-500"
                                             }`}>
                                                 <span>
                                                     {filteredEligibleProctors.length} eligible proctor{filteredEligibleProctors.length === 1 ? "" : "s"}
                                                 </span>
-                                                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
+                                                <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
                                                     Availability & conflicts verified
                                                 </span>
                                             </div>

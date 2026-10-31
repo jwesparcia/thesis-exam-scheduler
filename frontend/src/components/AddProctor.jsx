@@ -150,10 +150,10 @@ export default function AddProctor({ isGenerating }) {
             <table className="hidden w-full min-w-[680px] text-xs sm:text-sm md:table">
               <thead className={`${isDark ? "bg-slate-850 text-slate-300 border-b border-slate-700" : "bg-slate-50 text-slate-700 border-b border-slate-200"}`}>
                 <tr>
-                  <th className="py-3 px-5 text-left font-bold uppercase tracking-wider text-[11px]">Proctor Name</th>
-                  <th className="py-3 px-5 text-left font-bold uppercase tracking-wider text-[11px]">Schedule Status</th>
-                  <th className="py-3 px-5 text-left font-bold uppercase tracking-wider text-[11px]">Assignment Status</th>
-                  <th className="py-3 px-5 text-right font-bold uppercase tracking-wider text-[11px]">Actions</th>
+                  <th className="py-3 px-5 text-left font-bold uppercase tracking-wider text-xs">Proctor Name</th>
+                  <th className="py-3 px-5 text-left font-bold uppercase tracking-wider text-xs">Schedule Status</th>
+                  <th className="py-3 px-5 text-left font-bold uppercase tracking-wider text-xs">Assignment Status</th>
+                  <th className="py-3 px-5 text-right font-bold uppercase tracking-wider text-xs">Actions</th>
                 </tr>
               </thead>
               <tbody className={`divide-y ${isDark ? "divide-slate-700 text-slate-200" : "divide-slate-200 text-slate-800"}`}>
@@ -207,8 +207,7 @@ export default function AddProctor({ isGenerating }) {
                                 ? "opacity-50 cursor-not-allowed border-transparent" 
                                 : isDark ? "hover:bg-blue-900/40 text-blue-300 border-blue-800/80" : "hover:bg-blue-100 text-blue-800 border-blue-200"
                             }`}
-                            title={isGenerating ? "Cannot send reminders while schedule generation is ongoing" : "Send Reminder Email"}
-                          >
+                            title={isGenerating ? "Cannot send reminders while schedule generation is ongoing" : "Send Reminder Email"} aria-label="Send reminder email">
                             <BellIcon className="w-4 h-4" />
                           </button>
                         )}
@@ -223,8 +222,7 @@ export default function AddProctor({ isGenerating }) {
                                 ? isDark ? "hover:bg-emerald-900/40 text-emerald-300 border-emerald-800/80" : "hover:bg-emerald-100 text-emerald-800 border-emerald-200"
                                 : isDark ? "hover:bg-rose-900/40 text-rose-300 border-rose-800/80" : "hover:bg-rose-100 text-rose-800 border-rose-200"
                           }`}
-                          title={isGenerating ? "Cannot modify proctors while schedule generation is ongoing" : (p.exclude_from_scheduling ? "Include in Scheduling" : "Exclude from Scheduling")}
-                        >
+                          title={isGenerating ? "Cannot modify proctors while schedule generation is ongoing" : (p.exclude_from_scheduling ? "Include in Scheduling" : "Exclude from Scheduling")} aria-label={p.exclude_from_scheduling ? "Include in scheduling" : "Exclude from scheduling"}>
                           {p.exclude_from_scheduling ? <ShieldCheckIcon className="w-4 h-4" /> : <ShieldExclamationIcon className="w-4 h-4" />}
                         </button>
                       </div>

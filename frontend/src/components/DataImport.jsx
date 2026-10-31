@@ -207,12 +207,12 @@ export default function DataImport({ isGenerating }) {
               }`}
             >
               <div className="space-y-0.5 sm:space-y-1">
-                <p className={`text-xs font-semibold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+                <div className={`text-xs font-semibold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-600"}`}>
                   {card.label}
-                </p>
-                <p className={`text-xl sm:text-3xl font-extrabold tracking-tight ${isDark ? "text-white" : "text-slate-900"}`}>
+                </div>
+                <div className={`text-xl sm:text-3xl font-extrabold tracking-tight ${isDark ? "text-white" : "text-slate-900"}`}>
                   {loadingStats ? "..." : card.value}
-                </p>
+                </div>
               </div>
               <div className={`w-9 h-9 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center shrink-0 ${card.color}`}>
                 <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -300,16 +300,15 @@ export default function DataImport({ isGenerating }) {
                 type="file"
                 accept=".xlsx, .xls"
                 onChange={handleFileChange}
-                className="hidden"
-              />
+                className="hidden" aria-label="Upload curriculum Excel file" />
               <div className="flex flex-col items-center justify-center gap-3">
                 <div className={`w-11 h-11 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center ${isDark ? "bg-slate-800 text-slate-400" : "bg-slate-100 text-slate-500"}`}>
                   <ArrowUpTrayIcon className="w-5 h-5" />
                 </div>
                 <div>
-                  <p className={`text-xs sm:text-sm font-bold ${isDark ? "text-white" : "text-slate-900"} break-all`}>
+                  <div className={`text-xs sm:text-sm font-bold ${isDark ? "text-white" : "text-slate-900"} break-all`}>
                     {file ? file.name : "Drag & Drop Excel File here"}
-                  </p>
+                  </div>
                   <p className={`text-xs mt-1 ${isDark ? "text-slate-400" : "text-slate-500"}`}>
                     {file ? `${(file.size / 1024).toFixed(1)} KB` : "or click to browse from files"}
                   </p>
@@ -353,8 +352,7 @@ export default function DataImport({ isGenerating }) {
                     ? "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed" 
                     : "bg-slate-200 text-slate-400 border border-slate-200 cursor-not-allowed"
                   : "bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/10"
-              }`}
-            >
+              }`} aria-label="Refresh">
               {uploading ? (
                 <>
                   <ArrowPathIcon className="w-4 h-4 animate-spin" />
@@ -393,12 +391,12 @@ export default function DataImport({ isGenerating }) {
               { label: "Teaching Assignments", value: importResult.teaching_assignments },
             ].map((stat, i) => (
               <div key={i} className={`p-3 sm:p-4 rounded-xl border text-center ${isDark ? "bg-slate-900/40 border-slate-800" : "bg-slate-50 border-slate-100"}`}>
-                <p className={`text-[10px] font-bold uppercase tracking-wider ${isDark ? "text-slate-500" : "text-slate-400"}`}>
+                <div className={`text-xs font-bold uppercase tracking-wider ${isDark ? "text-slate-500" : "text-slate-400"}`}>
                   {stat.label}
-                </p>
-                <p className={`text-lg sm:text-xl font-extrabold tracking-tight mt-1 ${stat.value > 0 ? "text-blue-500" : isDark ? "text-slate-400" : "text-slate-500"}`}>
+                </div>
+                <div className={`text-lg sm:text-xl font-extrabold tracking-tight mt-1 ${stat.value > 0 ? "text-blue-500" : isDark ? "text-slate-400" : "text-slate-500"}`}>
                   {stat.value}
-                </p>
+                </div>
               </div>
             ))}
           </div>

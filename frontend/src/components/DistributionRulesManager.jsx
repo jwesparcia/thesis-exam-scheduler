@@ -203,11 +203,11 @@ export default function DistributionRulesManager({ isGenerating }) {
                                 <h4 className={`font-bold text-sm ${isDark ? "text-white" : "text-slate-900"}`}>{day.day}</h4>
                                 <div className={`space-y-3 border-t pt-3 text-xs sm:text-sm ${isDark ? "border-slate-700" : "border-slate-200"}`}>
                                     <div>
-                                        <p className={`text-xs font-bold uppercase tracking-wider ${isDark ? "text-blue-300" : "text-blue-800"}`}>Morning · 7:00–11:30 AM</p>
+                                        <div className={`text-xs font-bold uppercase tracking-wider ${isDark ? "text-blue-300" : "text-blue-800"}`}>Morning · 7:00–11:30 AM</div>
                                         <p className={`mt-1 font-medium break-words ${isDark ? "text-slate-300" : "text-slate-700"}`}>{day.morning}</p>
                                     </div>
                                     <div>
-                                        <p className={`text-xs font-bold uppercase tracking-wider ${isDark ? "text-blue-300" : "text-blue-800"}`}>Afternoon · 11:30 AM–5:30 PM</p>
+                                        <div className={`text-xs font-bold uppercase tracking-wider ${isDark ? "text-blue-300" : "text-blue-800"}`}>Afternoon · 11:30 AM–5:30 PM</div>
                                         <p className={`mt-1 font-medium break-words ${isDark ? "text-slate-300" : "text-slate-700"}`}>{day.afternoon}</p>
                                     </div>
                                 </div>
@@ -218,12 +218,12 @@ export default function DistributionRulesManager({ isGenerating }) {
                     <table className="w-full min-w-[640px] text-center text-xs border-collapse">
                         <thead>
                             <tr className={`${isDark ? "bg-slate-850 text-slate-200 border-b border-slate-700" : "bg-slate-100 text-slate-800 font-bold border-b border-slate-200"}`}>
-                                <th className="px-3 py-3 font-bold uppercase tracking-wider text-[11px] border-r dark:border-slate-700 border-slate-200">Time Block</th>
-                                <th className="px-3 py-3 font-bold uppercase tracking-wider text-[11px] border-r dark:border-slate-700 border-slate-200">Window</th>
-                                <th className="px-3 py-3 font-bold uppercase tracking-wider text-[11px] border-r dark:border-slate-700 border-slate-200">Day 1</th>
-                                <th className="px-3 py-3 font-bold uppercase tracking-wider text-[11px] border-r dark:border-slate-700 border-slate-200">Day 2</th>
-                                <th className="px-3 py-3 font-bold uppercase tracking-wider text-[11px] border-r dark:border-slate-700 border-slate-200">Day 3</th>
-                                <th className="px-3 py-3 font-bold uppercase tracking-wider text-[11px]">Day 4</th>
+                                <th className="px-3 py-3 font-bold uppercase tracking-wider text-xs border-r dark:border-slate-700 border-slate-200">Time Block</th>
+                                <th className="px-3 py-3 font-bold uppercase tracking-wider text-xs border-r dark:border-slate-700 border-slate-200">Window</th>
+                                <th className="px-3 py-3 font-bold uppercase tracking-wider text-xs border-r dark:border-slate-700 border-slate-200">Day 1</th>
+                                <th className="px-3 py-3 font-bold uppercase tracking-wider text-xs border-r dark:border-slate-700 border-slate-200">Day 2</th>
+                                <th className="px-3 py-3 font-bold uppercase tracking-wider text-xs border-r dark:border-slate-700 border-slate-200">Day 3</th>
+                                <th className="px-3 py-3 font-bold uppercase tracking-wider text-xs">Day 4</th>
                             </tr>
                         </thead>
                         <tbody className={`divide-y ${isDark ? "divide-slate-700" : "divide-slate-200"}`}>
@@ -232,16 +232,16 @@ export default function DistributionRulesManager({ isGenerating }) {
                                 <td rowSpan={3} className={`px-3 py-4 font-black uppercase tracking-wider border-r text-xs ${isDark ? "bg-blue-950/40 text-blue-300 border-slate-700" : "bg-blue-50 text-blue-900 border-slate-200"}`}>
                                     MORNING
                                 </td>
-                                <td className={`px-2 py-2 font-mono text-[11px] font-semibold border-r ${isDark ? "bg-slate-850 text-slate-300 border-slate-700" : "bg-white text-slate-700 border-slate-200"}`}>
+                                <td className={`px-2 py-2 font-mono text-xs font-semibold border-r ${isDark ? "bg-slate-850 text-slate-300 border-slate-700" : "bg-white text-slate-700 border-slate-200"}`}>
                                     7:00 - 8:30 AM
                                 </td>
                                 <td rowSpan={3} className={`px-4 py-3 font-semibold border-r align-middle ${isDark ? "bg-blue-950/30 text-blue-200 border-slate-700" : "bg-blue-50/60 text-slate-800 border-slate-200"}`}>
                                     <div className="font-bold text-blue-600 dark:text-blue-400 text-sm">General Education</div>
-                                    <div className="text-[11px] opacity-90 mt-0.5">(Comm & Lit, Math, Sciences)</div>
+                                    <div className="text-xs opacity-90 mt-0.5">(Comm & Lit, Math, Sciences)</div>
                                 </td>
                                 <td rowSpan={3} className={`px-4 py-3 font-semibold border-r align-middle ${isDark ? "bg-indigo-950/30 text-indigo-200 border-slate-700" : "bg-indigo-50/60 text-slate-800 border-slate-200"}`}>
                                     <div className="font-bold text-indigo-600 dark:text-indigo-400 text-sm">General Education</div>
-                                    <div className="text-[11px] opacity-90 mt-0.5">(Filipino, SOCSCI - <em>except Lit</em>)</div>
+                                    <div className="text-xs opacity-90 mt-0.5">(Filipino, SOCSCI - <em>except Lit</em>)</div>
                                 </td>
                                 <td rowSpan={7} className={`px-4 py-3 font-bold border-r align-middle ${isDark ? "bg-purple-950/20 text-purple-200 border-slate-700" : "bg-purple-50/40 text-purple-900 border-slate-200"}`}>
                                     <div className="text-sm">Major for all year levels</div>
@@ -251,12 +251,12 @@ export default function DistributionRulesManager({ isGenerating }) {
                                 </td>
                             </tr>
                             <tr className={isDark ? "bg-slate-900/40" : "bg-slate-50/70"}>
-                                <td className={`px-2 py-2 font-mono text-[11px] font-semibold border-r ${isDark ? "bg-slate-850 text-slate-300 border-slate-700" : "bg-white text-slate-700 border-slate-200"}`}>
+                                <td className={`px-2 py-2 font-mono text-xs font-semibold border-r ${isDark ? "bg-slate-850 text-slate-300 border-slate-700" : "bg-white text-slate-700 border-slate-200"}`}>
                                     8:30 - 10:00 AM
                                 </td>
                             </tr>
                             <tr className={isDark ? "bg-slate-900/40" : "bg-slate-50/70"}>
-                                <td className={`px-2 py-2 font-mono text-[11px] font-semibold border-r ${isDark ? "bg-slate-850 text-slate-300 border-slate-700" : "bg-white text-slate-700 border-slate-200"}`}>
+                                <td className={`px-2 py-2 font-mono text-xs font-semibold border-r ${isDark ? "bg-slate-850 text-slate-300 border-slate-700" : "bg-white text-slate-700 border-slate-200"}`}>
                                     10:00 - 11:30 AM
                                 </td>
                             </tr>
@@ -266,30 +266,30 @@ export default function DistributionRulesManager({ isGenerating }) {
                                 <td rowSpan={4} className={`px-3 py-4 font-black uppercase tracking-wider border-r text-xs ${isDark ? "bg-indigo-950/40 text-indigo-300 border-slate-700" : "bg-indigo-50 text-indigo-900 border-slate-200"}`}>
                                     AFTERNOON
                                 </td>
-                                <td className={`px-2 py-2 font-mono text-[11px] font-semibold border-r ${isDark ? "bg-slate-850 text-slate-300 border-slate-700" : "bg-white text-slate-700 border-slate-200"}`}>
+                                <td className={`px-2 py-2 font-mono text-xs font-semibold border-r ${isDark ? "bg-slate-850 text-slate-300 border-slate-700" : "bg-white text-slate-700 border-slate-200"}`}>
                                     11:30 - 1:00 PM
                                 </td>
                                 <td rowSpan={4} className={`px-4 py-3 font-semibold border-r align-middle ${isDark ? "bg-amber-950/20 text-amber-200 border-slate-700" : "bg-amber-50/60 text-slate-800 border-slate-200"}`}>
                                     <div className="font-bold text-amber-700 dark:text-amber-400 text-xs">Computer Fundamentals</div>
-                                    <div className="text-[11px] mt-1 font-bold text-slate-700 dark:text-slate-300">& Major for Y3 & Y4</div>
+                                    <div className="text-xs mt-1 font-bold text-slate-700 dark:text-slate-300">& Major for Y3 & Y4</div>
                                 </td>
                                 <td rowSpan={4} className={`px-4 py-3 font-semibold border-r align-middle ${isDark ? "bg-emerald-950/20 text-emerald-200 border-slate-700" : "bg-emerald-50/60 text-slate-800 border-slate-200"}`}>
                                     <div className="font-bold text-emerald-700 dark:text-emerald-400 text-xs">2 Major for all year levels</div>
-                                    <div className="text-[10px] opacity-80 mt-0.5">(Max 2 majors per section)</div>
+                                    <div className="text-xs opacity-80 mt-0.5">(Max 2 majors per section)</div>
                                 </td>
                             </tr>
                             <tr className={isDark ? "bg-slate-850/40" : "bg-white"}>
-                                <td className={`px-2 py-2 font-mono text-[11px] font-semibold border-r ${isDark ? "bg-slate-850 text-slate-300 border-slate-700" : "bg-white text-slate-700 border-slate-200"}`}>
+                                <td className={`px-2 py-2 font-mono text-xs font-semibold border-r ${isDark ? "bg-slate-850 text-slate-300 border-slate-700" : "bg-white text-slate-700 border-slate-200"}`}>
                                     1:00 - 2:30 PM
                                 </td>
                             </tr>
                             <tr className={isDark ? "bg-slate-850/40" : "bg-white"}>
-                                <td className={`px-2 py-2 font-mono text-[11px] font-semibold border-r ${isDark ? "bg-slate-850 text-slate-300 border-slate-700" : "bg-white text-slate-700 border-slate-200"}`}>
+                                <td className={`px-2 py-2 font-mono text-xs font-semibold border-r ${isDark ? "bg-slate-850 text-slate-300 border-slate-700" : "bg-white text-slate-700 border-slate-200"}`}>
                                     2:30 - 4:00 PM
                                 </td>
                             </tr>
                             <tr className={isDark ? "bg-slate-850/40" : "bg-white"}>
-                                <td className={`px-2 py-2 font-mono text-[11px] font-semibold border-r ${isDark ? "bg-slate-850 text-slate-300 border-slate-700" : "bg-white text-slate-700 border-slate-200"}`}>
+                                <td className={`px-2 py-2 font-mono text-xs font-semibold border-r ${isDark ? "bg-slate-850 text-slate-300 border-slate-700" : "bg-white text-slate-700 border-slate-200"}`}>
                                     4:00 - 5:30 PM
                                 </td>
                             </tr>
@@ -325,29 +325,27 @@ export default function DistributionRulesManager({ isGenerating }) {
                     <h4 className={`font-bold mb-4 text-sm sm:text-base ${isDark ? "text-white" : "text-slate-900"}`}>New Rule Configuration</h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label className={`block text-xs font-bold uppercase tracking-wider mb-1.5 ${isDark ? "text-slate-300" : "text-slate-700"}`}>Category</label>
+                            <label className={`block text-xs font-bold uppercase tracking-wider mb-1.5 ${isDark ? "text-slate-300" : "text-slate-700"}`} htmlFor="distributionrulesmanager-field-1">Category</label>
                             <select
                                 className={`w-full p-2.5 border rounded-xl text-xs sm:text-sm font-medium outline-none transition ${
                                     isDark ? "bg-slate-900 border-slate-700 text-white focus:border-blue-500" : "bg-white border-slate-300 text-slate-800 focus:border-blue-600"
                                 }`}
                                 value={newRule.category_type}
-                                onChange={e => setNewRule({ ...newRule, category_type: e.target.value })}
-                            >
+                                onChange={e => setNewRule({ ...newRule, category_type: e.target.value })} id="distributionrulesmanager-field-1" aria-label="Category">
                                 <option value="general">General</option>
                                 <option value="major">Major</option>
                             </select>
                         </div>
 
                         <div>
-                            <label className={`block text-xs font-bold uppercase tracking-wider mb-1.5 ${isDark ? "text-slate-300" : "text-slate-700"}`}>Year Level</label>
+                            <label className={`block text-xs font-bold uppercase tracking-wider mb-1.5 ${isDark ? "text-slate-300" : "text-slate-700"}`} htmlFor="distributionrulesmanager-field-2">Year Level</label>
                             <select
                                 className={`w-full p-2.5 border rounded-xl text-xs sm:text-sm font-medium outline-none transition ${
                                     isDark ? "bg-slate-900 border-slate-700 text-white focus:border-blue-500" : "bg-white border-slate-300 text-slate-800 focus:border-blue-600"
                                 }`}
                                 value={newRule.year_level_id}
                                 onChange={e => setNewRule({ ...newRule, year_level_id: e.target.value })}
-                                disabled={newRule.category_type === "general"}
-                            >
+                                disabled={newRule.category_type === "general"} id="distributionrulesmanager-field-2" aria-label="Year Level">
                                 <option value="">Any / Not Applicable</option>
                                 {yearLevels.map(y => (
                                     <option key={y.id} value={y.id}>{y.name}</option>
@@ -356,14 +354,13 @@ export default function DistributionRulesManager({ isGenerating }) {
                         </div>
 
                         <div>
-                            <label className={`block text-xs font-bold uppercase tracking-wider mb-1.5 ${isDark ? "text-slate-300" : "text-slate-700"}`}>Allowed Session</label>
+                            <label className={`block text-xs font-bold uppercase tracking-wider mb-1.5 ${isDark ? "text-slate-300" : "text-slate-700"}`} htmlFor="distributionrulesmanager-field-3">Allowed Session</label>
                             <select
                                 className={`w-full p-2.5 border rounded-xl text-xs sm:text-sm font-medium outline-none transition ${
                                     isDark ? "bg-slate-900 border-slate-700 text-white focus:border-blue-500" : "bg-white border-slate-300 text-slate-800 focus:border-blue-600"
                                 }`}
                                 value={newRule.allowed_session}
-                                onChange={e => setNewRule({ ...newRule, allowed_session: e.target.value })}
-                            >
+                                onChange={e => setNewRule({ ...newRule, allowed_session: e.target.value })} id="distributionrulesmanager-field-3" aria-label="Allowed Session">
                                 <option value="morning">Morning Only</option>
                                 <option value="afternoon">Afternoon Only</option>
                                 <option value="any">Any Time</option>
@@ -371,7 +368,7 @@ export default function DistributionRulesManager({ isGenerating }) {
                         </div>
 
                         <div>
-                            <label className={`block text-xs font-bold uppercase tracking-wider mb-1.5 ${isDark ? "text-slate-300" : "text-slate-700"}`}>Allowed Days (Indices 1-5)</label>
+                            <div className={`block text-xs font-bold uppercase tracking-wider mb-1.5 ${isDark ? "text-slate-300" : "text-slate-700"}`}>Allowed Days (Indices 1-5)</div>
                             <div className="flex gap-2 flex-wrap">
                                 {[1, 2, 3, 4, 5].map(day => (
                                     <button
@@ -444,7 +441,7 @@ export default function DistributionRulesManager({ isGenerating }) {
                                     { part: "minutes", label: "MINS", max: 59 },
                                     { part: "seconds", label: "SECS", max: 59 },
                                 ].map(({ part, label, max }) => (
-                                    <label key={part} className="min-w-0 space-y-1 text-center text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                    <label key={part} className="min-w-0 space-y-1 text-center text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                                         <span className="block">{label}</span>
                                         <input
                                             type="number"
@@ -467,14 +464,14 @@ export default function DistributionRulesManager({ isGenerating }) {
                     <table className="w-full text-left text-xs sm:text-sm">
                         <thead className={`${isDark ? "bg-slate-850 text-slate-300 border-b border-slate-700" : "bg-slate-50 text-slate-700 border-b border-slate-200"}`}>
                             <tr>
-                                <th className="px-5 py-3.5 font-bold uppercase tracking-wider text-[11px]">Subject Category</th>
-                                <th className="px-5 py-3.5 font-bold uppercase tracking-wider text-[11px]">
-                                    <div className="grid w-52 grid-cols-3 gap-2 text-center text-[10px] uppercase tracking-wider">
+                                <th className="px-5 py-3.5 font-bold uppercase tracking-wider text-xs">Subject Category</th>
+                                <th className="px-5 py-3.5 font-bold uppercase tracking-wider text-xs">
+                                    <div className="grid w-52 grid-cols-3 gap-2 text-center text-xs uppercase tracking-wider">
                                         <span>Hours</span><span>Mins</span><span>Secs</span>
                                     </div>
                                     <span className="sr-only">Break duration</span>
                                 </th>
-                                <th className="px-5 py-3.5 text-right font-bold uppercase tracking-wider text-[11px]">Action</th>
+                                <th className="px-5 py-3.5 text-right font-bold uppercase tracking-wider text-xs">Action</th>
                             </tr>
                         </thead>
                         <tbody className={`divide-y ${isDark ? "divide-slate-750" : "divide-slate-200"}`}>
@@ -564,11 +561,11 @@ export default function DistributionRulesManager({ isGenerating }) {
                         <table className="hidden w-full min-w-[640px] text-left text-xs sm:text-sm md:table">
                             <thead className={`${isDark ? "bg-slate-850 text-slate-300 border-b border-slate-700" : "bg-slate-50 text-slate-700 border-b border-slate-200"}`}>
                                 <tr>
-                                    <th className="px-5 py-3.5 font-bold uppercase tracking-wider text-[11px]">Category</th>
-                                    <th className="px-5 py-3.5 font-bold uppercase tracking-wider text-[11px]">Year Level</th>
-                                    <th className="px-5 py-3.5 font-bold uppercase tracking-wider text-[11px]">Allowed Days</th>
-                                    <th className="px-5 py-3.5 font-bold uppercase tracking-wider text-[11px]">Session Window</th>
-                                    <th className="px-5 py-3.5 font-bold uppercase tracking-wider text-[11px] text-right">Actions</th>
+                                    <th className="px-5 py-3.5 font-bold uppercase tracking-wider text-xs">Category</th>
+                                    <th className="px-5 py-3.5 font-bold uppercase tracking-wider text-xs">Year Level</th>
+                                    <th className="px-5 py-3.5 font-bold uppercase tracking-wider text-xs">Allowed Days</th>
+                                    <th className="px-5 py-3.5 font-bold uppercase tracking-wider text-xs">Session Window</th>
+                                    <th className="px-5 py-3.5 font-bold uppercase tracking-wider text-xs text-right">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className={`divide-y ${isDark ? "divide-slate-750 text-slate-200" : "divide-slate-200 text-slate-800"}`}>
@@ -598,8 +595,7 @@ export default function DistributionRulesManager({ isGenerating }) {
                                                 } ${
                                                     isGenerating ? "opacity-50 cursor-not-allowed" : ""
                                                 }`}
-                                                title={isGenerating ? "Cannot delete rules while schedule generation is ongoing" : "Delete Rule"}
-                                            >
+                                                title={isGenerating ? "Cannot delete rules while schedule generation is ongoing" : "Delete Rule"} aria-label="Delete">
                                                 <TrashIcon className="w-4 h-4" />
                                             </button>
                                         </td>

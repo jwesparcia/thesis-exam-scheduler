@@ -44,7 +44,7 @@ export default function SettingsDropdown({ onLogout, isDark }) {
           isDark ? "bg-slate-900 border-slate-700/80 shadow-black/50" : "bg-white border-slate-200"
         }`}>
           <div className={`px-4 py-3 border-b ${isDark ? "border-slate-800 bg-slate-950/40" : "border-slate-100 bg-slate-50/70"}`}>
-            <p className={`text-xs font-semibold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-500"}`}>Settings & Account</p>
+            <div className={`text-xs font-semibold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-500"}`}>Settings & Account</div>
           </div>
           
           <div className="p-2 space-y-1">
@@ -83,8 +83,8 @@ export default function SettingsDropdown({ onLogout, isDark }) {
           </div>
           
           <div className={`px-4 py-2.5 border-t flex items-center justify-between ${isDark ? "border-slate-800 bg-slate-950/40" : "border-slate-100 bg-slate-50/70"}`}>
-            <span className={`text-[11px] font-semibold ${isDark ? "text-slate-400" : "text-slate-500"}`}>STI Exam Scheduler</span>
-            <span className={`text-[11px] font-mono ${isDark ? "text-slate-400" : "text-slate-500"}`}>v1.0</span>
+            <span className={`text-xs font-semibold ${isDark ? "text-slate-400" : "text-slate-500"}`}>STI Exam Scheduler</span>
+            <span className={`text-xs font-mono ${isDark ? "text-slate-400" : "text-slate-500"}`}>v1.0</span>
           </div>
         </div>
       )}

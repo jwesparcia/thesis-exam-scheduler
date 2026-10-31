@@ -22,7 +22,7 @@ function AttendanceBadge({ status }) {
   const attended = status === "attended" || status === "confirmed";
   return (
     <span
-      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider border ${
+      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider border ${
         attended
           ? "bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800"
           : "bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800"
@@ -172,8 +172,8 @@ export default function ProctorMonitoring() {
             <div key={label} className={`rounded-2xl border p-4 sm:p-5 shadow-xs transition hover:shadow-md ${tone}`}>
               <div className="flex items-center justify-between gap-2">
                 <div>
-                  <p className="text-[11px] sm:text-xs font-bold uppercase tracking-wider opacity-85">{label}</p>
-                  <p className="mt-1 text-2xl sm:text-3xl font-extrabold">{value}</p>
+                  <div className="text-xs font-bold uppercase tracking-wider opacity-85">{label}</div>
+                  <div className="mt-1 text-2xl sm:text-3xl font-extrabold">{value}</div>
                 </div>
                 <div className="p-2 sm:p-2.5 rounded-xl bg-white/40 dark:bg-black/20 shrink-0">
                   <Icon className="w-5 h-5 sm:w-6 sm:h-6" />
@@ -199,7 +199,7 @@ export default function ProctorMonitoring() {
               style={{ width: `${completionPct}%` }}
             />
           </div>
-          <p className={`text-[11px] sm:text-xs mt-2 font-medium ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+          <p className={`text-xs mt-2 font-medium ${isDark ? "text-slate-400" : "text-slate-600"}`}>
             {completionPct}% of proctor assignments have verified their attendance at examination venues.
           </p>
         </div>
@@ -248,8 +248,7 @@ export default function ProctorMonitoring() {
                 isDark 
                   ? "bg-slate-900 border-slate-700 text-slate-100 placeholder:text-slate-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500" 
                   : "bg-white border-slate-300 text-slate-800 placeholder:text-slate-400 focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
-              }`}
-            />
+              }`} aria-label="Search proctor, subject, section, or code" />
           </div>
         </div>
 
@@ -272,7 +271,7 @@ export default function ProctorMonitoring() {
             }`}
           >
             <UsersIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />
-            <p className={`text-base sm:text-lg font-bold mb-1 ${isDark ? "text-slate-200" : "text-slate-800"}`}>No Assignments Found</p>
+            <div className={`text-base sm:text-lg font-bold mb-1 ${isDark ? "text-slate-200" : "text-slate-800"}`}>No Assignments Found</div>
             <p className="text-xs sm:text-sm max-w-sm mx-auto font-medium">
               {totalExams === 0
                 ? "No posted exams with proctor assignments yet. Please generate and post schedules first."
@@ -379,25 +378,25 @@ export default function ProctorMonitoring() {
                       <table className="w-full min-w-[900px] text-xs sm:text-sm">
                         <thead className={`${isDark ? "bg-slate-850 text-slate-300 border-b border-slate-700" : "bg-slate-50 text-slate-700 border-b border-slate-200"}`}>
                           <tr>
-                            <th className="py-3 px-4 text-left font-bold uppercase tracking-wider text-[11px]">Proctor</th>
-                            <th className="py-3 px-4 text-left font-bold uppercase tracking-wider text-[11px]">Section</th>
-                            <th className="py-3 px-4 text-left font-bold uppercase tracking-wider text-[11px]">Subject</th>
-                            <th className="py-3 px-4 text-left font-bold uppercase tracking-wider text-[11px]">
+                            <th className="py-3 px-4 text-left font-bold uppercase tracking-wider text-xs">Proctor</th>
+                            <th className="py-3 px-4 text-left font-bold uppercase tracking-wider text-xs">Section</th>
+                            <th className="py-3 px-4 text-left font-bold uppercase tracking-wider text-xs">Subject</th>
+                            <th className="py-3 px-4 text-left font-bold uppercase tracking-wider text-xs">
                               <span className="flex items-center gap-1">
                                 <CalendarIcon className="w-3.5 h-3.5" /> Date
                               </span>
                             </th>
-                            <th className="py-3 px-4 text-left font-bold uppercase tracking-wider text-[11px]">
+                            <th className="py-3 px-4 text-left font-bold uppercase tracking-wider text-xs">
                               <span className="flex items-center gap-1">
                                 <ClockIcon className="w-3.5 h-3.5" /> Time
                               </span>
                             </th>
-                            <th className="py-3 px-4 text-left font-bold uppercase tracking-wider text-[11px]">
+                            <th className="py-3 px-4 text-left font-bold uppercase tracking-wider text-xs">
                               <span className="flex items-center gap-1">
                                 <MapPinIcon className="w-3.5 h-3.5" /> Venue
                               </span>
                             </th>
-                            <th className="py-3 px-4 text-left font-bold uppercase tracking-wider text-[11px]">Attendance</th>
+                            <th className="py-3 px-4 text-left font-bold uppercase tracking-wider text-xs">Attendance</th>
                           </tr>
                         </thead>
                         <tbody className={`divide-y ${isDark ? "divide-slate-750 text-slate-200" : "divide-slate-200 text-slate-800"}`}>
@@ -448,9 +447,9 @@ export default function ProctorMonitoring() {
                               </td>
                               {/* Subject */}
                               <td className="py-3.5 px-4">
-                                <p className={`font-semibold text-xs sm:text-sm ${isDark ? "text-white" : "text-slate-900"}`}>{exam.subject_name}</p>
+                                <div className={`font-semibold text-xs sm:text-sm ${isDark ? "text-white" : "text-slate-900"}`}>{exam.subject_name}</div>
                                 <p
-                                  className={`text-[11px] font-mono mt-0.5 ${
+                                  className={`text-xs font-mono mt-0.5 ${
                                     isDark ? "text-slate-400" : "text-slate-500"
                                   }`}
                                 >

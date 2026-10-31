@@ -115,7 +115,7 @@ export default function ConfirmationModal({
 
           {hasTypedConfirm && (
             <div className="space-y-2">
-              <label className={`block text-xs font-semibold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+              <label className={`block text-xs font-semibold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-500"}`} htmlFor="confirmationmodal-field-1">
                 Please type <span className="text-rose-600 dark:text-rose-400 font-bold">"{confirmText}"</span> to confirm:
               </label>
               <input
@@ -127,8 +127,7 @@ export default function ConfirmationModal({
                   isDark
                     ? "bg-slate-950 border-slate-700 text-slate-100 placeholder-slate-500 focus:ring-blue-500/30 focus:border-blue-500"
                     : "bg-slate-50 border-slate-300 text-slate-900 placeholder-slate-400 focus:ring-blue-500/30 focus:border-blue-600 focus:bg-white"
-                }`}
-              />
+                }`} id="confirmationmodal-field-1" aria-label="Please type confirmation text to confirm" />
             </div>
           )}
         </div>

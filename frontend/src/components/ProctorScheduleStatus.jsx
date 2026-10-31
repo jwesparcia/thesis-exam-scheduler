@@ -96,7 +96,7 @@ export default function ProctorScheduleStatus() {
       ) : missing.length === 0 ? (
         <div className={`p-8 text-center rounded-2xl border border-dashed ${isDark ? "border-slate-700 bg-slate-850/40 text-slate-400" : "border-slate-200 bg-slate-50/60 text-slate-600"}`}>
           <CheckCircleIcon className="w-8 h-8 text-emerald-600 dark:text-emerald-400 mx-auto mb-2" />
-          <p className="text-sm font-bold text-slate-900 dark:text-slate-100">All Schedules Accounted For</p>
+          <div className="text-sm font-bold text-slate-900 dark:text-slate-100">All Schedules Accounted For</div>
           <p className="text-xs mt-1">All active proctors have successfully uploaded their schedules or are explicitly excluded.</p>
         </div>
       ) : (
@@ -104,9 +104,9 @@ export default function ProctorScheduleStatus() {
           <table className="w-full min-w-[520px] text-xs sm:text-sm">
             <thead className={`${isDark ? "bg-slate-850 text-slate-300 border-b border-slate-700" : "bg-slate-50 text-slate-700 border-b border-slate-200"}`}>
               <tr>
-                <th className="px-5 py-3 text-left font-bold uppercase tracking-wider text-[11px]">Proctor Name</th>
-                <th className="px-5 py-3 text-left font-bold uppercase tracking-wider text-[11px]">Status</th>
-                <th className="px-5 py-3 text-right font-bold uppercase tracking-wider text-[11px]">Actions</th>
+                <th className="px-5 py-3 text-left font-bold uppercase tracking-wider text-xs">Proctor Name</th>
+                <th className="px-5 py-3 text-left font-bold uppercase tracking-wider text-xs">Status</th>
+                <th className="px-5 py-3 text-right font-bold uppercase tracking-wider text-xs">Actions</th>
               </tr>
             </thead>
             <tbody className={`divide-y ${isDark ? "divide-slate-750" : "divide-slate-200"}`}>

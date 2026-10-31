@@ -245,7 +245,7 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
             <BuildingOffice2Icon className="w-5 h-5 text-blue-500 shrink-0" />
           )}
           <div>
-            <span className="font-bold uppercase tracking-wider block text-[11px]">
+            <span className="font-bold uppercase tracking-wider block text-xs">
               {user?.is_super_admin ? "Super Admin Authority (General Education)" : `${user?.department_code || "Department"} Administrator`}
             </span>
             <p className="mt-0.5 text-xs opacity-90">
@@ -266,7 +266,7 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
         ) : requests.length === 0 ? (
           <div className={`text-center py-16 ${isDark ? "text-slate-400" : "text-slate-500"}`}>
             <ClipboardDocumentListIcon className="w-12 h-12 mx-auto mb-3 opacity-30 text-slate-400" />
-            <p className="font-semibold text-base">No pending rescheduling requests.</p>
+            <div className="font-semibold text-base">No pending rescheduling requests.</div>
             <p className="text-sm mt-1 text-slate-400">Students with exam conflicts can submit requests from their dashboard.</p>
           </div>
         ) : (
@@ -376,18 +376,18 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
                         <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                         Automatically Assigned Schedule
                       </h5>
-                      <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${isDark ? "bg-emerald-900/50 text-emerald-300 border-emerald-700/60" : "bg-emerald-100 text-emerald-800 border-emerald-300"}`}>
+                      <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${isDark ? "bg-emerald-900/50 text-emerald-300 border-emerald-700/60" : "bg-emerald-100 text-emerald-800 border-emerald-300"}`}>
                         Conflict-Free Validated
                       </span>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
                       <div className={`p-3 rounded-xl border ${isDark ? "bg-slate-900/70 border-slate-800" : "bg-white border-emerald-100"}`}>
-                        <span className={`text-[11px] block uppercase font-bold tracking-wider ${isDark ? "text-slate-400" : "text-slate-500"}`}>Examination Date & Time</span>
+                        <span className={`text-xs block uppercase font-bold tracking-wider ${isDark ? "text-slate-400" : "text-slate-500"}`}>Examination Date & Time</span>
                         <span className={`font-bold block mt-1 ${isDark ? "text-white" : "text-slate-900"}`}>{req.auto_assignment.date_formatted}</span>
                         <div className={`text-xs font-semibold mt-0.5 ${isDark ? "text-emerald-300" : "text-emerald-700"}`}>{req.auto_assignment.time_formatted}</div>
                       </div>
                       <div className={`p-3 rounded-xl border ${isDark ? "bg-slate-900/70 border-slate-800" : "bg-white border-emerald-100"}`}>
-                        <span className={`text-[11px] block uppercase font-bold tracking-wider ${isDark ? "text-slate-400" : "text-slate-500"}`}>Assigned Room</span>
+                        <span className={`text-xs block uppercase font-bold tracking-wider ${isDark ? "text-slate-400" : "text-slate-500"}`}>Assigned Room</span>
                         <span className={`font-bold block mt-1 ${isDark ? "text-white" : "text-slate-900"}`}>
                           {req.auto_assignment.room_name === "Consultation Area" ? "Consultation Area" : `Room ${req.auto_assignment.room_name}`}
                         </span>
@@ -400,14 +400,14 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
                           Capacity: {req.auto_assignment.room_capacity} seats
                         </div>
                         {req.auto_assignment.joined_section_name && (
-                          <div className={`text-[11px] mt-1 font-medium ${isDark ? "text-emerald-300/90" : "text-emerald-700"}`}>
+                          <div className={`text-xs mt-1 font-medium ${isDark ? "text-emerald-300/90" : "text-emerald-700"}`}>
                             Joining: {req.auto_assignment.joined_section_name}
                             {req.auto_assignment.joined_subject_name ? ` (${req.auto_assignment.joined_subject_name})` : ""}
                           </div>
                         )}
                       </div>
                       <div className={`p-3 rounded-xl border ${isDark ? "bg-slate-900/70 border-slate-800" : "bg-white border-emerald-100"}`}>
-                        <span className={`text-[11px] block uppercase font-bold tracking-wider ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                        <span className={`text-xs block uppercase font-bold tracking-wider ${isDark ? "text-slate-400" : "text-slate-500"}`}>
                           {req.auto_assignment.is_consultation ? "Proctoring" : "Regular Session Sit-In"}
                         </span>
                         <span className={`font-bold block mt-1 ${isDark ? "text-white" : "text-slate-900"}`}>
@@ -477,7 +477,7 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
         ) : history.length === 0 ? (
           <div className={`text-center py-16 ${isDark ? "text-slate-400" : "text-slate-500"}`}>
             <ClipboardDocumentListIcon className="w-12 h-12 mx-auto mb-3 opacity-30 text-slate-400" />
-            <p className="font-semibold text-base">No rescheduling history.</p>
+            <div className="font-semibold text-base">No rescheduling history.</div>
             <p className="text-sm mt-1 text-slate-400">Processed rescheduling requests will appear here.</p>
           </div>
         ) : (
@@ -500,7 +500,7 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
                         ID: {req.id}
                       </span>
                       {req.department_code && (
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${isDark ? "bg-slate-800 text-slate-300 border-slate-700" : "bg-slate-100 text-slate-700 border-slate-200"}`}>
+                        <span className={`px-2 py-0.5 rounded text-xs font-bold border ${isDark ? "bg-slate-800 text-slate-300 border-slate-700" : "bg-slate-100 text-slate-700 border-slate-200"}`}>
                           Dept: {req.department_code}
                         </span>
                       )}
@@ -641,7 +641,7 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
                   </p>
                 </div>
                 <div className={`mb-4 p-3 rounded-xl border text-xs ${isDark ? "bg-amber-950/30 border-amber-800/60 text-amber-300" : "bg-amber-50 border-amber-300 text-amber-900"}`}>
-                  <p className="font-bold mb-0.5">No Proctor Required to Approve</p>
+                  <div className="font-bold mb-0.5">No Proctor Required to Approve</div>
                   <p>Exam will be approved without proctoring assignment. The admin will personally assign a supervising proctor.</p>
                 </div>
                 <label className={`mb-2 block text-xs font-bold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-600"}`} htmlFor="consultation-proctor">
@@ -667,14 +667,13 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
                   </div>
                 ) : (
                   <>
-                    <p className={`text-xs mb-2 font-bold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+                    <div className={`text-xs mb-2 font-bold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-600"}`}>
                       Available rooms for this time ({approveModalReq.department === "College" ? "Building B" : "Building C"}):
-                    </p>
+                    </div>
                     <select
                       value={selectedRoomId}
                       onChange={(e) => setSelectedRoomId(e.target.value)}
-                      className={`w-full p-3 rounded-xl border text-sm mb-4 outline-none transition focus:ring-2 focus:ring-blue-500/40 ${isDark ? "bg-slate-800 border-slate-700 text-white" : "bg-slate-50 border-slate-300 text-slate-800"}`}
-                    >
+                      className={`w-full p-3 rounded-xl border text-sm mb-4 outline-none transition focus:ring-2 focus:ring-blue-500/40 ${isDark ? "bg-slate-800 border-slate-700 text-white" : "bg-slate-50 border-slate-300 text-slate-800"}`} aria-label="Select available room">
                       <option value="">— Select a room —</option>
                       {availableRooms.map((r) => (
                         <option key={r.id} value={r.id}>
@@ -919,8 +918,7 @@ function ChatSupportPanel() {
                 ? "bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700" 
                 : "bg-white border-slate-200 text-slate-700 hover:bg-slate-100 shadow-sm"
             }`}
-            title="Start New Chat"
-          >
+            title="Start New Chat" aria-label="Start New Chat">
             <PlusIcon className="w-4 h-4" />
           </button>
         </div>
@@ -944,7 +942,7 @@ function ChatSupportPanel() {
                   {conv.student_name}
                 </span>
                 {conv.unread_count > 0 && (
-                  <span className="ml-2 shrink-0 text-[10px] font-bold bg-rose-600 text-white rounded-full px-1.5 py-0.5 animate-pulse">
+                  <span className="ml-2 shrink-0 text-xs font-bold bg-rose-600 text-white rounded-full px-1.5 py-0.5 animate-pulse">
                     {conv.unread_count}
                   </span>
                 )}
@@ -953,7 +951,7 @@ function ChatSupportPanel() {
                 <p className={`text-xs truncate flex-1 ${isDark ? "text-slate-400" : "text-slate-600"}`}>
                   {conv.last_message || "No messages yet"}
                 </p>
-                <span className={`text-[9px] uppercase px-1.5 py-0.5 rounded-full font-bold select-none whitespace-nowrap border ${
+                <span className={`text-xs uppercase px-1.5 py-0.5 rounded-full font-bold select-none whitespace-nowrap border ${
                   conv.role === "proctor" || conv.student_type === "proctor"
                     ? "bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/50"
                     : conv.student_type === "irregular"
@@ -964,7 +962,7 @@ function ChatSupportPanel() {
                 </span>
               </div>
               {conv.last_message_time && (
-                <p className={`text-[10px] mt-1 ${isDark ? "text-slate-500" : "text-slate-400"}`}>
+                <p className={`text-xs mt-1 ${isDark ? "text-slate-500" : "text-slate-400"}`}>
                   {new Date(conv.last_message_time + "Z").toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                 </p>
               )}
@@ -983,8 +981,7 @@ function ChatSupportPanel() {
                 <button
                   onClick={() => setActiveStudentId(null)}
                   className="p-1.5 rounded-xl md:hidden hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition shrink-0"
-                  title="Back to conversations"
-                >
+                  title="Back to conversations" aria-label="Back to conversations">
                   <ChevronRightIcon className="w-5 h-5 rotate-180" />
                 </button>
                 <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${isDark ? "bg-blue-600/30 text-blue-300 border border-blue-500/40" : "bg-blue-100 text-blue-800 border border-blue-200"
@@ -1028,15 +1025,13 @@ function ChatSupportPanel() {
                           className={`p-1 rounded-lg transition-colors ${
                             isDark ? "hover:bg-slate-800 text-slate-400 hover:text-white" : "hover:bg-slate-100 text-slate-500 hover:text-slate-900"
                           }`}
-                          title="Edit message"
-                        >
+                          title="Edit message" aria-label="Edit message">
                           <PencilIcon className="w-3.5 h-3.5" />
                         </button>
                         <button
                           onClick={() => deleteMessage(msg.id)}
                           className="p-1 rounded-lg transition-colors hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600"
-                          title="Delete message"
-                        >
+                          title="Delete message" aria-label="Delete message">
                           <TrashIcon className="w-3.5 h-3.5" />
                         </button>
                       </div>
@@ -1052,8 +1047,7 @@ function ChatSupportPanel() {
                             value={editingText}
                             onChange={(e) => setEditingText(e.target.value)}
                             className="p-2 text-sm rounded-xl border outline-none text-slate-800 bg-white dark:bg-slate-900 dark:text-white dark:border-slate-700 resize-none focus:ring-2 focus:ring-blue-500"
-                            rows={2}
-                          />
+                            rows={2} aria-label="Edit message" />
                           <div className="flex gap-2 justify-end">
                             <button
                               onClick={cancelEditing}
@@ -1072,7 +1066,7 @@ function ChatSupportPanel() {
                       ) : (
                         <>
                           <p className="leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{msg.message}</p>
-                          <p className={`text-[10px] mt-1 ${isMe ? "text-blue-100" : isDark ? "text-slate-400" : "text-slate-500"}`}>
+                          <p className={`text-xs mt-1 ${isMe ? "text-blue-100" : isDark ? "text-slate-400" : "text-slate-500"}`}>
                             {new Date(msg.created_at + "Z").toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                           </p>
                         </>
@@ -1118,7 +1112,7 @@ function ChatSupportPanel() {
               <ChatBubbleLeftRightIcon className="w-8 h-8 opacity-40 text-slate-400" />
             </div>
             <div className="text-center">
-              <p className="font-bold text-slate-700 dark:text-slate-300 text-base">Select a conversation</p>
+              <div className="font-bold text-slate-700 dark:text-slate-300 text-base">Select a conversation</div>
               <p className="text-sm mt-1 text-slate-400">Choose a student or proctor from the list or start a new chat.</p>
             </div>
           </div>
@@ -1224,8 +1218,7 @@ function ChatSupportPanel() {
                   isDark 
                     ? "bg-slate-700 border-slate-600 text-white focus:border-blue-500" 
                     : "bg-white border-slate-200 text-slate-800 focus:border-blue-500 shadow-sm"
-                }`}
-              />
+                }`} aria-label="Search contacts" />
             </div>
 
             {/* Contact List */}
@@ -1242,10 +1235,10 @@ function ChatSupportPanel() {
                       }`}
                     >
                       <div className="min-w-0 flex-1">
-                        <p className="font-semibold text-sm truncate">{s.name}</p>
+                        <div className="font-semibold text-sm truncate">{s.name}</div>
                         <p className={`text-xs truncate ${isDark ? "text-slate-400" : "text-slate-500"}`}>{s.email}</p>
                       </div>
-                      <span className={`text-[10px] px-2 py-0.5 rounded capitalize ${
+                      <span className={`text-xs px-2 py-0.5 rounded capitalize ${
                         s.student_type === "irregular" ? "bg-purple-500/20 text-purple-400" : "bg-blue-500/20 text-blue-400"
                       }`}>
                         {s.student_type}
@@ -1264,10 +1257,10 @@ function ChatSupportPanel() {
                       }`}
                     >
                       <div className="min-w-0 flex-1">
-                        <p className="font-semibold text-sm truncate">{p.name}</p>
+                        <div className="font-semibold text-sm truncate">{p.name}</div>
                         <p className={`text-xs truncate ${isDark ? "text-slate-400" : "text-slate-500"}`}>{p.email}</p>
                       </div>
-                      <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400">
+                      <span className="text-xs px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400">
                         Proctor
                       </span>
                     </button>
@@ -1330,7 +1323,7 @@ function ProgramHeadManual() {
                 <h2 className={`text-xl sm:text-2xl font-black tracking-tight ${isDark ? "text-white" : "text-slate-900"}`}>
                   Program Head Master Manual
                 </h2>
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                <span className={`text-xs font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
                   isDark ? "bg-blue-500/20 text-blue-300 border border-blue-500/30" : "bg-blue-100 text-blue-700"
                 }`}>
                   Current Version
@@ -1354,13 +1347,11 @@ function ProgramHeadManual() {
                 isDark
                   ? "bg-slate-900/70 border-slate-700 text-white placeholder-slate-500 focus:ring-blue-500/50"
                   : "bg-white border-slate-200 text-slate-900 placeholder-slate-400 focus:ring-blue-500/30 shadow-sm"
-              }`}
-            />
+              }`} aria-label="Search guide topics" />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery("")}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-              >
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200" aria-label="Clear search">
                 <XMarkIcon className="w-3.5 h-3.5" />
               </button>
             )}
@@ -1389,7 +1380,7 @@ function ProgramHeadManual() {
             >
               <SubIcon className={`w-4 h-4 transition-transform group-hover:scale-110 ${isSelected ? "text-white" : isDark ? "text-slate-400" : "text-slate-500"}`} />
               <span>{t.label}</span>
-              <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-bold uppercase ${
+              <span className={`text-xs px-1.5 py-0.5 rounded-md font-bold uppercase ${
                 isSelected
                   ? "bg-white/20 text-white"
                   : isDark
@@ -1546,7 +1537,7 @@ function ProgramHeadManual() {
                 <p className={`text-xs leading-relaxed mb-3 ${isDark ? "text-slate-300" : "text-slate-600"}`}>
                   Click <strong>Export to Excel</strong> to generate an officially formatted, color-coded spreadsheet with separate sheets for College, SHS, and Proctor Duty Rosters.
                 </p>
-                <div className={`p-3 rounded-xl border text-[11px] leading-relaxed flex items-center gap-2 ${
+                <div className={`p-3 rounded-xl border text-xs leading-relaxed flex items-center gap-2 ${
                   isDark ? "bg-emerald-950/20 border-emerald-900/40 text-emerald-300" : "bg-emerald-50 border-emerald-200 text-emerald-800"
                 }`}>
                   <CheckCircleIcon className="w-4 h-4 shrink-0 text-emerald-500" />
@@ -1646,7 +1637,7 @@ function ProgramHeadManual() {
                 <p className={`text-xs leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
                   Program Heads can adjust room capacities in real-time under <strong>Room Management</strong>. When a section exceeds a room's seat limit, the system flags a capacity conflict and blocks the assignment.
                 </p>
-                <div className="mt-3 text-[11px] font-mono p-2 rounded bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300">
+                <div className="mt-3 text-xs font-mono p-2 rounded bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300">
                   Rule: Section Enrollment ≤ Room Seating Capacity
                 </div>
               </div>
@@ -1947,7 +1938,7 @@ function NavGroup({ label, icon: GroupIcon, children, defaultOpen = false, isDar
       >
         <div className="flex items-center gap-2">
           <GroupIcon className="w-3.5 h-3.5" />
-          <span className="text-[11px] font-bold uppercase tracking-widest">{label}</span>
+          <span className="text-xs font-bold uppercase tracking-widest">{label}</span>
         </div>
         <ChevronRightIcon
           className={`w-3.5 h-3.5 transition-transform duration-200 ${open ? "rotate-90" : ""}`}
@@ -1986,7 +1977,7 @@ function NavItem({ item, activeTab, setActiveTab, isDark, badge, onSelect }) {
         <span className="text-sm font-semibold">{item.label}</span>
       </div>
       {badge > 0 && (
-        <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">
+        <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full animate-pulse">
           {badge}
         </span>
       )}
@@ -2253,14 +2244,13 @@ export default function ProgramHeadDashboard() {
                     <div className={`mt-1.5 w-2 h-2 rounded-full flex-shrink-0 ${notif.is_read ? "bg-slate-400" : "bg-blue-500"}`}></div>
                     <div className="min-w-0 flex-1">
                       <p className={`text-sm leading-snug ${isDark ? "text-slate-200" : "text-slate-800"}`}>{notif.message}</p>
-                      <p className={`text-[11px] mt-1.5 font-medium ${isDark ? "text-slate-500" : "text-slate-400"}`}>{notif.created_at ? new Date(notif.created_at).toLocaleString() : "Just now"}</p>
+                      <p className={`text-xs mt-1.5 font-medium ${isDark ? "text-slate-500" : "text-slate-400"}`}>{notif.created_at ? new Date(notif.created_at).toLocaleString() : "Just now"}</p>
                     </div>
                   </div>
                   <button
                     onClick={(e) => handleDeleteNotification(e, notif.id)}
                     className={`p-1 rounded-lg transition-colors shrink-0 ${isDark ? "text-slate-400 hover:text-red-400 hover:bg-slate-700" : "text-slate-400 hover:text-red-600 hover:bg-slate-200/70"}`}
-                    title="Delete notification"
-                  >
+                    title="Delete notification" aria-label="Delete notification">
                     <XMarkIcon className="w-4 h-4" />
                   </button>
                 </div>
@@ -2296,11 +2286,11 @@ export default function ProgramHeadDashboard() {
             <h2 className={`text-lg font-bold tracking-tight ${isDark ? "text-white" : "text-slate-900"}`}>{user?.name || "Admin"}</h2>
             <div className="flex items-center justify-center gap-1 mt-1">
               {user?.is_super_admin ? (
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                <span className="px-2 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-amber-500/20 text-amber-400 border border-amber-500/30">
                   Super Admin (GE)
                 </span>
               ) : (
-                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${isDark ? "bg-blue-500/20 text-blue-400 border border-blue-500/30" : "bg-blue-50 text-blue-700 border border-blue-200"}`}>
+                <span className={`px-2 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider ${isDark ? "bg-blue-500/20 text-blue-400 border border-blue-500/30" : "bg-blue-50 text-blue-700 border border-blue-200"}`}>
                   {user?.department_code ? `${user.department_code} Admin` : "Exam Management"}
                 </span>
               )}
@@ -2368,7 +2358,7 @@ export default function ProgramHeadDashboard() {
                   <button onClick={() => setShowNotifications(!showNotifications)} className={`relative p-2.5 rounded-xl transition-all duration-300 ${isDark ? "text-slate-300 hover:text-white hover:bg-slate-800" : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"}`}>
                     <BellIcon className="w-5 h-5" />
                     {unreadCount > 0 && (
-                      <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white ring-2 ring-white dark:ring-slate-900 animate-pulse">
+                      <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-xs font-bold text-white ring-2 ring-white dark:ring-slate-900 animate-pulse">
                         {unreadCount}
                       </span>
                     )}
@@ -2398,7 +2388,7 @@ export default function ProgramHeadDashboard() {
                     </div>
                     <div>
                       <span className="text-xs font-bold uppercase tracking-wider block opacity-75">New Notification</span>
-                      <p className="text-sm font-semibold mt-0.5 leading-snug">{latestUnreadNotif.message}</p>
+                      <div className="text-sm font-semibold mt-0.5 leading-snug">{latestUnreadNotif.message}</div>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
@@ -2419,8 +2409,7 @@ export default function ProgramHeadDashboard() {
                           ? "text-blue-400 hover:text-white hover:bg-slate-800" 
                           : "text-blue-600 hover:text-blue-800 hover:bg-blue-100"
                       }`}
-                      title="Mark as read"
-                    >
+                      title="Mark as read" aria-label="Mark as read">
                       <XMarkIcon className="w-4 h-4" />
                     </button>
                   </div>
@@ -2437,9 +2426,9 @@ export default function ProgramHeadDashboard() {
                         <ArrowPathIcon className="w-5 h-5 animate-spin" />
                       </div>
                       <div className="min-w-0">
-                        <p className={`text-sm font-bold ${isDark ? "text-blue-100" : "text-blue-900"}`}>
+                        <div className={`text-sm font-bold ${isDark ? "text-blue-100" : "text-blue-900"}`}>
                           {generationProgress.phase || "Generating schedule"}
-                        </p>
+                        </div>
                         <p className={`mt-1 text-xs leading-relaxed ${isDark ? "text-blue-200/80" : "text-blue-700"}`}>
                           {generationProgress.detail || "Generation is running in the background."}
                         </p>

@@ -335,56 +335,52 @@ export default function RoomManagement({ isGenerating }) {
         <div className={`rounded-2xl border p-4 sm:p-5 ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200"} shadow-sm`}>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
             <div>
-              <label className={`block text-xs font-bold uppercase tracking-wider mb-1.5 ${isDark ? "text-slate-300" : "text-slate-700"}`}>Academic Level</label>
+              <label className={`block text-xs font-bold uppercase tracking-wider mb-1.5 ${isDark ? "text-slate-300" : "text-slate-700"}`} htmlFor="roommanagement-field-1">Academic Level</label>
               <select 
                 value={department} 
                 onChange={(e) => setDepartment(e.target.value)} 
                 className={`w-full rounded-xl border p-2.5 sm:p-3 text-xs sm:text-sm font-medium transition ${
                   isDark ? "bg-slate-900 text-slate-100 border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500" : "bg-white text-slate-800 border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
-                }`}
-              >
+                }`} id="roommanagement-field-1" aria-label="Academic Level">
                 <option value="College">College</option>
                 <option value="SHS">Senior High</option>
                 <option value="All">All Levels</option>
               </select>
             </div>
             <div>
-              <label className={`block text-xs font-bold uppercase tracking-wider mb-1.5 ${isDark ? "text-slate-300" : "text-slate-700"}`}>Semester</label>
+              <label className={`block text-xs font-bold uppercase tracking-wider mb-1.5 ${isDark ? "text-slate-300" : "text-slate-700"}`} htmlFor="roommanagement-field-2">Semester</label>
               <select 
                 value={semester} 
                 onChange={(e) => setSemester(Number(e.target.value))} 
                 className={`w-full rounded-xl border p-2.5 sm:p-3 text-xs sm:text-sm font-medium transition ${
                   isDark ? "bg-slate-900 text-slate-100 border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500" : "bg-white text-slate-800 border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
-                }`}
-              >
+                }`} id="roommanagement-field-2" aria-label="Semester">
                 <option value={1}>1st Semester</option>
                 <option value={2}>2nd Semester</option>
                 <option value={3}>3rd Semester</option>
               </select>
             </div>
             <div>
-              <label className={`block text-xs font-bold uppercase tracking-wider mb-1.5 ${isDark ? "text-slate-300" : "text-slate-700"}`}>Schedule Status</label>
+              <label className={`block text-xs font-bold uppercase tracking-wider mb-1.5 ${isDark ? "text-slate-300" : "text-slate-700"}`} htmlFor="roommanagement-field-3">Schedule Status</label>
               <select 
                 value={scheduleStatus} 
                 onChange={(e) => setScheduleStatus(e.target.value)} 
                 className={`w-full rounded-xl border p-2.5 sm:p-3 text-xs sm:text-sm font-medium transition ${
                   isDark ? "bg-slate-900 text-slate-100 border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500" : "bg-white text-slate-800 border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
-                }`}
-              >
+                }`} id="roommanagement-field-3" aria-label="Schedule Status">
                 <option value="all">All Schedules</option>
                 <option value="draft">Draft Only</option>
                 <option value="posted">Posted Only</option>
               </select>
             </div>
             <div>
-              <label className={`block text-xs font-bold uppercase tracking-wider mb-1.5 ${isDark ? "text-slate-300" : "text-slate-700"}`}>Room Status</label>
+              <label className={`block text-xs font-bold uppercase tracking-wider mb-1.5 ${isDark ? "text-slate-300" : "text-slate-700"}`} htmlFor="roommanagement-field-4">Room Status</label>
               <select 
                 value={roomStatus} 
                 onChange={(e) => setRoomStatus(e.target.value)} 
                 className={`w-full rounded-xl border p-2.5 sm:p-3 text-xs sm:text-sm font-medium transition ${
                   isDark ? "bg-slate-900 text-slate-100 border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500" : "bg-white text-slate-800 border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
-                }`}
-              >
+                }`} id="roommanagement-field-4" aria-label="Room Status">
                 <option value="all">All Rooms</option>
                 <option value="available">Available</option>
                 <option value="in_use">In Use</option>
@@ -401,8 +397,8 @@ export default function RoomManagement({ isGenerating }) {
               <div key={card.label} className={`rounded-2xl border p-4 sm:p-5 shadow-sm transition hover:shadow-md ${toneClasses[card.tone]}`}>
                 <div className="flex items-center justify-between gap-2">
                   <div>
-                    <p className="text-[11px] sm:text-xs font-bold uppercase tracking-wider opacity-85">{card.label}</p>
-                    <p className="mt-1 sm:mt-2 text-2xl sm:text-3xl font-extrabold">{card.value}</p>
+                    <div className="text-xs font-bold uppercase tracking-wider opacity-85">{card.label}</div>
+                    <div className="mt-1 sm:mt-2 text-2xl sm:text-3xl font-extrabold">{card.value}</div>
                   </div>
                   <div className="p-2 sm:p-2.5 rounded-xl bg-white/40 dark:bg-black/20 shrink-0">
                     <Icon className="w-6 h-6 sm:w-7 sm:h-7" />
@@ -424,10 +420,10 @@ export default function RoomManagement({ isGenerating }) {
                 <div key={`${exam.issue_type}-${exam.id}`} className={`rounded-xl border p-4 shadow-xs ${isDark ? "bg-slate-900/80 border-rose-800/40" : "bg-white border-rose-200"}`}>
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className={`font-bold truncate ${isDark ? "text-white" : "text-slate-900"}`}>{exam.subject_name}</p>
+                      <div className={`font-bold truncate ${isDark ? "text-white" : "text-slate-900"}`}>{exam.subject_name}</div>
                       <p className={`text-xs mt-1 font-medium ${isDark ? "text-slate-400" : "text-slate-600"}`}>{exam.section_name} | {exam.exam_date} | {exam.start_time} - {exam.end_time}</p>
                     </div>
-                    <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold border ${isDark ? "bg-rose-950/60 text-rose-300 border-rose-800" : "bg-rose-100 text-rose-800 border-rose-200"}`}>{exam.issue_type}</span>
+                    <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-bold border ${isDark ? "bg-rose-950/60 text-rose-300 border-rose-800" : "bg-rose-100 text-rose-800 border-rose-200"}`}>{exam.issue_type}</span>
                   </div>
                 </div>
               ))}
@@ -449,8 +445,7 @@ export default function RoomManagement({ isGenerating }) {
                     isDark 
                       ? "bg-slate-900 border-slate-700 text-slate-100 placeholder:text-slate-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500" 
                       : "bg-white border-slate-300 text-slate-800 placeholder:text-slate-400 focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
-                  }`}
-                />
+                  }`} aria-label="Search room by name, building, or department" />
               </div>
             </div>
 
@@ -505,13 +500,13 @@ export default function RoomManagement({ isGenerating }) {
                 <table className="hidden w-full min-w-[720px] text-xs sm:text-sm md:table">
                   <thead className={isDark ? "bg-slate-850 text-slate-300 border-b border-slate-700" : "bg-slate-50 text-slate-700 border-b border-slate-200"}>
                     <tr>
-                      <th className="px-5 py-3 text-left font-bold uppercase tracking-wider text-[11px]">Room</th>
-                      <th className="px-5 py-3 text-left font-bold uppercase tracking-wider text-[11px]">Building</th>
-                      <th className="px-5 py-3 text-left font-bold uppercase tracking-wider text-[11px]">Capacity</th>
-                      <th className="px-5 py-3 text-left font-bold uppercase tracking-wider text-[11px]">Sections</th>
-                      <th className="px-5 py-3 text-left font-bold uppercase tracking-wider text-[11px]">Department</th>
-                      <th className="px-5 py-3 text-left font-bold uppercase tracking-wider text-[11px]">Status</th>
-                      {isAdmin && <th className="px-5 py-3 text-center font-bold uppercase tracking-wider text-[11px]">Action</th>}
+                      <th className="px-5 py-3 text-left font-bold uppercase tracking-wider text-xs">Room</th>
+                      <th className="px-5 py-3 text-left font-bold uppercase tracking-wider text-xs">Building</th>
+                      <th className="px-5 py-3 text-left font-bold uppercase tracking-wider text-xs">Capacity</th>
+                      <th className="px-5 py-3 text-left font-bold uppercase tracking-wider text-xs">Sections</th>
+                      <th className="px-5 py-3 text-left font-bold uppercase tracking-wider text-xs">Department</th>
+                      <th className="px-5 py-3 text-left font-bold uppercase tracking-wider text-xs">Status</th>
+                      {isAdmin && <th className="px-5 py-3 text-center font-bold uppercase tracking-wider text-xs">Action</th>}
                     </tr>
                   </thead>
                   <tbody className={isDark ? "divide-y divide-slate-700" : "divide-y divide-slate-200"}>
@@ -594,7 +589,7 @@ export default function RoomManagement({ isGenerating }) {
               <>
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className={`text-xs font-bold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-500"}`}>Selected Room</p>
+                    <div className={`text-xs font-bold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-500"}`}>Selected Room</div>
                     <h2 className={`text-2xl sm:text-3xl font-extrabold mt-1 ${isDark ? "text-white" : "text-slate-900"}`}>{selectedRoom.name}</h2>
                   </div>
                   {(() => {
@@ -614,22 +609,22 @@ export default function RoomManagement({ isGenerating }) {
                 <div className={`mt-5 rounded-xl border p-4 ${isDark ? "border-slate-700 bg-slate-900/50" : "border-slate-200 bg-slate-50"}`}>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs sm:text-sm">
                     <div>
-                      <p className={`text-xs font-semibold ${isDark ? "text-slate-400" : "text-slate-500"}`}>Building</p>
-                      <p className={`font-bold mt-0.5 ${isDark ? "text-slate-100" : "text-slate-900"}`}>{selectedRoom.building}</p>
+                      <div className={`text-xs font-semibold ${isDark ? "text-slate-400" : "text-slate-500"}`}>Building</div>
+                      <div className={`font-bold mt-0.5 ${isDark ? "text-slate-100" : "text-slate-900"}`}>{selectedRoom.building}</div>
                     </div>
                     <div>
-                      <p className={`text-xs font-semibold ${isDark ? "text-slate-400" : "text-slate-500"}`}>Capacity</p>
-                      <p className={`font-bold mt-0.5 ${isDark ? "text-slate-100" : "text-slate-900"}`}>{selectedRoom.capacity} seats</p>
+                      <div className={`text-xs font-semibold ${isDark ? "text-slate-400" : "text-slate-500"}`}>Capacity</div>
+                      <div className={`font-bold mt-0.5 ${isDark ? "text-slate-100" : "text-slate-900"}`}>{selectedRoom.capacity} seats</div>
                     </div>
                     <div>
-                      <p className={`text-xs font-semibold ${isDark ? "text-slate-400" : "text-slate-500"}`}>Total Sections</p>
-                      <p className="font-bold text-blue-600 dark:text-blue-400 mt-0.5">
+                      <div className={`text-xs font-semibold ${isDark ? "text-slate-400" : "text-slate-500"}`}>Total Sections</div>
+                      <div className="font-bold text-blue-600 dark:text-blue-400 mt-0.5">
                         {selectedRoom.section_count ?? new Set(selectedRoom.bookings?.map(b => b.section_name || b.section_id).filter(Boolean)).size ?? 0}
-                      </p>
+                      </div>
                     </div>
                     <div>
-                      <p className={`text-xs font-semibold ${isDark ? "text-slate-400" : "text-slate-500"}`}>Total Exams</p>
-                      <p className={`font-bold mt-0.5 ${isDark ? "text-slate-100" : "text-slate-900"}`}>{selectedRoom.booking_count}</p>
+                      <div className={`text-xs font-semibold ${isDark ? "text-slate-400" : "text-slate-500"}`}>Total Exams</div>
+                      <div className={`font-bold mt-0.5 ${isDark ? "text-slate-100" : "text-slate-900"}`}>{selectedRoom.booking_count}</div>
                     </div>
                   </div>
                 </div>
@@ -679,10 +674,10 @@ export default function RoomManagement({ isGenerating }) {
                       </button>
                     ) : (
                       <div className={`rounded-xl border p-4 ${isDark ? "bg-rose-950/40 border-rose-800/80" : "bg-rose-50 border-rose-200"}`}>
-                        <p className={`text-xs font-bold ${isDark ? "text-rose-200" : "text-rose-900"}`}>
+                        <div className={`text-xs font-bold ${isDark ? "text-rose-200" : "text-rose-900"}`}>
                           Are you sure you want to delete room "{selectedRoom.name}"?
-                        </p>
-                        <p className={`text-[11px] mt-1 ${isDark ? "text-rose-300/80" : "text-rose-700"}`}>
+                        </div>
+                        <p className={`text-xs mt-1 ${isDark ? "text-rose-300/80" : "text-rose-700"}`}>
                           This action cannot be undone.
                         </p>
                         <div className="flex items-center gap-2 mt-3">
@@ -692,8 +687,7 @@ export default function RoomManagement({ isGenerating }) {
                             disabled={deleting || isGenerating}
                             className={`flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-rose-700 hover:bg-rose-800 text-white py-2 text-xs font-bold transition shadow-xs ${
                               (deleting || isGenerating) ? "opacity-50 cursor-not-allowed" : ""
-                            }`}
-                          >
+                            }`} aria-label="Delete">
                             {deleting ? (
                               <ArrowPathIcon className="w-3.5 h-3.5 animate-spin" />
                             ) : (
@@ -729,37 +723,37 @@ export default function RoomManagement({ isGenerating }) {
                       <div key={day.dayLabel} className="space-y-2">
                         <div className={`flex items-center justify-between rounded-lg px-3 py-2 ${isDark ? "bg-slate-900 text-slate-200" : "bg-slate-100 text-slate-800"}`}>
                           <p className="text-xs font-black uppercase tracking-wider">{day.dayLabel}</p>
-                          <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${isDark ? "bg-blue-950/60 text-blue-300 border border-blue-800" : "bg-blue-100 text-blue-800 border border-blue-200"}`}>
+                          <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${isDark ? "bg-blue-950/60 text-blue-300 border border-blue-800" : "bg-blue-100 text-blue-800 border border-blue-200"}`}>
                             {day.exams.length} exam{day.exams.length !== 1 ? "s" : ""}
                           </span>
                         </div>
                         {day.exams.map((exam) => (
                           <div key={exam.id} className={`rounded-xl border p-3.5 ${isDark ? "border-slate-700 bg-slate-900/50" : "border-slate-200 bg-white"} shadow-xs`}>
                             <div className="flex items-start justify-between gap-2 mb-1">
-                              <p className={`font-bold text-xs sm:text-sm leading-tight ${isDark ? "text-white" : "text-slate-900"}`}>{exam.subject_name}</p>
+                              <div className={`font-bold text-xs sm:text-sm leading-tight ${isDark ? "text-white" : "text-slate-900"}`}>{exam.subject_name}</div>
                               {exam.is_rescheduled && (
-                                <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                                <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-bold uppercase tracking-wider ${
                                   isDark ? "bg-purple-950/60 text-purple-300 border border-purple-800" : "bg-purple-100 text-purple-800 border border-purple-200"
                                 }`}>Rescheduled</span>
                               )}
                             </div>
                             <p className={`text-xs mt-0.5 font-medium ${isDark ? "text-slate-400" : "text-slate-600"}`}>{exam.section_name}</p>
-                            <p className={`text-xs mt-1 font-semibold ${isDark ? "text-blue-300" : "text-blue-700"}`}>{exam.start_time} – {exam.end_time}</p>
+                            <div className={`text-xs mt-1 font-semibold ${isDark ? "text-blue-300" : "text-blue-700"}`}>{exam.start_time} – {exam.end_time}</div>
                             <div className="flex flex-wrap items-center gap-1.5 mt-2">
                               {selectedRoom?.capacity && exam.student_count > selectedRoom.capacity ? (
-                                <span className={`text-[11px] font-bold rounded-full px-2 py-0.5 border ${
+                                <span className={`text-xs font-bold rounded-full px-2 py-0.5 border ${
                                   isDark ? "bg-rose-950/60 text-rose-300 border-rose-800" : "bg-rose-50 text-rose-800 border-rose-200"
                                 }`} title={`Over capacity: ${exam.student_count} students in a ${selectedRoom.capacity}-seat room`}>
                                   ⚠️ {exam.student_count} / {selectedRoom.capacity} seats
                                 </span>
                               ) : (
-                                <span className={`text-[11px] font-semibold rounded-full px-2 py-0.5 border ${
+                                <span className={`text-xs font-semibold rounded-full px-2 py-0.5 border ${
                                   isDark ? "bg-emerald-950/60 text-emerald-300 border-emerald-800" : "bg-emerald-50 text-emerald-800 border-emerald-200"
                                 }`} title={`${exam.student_count ?? "—"} students scheduled (${(selectedRoom?.capacity || 0) - (exam.student_count || 0)} excess seats)`}>
                                   👤 {exam.student_count ?? "—"} / {selectedRoom?.capacity ?? "—"} seats
                                 </span>
                               )}
-                              <span className={`text-[11px] font-semibold rounded-full px-2 py-0.5 border uppercase text-[10px] ${
+                              <span className={`text-xs font-semibold rounded-full px-2 py-0.5 border uppercase text-xs ${
                                 exam.status === "posted"
                                   ? isDark ? "bg-emerald-950/60 text-emerald-300 border-emerald-800" : "bg-emerald-50 text-emerald-800 border-emerald-200"
                                   : isDark ? "bg-amber-950/60 text-amber-300 border-amber-800" : "bg-amber-50 text-amber-800 border-amber-200"
@@ -811,7 +805,7 @@ export default function RoomManagement({ isGenerating }) {
             
             <form onSubmit={handleAddRoom} className="space-y-4">
               <div>
-                <label className={`block text-xs font-bold uppercase tracking-wider mb-1.5 ${isDark ? "text-slate-300" : "text-slate-700"}`}>
+                <label className={`block text-xs font-bold uppercase tracking-wider mb-1.5 ${isDark ? "text-slate-300" : "text-slate-700"}`} htmlFor="roommanagement-field-5">
                   Room Name
                 </label>
                 <input
@@ -824,13 +818,12 @@ export default function RoomManagement({ isGenerating }) {
                     isDark 
                       ? "bg-slate-900 border-slate-700 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500" 
                       : "bg-white border-slate-300 text-slate-800 focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
-                  }`}
-                />
+                  }`} id="roommanagement-field-5" aria-label="Room Name" />
               </div>
               
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div>
-                  <label className={`block text-xs font-bold uppercase tracking-wider mb-1.5 ${isDark ? "text-slate-300" : "text-slate-700"}`}>
+                  <label className={`block text-xs font-bold uppercase tracking-wider mb-1.5 ${isDark ? "text-slate-300" : "text-slate-700"}`} htmlFor="roommanagement-field-6">
                     Building
                   </label>
                   <select
@@ -840,15 +833,14 @@ export default function RoomManagement({ isGenerating }) {
                       isDark 
                         ? "bg-slate-900 border-slate-700 text-white focus:border-blue-500" 
                         : "bg-white border-slate-300 text-slate-800 focus:border-blue-600"
-                    }`}
-                  >
+                    }`} id="roommanagement-field-6" aria-label="Building">
                     <option value="B">Building B (College)</option>
                     <option value="C">Building C (SHS)</option>
                   </select>
                 </div>
                 
                 <div>
-                  <label className={`block text-xs font-bold uppercase tracking-wider mb-1.5 ${isDark ? "text-slate-300" : "text-slate-700"}`}>
+                  <label className={`block text-xs font-bold uppercase tracking-wider mb-1.5 ${isDark ? "text-slate-300" : "text-slate-700"}`} htmlFor="roommanagement-field-7">
                     Capacity (Seats)
                   </label>
                   <input
@@ -861,8 +853,7 @@ export default function RoomManagement({ isGenerating }) {
                       isDark 
                         ? "bg-slate-900 border-slate-700 text-white focus:border-blue-500" 
                         : "bg-white border-slate-300 text-slate-800 focus:border-blue-600"
-                    }`}
-                  />
+                    }`} id="roommanagement-field-7" aria-label="Capacity (Seats)" />
                 </div>
               </div>
               
@@ -918,15 +909,14 @@ export default function RoomManagement({ isGenerating }) {
               <button
                 type="button"
                 onClick={() => setShowEditModal(false)}
-                className={`p-1.5 rounded-lg transition ${isDark ? "hover:bg-slate-750 text-slate-400" : "hover:bg-slate-100 text-slate-500"}`}
-              >
+                className={`p-1.5 rounded-lg transition ${isDark ? "hover:bg-slate-750 text-slate-400" : "hover:bg-slate-100 text-slate-500"}`} aria-label="Close modal">
                 <XMarkIcon className="w-5 h-5" />
               </button>
             </div>
 
             <form onSubmit={handleUpdateRoom} className="space-y-4">
               <div>
-                <label className={`block text-xs font-bold uppercase tracking-wider mb-1.5 ${isDark ? "text-slate-300" : "text-slate-700"}`}>
+                <label className={`block text-xs font-bold uppercase tracking-wider mb-1.5 ${isDark ? "text-slate-300" : "text-slate-700"}`} htmlFor="roommanagement-field-8">
                   Capacity (Seats)
                 </label>
                 <input
@@ -941,8 +931,7 @@ export default function RoomManagement({ isGenerating }) {
                       ? "bg-slate-900 border-slate-700 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500" 
                       : "bg-white border-slate-300 text-slate-800 focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
                   }`}
-                  placeholder="e.g. 40"
-                />
+                  placeholder="e.g. 40" id="roommanagement-field-8" aria-label="Capacity (Seats)" />
                 <p className={`text-xs mt-1.5 ${isDark ? "text-slate-400" : "text-slate-500"}`}>
                   Maximum number of student exam seats allocated for this room. Sections with more students than this capacity will not be scheduled here.
                 </p>
@@ -1008,9 +997,9 @@ export default function RoomManagement({ isGenerating }) {
             </div>
 
             <div className={`rounded-xl border p-4 mb-5 ${isDark ? "bg-rose-950/40 border-rose-800/80" : "bg-rose-50 border-rose-200"}`}>
-              <p className={`text-sm font-semibold ${isDark ? "text-rose-200" : "text-rose-900"}`}>
+              <div className={`text-sm font-semibold ${isDark ? "text-rose-200" : "text-rose-900"}`}>
                 Are you sure you want to delete all rooms?
-              </p>
+              </div>
               <p className={`text-xs mt-2 ${isDark ? "text-rose-300/80" : "text-rose-700"}`}>
                 Only rooms <strong>without scheduled exams</strong> will be deleted. Rooms with assigned schedules will be preserved.
               </p>

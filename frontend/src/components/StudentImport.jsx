@@ -328,8 +328,7 @@ export default function StudentImport({ isGenerating }) {
               onClick={() => setIsClearAllStudentsModalOpen(true)}
               disabled={clearingStudents || isGenerating || stats.total === 0}
               className="w-full sm:w-auto justify-center flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold bg-rose-600 hover:bg-rose-700 text-white shadow-sm transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
-              title={stats.total === 0 ? "No student accounts to delete" : "Delete all student accounts"}
-            >
+              title={stats.total === 0 ? "No student accounts to delete" : "Delete all student accounts"} aria-label="Delete">
               {clearingStudents ? (
                 <ArrowPathIcon className="w-4 h-4 animate-spin" />
               ) : (
@@ -357,12 +356,12 @@ export default function StudentImport({ isGenerating }) {
               }`}
             >
               <div className="space-y-0.5 sm:space-y-1">
-                <p className={`text-[11px] sm:text-xs font-semibold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                <div className={`text-xs font-semibold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-500"}`}>
                   {card.label}
-                </p>
-                <p className={`text-xl sm:text-2xl font-extrabold tracking-tight ${isDark ? "text-white" : "text-slate-900"}`}>
+                </div>
+                <div className={`text-xl sm:text-2xl font-extrabold tracking-tight ${isDark ? "text-white" : "text-slate-900"}`}>
                   {loadingStats ? "..." : Number(card.value).toLocaleString()}
-                </p>
+                </div>
               </div>
               <div className={`w-10 h-10 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center shrink-0 ${card.color}`}>
                 <Icon className="w-5 h-5" />
@@ -431,7 +430,7 @@ export default function StudentImport({ isGenerating }) {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
               {/* Department Selector */}
               <div>
-                <label className={`block text-xs font-semibold uppercase tracking-wider mb-1.5 ${isDark ? "text-slate-300" : "text-slate-700"}`}>
+                <label className={`block text-xs font-semibold uppercase tracking-wider mb-1.5 ${isDark ? "text-slate-300" : "text-slate-700"}`} htmlFor="studentimport-field-1">
                   Department
                 </label>
                 <select
@@ -439,8 +438,7 @@ export default function StudentImport({ isGenerating }) {
                   onChange={(e) => handleDeptChange(e.target.value)}
                   className={`w-full p-2.5 rounded-xl text-xs sm:text-sm font-medium border transition-colors cursor-pointer outline-none focus:ring-2 focus:ring-blue-500/20 ${
                     isDark ? "bg-slate-900 border-slate-700 text-slate-100 focus:border-blue-500" : "bg-white border-slate-300 text-slate-900 focus:border-blue-600"
-                  }`}
-                >
+                  }`} id="studentimport-field-1" aria-label="Department">
                   <option value="All">All Departments</option>
                   <option value="College">College</option>
                   <option value="SHS">Senior High School</option>
@@ -449,7 +447,7 @@ export default function StudentImport({ isGenerating }) {
 
               {/* Course / Strand Selector */}
               <div>
-                <label className={`block text-xs font-semibold uppercase tracking-wider mb-1.5 ${isDark ? "text-slate-300" : "text-slate-700"}`}>
+                <label className={`block text-xs font-semibold uppercase tracking-wider mb-1.5 ${isDark ? "text-slate-300" : "text-slate-700"}`} htmlFor="studentimport-field-2">
                   {selectedDept === "SHS" ? "Strand" : "Course"}
                 </label>
                 <select
@@ -457,8 +455,7 @@ export default function StudentImport({ isGenerating }) {
                   onChange={handleCourseChange}
                   className={`w-full p-2.5 rounded-xl text-xs sm:text-sm font-medium border transition-colors cursor-pointer outline-none focus:ring-2 focus:ring-blue-500/20 ${
                     isDark ? "bg-slate-900 border-slate-700 text-slate-100 focus:border-blue-500" : "bg-white border-slate-300 text-slate-900 focus:border-blue-600"
-                  }`}
-                >
+                  }`} id="studentimport-field-2" aria-label="Course or Strand">
                   <option value="">All Courses / Strands</option>
                   {filteredCourses.map((c) => (
                     <option key={c.id} value={c.id}>
@@ -470,7 +467,7 @@ export default function StudentImport({ isGenerating }) {
 
               {/* Section Selector */}
               <div>
-                <label className={`block text-xs font-semibold uppercase tracking-wider mb-1.5 ${isDark ? "text-slate-300" : "text-slate-700"}`}>
+                <label className={`block text-xs font-semibold uppercase tracking-wider mb-1.5 ${isDark ? "text-slate-300" : "text-slate-700"}`} htmlFor="studentimport-field-3">
                   Section
                 </label>
                 <select
@@ -481,8 +478,7 @@ export default function StudentImport({ isGenerating }) {
                   }}
                   className={`w-full p-2.5 rounded-xl text-xs sm:text-sm font-medium border transition-colors cursor-pointer outline-none focus:ring-2 focus:ring-blue-500/20 ${
                     isDark ? "bg-slate-900 border-slate-700 text-slate-100 focus:border-blue-500" : "bg-white border-slate-300 text-slate-900 focus:border-blue-600"
-                  }`}
-                >
+                  }`} id="studentimport-field-3" aria-label="Section">
                   <option value="All">All Sections</option>
                   <option value="Irregular">Irregular</option>
                   {sections.map((s) => (
@@ -495,7 +491,7 @@ export default function StudentImport({ isGenerating }) {
 
               {/* Student Type */}
               <div>
-                <label className={`block text-xs font-semibold uppercase tracking-wider mb-1.5 ${isDark ? "text-slate-300" : "text-slate-700"}`}>
+                <label className={`block text-xs font-semibold uppercase tracking-wider mb-1.5 ${isDark ? "text-slate-300" : "text-slate-700"}`} htmlFor="studentimport-field-4">
                   Student Type
                 </label>
                 <select
@@ -506,8 +502,7 @@ export default function StudentImport({ isGenerating }) {
                   }}
                   className={`w-full p-2.5 rounded-xl text-xs sm:text-sm font-medium border transition-colors cursor-pointer outline-none focus:ring-2 focus:ring-blue-500/20 ${
                     isDark ? "bg-slate-900 border-slate-700 text-slate-100 focus:border-blue-500" : "bg-white border-slate-300 text-slate-900 focus:border-blue-600"
-                  }`}
-                >
+                  }`} id="studentimport-field-4" aria-label="Student Type">
                   <option value="All">All Types</option>
                   <option value="regular">Regular Students</option>
                   <option value="irregular">Irregular Students</option>
@@ -516,7 +511,7 @@ export default function StudentImport({ isGenerating }) {
 
               {/* Search Box */}
               <div>
-                <label className={`block text-xs font-semibold uppercase tracking-wider mb-1.5 ${isDark ? "text-slate-300" : "text-slate-700"}`}>
+                <label className={`block text-xs font-semibold uppercase tracking-wider mb-1.5 ${isDark ? "text-slate-300" : "text-slate-700"}`} htmlFor="studentimport-field-5">
                   Search Student
                 </label>
                 <div className="relative">
@@ -527,8 +522,7 @@ export default function StudentImport({ isGenerating }) {
                     placeholder="Search ID, Name, Email..."
                     className={`w-full pl-9 pr-3.5 py-2.5 rounded-xl text-xs sm:text-sm border transition-colors outline-none focus:ring-2 focus:ring-blue-500/20 ${
                       isDark ? "bg-slate-900 border-slate-700 text-slate-100 placeholder-slate-500 focus:border-blue-500" : "bg-white border-slate-300 text-slate-900 placeholder-slate-400 focus:border-blue-600"
-                    }`}
-                  />
+                    }`} id="studentimport-field-5" aria-label="Search Student" />
                   <MagnifyingGlassIcon className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
                 </div>
               </div>
@@ -587,9 +581,9 @@ export default function StudentImport({ isGenerating }) {
                         <div className="min-w-0">
                           <h3 className="break-words font-bold text-slate-900 dark:text-white">{student.name}</h3>
                           <p className="mt-0.5 break-all font-mono text-xs text-slate-500">{student.email}</p>
-                          <p className={`mt-1 inline-flex rounded-md px-2 py-1 font-mono text-xs font-bold ${isDark ? "bg-slate-800 text-blue-400" : "bg-blue-50 text-blue-700"}`}>
+                          <div className={`mt-1 inline-flex rounded-md px-2 py-1 font-mono text-xs font-bold ${isDark ? "bg-slate-800 text-blue-400" : "bg-blue-50 text-blue-700"}`}>
                             {student.student_id || "No student ID"}
-                          </p>
+                          </div>
                         </div>
                         <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${isIrregular ? "bg-purple-500/10 text-purple-600 dark:text-purple-400" : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"}`}>
                           {student.student_type}
@@ -692,7 +686,7 @@ export default function StudentImport({ isGenerating }) {
                           {/* Department & Course */}
                           <td className="py-3.5 px-4">
                             <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md border ${
+                              <span className={`text-xs font-bold px-2 py-0.5 rounded-md border ${
                                 student.department === "SHS"
                                   ? "bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-800"
                                   : "bg-indigo-50 text-indigo-800 border-indigo-200 dark:bg-indigo-950/50 dark:text-indigo-300 dark:border-indigo-800"
@@ -787,8 +781,7 @@ export default function StudentImport({ isGenerating }) {
                         : isDark
                           ? "border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800"
                           : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                    }`}
-                  >
+                    }`} aria-label="Previous page">
                     <ChevronLeftIcon className="w-4 h-4" />
                   </button>
 
@@ -808,8 +801,7 @@ export default function StudentImport({ isGenerating }) {
                         : isDark
                           ? "border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800"
                           : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                    }`}
-                  >
+                    }`} aria-label="Next page">
                     <ChevronRightIcon className="w-4 h-4" />
                   </button>
                 </div>
@@ -906,17 +898,16 @@ export default function StudentImport({ isGenerating }) {
                   type="file"
                   accept=".xlsx, .xls"
                   onChange={handleFileChange}
-                  className="hidden"
-                />
+                  className="hidden" aria-label="Upload student Excel file" />
                 <div className="flex flex-col items-center justify-center gap-3">
                   <div className={`w-11 h-11 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center ${isDark ? "bg-slate-800 text-slate-400" : "bg-slate-100 text-slate-500"}`}>
                     <ArrowUpTrayIcon className="w-5 h-5" />
                   </div>
                   <div>
-                    <p className={`text-xs sm:text-sm font-bold ${isDark ? "text-white" : "text-slate-900"} break-all`}>
+                    <div className={`text-xs sm:text-sm font-bold ${isDark ? "text-white" : "text-slate-900"} break-all`}>
                       {file ? file.name : "Drag & Drop Student Excel File here"}
-                    </p>
-                    <p className={`text-[11px] sm:text-xs mt-1 ${isDark ? "text-slate-500" : "text-slate-400"}`}>
+                    </div>
+                    <p className={`text-xs mt-1 ${isDark ? "text-slate-500" : "text-slate-400"}`}>
                       {file ? `${(file.size / 1024).toFixed(1)} KB` : "or click to select file"}
                     </p>
                   </div>
@@ -958,8 +949,7 @@ export default function StudentImport({ isGenerating }) {
                       ? "bg-slate-700 text-slate-500 cursor-not-allowed" 
                       : "bg-slate-100 text-slate-400 cursor-not-allowed"
                     : "bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/10"
-                }`}
-              >
+                }`} aria-label="Refresh">
                 {uploading ? (
                   <>
                     <ArrowPathIcon className="w-4 h-4 animate-spin" />

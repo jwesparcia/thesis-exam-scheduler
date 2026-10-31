@@ -121,7 +121,7 @@ function StudentManual() {
                 <h2 className={`text-xl sm:text-2xl font-black tracking-tight ${isDark ? "text-white" : "text-slate-900"}`}>
                   Student Portal Master Guide
                 </h2>
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                <span className={`text-xs font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
                   isDark ? "bg-blue-500/20 text-blue-300 border border-blue-500/30" : "bg-blue-100 text-blue-700"
                 }`}>
                   Current Version
@@ -145,13 +145,11 @@ function StudentManual() {
                 isDark
                   ? "bg-slate-900/70 border-slate-700 text-white placeholder-slate-500 focus:ring-blue-500/50"
                   : "bg-white border-slate-200 text-slate-900 placeholder-slate-400 focus:ring-blue-500/30 shadow-sm"
-              }`}
-            />
+              }`} aria-label="Search student guide" />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery("")}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-              >
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200" aria-label="Clear search">
                 <XMarkIcon className="w-3.5 h-3.5" />
               </button>
             )}
@@ -180,7 +178,7 @@ function StudentManual() {
             >
               <SubIcon className={`w-4 h-4 transition-transform group-hover:scale-110 ${isSelected ? "text-white" : isDark ? "text-slate-400" : "text-slate-500"}`} />
               <span>{t.label}</span>
-              <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-bold uppercase ${
+              <span className={`text-xs px-1.5 py-0.5 rounded-md font-bold uppercase ${
                 isSelected
                   ? "bg-white/20 text-white"
                   : isDark
@@ -437,23 +435,23 @@ function StudentManual() {
               <h4 className={`font-bold text-sm ${isDark ? "text-slate-200" : "text-slate-800"}`}>Step-by-Step Instructions:</h4>
               <ol className={`text-xs space-y-2.5 ${isDark ? "text-slate-300" : "text-slate-600"}`}>
                 <li className="flex items-start gap-2">
-                  <span className="w-5 h-5 rounded-full bg-purple-500/10 text-purple-500 flex items-center justify-center font-bold text-[11px] shrink-0">1</span>
+                  <span className="w-5 h-5 rounded-full bg-purple-500/10 text-purple-500 flex items-center justify-center font-bold text-xs shrink-0">1</span>
                   <span><strong>Select Degree Program:</strong> Choose your enrolled college degree (e.g., BSIT, BSCS, BSHM) or SHS academic track.</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="w-5 h-5 rounded-full bg-purple-500/10 text-purple-500 flex items-center justify-center font-bold text-[11px] shrink-0">2</span>
+                  <span className="w-5 h-5 rounded-full bg-purple-500/10 text-purple-500 flex items-center justify-center font-bold text-xs shrink-0">2</span>
                   <span><strong>Search & Pick Subjects:</strong> Use the subject search to select each course you are currently taking this semester.</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="w-5 h-5 rounded-full bg-purple-500/10 text-purple-500 flex items-center justify-center font-bold text-[11px] shrink-0">3</span>
+                  <span className="w-5 h-5 rounded-full bg-purple-500/10 text-purple-500 flex items-center justify-center font-bold text-xs shrink-0">3</span>
                   <span><strong>Aligned Subjects Helper:</strong> The system automatically suggests matching sections for core curriculum courses.</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="w-5 h-5 rounded-full bg-purple-500/10 text-purple-500 flex items-center justify-center font-bold text-[11px] shrink-0">4</span>
+                  <span className="w-5 h-5 rounded-full bg-purple-500/10 text-purple-500 flex items-center justify-center font-bold text-xs shrink-0">4</span>
                   <span><strong>Select Specific Section:</strong> For each subject, pick the exact section you attend (e.g., BSIT 3-201 vs BSIT 2-202).</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="w-5 h-5 rounded-full bg-purple-500/10 text-purple-500 flex items-center justify-center font-bold text-[11px] shrink-0">5</span>
+                  <span className="w-5 h-5 rounded-full bg-purple-500/10 text-purple-500 flex items-center justify-center font-bold text-xs shrink-0">5</span>
                   <span><strong>Save Selections:</strong> Click <strong>Save My Selections</strong>. Your unified timetable will generate with live conflict checks.</span>
                 </li>
               </ol>
@@ -735,8 +733,7 @@ function StudentChatPanel() {
                 isDark 
                   ? "bg-slate-900 border-slate-700 text-white focus:border-blue-500" 
                   : "bg-slate-50 border-slate-200 text-slate-900 focus:border-blue-500"
-              }`}
-            />
+              }`} aria-label="Search conversations" />
           </div>
         </div>
 
@@ -751,7 +748,7 @@ function StudentChatPanel() {
             <div className="text-center py-12 text-slate-400 dark:text-slate-500">
               <ChatBubbleLeftRightIcon className="w-8 h-8 mx-auto mb-2 opacity-35" />
               <p className="text-xs">No active chats</p>
-              <p className="text-[10px] mt-1">Click "New Chat" to start a discussion</p>
+              <p className="text-xs mt-1">Click "New Chat" to start a discussion</p>
             </div>
           ) : (
             filteredConversations.map((conv) => {
@@ -779,26 +776,26 @@ function StudentChatPanel() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
-                      <p className={`font-semibold text-xs truncate ${isActive ? "text-white" : isDark ? "text-slate-100" : "text-slate-900"}`}>
+                      <div className={`font-semibold text-xs truncate ${isActive ? "text-white" : isDark ? "text-slate-100" : "text-slate-900"}`}>
                         {conv.student_name}
-                      </p>
+                      </div>
                       {conv.last_message_time && (
-                        <span className={`text-[9px] ${isActive ? "text-blue-200" : "text-slate-400"}`}>
+                        <span className={`text-xs ${isActive ? "text-blue-200" : "text-slate-400"}`}>
                           {new Date(conv.last_message_time + "Z").toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                         </span>
                       )}
                     </div>
-                    <p className={`text-[10px] mt-0.5 truncate capitalize ${isActive ? "text-blue-100" : "text-slate-400"}`}>
+                    <p className={`text-xs mt-0.5 truncate capitalize ${isActive ? "text-blue-100" : "text-slate-400"}`}>
                       {conv.role === "admin" || conv.role === "program_head" ? "Admin" : "Proctor"}
                     </p>
                     {conv.last_message && (
-                      <p className={`text-[10px] mt-1 truncate ${isActive ? "text-blue-200" : isDark ? "text-slate-400" : "text-slate-500"}`}>
+                      <p className={`text-xs mt-1 truncate ${isActive ? "text-blue-200" : isDark ? "text-slate-400" : "text-slate-500"}`}>
                         {conv.last_message}
                       </p>
                     )}
                   </div>
                   {conv.unread_count > 0 && (
-                    <span className="absolute top-3 right-3 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white shadow">
+                    <span className="absolute top-3 right-3 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white shadow">
                       {conv.unread_count}
                     </span>
                   )}
@@ -819,8 +816,7 @@ function StudentChatPanel() {
                 {/* Mobile Back Button */}
                 <button
                   onClick={() => setShowMobileSidebar(true)}
-                  className="p-1.5 rounded-lg md:hidden hover:bg-slate-200 dark:hover:bg-slate-700 transition"
-                >
+                  className="p-1.5 rounded-lg md:hidden hover:bg-slate-200 dark:hover:bg-slate-700 transition" aria-label="Back to conversations">
                   <ChevronRightIcon className="w-5 h-5 rotate-180 text-slate-500 dark:text-slate-400" />
                 </button>
                 <div className={`w-10 h-10 shrink-0 rounded-full flex items-center justify-center text-sm font-bold ${isDark ? "bg-blue-600/30 text-blue-300" : "bg-blue-100 text-blue-700"}`}>
@@ -828,9 +824,9 @@ function StudentChatPanel() {
                 </div>
                 <div className="min-w-0">
                   <h3 className={`font-bold text-sm truncate ${isDark ? "text-white" : "text-slate-900"}`}>{activeContactName}</h3>
-                  <p className={`text-[10px] uppercase font-bold tracking-wider truncate ${isDark ? "text-blue-400" : "text-blue-600"}`}>
+                  <div className={`text-xs uppercase font-bold tracking-wider truncate ${isDark ? "text-blue-400" : "text-blue-600"}`}>
                     {activeContactRole === "admin" || activeContactRole === "program_head" ? "Admin / Program Head" : "Proctor / Invigilator"}
-                  </p>
+                  </div>
                 </div>
               </div>
 
@@ -855,7 +851,7 @@ function StudentChatPanel() {
                     <ChatBubbleLeftRightIcon className="w-8 h-8 opacity-30" />
                   </div>
                   <div className="text-center max-w-xs">
-                    <p className="font-semibold text-sm">Start a conversation</p>
+                    <div className="font-semibold text-sm">Start a conversation</div>
                     <p className="text-xs mt-1">Send a message to clarify any schedule details, room locations, or rescheduling requirements.</p>
                   </div>
                 </div>
@@ -875,8 +871,7 @@ function StudentChatPanel() {
                               setEditingText(msg.message);
                             }}
                             className={`p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 transition`}
-                            title="Edit message"
-                          >
+                            title="Edit message" aria-label="Edit message">
                             <PencilIcon className="w-3.5 h-3.5" />
                           </button>
                           <button
@@ -885,8 +880,7 @@ function StudentChatPanel() {
                               setIsDeleteMsgModalOpen(true);
                             }}
                             className="p-1 rounded hover:bg-red-500/10 text-red-500 transition"
-                            title="Delete message"
-                          >
+                            title="Delete message" aria-label="Delete message">
                             <TrashIcon className="w-3.5 h-3.5" />
                           </button>
                         </div>
@@ -898,9 +892,9 @@ function StudentChatPanel() {
                           : isDark ? "bg-slate-700 text-slate-100 rounded-bl-sm" : "bg-white text-slate-800 rounded-bl-sm border border-slate-200 shadow-sm"
                       }`}>
                         {showSenderName && (
-                          <p className={`text-[9px] font-bold mb-1 ${isDark ? "text-blue-400" : "text-blue-600"}`}>
+                          <div className={`text-xs font-bold mb-1 ${isDark ? "text-blue-400" : "text-blue-600"}`}>
                             {msg.sender_name}
-                          </p>
+                          </div>
                         )}
                         {isEditing ? (
                           <div className="flex flex-col gap-2 min-w-[200px] py-1">
@@ -908,21 +902,20 @@ function StudentChatPanel() {
                               value={editingText}
                               onChange={(e) => setEditingText(e.target.value)}
                               className="w-full p-2 text-xs rounded-xl border outline-none text-slate-800 bg-white dark:bg-slate-800 dark:text-white dark:border-slate-700 resize-none focus:border-blue-500"
-                              rows={2}
-                            />
+                              rows={2} aria-label="Edit message" />
                             <div className="flex gap-2 justify-end">
                               <button
                                 onClick={() => {
                                   setEditingMessageId(null);
                                   setEditingText("");
                                 }}
-                                className="px-2.5 py-1 text-[10px] bg-slate-500 hover:bg-slate-600 text-white rounded-lg font-medium transition"
+                                className="px-2.5 py-1 text-xs bg-slate-500 hover:bg-slate-600 text-white rounded-lg font-medium transition"
                               >
                                 Cancel
                               </button>
                               <button
                                 onClick={() => saveEditChatMessage(msg.id, editingText)}
-                                className="px-2.5 py-1 text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium transition"
+                                className="px-2.5 py-1 text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium transition"
                               >
                                 Save
                               </button>
@@ -931,7 +924,7 @@ function StudentChatPanel() {
                         ) : (
                           <>
                             <p className="leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{msg.message}</p>
-                            <p className={`text-[9px] mt-1 text-right ${isMe ? "text-blue-200" : "text-slate-400 dark:text-slate-500"}`}>
+                            <p className={`text-xs mt-1 text-right ${isMe ? "text-blue-200" : "text-slate-400 dark:text-slate-500"}`}>
                               {new Date(msg.created_at + "Z").toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                             </p>
                           </>
@@ -1051,8 +1044,7 @@ function StudentChatPanel() {
                     isDark 
                       ? "bg-slate-900 border-slate-700 text-white focus:border-blue-500" 
                       : "bg-slate-50 border-slate-200 text-slate-900 focus:border-blue-500"
-                  }`}
-                />
+                  }`} aria-label="Search contacts" />
               </div>
             </div>
 
@@ -1074,8 +1066,8 @@ function StudentChatPanel() {
                       {(u.name || "").split(" ").filter(Boolean).map(n => n[0]).join("").slice(0, 2).toUpperCase()}
                     </div>
                     <div>
-                      <p className={`font-semibold text-xs ${isDark ? "text-slate-100" : "text-slate-900"}`}>{u.name}</p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">{u.email}</p>
+                      <div className={`font-semibold text-xs ${isDark ? "text-slate-100" : "text-slate-900"}`}>{u.name}</div>
+                      <p className="text-xs text-slate-400 mt-0.5">{u.email}</p>
                     </div>
                   </button>
                 ))}
@@ -1854,11 +1846,11 @@ export default function StudentDashboard() {
                 <h3 className={`font-bold text-base leading-snug break-words ${isDark ? "text-white" : "text-slate-900"}`}>
                   {exam.subject_name}
                 </h3>
-                <p className={`mt-1 text-xs font-semibold ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                <div className={`mt-1 text-xs font-semibold ${isDark ? "text-slate-400" : "text-slate-500"}`}>
                   {exam.subject_code}
-                </p>
+                </div>
               </div>
-              <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider border ${exam.category === "major"
+              <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-bold uppercase tracking-wider border ${exam.category === "major"
                 ? isDark ? "bg-purple-950/40 text-purple-300 border-purple-800/60" : "bg-purple-50 text-purple-800 border-purple-300"
                 : isDark ? "bg-blue-950/40 text-blue-300 border-blue-800/60" : "bg-blue-50 text-blue-800 border-blue-300"
                 }`}>
@@ -1869,43 +1861,43 @@ export default function StudentDashboard() {
             <div className={`mt-4 grid grid-cols-1 gap-3 border-t pt-3 text-sm sm:grid-cols-2 ${isDark ? "border-slate-700" : "border-slate-100"}`}>
               {showSection && (
                 <div className="min-w-0">
-                  <p className={`text-xs font-bold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-500"}`}>Section</p>
-                  <p className={`mt-1 font-semibold break-words ${isDark ? "text-slate-200" : "text-slate-800"}`}>{exam.section_name || "-"}</p>
+                  <div className={`text-xs font-bold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-500"}`}>Section</div>
+                  <div className={`mt-1 font-semibold break-words ${isDark ? "text-slate-200" : "text-slate-800"}`}>{exam.section_name || "-"}</div>
                 </div>
               )}
               <div className="min-w-0">
-                <p className={`text-xs font-bold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-500"}`}>Date &amp; time</p>
-                <p className={`mt-1 flex items-start gap-2 break-words font-semibold ${isDark ? "text-slate-200" : "text-slate-800"}`}>
+                <div className={`text-xs font-bold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-500"}`}>Date &amp; time</div>
+                <div className={`mt-1 flex items-start gap-2 break-words font-semibold ${isDark ? "text-slate-200" : "text-slate-800"}`}>
                   <CalendarIcon className="mt-0.5 h-4 w-4 shrink-0 text-blue-500" />
                   <span>{formatDate(exam.exam_date)}</span>
-                </p>
+                </div>
                 <p className={`mt-1 flex items-start gap-2 break-words ${isDark ? "text-slate-300" : "text-slate-600"}`}>
                   <ClockIcon className="mt-0.5 h-4 w-4 shrink-0 text-purple-500" />
                   <span>{exam.start_time} - {exam.end_time}</span>
                 </p>
               </div>
               <div className="min-w-0">
-                <p className={`text-xs font-bold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-500"}`}>Room &amp; program</p>
-                <p className={`mt-1 flex items-start gap-2 break-words font-semibold ${isDark ? "text-slate-200" : "text-slate-800"}`}>
+                <div className={`text-xs font-bold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-500"}`}>Room &amp; program</div>
+                <div className={`mt-1 flex items-start gap-2 break-words font-semibold ${isDark ? "text-slate-200" : "text-slate-800"}`}>
                   <MapPinIcon className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
                   <span>{exam.room || "Room not assigned"}</span>
-                </p>
+                </div>
                 <p className={`mt-1 break-words text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
                   {[exam.course_name, exam.year_level].filter(Boolean).join(" • ") || "Program not specified"}
                 </p>
               </div>
               <div className="min-w-0">
-                <p className={`text-xs font-bold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-500"}`}>Proctor</p>
-                <p className={`mt-1 flex items-start gap-2 break-words font-semibold ${isDark ? "text-slate-200" : "text-slate-800"}`}>
+                <div className={`text-xs font-bold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-500"}`}>Proctor</div>
+                <div className={`mt-1 flex items-start gap-2 break-words font-semibold ${isDark ? "text-slate-200" : "text-slate-800"}`}>
                   <CheckBadgeIcon className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
                   <span>{exam.proctor || "Unassigned"}</span>
-                </p>
+                </div>
               </div>
             </div>
 
             {isConflicting && (
               <div className="mt-3 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-600 dark:text-rose-300">
-                <p className="font-bold">Schedule conflict</p>
+                <div className="font-bold">Schedule conflict</div>
                 {conflictingExams.map((peer) => (
                   <p key={peer.id} className="mt-1 break-words">
                     Overlaps with {peer.subject_name} ({peer.start_time} - {peer.end_time})
@@ -1970,14 +1962,13 @@ export default function StudentDashboard() {
                     <div className={`mt-1.5 w-2 h-2 rounded-full flex-shrink-0 ${notif.is_read ? "bg-slate-400" : "bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.8)]"}`}></div>
                     <div className="min-w-0 flex-1">
                       <p className={`text-sm leading-snug ${isDark ? "text-slate-200" : "text-slate-800"}`}>{notif.message}</p>
-                      <p className={`text-[11px] mt-1.5 font-medium ${isDark ? "text-slate-500" : "text-slate-400"}`}>{notif.created_at ? new Date(notif.created_at).toLocaleString() : "Just now"}</p>
+                      <p className={`text-xs mt-1.5 font-medium ${isDark ? "text-slate-500" : "text-slate-400"}`}>{notif.created_at ? new Date(notif.created_at).toLocaleString() : "Just now"}</p>
                     </div>
                   </div>
                   <button
                     onClick={(e) => handleDeleteNotification(e, notif.id)}
                     className={`p-1 rounded-lg transition-colors shrink-0 ${isDark ? "text-slate-400 hover:text-red-400 hover:bg-slate-700" : "text-slate-400 hover:text-red-600 hover:bg-slate-200/70"}`}
-                    title="Delete notification"
-                  >
+                    title="Delete notification" aria-label="Delete notification">
                     <XMarkIcon className="w-4 h-4" />
                   </button>
                 </div>
@@ -1998,7 +1989,7 @@ export default function StudentDashboard() {
               </div>
               <div className="min-w-0">
                 <h1 className={`text-base sm:text-xl font-bold tracking-tight truncate ${isDark ? "text-white" : "text-slate-900"}`}>STI Education System</h1>
-                <p className={`text-[10px] sm:text-xs font-medium tracking-wide uppercase mt-0.5 ${isDark ? "text-blue-400" : "text-blue-600"}`}>Student Portal</p>
+                <p className={`text-xs font-medium tracking-wide uppercase mt-0.5 ${isDark ? "text-blue-400" : "text-blue-600"}`}>Student Portal</p>
               </div>
             </div>
 
@@ -2006,7 +1997,7 @@ export default function StudentDashboard() {
               {user?.student_type === "regular" && (
                 <div className="relative group">
                   <MagnifyingGlassIcon className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors ${isDark ? "text-slate-500 group-focus-within:text-blue-400" : "text-slate-400 group-focus-within:text-blue-500"}`} />
-                  <input type="text" placeholder="Search exams..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className={`w-full pl-12 pr-5 py-3 rounded-2xl border outline-none transition-all text-sm shadow-sm ${isDark ? "bg-slate-800/50 border-slate-700 text-slate-100 placeholder-slate-500 focus:border-blue-500 focus:bg-slate-800" : "bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10"}`} />
+                  <input type="text" placeholder="Search exams..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className={`w-full pl-12 pr-5 py-3 rounded-2xl border outline-none transition-all text-sm shadow-sm ${isDark ? "bg-slate-800/50 border-slate-700 text-slate-100 placeholder-slate-500 focus:border-blue-500 focus:bg-slate-800" : "bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10"}`} aria-label="Search exams" />
                 </div>
               )}
             </div>
@@ -2018,7 +2009,7 @@ export default function StudentDashboard() {
                 <button onClick={() => setShowNotifications(!showNotifications)} className={`relative p-2 sm:p-2.5 rounded-xl transition-all duration-300 ${isDark ? "text-slate-300 hover:text-white hover:bg-slate-800" : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"}`}>
                   <BellIcon className="w-5 h-5" />
                   {unreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white ring-2 ring-white dark:ring-slate-900 animate-pulse">
+                    <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-xs font-bold text-white ring-2 ring-white dark:ring-slate-900 animate-pulse">
                       {unreadCount}
                     </span>
                   )}
@@ -2048,7 +2039,7 @@ export default function StudentDashboard() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <span className="text-xs font-bold uppercase tracking-wider block opacity-75">New Notification</span>
-                  <p className="text-xs sm:text-sm font-semibold mt-0.5 leading-snug">{latestUnreadNotif.message}</p>
+                  <div className="text-xs sm:text-sm font-semibold mt-0.5 leading-snug">{latestUnreadNotif.message}</div>
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
@@ -2069,8 +2060,7 @@ export default function StudentDashboard() {
                       ? "text-blue-400 hover:text-white hover:bg-slate-800" 
                       : "text-blue-600 hover:text-blue-800 hover:bg-blue-100"
                   }`}
-                  title="Mark as read"
-                >
+                  title="Mark as read" aria-label="Mark as read">
                   <XMarkIcon className="w-4 h-4" />
                 </button>
               </div>
@@ -2171,15 +2161,14 @@ export default function StudentDashboard() {
                     placeholder="Search exams..." 
                     value={searchTerm} 
                     onChange={(e) => setSearchTerm(e.target.value)} 
-                    className={`w-full pl-10 pr-4 py-2 rounded-xl border outline-none text-xs transition focus:ring-2 focus:ring-blue-500/40 ${isDark ? "bg-slate-700 border-slate-600 text-slate-100 placeholder-slate-400 focus:border-blue-500" : "bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400 focus:border-blue-500"}`} 
-                  />
+                    className={`w-full pl-10 pr-4 py-2 rounded-xl border outline-none text-xs transition focus:ring-2 focus:ring-blue-500/40 ${isDark ? "bg-slate-700 border-slate-600 text-slate-100 placeholder-slate-400 focus:border-blue-500" : "bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400 focus:border-blue-500"}`} aria-label="Search exams" />
                 </div>
               </div>
               <div className="flex flex-wrap gap-2.5 sm:gap-4 items-center">
                 <div className="flex items-center gap-2"><CalendarIcon className={`w-4 h-4 ${isDark ? "text-slate-400" : "text-slate-500"}`} /><span className={`text-xs sm:text-sm font-bold ${isDark ? "text-slate-300" : "text-slate-700"}`}>Filters:</span></div>
-                <select value={filterDay} onChange={(e) => setFilterDay(e.target.value)} className={`flex-1 sm:flex-none px-3 py-1.5 rounded-xl text-xs sm:text-sm border outline-none transition focus:ring-2 focus:ring-blue-500/40 ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-slate-50 border-slate-300 text-slate-800"}`}><option value="all">All Days</option><option>Monday</option><option>Tuesday</option><option>Wednesday</option><option>Thursday</option><option>Friday</option><option>Saturday</option></select>
-                <select value={filterSession} onChange={(e) => setFilterSession(e.target.value)} className={`flex-1 sm:flex-none px-3 py-1.5 rounded-xl text-xs sm:text-sm border outline-none transition focus:ring-2 focus:ring-blue-500/40 ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-slate-50 border-slate-300 text-slate-800"}`}><option value="all">All Sessions</option><option value="morning">Morning</option><option value="afternoon">Afternoon</option></select>
-                <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} className={`flex-1 sm:flex-none px-3 py-1.5 rounded-xl text-xs sm:text-sm border outline-none transition focus:ring-2 focus:ring-blue-500/40 ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-slate-50 border-slate-300 text-slate-800"}`}><option value="all">All Categories</option><option value="major">Major</option><option value="general">General</option></select>
+                <select value={filterDay} onChange={(e) => setFilterDay(e.target.value)} className={`flex-1 sm:flex-none px-3 py-1.5 rounded-xl text-xs sm:text-sm border outline-none transition focus:ring-2 focus:ring-blue-500/40 ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-slate-50 border-slate-300 text-slate-800"}`} aria-label="Filter by day"><option value="all">All Days</option><option>Monday</option><option>Tuesday</option><option>Wednesday</option><option>Thursday</option><option>Friday</option><option>Saturday</option></select>
+                <select value={filterSession} onChange={(e) => setFilterSession(e.target.value)} className={`flex-1 sm:flex-none px-3 py-1.5 rounded-xl text-xs sm:text-sm border outline-none transition focus:ring-2 focus:ring-blue-500/40 ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-slate-50 border-slate-300 text-slate-800"}`} aria-label="Filter by session"><option value="all">All Sessions</option><option value="morning">Morning</option><option value="afternoon">Afternoon</option></select>
+                <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} className={`flex-1 sm:flex-none px-3 py-1.5 rounded-xl text-xs sm:text-sm border outline-none transition focus:ring-2 focus:ring-blue-500/40 ${isDark ? "bg-slate-700 border-slate-600 text-white" : "bg-slate-50 border-slate-300 text-slate-800"}`} aria-label="Filter by category"><option value="all">All Categories</option><option value="major">Major</option><option value="general">General</option></select>
                 {(filterDay !== "all" || filterSession !== "all" || filterCategory !== "all") && <button onClick={() => { setFilterDay("all"); setFilterSession("all"); setFilterCategory("all"); }} className="text-xs sm:text-sm font-bold text-blue-600 dark:text-blue-400 hover:underline ml-auto">Clear Filters</button>}
               </div>
             </div>
@@ -2188,10 +2177,10 @@ export default function StudentDashboard() {
           {/* Main Content - Exam Schedule */}
           <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6">
             {loading ? (
-              <div className="flex items-center justify-center py-20"><div className="w-10 h-10 rounded-full border-4 border-blue-600 border-t-transparent animate-spin"></div><p className="ml-3 text-sm font-semibold text-slate-600 dark:text-slate-400">Loading your schedule...</p></div>
+              <div className="flex items-center justify-center py-20"><div className="w-10 h-10 rounded-full border-4 border-blue-600 border-t-transparent animate-spin"></div><div className="ml-3 text-sm font-semibold text-slate-600 dark:text-slate-400">Loading your schedule...</div></div>
             ) : filtered.length === 0 ? (
               <div className={`text-center py-16 sm:py-20 px-4 ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-                <div className="max-w-md mx-auto"><div className={`w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-5 rounded-2xl ${isDark ? "bg-slate-800 border border-slate-700" : "bg-white border border-slate-200"} flex items-center justify-center`}><BookOpenIcon className={`w-8 h-8 sm:w-10 sm:h-10 ${isDark ? "text-slate-500" : "text-slate-400"}`} /></div><p className="text-lg sm:text-xl font-bold mb-2">{exams.length === 0 ? "No Exams Posted" : "No Results Found"}</p><p className="text-xs sm:text-sm leading-relaxed">{exams.length === 0 ? "Your program head hasn't posted any exams yet. Check back soon!" : "Try adjusting your search term."}</p></div>
+                <div className="max-w-md mx-auto"><div className={`w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-5 rounded-2xl ${isDark ? "bg-slate-800 border border-slate-700" : "bg-white border border-slate-200"} flex items-center justify-center`}><BookOpenIcon className={`w-8 h-8 sm:w-10 sm:h-10 ${isDark ? "text-slate-500" : "text-slate-400"}`} /></div><div className="text-lg sm:text-xl font-bold mb-2">{exams.length === 0 ? "No Exams Posted" : "No Results Found"}</div><p className="text-xs sm:text-sm leading-relaxed">{exams.length === 0 ? "Your program head hasn't posted any exams yet. Check back soon!" : "Try adjusting your search term."}</p></div>
               </div>
             ) : (
               <div className="space-y-4">
@@ -2284,7 +2273,7 @@ export default function StudentDashboard() {
                                 <td className="px-4 sm:px-6 py-3 sm:py-4">
                                   <div className={`font-bold ${isDark ? "text-white" : "text-slate-900"}`}>{exam.subject_name}</div>
                                   <div className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>{exam.subject_code}</div>
-                                  {isConflicting && <div className="mt-1 space-y-0.5 text-[10px] sm:text-xs text-rose-600 dark:text-rose-400"><div className="font-bold">CONFLICT DETECTED</div>{conflictingExams.map((peer) => <div key={peer.id} className="font-medium">Overlaps with {peer.subject_name} ({peer.category || "uncategorized"}) · {peer.start_time} - {peer.end_time}</div>)}</div>}
+                                  {isConflicting && <div className="mt-1 space-y-0.5 text-xs text-rose-600 dark:text-rose-400"><div className="font-bold">CONFLICT DETECTED</div>{conflictingExams.map((peer) => <div key={peer.id} className="font-medium">Overlaps with {peer.subject_name} ({peer.category || "uncategorized"}) · {peer.start_time} - {peer.end_time}</div>)}</div>}
                                 </td>
                                 <td className="px-4 sm:px-6 py-3 sm:py-4">
                                   <span className={`px-2.5 py-1 rounded-lg text-xs font-bold ${isDark ? "bg-blue-950/40 text-blue-300 border border-blue-800/60" : "bg-blue-50 text-blue-700 border border-blue-200"}`}>
@@ -2292,7 +2281,7 @@ export default function StudentDashboard() {
                                   </span>
                                 </td>
                                 <td className="px-4 sm:px-6 py-3 sm:py-4">
-                                  <span className={`px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-bold uppercase tracking-wider border ${exam.category === "major" ? (isDark ? "bg-purple-950/40 text-purple-300 border-purple-800/60" : "bg-purple-50 text-purple-800 border-purple-300") : (isDark ? "bg-blue-950/40 text-blue-300 border-blue-800/60" : "bg-blue-50 text-blue-800 border-blue-300")}`}>{exam.category ? exam.category.toUpperCase() : "-"}</span>
+                                  <span className={`px-2 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider border ${exam.category === "major" ? (isDark ? "bg-purple-950/40 text-purple-300 border-purple-800/60" : "bg-purple-50 text-purple-800 border-purple-300") : (isDark ? "bg-blue-950/40 text-blue-300 border-blue-800/60" : "bg-blue-50 text-blue-800 border-blue-300")}`}>{exam.category ? exam.category.toUpperCase() : "-"}</span>
                                 </td>
                                 <td className="px-4 sm:px-6 py-3 sm:py-4">
                                   <div className={`flex items-center gap-1.5 font-semibold ${isDark ? "text-slate-200" : "text-slate-800"}`}><CalendarIcon className="w-3.5 h-3.5 text-blue-500" />{formatDate(exam.exam_date)}</div>
@@ -2300,7 +2289,7 @@ export default function StudentDashboard() {
                                 </td>
                                 <td className="px-4 sm:px-6 py-3 sm:py-4">
                                   <div className="flex items-center gap-1.5"><MapPinIcon className={`w-3.5 h-3.5 ${isDark ? "text-slate-400" : "text-slate-500"}`} /><span className={`px-2 py-0.5 rounded-lg text-xs font-semibold border ${isDark ? "bg-slate-800 text-slate-200 border-slate-700" : "bg-slate-100 text-slate-700 border-slate-200"}`}>{exam.room}</span></div>
-                                  <div className={`mt-1 text-[11px] ${isDark ? "text-slate-400" : "text-slate-500"}`}>{exam.course_name} • {exam.year_level}</div>
+                                  <div className={`mt-1 text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>{exam.course_name} • {exam.year_level}</div>
                                 </td>
                                 <td className="px-4 sm:px-6 py-3 sm:py-4">
                                   <div className={`flex items-center gap-1.5 font-semibold ${isDark ? "text-slate-300" : "text-slate-700"}`}><CheckBadgeIcon className="w-3.5 h-3.5 text-emerald-500" /><span className="text-xs sm:text-sm">{exam.proctor || "Unassigned"}</span></div>
@@ -2350,10 +2339,10 @@ export default function StudentDashboard() {
                                     const canReschedule = isConflicting && eligibility.canReschedule;
                                     return (
                                       <tr key={exam.id} className={`${isDark ? "hover:bg-slate-800/40" : "hover:bg-slate-50/80"} transition ${isConflicting ? (isDark ? "bg-rose-950/20 border-l-4 border-rose-500" : "bg-rose-50/70 border-l-4 border-rose-500") : ""}`}>
-                                        <td className={`px-4 sm:px-6 py-3.5 border-t ${isDark ? "border-slate-800" : "border-slate-200"}`}><div className={`font-bold ${isDark ? "text-slate-100" : "text-slate-900"}`}>{exam.subject_name}</div><div className={`text-xs font-mono font-medium ${isDark ? "text-slate-400" : "text-slate-500"}`}>{exam.subject_code}</div>{isConflicting && <div className={`mt-1.5 p-2 rounded-lg text-[11px] font-medium border ${isDark ? "bg-rose-950/40 text-rose-300 border-rose-800/60" : "bg-rose-50 text-rose-700 border-rose-200"}`}><div className="font-bold uppercase tracking-wider flex items-center gap-1"><ExclamationCircleIcon className="w-3.5 h-3.5" /> CONFLICT DETECTED</div>{conflictingExams.map((peer) => <div key={peer.id} className="mt-0.5">Overlaps with {peer.subject_name} ({peer.category || "uncategorized"}) · {peer.start_time} - {peer.end_time}</div>)}</div>}</td>
+                                        <td className={`px-4 sm:px-6 py-3.5 border-t ${isDark ? "border-slate-800" : "border-slate-200"}`}><div className={`font-bold ${isDark ? "text-slate-100" : "text-slate-900"}`}>{exam.subject_name}</div><div className={`text-xs font-mono font-medium ${isDark ? "text-slate-400" : "text-slate-500"}`}>{exam.subject_code}</div>{isConflicting && <div className={`mt-1.5 p-2 rounded-lg text-xs font-medium border ${isDark ? "bg-rose-950/40 text-rose-300 border-rose-800/60" : "bg-rose-50 text-rose-700 border-rose-200"}`}><div className="font-bold uppercase tracking-wider flex items-center gap-1"><ExclamationCircleIcon className="w-3.5 h-3.5" /> CONFLICT DETECTED</div>{conflictingExams.map((peer) => <div key={peer.id} className="mt-0.5">Overlaps with {peer.subject_name} ({peer.category || "uncategorized"}) · {peer.start_time} - {peer.end_time}</div>)}</div>}</td>
                                         <td className={`px-4 sm:px-6 py-3.5 border-t ${isDark ? "border-slate-800" : "border-slate-200"}`}><span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${exam.category === "major" ? (isDark ? "bg-purple-950/50 text-purple-200 border border-purple-700/60" : "bg-purple-50 text-purple-700 border border-purple-200") : (isDark ? "bg-blue-950/50 text-blue-200 border border-blue-700/60" : "bg-blue-50 text-blue-700 border border-blue-200")}`}>{exam.category ? exam.category.toUpperCase() : "GENERAL"}</span></td>
                                         <td className={`px-4 sm:px-6 py-3.5 border-t ${isDark ? "border-slate-800" : "border-slate-200"}`}><div className={`flex items-center gap-1.5 font-medium ${isDark ? "text-slate-200" : "text-slate-800"}`}><CalendarIcon className="w-3.5 h-3.5 text-blue-500" />{formatDate(exam.exam_date)}</div><div className={`flex items-center gap-1.5 mt-1 text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}><ClockIcon className="w-3.5 h-3.5 text-purple-500" />{exam.start_time} - {exam.end_time}</div></td>
-                                        <td className={`px-4 sm:px-6 py-3.5 border-t ${isDark ? "border-slate-800" : "border-slate-200"}`}><div className="flex items-center gap-1.5"><MapPinIcon className={`w-3.5 h-3.5 ${isDark ? "text-slate-400" : "text-slate-500"}`} /><span className={`px-2 py-0.5 rounded text-xs font-medium ${isDark ? "bg-slate-800 text-slate-200 border border-slate-700" : "bg-slate-100 text-slate-700 border border-slate-200"}`}>{exam.room}</span></div><div className={`mt-1 text-[11px] ${isDark ? "text-slate-400" : "text-slate-500"}`}>{exam.course_name} • {exam.year_level}</div></td>
+                                        <td className={`px-4 sm:px-6 py-3.5 border-t ${isDark ? "border-slate-800" : "border-slate-200"}`}><div className="flex items-center gap-1.5"><MapPinIcon className={`w-3.5 h-3.5 ${isDark ? "text-slate-400" : "text-slate-500"}`} /><span className={`px-2 py-0.5 rounded text-xs font-medium ${isDark ? "bg-slate-800 text-slate-200 border border-slate-700" : "bg-slate-100 text-slate-700 border border-slate-200"}`}>{exam.room}</span></div><div className={`mt-1 text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>{exam.course_name} • {exam.year_level}</div></td>
                                         <td className={`px-4 sm:px-6 py-3.5 border-t ${isDark ? "border-slate-800" : "border-slate-200"}`}><div className={`flex items-center gap-1.5 ${isDark ? "text-slate-300" : "text-slate-700"}`}><CheckBadgeIcon className="w-3.5 h-3.5 text-emerald-500" /><span className="text-xs sm:text-sm font-medium">{exam.proctor || "Unassigned"}</span></div></td>
                                         <td className={`px-4 sm:px-6 py-3.5 border-t ${isDark ? "border-slate-800" : "border-slate-200"}`}><div className="group relative"><button onClick={() => { if (!canReschedule) return; openRescheduleRequest(exam); }} disabled={!canReschedule} className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${canReschedule ? "bg-rose-600 hover:bg-rose-700 text-white shadow-sm cursor-pointer" : isDark ? "bg-slate-800 text-slate-500 border border-slate-700/60 cursor-not-allowed" : "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed"}`}>Request Reschedule</button>{!canReschedule && <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 p-2 bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition pointer-events-none z-10 text-center">{eligibility.reason || "Rescheduling is only available for eligible exam conflicts."}</div>}</div></td>
                                       </tr>
@@ -2386,13 +2375,13 @@ export default function StudentDashboard() {
                       <div key={req.id} className={`p-4 rounded-xl border transition ${isDark ? "bg-slate-800/50 border-slate-700/70 hover:border-slate-600" : "bg-slate-50/80 border-slate-200 hover:border-slate-300"}`}>
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                           <div className="space-y-1">
-                            <p className={`font-bold text-xs sm:text-sm ${isDark ? "text-slate-100" : "text-slate-900"}`}>Exam ID: <span className="font-mono text-blue-600 dark:text-blue-400">{req.exam_id}</span></p>
+                            <div className={`font-bold text-xs sm:text-sm ${isDark ? "text-slate-100" : "text-slate-900"}`}>Exam ID: <span className="font-mono text-blue-600 dark:text-blue-400">{req.exam_id}</span></div>
                             <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-600"}`}>Requested Mode: <span className="font-medium capitalize">{req.requested_mode}</span></p>
                             {req.preferred_date && (
                               <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-600"}`}>Rescheduled: <span className="font-medium">{req.preferred_date} {req.preferred_start_time || ""}{req.preferred_end_time ? ` - ${req.preferred_end_time}` : ""}</span></p>
                             )}
                             {req.status === "approved" && req.assigned_room && (
-                              <p className={`text-xs font-semibold ${isDark ? "text-emerald-300" : "text-emerald-700"}`}>Location: {req.assigned_room === "Consultation Area" ? "Consultation Area" : `Room ${req.assigned_room}`}{req.assigned_room_capacity ? ` (Capacity: ${req.assigned_room_capacity})` : ""}{req.assigned_student_count !== null && req.assigned_student_count !== undefined ? ` · ${req.assigned_student_count} student(s) scheduled` : ""}</p>
+                              <div className={`text-xs font-semibold ${isDark ? "text-emerald-300" : "text-emerald-700"}`}>Location: {req.assigned_room === "Consultation Area" ? "Consultation Area" : `Room ${req.assigned_room}`}{req.assigned_room_capacity ? ` (Capacity: ${req.assigned_room_capacity})` : ""}{req.assigned_student_count !== null && req.assigned_student_count !== undefined ? ` · ${req.assigned_student_count} student(s) scheduled` : ""}</div>
                             )}
                             {req.status === "approved" && (
                               req.assigned_proctor ? (
@@ -2510,28 +2499,28 @@ export default function StudentDashboard() {
               <div className={`p-4 rounded-xl border ${isDark ? "bg-slate-800/40 border-slate-700/60" : "bg-slate-50 border-slate-200/80"}`}>
                 <div className="flex items-center justify-between mb-3">
                   <h4 className={`text-xs sm:text-sm font-bold uppercase tracking-wider ${isDark ? "text-slate-200" : "text-slate-900"}`}>1. Student Information</h4>
-                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${isDark ? "bg-slate-700 text-slate-400" : "bg-slate-200 text-slate-500"}`}>Auto-filled from your account</span>
+                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${isDark ? "bg-slate-700 text-slate-400" : "bg-slate-200 text-slate-500"}`}>Auto-filled from your account</span>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                   <div>
-                    <label className={`block text-xs font-semibold mb-1 ${isDark ? "text-slate-300" : "text-slate-700"}`}>Student Name</label>
-                    <input type="text" value={studentName} readOnly className={`w-full p-2.5 rounded-xl text-xs sm:text-sm border cursor-not-allowed ${isDark ? "bg-slate-700/50 text-slate-300 border-slate-600" : "bg-slate-100 text-slate-700 border-slate-200"}`} />
+                    <label className={`block text-xs font-semibold mb-1 ${isDark ? "text-slate-300" : "text-slate-700"}`} htmlFor="studentdashboard-field-1">Student Name</label>
+                    <input type="text" value={studentName} readOnly className={`w-full p-2.5 rounded-xl text-xs sm:text-sm border cursor-not-allowed ${isDark ? "bg-slate-700/50 text-slate-300 border-slate-600" : "bg-slate-100 text-slate-700 border-slate-200"}`} id="studentdashboard-field-1" aria-label="Student Name" />
                   </div>
                   <div>
-                    <label className={`block text-xs font-semibold mb-1 ${isDark ? "text-slate-300" : "text-slate-700"}`}>Student ID</label>
-                    <input type="text" value={studentId} readOnly className={`w-full p-2.5 rounded-xl text-xs sm:text-sm border cursor-not-allowed font-mono ${isDark ? "bg-slate-700/50 text-slate-300 border-slate-600" : "bg-slate-100 text-slate-700 border-slate-200"}`} />
+                    <label className={`block text-xs font-semibold mb-1 ${isDark ? "text-slate-300" : "text-slate-700"}`} htmlFor="studentdashboard-field-2">Student ID</label>
+                    <input type="text" value={studentId} readOnly className={`w-full p-2.5 rounded-xl text-xs sm:text-sm border cursor-not-allowed font-mono ${isDark ? "bg-slate-700/50 text-slate-300 border-slate-600" : "bg-slate-100 text-slate-700 border-slate-200"}`} id="studentdashboard-field-2" aria-label="Student ID" />
                   </div>
                   <div>
-                    <label className={`block text-xs font-semibold mb-1 ${isDark ? "text-slate-300" : "text-slate-700"}`}>Program / Course</label>
-                    <input type="text" value={program} readOnly className={`w-full p-2.5 rounded-xl text-xs sm:text-sm border cursor-not-allowed ${isDark ? "bg-slate-700/50 text-slate-300 border-slate-600" : "bg-slate-100 text-slate-700 border-slate-200"}`} />
+                    <label className={`block text-xs font-semibold mb-1 ${isDark ? "text-slate-300" : "text-slate-700"}`} htmlFor="studentdashboard-field-3">Program / Course</label>
+                    <input type="text" value={program} readOnly className={`w-full p-2.5 rounded-xl text-xs sm:text-sm border cursor-not-allowed ${isDark ? "bg-slate-700/50 text-slate-300 border-slate-600" : "bg-slate-100 text-slate-700 border-slate-200"}`} id="studentdashboard-field-3" aria-label="Program / Course" />
                   </div>
                   <div>
-                    <label className={`block text-xs font-semibold mb-1 ${isDark ? "text-slate-300" : "text-slate-700"}`}>Section</label>
-                    <input type="text" value={section} readOnly className={`w-full p-2.5 rounded-xl text-xs sm:text-sm border cursor-not-allowed ${isDark ? "bg-slate-700/50 text-slate-300 border-slate-600" : "bg-slate-100 text-slate-700 border-slate-200"}`} />
+                    <label className={`block text-xs font-semibold mb-1 ${isDark ? "text-slate-300" : "text-slate-700"}`} htmlFor="studentdashboard-field-4">Section</label>
+                    <input type="text" value={section} readOnly className={`w-full p-2.5 rounded-xl text-xs sm:text-sm border cursor-not-allowed ${isDark ? "bg-slate-700/50 text-slate-300 border-slate-600" : "bg-slate-100 text-slate-700 border-slate-200"}`} id="studentdashboard-field-4" aria-label="Section" />
                   </div>
                   <div className="md:col-span-2">
-                    <label className={`block text-xs font-semibold mb-1 ${isDark ? "text-slate-300" : "text-slate-700"}`}>School Email</label>
-                    <input type="email" value={schoolEmail} readOnly className={`w-full p-2.5 rounded-xl text-xs sm:text-sm border cursor-not-allowed ${isDark ? "bg-slate-700/50 text-slate-300 border-slate-600" : "bg-slate-100 text-slate-700 border-slate-200"}`} />
+                    <label className={`block text-xs font-semibold mb-1 ${isDark ? "text-slate-300" : "text-slate-700"}`} htmlFor="studentdashboard-field-5">School Email</label>
+                    <input type="email" value={schoolEmail} readOnly className={`w-full p-2.5 rounded-xl text-xs sm:text-sm border cursor-not-allowed ${isDark ? "bg-slate-700/50 text-slate-300 border-slate-600" : "bg-slate-100 text-slate-700 border-slate-200"}`} id="studentdashboard-field-5" aria-label="School Email" />
                   </div>
                   {user?.student_type === "irregular" && (
                     <div className="md:col-span-2">
@@ -2553,9 +2542,9 @@ export default function StudentDashboard() {
               <div className={`p-4 rounded-xl border ${isDark ? "bg-slate-800/40 border-slate-700/60" : "bg-slate-50 border-slate-200/80"}`}>
                 <h4 className={`text-xs sm:text-sm font-bold uppercase tracking-wider mb-3 ${isDark ? "text-slate-200" : "text-slate-900"}`}>2. Exam to Be Rescheduled</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-                  <div><label className={`block text-xs font-semibold mb-1 ${isDark ? "text-slate-300" : "text-slate-700"}`}>Course Code / Course Name</label><input type="text" value={courseCode + " / " + courseName} readOnly className={`w-full p-2.5 rounded-xl text-xs sm:text-sm border ${isDark ? "bg-slate-800 text-slate-100 border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500" : "bg-white text-slate-900 border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600"}`} /></div>
-                  <div><label className={`block text-xs font-semibold mb-1 ${isDark ? "text-slate-300" : "text-slate-700"}`}>Original Exam Date</label><input type="text" value={new Date(originalExamDate).toLocaleDateString()} readOnly className={`w-full p-2.5 rounded-xl text-xs sm:text-sm border ${isDark ? "bg-slate-800 text-slate-100 border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500" : "bg-white text-slate-900 border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600"}`} /></div>
-                  <div><label className={`block text-xs font-semibold mb-1 ${isDark ? "text-slate-300" : "text-slate-700"}`}>Original Exam Time</label><input type="text" value={originalStartTime + " - " + originalEndTime} readOnly className={`w-full p-2.5 rounded-xl text-xs sm:text-sm border ${isDark ? "bg-slate-800 text-slate-100 border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500" : "bg-white text-slate-900 border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600"}`} /></div>
+                  <div><label className={`block text-xs font-semibold mb-1 ${isDark ? "text-slate-300" : "text-slate-700"}`} htmlFor="studentdashboard-field-6">Course Code / Course Name</label><input type="text" value={courseCode + " / " + courseName} readOnly className={`w-full p-2.5 rounded-xl text-xs sm:text-sm border ${isDark ? "bg-slate-800 text-slate-100 border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500" : "bg-white text-slate-900 border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600"}`} id="studentdashboard-field-6" aria-label="Course Code / Course Name" /></div>
+                  <div><label className={`block text-xs font-semibold mb-1 ${isDark ? "text-slate-300" : "text-slate-700"}`} htmlFor="studentdashboard-field-7">Original Exam Date</label><input type="text" value={new Date(originalExamDate).toLocaleDateString()} readOnly className={`w-full p-2.5 rounded-xl text-xs sm:text-sm border ${isDark ? "bg-slate-800 text-slate-100 border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500" : "bg-white text-slate-900 border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600"}`} id="studentdashboard-field-7" aria-label="Original Exam Date" /></div>
+                  <div><label className={`block text-xs font-semibold mb-1 ${isDark ? "text-slate-300" : "text-slate-700"}`} htmlFor="studentdashboard-field-8">Original Exam Time</label><input type="text" value={originalStartTime + " - " + originalEndTime} readOnly className={`w-full p-2.5 rounded-xl text-xs sm:text-sm border ${isDark ? "bg-slate-800 text-slate-100 border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500" : "bg-white text-slate-900 border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600"}`} id="studentdashboard-field-8" aria-label="Original Exam Time" /></div>
                 </div>
               </div>
 
@@ -2563,8 +2552,8 @@ export default function StudentDashboard() {
               <div className={`p-4 rounded-xl border ${isDark ? "bg-slate-800/40 border-slate-700/60" : "bg-slate-50 border-slate-200/80"}`}>
                 <h4 className={`text-xs sm:text-sm font-bold uppercase tracking-wider mb-3 ${isDark ? "text-slate-200" : "text-slate-900"}`}>3. Reason for Rescheduling</h4>
                 <div className="space-y-3 sm:space-y-4">
-                  <div><label className={`block text-xs font-semibold mb-1 ${isDark ? "text-slate-300" : "text-slate-700"}`}>Reason for Request *</label><select value={reasonType} onChange={(e) => setReasonType(e.target.value)} className={`w-full p-2.5 rounded-xl text-xs sm:text-sm border ${isDark ? "bg-slate-800 text-slate-100 border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500" : "bg-white text-slate-900 border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600"}`} required><option value="">Select a reason</option><option value="exam conflict">Exam schedule conflict</option><option value="medical">Medical reason</option><option value="emergency">Emergency</option><option value="other">Other</option></select></div>
-                  <div><label className={`block text-xs font-semibold mb-1 ${isDark ? "text-slate-300" : "text-slate-700"}`}>Detailed Explanation *</label><textarea value={detailedExplanation} onChange={(e) => setDetailedExplanation(e.target.value)} rows={4} placeholder="Please explain the reason for your request..." className={`w-full p-2.5 rounded-xl text-xs sm:text-sm border ${isDark ? "bg-slate-800 text-slate-100 border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500" : "bg-white text-slate-900 border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600"}`} required /></div>
+                  <div><label className={`block text-xs font-semibold mb-1 ${isDark ? "text-slate-300" : "text-slate-700"}`} htmlFor="studentdashboard-field-9">Reason for Request *</label><select value={reasonType} onChange={(e) => setReasonType(e.target.value)} className={`w-full p-2.5 rounded-xl text-xs sm:text-sm border ${isDark ? "bg-slate-800 text-slate-100 border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500" : "bg-white text-slate-900 border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600"}`} required id="studentdashboard-field-9" aria-label="Reason for Request"><option value="">Select a reason</option><option value="exam conflict">Exam schedule conflict</option><option value="medical">Medical reason</option><option value="emergency">Emergency</option><option value="other">Other</option></select></div>
+                  <div><label className={`block text-xs font-semibold mb-1 ${isDark ? "text-slate-300" : "text-slate-700"}`} htmlFor="studentdashboard-field-10">Detailed Explanation *</label><textarea value={detailedExplanation} onChange={(e) => setDetailedExplanation(e.target.value)} rows={4} placeholder="Please explain the reason for your request..." className={`w-full p-2.5 rounded-xl text-xs sm:text-sm border ${isDark ? "bg-slate-800 text-slate-100 border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500" : "bg-white text-slate-900 border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600"}`} required id="studentdashboard-field-10" aria-label="Detailed Explanation" /></div>
                 </div>
               </div>
 
@@ -2575,7 +2564,7 @@ export default function StudentDashboard() {
                     <h4 className={`text-xs sm:text-sm font-bold uppercase tracking-wider ${isDark ? "text-slate-200" : "text-slate-900"}`}>
                       4. Examination Reschedule Assignment
                     </h4>
-                    <span className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full ${isDark ? "bg-emerald-900/40 text-emerald-300 border border-emerald-700/50" : "bg-emerald-100 text-emerald-800"}`}>
+                    <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${isDark ? "bg-emerald-900/40 text-emerald-300 border border-emerald-700/50" : "bg-emerald-100 text-emerald-800"}`}>
                       System Automated
                     </span>
                   </div>
@@ -2627,21 +2616,21 @@ export default function StudentDashboard() {
                       return (
                         <div className="space-y-3 mb-4">
                           <div className={`p-3 rounded-lg border-l-4 border-yellow-500 ${isDark ? "bg-yellow-950/30" : "bg-yellow-50"}`}>
-                            <p className={`text-xs font-bold uppercase tracking-wide mb-1 ${isDark ? "text-yellow-400" : "text-yellow-700"}`}>
+                            <div className={`text-xs font-bold uppercase tracking-wide mb-1 ${isDark ? "text-yellow-400" : "text-yellow-700"}`}>
                               No Replacement Times Found
-                            </p>
+                            </div>
                             <p className={`text-sm ${isDark ? "text-slate-300" : "text-slate-700"}`}>
                               No available same-day time fits this exam's {durLabel} duration. You can specify a consultation time below (starts at 5:00 PM) or contact the Program Head.
                             </p>
                           </div>
                           <div className="flex gap-3 sm:gap-4">
                             <div className="flex-1">
-                              <label className={`block text-xs mb-1 ${isDark ? "text-slate-400" : "text-slate-500"}`}>Start Time</label>
-                              <input type="time" value={preferredStartTime} onChange={(e) => setPreferredStartTime(e.target.value)} className={`w-full p-2.5 rounded-xl text-xs sm:text-sm border ${isDark ? "bg-slate-800 text-slate-100 border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500" : "bg-white text-slate-900 border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600"}`} />
+                              <label className={`block text-xs mb-1 ${isDark ? "text-slate-400" : "text-slate-500"}`} htmlFor="studentdashboard-field-11">Start Time</label>
+                              <input type="time" value={preferredStartTime} onChange={(e) => setPreferredStartTime(e.target.value)} className={`w-full p-2.5 rounded-xl text-xs sm:text-sm border ${isDark ? "bg-slate-800 text-slate-100 border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500" : "bg-white text-slate-900 border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600"}`} id="studentdashboard-field-11" aria-label="Start Time" />
                             </div>
                             <div className="flex-1">
-                              <label className={`block text-xs mb-1 ${isDark ? "text-slate-400" : "text-slate-500"}`}>End Time</label>
-                              <input type="time" value={preferredEndTime} onChange={(e) => setPreferredEndTime(e.target.value)} className={`w-full p-2.5 rounded-xl text-xs sm:text-sm border ${isDark ? "bg-slate-800 text-slate-100 border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500" : "bg-white text-slate-900 border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600"}`} />
+                              <label className={`block text-xs mb-1 ${isDark ? "text-slate-400" : "text-slate-500"}`} htmlFor="studentdashboard-field-12">End Time</label>
+                              <input type="time" value={preferredEndTime} onChange={(e) => setPreferredEndTime(e.target.value)} className={`w-full p-2.5 rounded-xl text-xs sm:text-sm border ${isDark ? "bg-slate-800 text-slate-100 border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500" : "bg-white text-slate-900 border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600"}`} id="studentdashboard-field-12" aria-label="End Time" />
                             </div>
                           </div>
                         </div>
@@ -2649,9 +2638,9 @@ export default function StudentDashboard() {
                     }
                     return (
                       <div className={`mb-4 p-3 rounded-lg border-l-4 border-blue-500 ${isDark ? "bg-blue-950/20" : "bg-blue-50"}`}>
-                        <p className={`text-xs font-bold uppercase tracking-wide mb-1.5 ${isDark ? "text-blue-400" : "text-blue-700"}`}>
+                        <div className={`text-xs font-bold uppercase tracking-wide mb-1.5 ${isDark ? "text-blue-400" : "text-blue-700"}`}>
                           Suggested Times ({durLabel} each):
-                        </p>
+                        </div>
                         <div className="flex flex-wrap gap-2 mt-1">
                           {suggestions.flatMap((s, idx) => {
                             const slots = [];
@@ -2685,17 +2674,17 @@ export default function StudentDashboard() {
 
                   <div className="grid grid-cols-1 gap-4">
                     <div>
-                      <label className={`block text-xs sm:text-sm mb-1.5 font-semibold ${isDark ? "text-slate-300" : "text-slate-700"}`}>
+                      <div className={`block text-xs sm:text-sm mb-1.5 font-semibold ${isDark ? "text-slate-300" : "text-slate-700"}`}>
                         Preferred New Exam Time (Within the Day)
-                      </label>
+                      </div>
                       <div className="flex gap-3 sm:gap-4">
                         <div className="flex-1">
-                          <label className={`block text-xs mb-1 ${isDark ? "text-slate-400" : "text-slate-500"}`}>Start Time</label>
-                          <input type="time" value={preferredStartTime} onChange={(e) => setPreferredStartTime(e.target.value)} className={`w-full p-2.5 rounded-xl text-xs sm:text-sm border ${isDark ? "bg-slate-800 text-slate-100 border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500" : "bg-white text-slate-900 border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600"}`} />
+                          <label className={`block text-xs mb-1 ${isDark ? "text-slate-400" : "text-slate-500"}`} htmlFor="studentdashboard-field-13">Start Time</label>
+                          <input type="time" value={preferredStartTime} onChange={(e) => setPreferredStartTime(e.target.value)} className={`w-full p-2.5 rounded-xl text-xs sm:text-sm border ${isDark ? "bg-slate-800 text-slate-100 border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500" : "bg-white text-slate-900 border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600"}`} id="studentdashboard-field-13" aria-label="Start Time" />
                         </div>
                         <div className="flex-1">
-                          <label className={`block text-xs mb-1 ${isDark ? "text-slate-400" : "text-slate-500"}`}>End Time</label>
-                          <input type="time" value={preferredEndTime} onChange={(e) => setPreferredEndTime(e.target.value)} className={`w-full p-2.5 rounded-xl text-xs sm:text-sm border ${isDark ? "bg-slate-800 text-slate-100 border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500" : "bg-white text-slate-900 border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600"}`} />
+                          <label className={`block text-xs mb-1 ${isDark ? "text-slate-400" : "text-slate-500"}`} htmlFor="studentdashboard-field-14">End Time</label>
+                          <input type="time" value={preferredEndTime} onChange={(e) => setPreferredEndTime(e.target.value)} className={`w-full p-2.5 rounded-xl text-xs sm:text-sm border ${isDark ? "bg-slate-800 text-slate-100 border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500" : "bg-white text-slate-900 border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600"}`} id="studentdashboard-field-14" aria-label="End Time" />
                         </div>
                       </div>
                     </div>

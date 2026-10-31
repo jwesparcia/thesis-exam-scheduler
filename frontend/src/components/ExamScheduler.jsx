@@ -493,9 +493,9 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
 
           {/* Step 1: Select Department & Semester */}
           <div className="mb-6 sm:mb-8 p-3.5 sm:p-4 rounded-xl sm:rounded-2xl bg-blue-50/60 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/30">
-            <label className={`block text-xs sm:text-sm font-semibold mb-3 sm:mb-4 ${isDark ? "text-blue-300" : "text-blue-800"}`}>
+            <div className={`block text-xs sm:text-sm font-semibold mb-3 sm:mb-4 ${isDark ? "text-blue-300" : "text-blue-800"}`}>
               1. Choose Academic Level, Semester & Term
-            </label>
+            </div>
             <div className="flex flex-col md:flex-row gap-4 sm:gap-6">
               <div className="flex flex-1 gap-2.5 sm:gap-4">
                 <button
@@ -524,7 +524,7 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
                 </button>
               </div>
               <div className="w-full md:w-64">
-                <label className={`block text-xs font-semibold uppercase tracking-wider mb-2 ${isDark ? "text-slate-300" : "text-slate-700"}`}>
+                <label className={`block text-xs font-semibold uppercase tracking-wider mb-2 ${isDark ? "text-slate-300" : "text-slate-700"}`} htmlFor="examscheduler-field-1">
                   Semester
                 </label>
                 <select
@@ -534,8 +534,7 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
                   className={`border rounded-xl cursor-pointer p-4 w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all font-semibold ${isDark
                     ? "bg-slate-800 text-slate-100 border-slate-700"
                     : "bg-white text-slate-800 border-slate-200"
-                    } ${loading ? "opacity-60 cursor-not-allowed" : ""}`}
-                >
+                    } ${loading ? "opacity-60 cursor-not-allowed" : ""}`} id="examscheduler-field-1" aria-label="Semester">
                   <option value={1}>1st Semester</option>
                   <option value={2}>2nd Semester</option>
                   {selectedDept === "SHS" && (
@@ -544,7 +543,7 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
                 </select>
               </div>
               <div className="w-full md:w-64">
-                <label className={`block text-xs font-semibold uppercase tracking-wider mb-2 ${isDark ? "text-slate-300" : "text-slate-700"}`}>
+                <label className={`block text-xs font-semibold uppercase tracking-wider mb-2 ${isDark ? "text-slate-300" : "text-slate-700"}`} htmlFor="examscheduler-field-2">
                   Exam Term
                 </label>
                 <select
@@ -554,8 +553,7 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
                   className={`border rounded-xl cursor-pointer p-4 w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all font-semibold ${isDark
                     ? "bg-slate-800 text-slate-100 border-slate-700"
                     : "bg-white text-slate-800 border-slate-200"
-                    } ${loading ? "opacity-60 cursor-not-allowed" : ""}`}
-                >
+                    } ${loading ? "opacity-60 cursor-not-allowed" : ""}`} id="examscheduler-field-2" aria-label="Exam Term">
                   {selectedDept === "SHS" ? (
                     <>
                       <option value="ST1">Summative Test 1 (ST1)</option>
@@ -579,12 +577,12 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
             <div className="space-y-8 animate-in fade-in slide-in-from-top-4 duration-500">
               {/* Step 2: Course & Year (Optional Preview) */}
               <div className="pt-4 border-t border-slate-200 dark:border-slate-800">
-                <label className={`block text-sm font-semibold mb-4 ${isDark ? "text-slate-200" : "text-slate-800"}`}>
+                <div className={`block text-sm font-semibold mb-4 ${isDark ? "text-slate-200" : "text-slate-800"}`}>
                   2. Preview {selectedDept === "SHS" ? "Strand & Grade" : "Course & Year"} (Optional)
-                </label>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <label className={`block text-xs font-semibold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+                    <label className={`block text-xs font-semibold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-600"}`} htmlFor="examscheduler-field-3">
                       {selectedDept === "SHS" ? "Strand" : "Course"}
                     </label>
                     <select
@@ -593,8 +591,7 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
                       className={`border rounded-xl cursor-pointer p-3 w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all ${isDark
                         ? "bg-slate-800 text-slate-100 border-slate-700"
                         : "bg-slate-50 text-slate-800 border-slate-200"
-                        }`}
-                    >
+                        }`} id="examscheduler-field-3" aria-label="Course or Strand">
                       <option value="">{selectedDept === "SHS" ? "Choose a strand" : "Choose a course"}</option>
                       {filteredCourses.map((c) => (
                         <option key={c.id} value={c.id}>
@@ -605,7 +602,7 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
                   </div>
 
                   <div className="space-y-2">
-                    <label className={`block text-xs font-semibold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+                    <label className={`block text-xs font-semibold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-600"}`} htmlFor="examscheduler-field-4">
                       {selectedDept === "SHS" ? "Grade" : "Year Level"}
                     </label>
                     <select
@@ -614,8 +611,7 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
                       className={`border rounded-xl p-3 w-full cursor-pointer focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all ${isDark
                         ? "bg-slate-800 text-slate-100 border-slate-700"
                         : "bg-slate-50 text-slate-800 border-slate-200"
-                        }`}
-                    >
+                        }`} id="examscheduler-field-4" aria-label="Year Level or Grade">
                       <option value="">{selectedDept === "SHS" ? "Choose a grade" : "Choose a year"}</option>
                       {filteredYears.map((y) => (
                         <option key={y.id} value={y.id}>
@@ -629,12 +625,12 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
 
               {/* Exam Range & Daily Time Window */}
               <div className="pt-4 border-t border-slate-200 dark:border-slate-800 space-y-5">
-                <label className={`block text-sm font-semibold ${isDark ? "text-slate-200" : "text-slate-800"}`}>
+                <div className={`block text-sm font-semibold ${isDark ? "text-slate-200" : "text-slate-800"}`}>
                   2. Set Examination Period & Daily Time Window
-                </label>
+                </div>
                 <div className="flex flex-col md:flex-row gap-6">
                   <div className="flex-1 space-y-2">
-                    <label className={`block text-xs font-semibold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+                    <label className={`block text-xs font-semibold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-600"}`} htmlFor="examscheduler-field-5">
                       Start Date
                     </label>
                     <input
@@ -660,11 +656,10 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
                       className={`rounded-xl p-3 w-full border focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all ${isDark
                         ? "bg-slate-800 text-slate-100 border-slate-700"
                         : "bg-slate-50 text-slate-800 border-slate-200"
-                        }`}
-                    />
+                        }`} id="examscheduler-field-5" aria-label="Start Date" />
                   </div>
                   <div className="flex-1 space-y-2">
-                    <label className={`block text-xs font-semibold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+                    <label className={`block text-xs font-semibold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-600"}`} htmlFor="examscheduler-field-6">
                       End Date
                     </label>
                     <input
@@ -683,15 +678,14 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
                       className={`rounded-xl p-3 w-full border focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all ${isDark
                         ? "bg-slate-800 text-slate-100 border-slate-700"
                         : "bg-slate-50 text-slate-800 border-slate-200"
-                        }`}
-                    />
+                        }`} id="examscheduler-field-6" aria-label="End Date" />
                   </div>
                 </div>
 
                 {/* Daily Exam Hours */}
                 <div className="flex flex-col md:flex-row gap-6">
                   <div className="flex-1 space-y-2">
-                    <label className={`block text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+                    <label className={`block text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 ${isDark ? "text-slate-400" : "text-slate-600"}`} htmlFor="examscheduler-field-7">
                       <ClockIcon className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                       Daily Exam Start Time
                     </label>
@@ -702,11 +696,10 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
                       className={`rounded-xl p-3 w-full border focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all ${isDark
                         ? "bg-slate-800 text-slate-100 border-slate-700"
                         : "bg-slate-50 text-slate-800 border-slate-200"
-                        }`}
-                    />
+                        }`} id="examscheduler-field-7" aria-label="Daily Exam Start Time" />
                   </div>
                   <div className="flex-1 space-y-2">
-                    <label className={`block text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+                    <label className={`block text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 ${isDark ? "text-slate-400" : "text-slate-600"}`} htmlFor="examscheduler-field-8">
                       <ClockIcon className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                       Daily Exam End Time
                     </label>
@@ -717,8 +710,7 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
                       className={`rounded-xl p-3 w-full border focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all ${isDark
                         ? "bg-slate-800 text-slate-100 border-slate-700"
                         : "bg-slate-50 text-slate-800 border-slate-200"
-                        }`}
-                    />
+                        }`} id="examscheduler-field-8" aria-label="Daily Exam End Time" />
                   </div>
                 </div>
 
@@ -735,7 +727,7 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
                       <p className="text-xs mt-0.5 opacity-90 leading-relaxed">
                         School Standard: <strong>1h 15m (75 mins)</strong> &bull; BSA Major Subjects: <strong>2h 00m (120 mins)</strong>
                       </p>
-                      <p className="text-[11px] opacity-75 mt-0.5">
+                      <p className="text-xs opacity-75 mt-0.5">
                         To customize allotted time for specific subjects or courses, open the <strong>Subject Durations</strong> tab.
                       </p>
                     </div>
@@ -750,9 +742,9 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
               {/* Subject Checklist */}
               <div className="pt-6 border-t border-slate-200 dark:border-slate-800">
                 <div className="flex items-center justify-between mb-4">
-                  <label className={`block text-sm font-semibold ${isDark ? "text-slate-200" : "text-slate-800"}`}>
+                  <div className={`block text-sm font-semibold ${isDark ? "text-slate-200" : "text-slate-800"}`}>
                     3. Select Subjects for Exam
-                  </label>
+                  </div>
                   <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${isDark ? "bg-blue-900/40 text-blue-300" : "bg-blue-100 text-blue-800"}`}>
                     {subjects.length - excludedSubjects.size} / {subjects.length} selected
                   </span>
@@ -771,8 +763,7 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
                     className={`w-full rounded-xl pl-10 pr-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all ${isDark
                       ? "bg-slate-800 text-slate-100 border-slate-700 placeholder:text-slate-500"
                       : "bg-slate-50 text-slate-800 border-slate-200 border placeholder:text-slate-400"
-                      }`}
-                  />
+                      }`} aria-label="Search subjects" />
                   <DocumentTextIcon className={`absolute left-3 top-3 w-4 h-4 ${isDark ? "text-slate-400" : "text-slate-500"}`} />
                 </div>
 
@@ -837,9 +828,9 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
                   <div className={`mb-5 rounded-2xl border p-4 ${isDark ? "bg-slate-800/80 border-slate-700" : "bg-blue-50/60 border-blue-100"}`}>
                     <div className="flex items-start justify-between gap-4">
                       <div className="min-w-0">
-                        <p className={`text-sm font-bold ${isDark ? "text-slate-100" : "text-slate-900"}`}>
+                        <div className={`text-sm font-bold ${isDark ? "text-slate-100" : "text-slate-900"}`}>
                           {generationProgress.phase || (loading ? "Generating schedule" : "Schedule status")}
-                        </p>
+                        </div>
                         <p className={`mt-1 text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-600"}`}>
                           {generationProgress.detail || (loading ? "Preparing scheduler tasks..." : "Generation status is ready.")}
                         </p>
@@ -872,9 +863,9 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
                       <ExclamationTriangleIcon className="w-5 h-5" />
                     </div>
                     <div>
-                      <p className={`text-sm font-bold ${isDark ? "text-amber-300" : "text-amber-900"}`}>
+                      <div className={`text-sm font-bold ${isDark ? "text-amber-300" : "text-amber-900"}`}>
                         Existing Schedule Detected
-                      </p>
+                      </div>
                       <p className={`text-xs mt-1 ${isDark ? "text-amber-400/90" : "text-amber-800"}`}>
                         There are already <strong>{existingExamCount} exams</strong> generated for {selectedDept} Semester {semester}.
                         You must <strong>overwrite</strong> the existing schedule or go to <em>Generated Schedules</em> to delete it first.
@@ -894,8 +885,7 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
                         : existingExamCount > 0
                           ? "bg-amber-600 hover:bg-amber-700 hover:shadow-amber-600/20 active:scale-95"
                           : "bg-blue-600 hover:bg-blue-700 hover:shadow-blue-600/20 active:scale-95"
-                    }`}
-                  >
+                    }`} aria-label="Refresh">
                     {loading ? (
                       <>
                         <ArrowPathIcon className="w-5 h-5 animate-spin" /> Generating...
@@ -922,8 +912,7 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
                       type="button"
                       onClick={cancelGeneration}
                       disabled={cancelling}
-                      className="flex items-center justify-center gap-2 px-5 sm:px-6 py-3.5 sm:py-4 rounded-xl sm:rounded-2xl w-full sm:w-auto text-rose-600 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/30 dark:hover:bg-rose-900/40 dark:text-rose-400 font-bold text-sm sm:text-base transition-all border border-rose-200 dark:border-rose-800/50"
-                    >
+                      className="flex items-center justify-center gap-2 px-5 sm:px-6 py-3.5 sm:py-4 rounded-xl sm:rounded-2xl w-full sm:w-auto text-rose-600 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/30 dark:hover:bg-rose-900/40 dark:text-rose-400 font-bold text-sm sm:text-base transition-all border border-rose-200 dark:border-rose-800/50" aria-label="Close">
                       {cancelling ? (
                         <>
                           <ArrowPathIcon className="w-5 h-5 animate-spin" /> Cancelling...
@@ -941,7 +930,7 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
           ) : (
             <div className={`p-8 sm:p-10 text-center rounded-2xl border-2 border-dashed ${isDark ? "border-slate-800 bg-slate-800/20 text-slate-400" : "border-slate-200 bg-slate-50/50 text-slate-500"}`}>
               <SparklesIcon className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-3 sm:mb-4 opacity-30 text-blue-500" />
-              <p className="text-base sm:text-lg font-bold">Ready to create a schedule?</p>
+              <div className="text-base sm:text-lg font-bold">Ready to create a schedule?</div>
               <p className="text-xs sm:text-sm mt-1">Select an academic level above to begin configuring the filters.</p>
             </div>
           )}
@@ -975,8 +964,7 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
                             ? "bg-slate-750 border-slate-600 text-slate-100" 
                             : "bg-white border-slate-300 text-slate-800 hover:border-slate-400"
                         }`}
-                        title={loading ? "Cannot change preferred room while schedule generation is ongoing" : ""}
-                      >
+                        title={loading ? "Cannot change preferred room while schedule generation is ongoing" : ""} aria-label="Preferred Room">
                         <option value="">No Preference (Auto)</option>
                         {rooms.map((r) => (
                           <option key={r.id} value={r.id}>
@@ -993,9 +981,9 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
                           key={subject.id}
                           className={`rounded-lg border p-3 ${isDark ? "border-slate-700 bg-slate-900/40" : "border-slate-200 bg-slate-50"}`}
                         >
-                          <p className={`break-words text-xs font-semibold ${isDark ? "text-blue-400" : "text-blue-700"}`}>
+                          <div className={`break-words text-xs font-semibold ${isDark ? "text-blue-400" : "text-blue-700"}`}>
                             {subject.code}
-                          </p>
+                          </div>
                           <h4 className={`mt-1 break-words text-sm font-semibold ${isDark ? "text-slate-100" : "text-slate-900"}`}>
                             {subject.name}
                           </h4>

@@ -287,9 +287,9 @@ export default function ProctorImport({ isGenerating }) {
           }`}
         >
           <div>
-            <p className={`text-xs font-semibold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+            <div className={`text-xs font-semibold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-500"}`}>
               Total Proctors
-            </p>
+            </div>
             <div className="flex items-baseline gap-2 mt-1">
               <h4 className={`text-2xl font-extrabold ${isDark ? "text-white" : "text-slate-900"}`}>
                 {loadingStats ? "..." : (stats.total || 0).toLocaleString()}
@@ -309,9 +309,9 @@ export default function ProctorImport({ isGenerating }) {
           }`}
         >
           <div>
-            <p className={`text-xs font-semibold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+            <div className={`text-xs font-semibold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-500"}`}>
               College Department
-            </p>
+            </div>
             <div className="flex items-baseline gap-2 mt-1">
               <h4 className={`text-2xl font-extrabold ${isDark ? "text-white" : "text-slate-900"}`}>
                 {loadingStats ? "..." : (stats.college || 0).toLocaleString()}
@@ -331,9 +331,9 @@ export default function ProctorImport({ isGenerating }) {
           }`}
         >
           <div>
-            <p className={`text-xs font-semibold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+            <div className={`text-xs font-semibold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-500"}`}>
               SHS Department
-            </p>
+            </div>
             <div className="flex items-baseline gap-2 mt-1">
               <h4 className={`text-2xl font-extrabold ${isDark ? "text-white" : "text-slate-900"}`}>
                 {loadingStats ? "..." : (stats.shs || 0).toLocaleString()}
@@ -426,13 +426,11 @@ export default function ProctorImport({ isGenerating }) {
                       isDark
                         ? "bg-slate-900/60 border-slate-700 text-white placeholder-slate-500 focus:border-blue-500"
                         : "bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400 focus:border-blue-500"
-                    }`}
-                  />
+                    }`} aria-label="Search name or email" />
                   {searchQuery && (
                     <button
                       onClick={() => setSearchQuery("")}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                    >
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200" aria-label="Clear search">
                       <XMarkIcon className="w-3.5 h-3.5" />
                     </button>
                   )}
@@ -447,8 +445,7 @@ export default function ProctorImport({ isGenerating }) {
                         ? "border-slate-700 text-slate-300 hover:bg-slate-700"
                         : "border-slate-200 text-slate-600 hover:bg-slate-100"
                     }`}
-                    title="Reset filters"
-                  >
+                    title="Reset filters" aria-label="Reset filters">
                     <ArrowPathIcon className="w-4 h-4" />
                   </button>
                 )}
@@ -534,19 +531,19 @@ export default function ProctorImport({ isGenerating }) {
                             </td>
                             <td className="py-3 px-4 whitespace-nowrap">
                               <span
-                                className={`px-2.5 py-1 rounded-full text-[11px] font-semibold ${getDepartmentBadge(p.department)}`}
+                                className={`px-2.5 py-1 rounded-full text-xs font-semibold ${getDepartmentBadge(p.department)}`}
                               >
                                 {p.department || "SHS"}
                               </span>
                             </td>
                             <td className="py-3 px-4 text-center whitespace-nowrap">
                               {p.has_schedule ? (
-                                <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+                                <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
                                   <CheckCircleIcon className="w-4 h-4" />
                                   Yes
                                 </span>
                               ) : (
-                                <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-400">
+                                <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-400">
                                   No
                                 </span>
                               )}
@@ -556,8 +553,7 @@ export default function ProctorImport({ isGenerating }) {
                                 onClick={() => setProctorToDelete(p)}
                                 disabled={deletingId === p.id}
                                 className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all"
-                                title="Delete proctor account"
-                              >
+                                title="Delete proctor account" aria-label="Delete proctor account">
                                 <TrashIcon className="w-4 h-4" />
                               </button>
                             </td>
@@ -584,7 +580,7 @@ export default function ProctorImport({ isGenerating }) {
                             </div>
                             <div className="min-w-0">
                               <div className="flex items-center gap-2 flex-wrap">
-                                <span className="text-[10px] font-mono font-semibold text-slate-400">
+                                <span className="text-xs font-mono font-semibold text-slate-400">
                                   #{(page - 1) * pageSize + idx + 1}
                                 </span>
                                 <h5 className={`font-bold text-sm leading-tight break-words ${isDark ? "text-white" : "text-slate-900"}`}>
@@ -602,8 +598,7 @@ export default function ProctorImport({ isGenerating }) {
                             onClick={() => setProctorToDelete(p)}
                             disabled={deletingId === p.id}
                             className="p-2 rounded-xl text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all shrink-0 active:scale-95"
-                            title="Delete proctor account"
-                          >
+                            title="Delete proctor account" aria-label="Delete proctor account">
                             <TrashIcon className="w-4 h-4" />
                           </button>
                         </div>
@@ -611,21 +606,21 @@ export default function ProctorImport({ isGenerating }) {
                         {/* Bottom: Department Badge and Schedule Status */}
                         <div className="flex items-center justify-between gap-2 mt-3 pt-2.5 border-t border-dashed border-slate-200 dark:border-slate-800 text-xs">
                           <div className="flex items-center gap-1.5">
-                            <span className="text-[11px] text-slate-400 font-medium">Dept:</span>
-                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${getDepartmentBadge(p.department)}`}>
+                            <span className="text-xs text-slate-400 font-medium">Dept:</span>
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${getDepartmentBadge(p.department)}`}>
                               {p.department || "SHS"}
                             </span>
                           </div>
 
                           <div className="flex items-center gap-1.5">
-                            <span className="text-[11px] text-slate-400 font-medium">Schedule:</span>
+                            <span className="text-xs text-slate-400 font-medium">Schedule:</span>
                             {p.has_schedule ? (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50">
                                 <CheckCircleIcon className="w-3.5 h-3.5 text-emerald-500" />
                                 Uploaded
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-400 border border-slate-200 dark:border-slate-700">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-400 border border-slate-200 dark:border-slate-700">
                                 None
                               </span>
                             )}
@@ -670,8 +665,7 @@ export default function ProctorImport({ isGenerating }) {
                           : isDark
                           ? "border-slate-700 hover:bg-slate-800"
                           : "border-slate-200 hover:bg-slate-100"
-                      }`}
-                    >
+                      }`} aria-label="Previous page">
                       <ChevronLeftIcon className="w-4 h-4" />
                     </button>
                     <span className="font-semibold px-2">
@@ -686,8 +680,7 @@ export default function ProctorImport({ isGenerating }) {
                           : isDark
                           ? "border-slate-700 hover:bg-slate-800"
                           : "border-slate-200 hover:bg-slate-100"
-                      }`}
-                    >
+                      }`} aria-label="Next page">
                       <ChevronRightIcon className="w-4 h-4" />
                     </button>
                   </div>
@@ -742,10 +735,10 @@ export default function ProctorImport({ isGenerating }) {
               }`}
             >
               <div className="space-y-0.5">
-                <p className={`text-xs font-bold ${clearExisting ? "text-red-700 dark:text-red-400" : isDark ? "text-white" : "text-slate-800"}`}>
+                <div className={`text-xs font-bold ${clearExisting ? "text-red-700 dark:text-red-400" : isDark ? "text-white" : "text-slate-800"}`}>
                   Clear existing proctors before import
-                </p>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   Wipes previously uploaded proctor user accounts before inserting new records.
                 </p>
               </div>
@@ -796,8 +789,7 @@ export default function ProctorImport({ isGenerating }) {
                   <span className="text-slate-400 font-mono">({(file.size / 1024).toFixed(1)} KB)</span>
                   <button
                     onClick={() => setFile(null)}
-                    className="p-1 hover:text-red-500 text-slate-400 transition-colors"
-                  >
+                    className="p-1 hover:text-red-500 text-slate-400 transition-colors" aria-label="Remove selected file">
                     <XMarkIcon className="w-4 h-4" />
                   </button>
                 </div>
@@ -814,8 +806,7 @@ export default function ProctorImport({ isGenerating }) {
                   !file || uploading || isGenerating
                     ? "opacity-50 cursor-not-allowed bg-slate-400 text-white"
                     : "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20"
-                }`}
-              >
+                }`} aria-label="Refresh">
                 {uploading ? (
                   <>
                     <ArrowPathIcon className="w-4 h-4 animate-spin" />
