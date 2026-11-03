@@ -37,6 +37,29 @@
     color: #f8fafc;
   }
 
+  /* Universal select and option styling for contrast in dark and light mode */
+  select {
+    color-scheme: light;
+  }
+
+  select option {
+    background-color: #ffffff;
+    color: #0f172a;
+  }
+
+  html.dark select,
+  .dark select {
+    color-scheme: dark;
+  }
+
+  html.dark select option,
+  .dark select option,
+  html.dark select optgroup,
+  .dark select optgroup {
+    background-color: #1e293b !important;
+    color: #ffffff !important;
+  }
+
   html.dark strong,
   html.dark b {
     color: #ffffff;
@@ -104,3 +127,24 @@
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* Ensure dropdown options always have strong contrast against their popup background */
+select option {
+  background-color: #ffffff;
+  color: #0f172a;
+}
+
+html.dark select option,
+.dark select option,
+html.dark select > option,
+.dark select > option {
+  background-color: #1e293b !important;
+  color: #f8fafc !important;
+}
+
+html.dark select option:checked,
+.dark select option:checked {
+  background-color: #334155 !important;
+  color: #ffffff !important;
+}
+

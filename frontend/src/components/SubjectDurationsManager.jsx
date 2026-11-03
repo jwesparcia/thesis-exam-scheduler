@@ -156,7 +156,8 @@ function SubjectModal({ open, onClose, onSave, courses, yearLevels, departments 
 
   if (!open) return null;
 
-  const inp = `w-full px-3 py-2 rounded-xl text-sm border outline-none transition focus:ring-2 focus:ring-blue-500/40 ${
+  const inp = `w-full px-3 py-2 rounded-xl text-sm border outline-none transition focus:ring-2 focus:ring-blue-500/40 [&>option]:bg-white [&>option]:text-slate-900 dark:[&>option]:bg-slate-800 dark:[&>option]:text-slate-100 ${
+
     isDark
       ? "bg-slate-800/80 border-slate-700 text-white placeholder-slate-500 focus:border-blue-500"
       : "bg-white border-slate-200 text-slate-900 placeholder-slate-400 focus:border-blue-500"
@@ -785,7 +786,7 @@ export default function SubjectDurationsManager() {
     return [...s];
   }, [subjects]);
 
-  const selectCls = `w-full px-3 py-2 rounded-xl text-xs font-medium border outline-none transition ${
+  const selectCls = `w-full px-3 py-2 rounded-xl text-xs font-medium border outline-none transition [&>option]:bg-white [&>option]:text-slate-900 dark:[&>option]:bg-slate-800 dark:[&>option]:text-slate-100 ${
     isDark ? "bg-slate-800 border-slate-700 text-white" : "bg-slate-50 border-slate-200 text-slate-800"
   }`;
 
@@ -905,12 +906,12 @@ export default function SubjectDurationsManager() {
             </div>
             <p className={`text-xs leading-relaxed mb-3 ${isDark ? "text-slate-400" : "text-slate-500"}`}>Apply custom duration to all <strong>filtered</strong> subjects.</p>
             <select value={bulkDuration} onChange={(e) => setBulkDuration(Number(e.target.value))}
-              className={`w-full px-3 py-1.5 rounded-xl text-xs font-semibold border outline-none transition ${isDark ? "bg-slate-800 border-slate-700 text-white" : "bg-slate-50 border-slate-200 text-slate-800"}`} aria-label="Bulk Exam Duration">
-              <option value={60}>1h 00m (60 mins)</option>
-              <option value={75}>1h 15m (75 mins — Standard)</option>
-              <option value={90}>1h 30m (90 mins)</option>
-              <option value={120}>2h 00m (120 mins)</option>
-              <option value={150}>2h 30m (150 mins)</option>
+              className={`w-full px-3 py-1.5 rounded-xl text-xs font-semibold border outline-none transition [&>option]:bg-white [&>option]:text-slate-900 dark:[&>option]:bg-slate-800 dark:[&>option]:text-slate-100 ${isDark ? "bg-slate-800 border-slate-700 text-white" : "bg-slate-50 border-slate-200 text-slate-800"}`} aria-label="Bulk Exam Duration">
+              <option value={60} className={isDark ? "bg-slate-800 text-slate-100" : "bg-white text-slate-900"}>1h 00m (60 mins)</option>
+              <option value={75} className={isDark ? "bg-slate-800 text-slate-100" : "bg-white text-slate-900"}>1h 15m (75 mins — Standard)</option>
+              <option value={90} className={isDark ? "bg-slate-800 text-slate-100" : "bg-white text-slate-900"}>1h 30m (90 mins)</option>
+              <option value={120} className={isDark ? "bg-slate-800 text-slate-100" : "bg-white text-slate-900"}>2h 00m (120 mins)</option>
+              <option value={150} className={isDark ? "bg-slate-800 text-slate-100" : "bg-white text-slate-900"}>2h 30m (150 mins)</option>
             </select>
           </div>
           <div className={`mt-4 pt-3 border-t ${isDark ? "border-slate-700/60" : "border-slate-100"} flex items-center justify-between`}>
@@ -1012,7 +1013,7 @@ export default function SubjectDurationsManager() {
                 const dCat = localCategories[sub.id] ?? sub.category ?? "major";
                 const hasChanges = hasDraftChanges(sub);
                 const termOpts = sub.course_category === "SHS" ? SHS_TERMS : COLLEGE_TERMS;
-                const fieldClass = `w-full min-h-11 rounded-lg border px-3 py-2 text-sm ${isDark ? "border-slate-700 bg-slate-900 text-slate-200" : "border-slate-200 bg-white text-slate-700"}`;
+                const fieldClass = `w-full min-h-11 rounded-lg border px-3 py-2 text-sm [&>option]:bg-white [&>option]:text-slate-900 dark:[&>option]:bg-slate-800 dark:[&>option]:text-slate-100 ${isDark ? "border-slate-700 bg-slate-900 text-slate-200" : "border-slate-200 bg-white text-slate-700"}`;
                 return (
                   <article key={sub.id} className={`space-y-3 rounded-xl border p-4 ${hasChanges
                     ? isDark ? "border-amber-800 bg-amber-900/10" : "border-amber-200 bg-amber-50/60"
@@ -1144,34 +1145,38 @@ export default function SubjectDurationsManager() {
                       <td className="py-3 px-4 text-slate-500 dark:text-slate-400 whitespace-nowrap">{sub.semester}</td>
                       <td className="py-3 px-4 whitespace-nowrap">
                         <select value={dCat} onChange={(e) => setLocalCategories((p) => ({ ...p, [sub.id]: e.target.value }))}
-                          className={`px-2 py-1 rounded-lg text-xs font-bold uppercase tracking-wider border outline-none transition cursor-pointer ${
+                          className={`px-2 py-1 rounded-lg text-xs font-bold uppercase tracking-wider border outline-none transition cursor-pointer [&>option]:bg-white [&>option]:text-slate-900 dark:[&>option]:bg-slate-800 dark:[&>option]:text-slate-100 ${
                             dCat === "major"
                               ? "bg-indigo-50 dark:bg-indigo-900/20 border-indigo-300 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300"
                               : isDark ? "bg-slate-800 border-slate-700 text-slate-400" : "bg-slate-100 border-slate-200 text-slate-600"
                           }`} aria-label="Subject Category">
-                          <option value="major">Major</option>
-                          <option value="general">GE/Minor</option>
+                          <option value="major" className={isDark ? "bg-slate-800 text-slate-100" : "bg-white text-slate-900"}>Major</option>
+                          <option value="general" className={isDark ? "bg-slate-800 text-slate-100" : "bg-white text-slate-900"}>GE/Minor</option>
                         </select>
                       </td>
                       <td className="py-3 px-4 whitespace-nowrap">
                         <select value={dTerm} onChange={(e) => setLocalTerms((p) => ({ ...p, [sub.id]: e.target.value }))}
-                          className={`px-2 py-1 rounded-lg text-xs font-bold border outline-none transition cursor-pointer ${isDark ? "bg-slate-800 border-slate-700 text-slate-200" : "bg-white border-slate-200 text-slate-700"}`} aria-label="Subject Exam Term">
-                          {termOpts.map((t) => <option key={t} value={t}>{t === "All" ? "All Terms" : t}</option>)}
+                          className={`px-2 py-1 rounded-lg text-xs font-bold border outline-none transition cursor-pointer [&>option]:bg-white [&>option]:text-slate-900 dark:[&>option]:bg-slate-800 dark:[&>option]:text-slate-100 ${isDark ? "bg-slate-800 border-slate-700 text-slate-200" : "bg-white border-slate-200 text-slate-700"}`} aria-label="Subject Exam Term">
+                          {termOpts.map((t) => (
+                            <option key={t} value={t} className={isDark ? "bg-slate-800 text-slate-100" : "bg-white text-slate-900"}>
+                              {t === "All" ? "All Terms" : t}
+                            </option>
+                          ))}
                         </select>
                       </td>
                       <td className="py-3 px-4 whitespace-nowrap">
                         <select value={dDur} onChange={(e) => setLocalDurations((p) => ({ ...p, [sub.id]: Number(e.target.value) }))}
-                          className={`px-2 py-1 rounded-lg text-xs font-semibold border outline-none transition cursor-pointer ${
-                            dDur === 120 ? "border-purple-400 bg-purple-50/50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300"
-                              : dDur === 75 ? "border-blue-400 bg-blue-50/50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300"
+                          className={`px-2 py-1 rounded-lg text-xs font-semibold border outline-none transition cursor-pointer [&>option]:bg-white [&>option]:text-slate-900 dark:[&>option]:bg-slate-800 dark:[&>option]:text-slate-100 ${
+                            dDur === 120 ? "border-purple-400 bg-purple-50/50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300"
+                              : dDur === 75 ? "border-blue-400 bg-blue-50/50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
                               : isDark ? "bg-slate-800 border-slate-700 text-white" : "bg-white border-slate-200 text-slate-800"
                           }`} aria-label="Subject Exam Duration">
-                          <option value={60}>1:00h</option>
-                          <option value={75}>1:15h</option>
-                          <option value={90}>1:30h</option>
-                          <option value={120}>2:00h</option>
-                          <option value={150}>2:30h</option>
-                          <option value={180}>3:00h</option>
+                          <option value={60} className={isDark ? "bg-slate-800 text-slate-100" : "bg-white text-slate-900"}>1:00h</option>
+                          <option value={75} className={isDark ? "bg-slate-800 text-slate-100" : "bg-white text-slate-900"}>1:15h</option>
+                          <option value={90} className={isDark ? "bg-slate-800 text-slate-100" : "bg-white text-slate-900"}>1:30h</option>
+                          <option value={120} className={isDark ? "bg-slate-800 text-slate-100" : "bg-white text-slate-900"}>2:00h</option>
+                          <option value={150} className={isDark ? "bg-slate-800 text-slate-100" : "bg-white text-slate-900"}>2:30h</option>
+                          <option value={180} className={isDark ? "bg-slate-800 text-slate-100" : "bg-white text-slate-900"}>3:00h</option>
                         </select>
                       </td>
                       <td className="py-3 px-4 whitespace-nowrap">
