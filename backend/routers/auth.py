@@ -204,6 +204,10 @@ class VerifyAndChangePasswordRequest(BaseModel):
     code: str
     new_password: str
 
+class DirectChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
 @router.post("/request-verification-code")
 def request_verification_code(
     payload: RequestCodeRequest,
@@ -278,4 +282,31 @@ def verify_and_change_password(
     
     log_activity(db, current_user.id, "PASSWORD_CHANGED", "First login password change verified by email.", None)
     
+    return {"message": "Password changed successfully"}
+
+@router.post("/change-password")
+def change_password_direct(
+    payload: DirectChangePasswordRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if not verify_password(payload.current_password, current_user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Current password is incorrect."
+        )
+    if len(payload.new_password) < 8 or len(payload.new_password) > 20:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="New password must be between 8 and 20 characters long."
+        )
+    if payload.current_password == payload.new_password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="New password cannot be the same as your current password."
+        )
+    current_user.hashed_password = hash_password(payload.new_password)
+    current_user.is_first_login = False
+    db.commit()
+    log_activity(db, current_user.id, "PASSWORD_CHANGED", "Password changed via Settings menu.", None)
     return {"message": "Password changed successfully"}

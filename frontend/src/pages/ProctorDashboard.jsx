@@ -1444,22 +1444,6 @@ export default function ProctorDashboard() {
     );
   }
 
-  if (user && user.is_first_login) {
-    return (
-      <FirstTimePasswordChange
-        user={user}
-        onPasswordChanged={(updatedUser) => login(updatedUser)}
-        isDark={isDark}
-        onLogout={handleLogout}
-        onSkip={() => login({
-          ...user,
-          is_first_login: false,
-          temporary_skip: true
-        })}
-      />
-    );
-  }
-
   const unreadCount = notifications.filter(n => !n.is_read).length;
   const latestUnreadNotif = notifications.find(n => !n.is_read);
 

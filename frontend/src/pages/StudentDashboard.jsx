@@ -1740,22 +1740,6 @@ export default function StudentDashboard() {
 
   if (!user) return <div className={`min-h-screen ${isDark ? "bg-slate-900 text-slate-300" : "bg-slate-50 text-slate-600"} flex items-center justify-center font-medium`}>Redirecting...</div>;
 
-  if (user && user.is_first_login) {
-    return (
-      <FirstTimePasswordChange
-        user={user}
-        onPasswordChanged={(updatedUser) => login(updatedUser)}
-        isDark={isDark}
-        onLogout={handleLogout}
-        onSkip={() => login({
-          ...user,
-          is_first_login: false,
-          temporary_skip: true
-        })}
-      />
-    );
-  }
-
   // Filters for exams
   const processedExams = exams.filter(exam => {
     if (exam.exam_type?.toLowerCase() !== "written") return false;

@@ -2192,22 +2192,6 @@ export default function ProgramHeadDashboard() {
     );
   }
 
-  if (user && user.is_first_login) {
-    return (
-      <FirstTimePasswordChange
-        user={user}
-        onPasswordChanged={(updatedUser) => login(updatedUser)}
-        isDark={isDark}
-        onLogout={handleLogout}
-        onSkip={() => login({
-          ...user,
-          is_first_login: false,
-          temporary_skip: true
-        })}
-      />
-    );
-  }
-
   return (
     <div className={`h-screen h-dvh flex overflow-hidden transition-colors duration-300 ${isDark ? "bg-slate-900" : "bg-slate-50"}`}>
       {showNotifications && (
