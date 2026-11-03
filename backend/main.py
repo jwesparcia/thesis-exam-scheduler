@@ -61,6 +61,7 @@ def on_startup():
                 SET category = 'general'
                 WHERE LOWER(TRIM(name)) = 'understanding the self' AND category != 'general'
             """))
+            _conn.execute(_text("UPDATE users SET role = 'program_head' WHERE role = 'admin'"))
             _conn.commit()
         print("Chat database soft-delete columns migration successful!")
 
@@ -75,7 +76,7 @@ def on_startup():
                     name="Dr. Maria Santos",
                     email="admin@school.edu",
                     hashed_password=hash_password("admin123"),
-                    role="admin",
+                    role="program_head",
                     is_first_login=False,
                 )
                 db_session.add(default_admin)

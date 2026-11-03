@@ -12,7 +12,7 @@ function ProtectedRoute({ children, allowedRoles }) {
 
   if (!user || !user.access_token) return <Navigate to="/login" replace />;
   if (!allowedRoles.includes(user.role)) {
-    if (user.role === "program_head")
+    if (user.role === "program_head" || user.role === "admin")
       return <Navigate to="/program-head" replace />;
     if (user.role === "proctor")
       return <Navigate to="/proctor" replace />;
@@ -28,7 +28,7 @@ function NavigateToDashboard() {
 
   if (!user || !user.access_token) return <Navigate to="/login" replace />;
 
-  if (user.role === "program_head")
+  if (user.role === "program_head" || user.role === "admin")
     return <Navigate to="/program-head" replace />;
   if (user.role === "proctor")
     return <Navigate to="/proctor" replace />;
@@ -56,7 +56,7 @@ export default function AppRoutes() {
       <Route
         path="/program-head"
         element={
-          <ProtectedRoute allowedRoles={["program_head"]}>
+          <ProtectedRoute allowedRoles={["program_head", "admin"]}>
             <ProgramHeadDashboard />
           </ProtectedRoute>
         }

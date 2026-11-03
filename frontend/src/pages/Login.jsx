@@ -41,7 +41,7 @@ export default function Login() {
       login(loginPayload);
       showSuccess("Login successful!");
 
-      if (backendRole === "program_head") {
+      if (backendRole === "program_head" || backendRole === "admin") {
         navigate("/program-head", { replace: true });
       } else if (backendRole === "proctor") {
         navigate("/proctor", { replace: true });
