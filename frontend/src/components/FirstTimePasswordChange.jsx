@@ -49,8 +49,9 @@ export default function FirstTimePasswordChange({ user, onPasswordChanged, isDar
         email: user.email
       });
       setCodeSent(true);
+      setVerificationCode("");
       setResendTimer(60);
-      showSuccess("Verification code sent to " + user.email);
+      showSuccess("Verification code sent to " + user.email + ". Please check your email inbox.");
     } catch (error) {
       console.error("Failed to send code:", error);
       showError(error.response?.data?.detail || "Failed to send verification code. Please try again.");

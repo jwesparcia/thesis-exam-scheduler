@@ -234,14 +234,19 @@ def request_verification_code(
     db.commit()
     
     sent = send_verification_email(current_user.email, code)
+    if not sent:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Unable to send verification code email to {current_user.email}. Please verify SMTP configuration."
+        )
     
-    # In-app notification so user can also view the code in their notification bell
+    # In-app notification to inform the user that a code was dispatched
     try:
         from model import Notification
         notif = Notification(
             user_id=current_user.id,
-            title="Password Verification Code",
-            message=f"Your verification code is: {code} (Valid for 15 minutes)",
+            title="Password Verification Dispatched",
+            message=f"A 6-digit verification code was sent to your registered email {current_user.email}. Please check your inbox or spam folder.",
         )
         db.add(notif)
         db.commit()
@@ -249,8 +254,7 @@ def request_verification_code(
         print(f"Failed to log notification for verification code: {e}")
         
     return {
-        "message": f"Verification code sent to {current_user.email}",
-        "code": code if (current_user.email.endswith("@school.edu") or not sent) else None
+        "message": f"Verification code sent to {current_user.email}. Please check your email inbox."
     }
 
 @router.post("/verify-and-change-password")

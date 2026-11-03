@@ -28,7 +28,6 @@ export default function AccountSettingsSection({ isDark }) {
   const [codeSent, setCodeSent] = useState(false);
   const [sendingCode, setSendingCode] = useState(false);
   const [verifying, setVerifying] = useState(false);
-  const [demoCode, setDemoCode] = useState("");
 
   const [resendTimer, setResendTimer] = useState(0);
 
@@ -48,20 +47,14 @@ export default function AccountSettingsSection({ isDark }) {
   const handleSendCode = async () => {
     if (sendingCode || !user?.email) return;
     setSendingCode(true);
-    setDemoCode("");
     try {
-      const res = await api.post("/auth/request-verification-code", {
+      await api.post("/auth/request-verification-code", {
         email: user.email,
       });
       setCodeSent(true);
+      setVerificationCode("");
       setResendTimer(60);
-      showSuccess(`Verification code sent to ${user.email}`);
-
-      // If backend provides demo code for test/school.edu accounts
-      if (res.data?.code) {
-        setDemoCode(res.data.code);
-        setVerificationCode(res.data.code);
-      }
+      showSuccess(`Verification code sent to ${user.email}. Please check your inbox.`);
     } catch (error) {
       console.error("Failed to send code:", error);
       showError(error.response?.data?.detail || "Failed to send verification code. Please try again.");
@@ -300,17 +293,21 @@ export default function AccountSettingsSection({ isDark }) {
             ) : (
               /* Step 2: Verification Code & Password Form */
               <form onSubmit={handleSubmit} className="space-y-5 animate-in fade-in duration-200">
-                {/* Demo Code Helper (if provided by backend) */}
-                {demoCode && (
-                  <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between">
-                    <span className="text-xs text-amber-600 dark:text-amber-400 font-semibold">
-                      Security Code auto-detected:
-                    </span>
-                    <span className="font-mono text-sm font-extrabold tracking-widest text-amber-600 dark:text-amber-400">
-                      {demoCode}
-                    </span>
-                  </div>
-                )}
+                {/* Email inbox guidance banner */}
+                <div
+                  className={`p-3.5 rounded-2xl border flex items-center gap-3 ${
+                    isDark
+                      ? "bg-blue-950/40 border-blue-800/60 text-blue-200"
+                      : "bg-blue-50 border-blue-200 text-blue-900"
+                  }`}
+                >
+                  <EnvelopeIcon className="w-5 h-5 shrink-0 text-blue-500" />
+                  <p className="text-xs leading-relaxed">
+                    A 6-digit verification code has been dispatched to{" "}
+                    <strong className="font-bold underline">{user?.email}</strong>.
+                    Please check your Microsoft / Outlook inbox or Junk folder.
+                  </p>
+                </div>
 
                 {/* 6-Digit Code Input */}
                 <div>
