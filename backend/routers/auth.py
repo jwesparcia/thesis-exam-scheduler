@@ -197,6 +197,9 @@ def read_users_me(current_user: User = Depends(get_current_user)):
     }
 
 class RequestCodeRequest(BaseModel):
+    email: Optional[str] = None
+
+class UpdateEmailRequest(BaseModel):
     email: str
 
 class VerifyAndChangePasswordRequest(BaseModel):
@@ -208,17 +211,67 @@ class DirectChangePasswordRequest(BaseModel):
     current_password: str
     new_password: str
 
+@router.put("/update-email")
+def update_registered_email(
+    payload: UpdateEmailRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    clean_email = payload.email.strip().lower()
+    if not clean_email or "@" not in clean_email or "." not in clean_email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Please provide a valid email address (e.g. your official Microsoft account)."
+        )
+    
+    existing = db.query(User).filter(User.email == clean_email, User.id != current_user.id).first()
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"The email {clean_email} is already linked to another account."
+        )
+        
+    old_email = current_user.email
+    current_user.email = clean_email
+    db.commit()
+    db.refresh(current_user)
+    
+    log_activity(db, current_user.id, "EMAIL_UPDATED", f"Changed registered email from {old_email} to {clean_email}", None)
+    
+    return {
+        "message": f"Registered email successfully updated to {clean_email}.",
+        "email": clean_email
+    }
+
 @router.post("/request-verification-code")
 def request_verification_code(
     payload: RequestCodeRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    if current_user.email != payload.email:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You can only request verification codes for your own account."
-        )
+    target_email = current_user.email
+    clean_payload_email = payload.email.strip().lower() if payload.email else ""
+    
+    # If the user provides an updated email address (e.g., their Microsoft account)
+    if clean_payload_email and clean_payload_email != current_user.email:
+        if "@" in clean_payload_email and "." in clean_payload_email:
+            existing = db.query(User).filter(User.email == clean_payload_email, User.id != current_user.id).first()
+            if existing:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"The email {clean_payload_email} is already in use by another account."
+                )
+            old_email = current_user.email
+            current_user.email = clean_payload_email
+            db.commit()
+            db.refresh(current_user)
+            log_activity(db, current_user.id, "EMAIL_UPDATED", f"Updated email from {old_email} to {clean_payload_email}", None)
+            target_email = clean_payload_email
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Please enter a valid email address."
+            )
     
     code = f"{random.randint(100000, 999999)}"
     expires_at = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(minutes=15)
@@ -233,11 +286,11 @@ def request_verification_code(
     db.add(token_obj)
     db.commit()
     
-    sent = send_verification_email(current_user.email, code)
+    sent = send_verification_email(target_email, code)
     if not sent:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Unable to send verification code email to {current_user.email}. Please verify SMTP configuration."
+            detail=f"Unable to send verification code email to {target_email}. Please verify SMTP configuration or email address."
         )
     
     # In-app notification to inform the user that a code was dispatched
@@ -246,7 +299,7 @@ def request_verification_code(
         notif = Notification(
             user_id=current_user.id,
             title="Password Verification Dispatched",
-            message=f"A 6-digit verification code was sent to your registered email {current_user.email}. Please check your inbox or spam folder.",
+            message=f"A 6-digit verification code was sent to your registered email {target_email}. Please check your inbox or spam folder.",
         )
         db.add(notif)
         db.commit()
@@ -254,7 +307,8 @@ def request_verification_code(
         print(f"Failed to log notification for verification code: {e}")
         
     return {
-        "message": f"Verification code sent to {current_user.email}. Please check your email inbox."
+        "message": f"Verification code sent to {target_email}. Please check your email inbox.",
+        "email": target_email
     }
 
 @router.post("/verify-and-change-password")

@@ -11,19 +11,23 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 dotenv_path = os.path.join(BASE_DIR, ".env")
 load_dotenv(dotenv_path)
 
-# Load SMTP configuration with reliable defaults
-SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
-SMTP_PORT_RAW = os.getenv("SMTP_PORT", "587")
-try:
-    SMTP_PORT = int(SMTP_PORT_RAW)
-except (ValueError, TypeError):
-    SMTP_PORT = 587
-
-SMTP_USERNAME = os.getenv("SMTP_USERNAME", "jhuneesparcia1@gmail.com")
-SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "npsh ffcf oodr idwe")
-SMTP_SENDER = os.getenv("SMTP_SENDER", "jhuneesparcia1@gmail.com")
-
 LOG_FILE_PATH = os.path.join(BASE_DIR, "debug", "sent_emails.log")
+
+def get_smtp_config():
+    """Dynamically reads SMTP settings from environment or fallback defaults."""
+    load_dotenv(dotenv_path)
+    host = os.getenv("SMTP_HOST", "smtp.gmail.com").strip()
+    port_raw = os.getenv("SMTP_PORT", "587").strip()
+    try:
+        port = int(port_raw)
+    except (ValueError, TypeError):
+        port = 587
+        
+    username = os.getenv("SMTP_USERNAME", "jhuneesparcia1@gmail.com").strip()
+    raw_pwd = os.getenv("SMTP_PASSWORD", "npsh ffcf oodr idwe").strip()
+    password = raw_pwd.replace(" ", "")
+    sender = os.getenv("SMTP_SENDER", username).strip() or username
+    return host, port, username, password, sender
 
 def send_verification_email(recipient_email: str, code: str) -> bool:
     """
@@ -31,7 +35,10 @@ def send_verification_email(recipient_email: str, code: str) -> bool:
     Supports Microsoft 365 / Outlook, Gmail, and standard academic email providers
     with clean multipart plain text + HTML formatting.
     """
-    subject = "STI Exam Scheduler - Password Verification Code"
+    host, preferred_port, username, password, sender_addr = get_smtp_config()
+    
+    clean_recipient = recipient_email.strip().lower()
+    subject = f"STI Exam Scheduler: Your Verification Code is {code}"
     
     plain_text = f"""STI Examination Scheduling System
 ----------------------------------------
@@ -75,7 +82,7 @@ STI Exam Scheduler Team
             <td style="padding: 30px 30px 20px 30px;">
               <h2 style="margin: 0 0 10px 0; color: #0f172a; font-size: 18px; font-weight: 600;">Account Password Verification</h2>
               <p style="margin: 0 0 18px 0; color: #475569; font-size: 14px; line-height: 1.6;">
-                We received a request to update the password for your account (<strong>{recipient_email}</strong>). Please enter the following 6-digit one-time code on the security page:
+                We received a request to update the password for your account (<strong>{clean_recipient}</strong>). Please enter the following 6-digit one-time code on the security page:
               </p>
 
               <!-- Code Box -->
@@ -109,49 +116,64 @@ STI Exam Scheduler Team
 </body>
 </html>"""
 
-    if not (SMTP_HOST and SMTP_USERNAME and SMTP_PASSWORD):
-        print("SMTP credentials are not configured.")
+    if not (host and username and password):
+        print(f"SMTP credentials missing. Host: {host}, User: {username}")
         return False
 
-    sender_addr = SMTP_SENDER or SMTP_USERNAME
-    app_password = SMTP_PASSWORD.replace(" ", "")
+    sender_domain = sender_addr.split("@")[-1] if "@" in sender_addr else "gmail.com"
 
     msg = MIMEMultipart("alternative")
     msg["From"] = f"STI Exam Scheduler <{sender_addr}>"
-    msg["To"] = recipient_email
+    msg["To"] = clean_recipient
+    msg["Reply-To"] = sender_addr
     msg["Subject"] = subject
     msg["Date"] = email.utils.formatdate(localtime=True)
-    msg["Message-ID"] = email.utils.make_msgid(domain="exam-scheduler.sti.edu")
+    msg["Message-ID"] = email.utils.make_msgid(domain=sender_domain)
 
     msg.attach(MIMEText(plain_text, "plain", "utf-8"))
     msg.attach(MIMEText(html_content, "html", "utf-8"))
 
-    try:
-        if SMTP_PORT == 465:
-            server = smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, timeout=20)
-        else:
-            server = smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=20)
-            server.starttls()
+    # Try preferred port first, then alternate standard port (587 STARTTLS <-> 465 SSL)
+    ports_to_try = [preferred_port]
+    alternate_port = 465 if preferred_port == 587 else 587
+    if alternate_port not in ports_to_try:
+        ports_to_try.append(alternate_port)
 
-        server.login(SMTP_USERNAME, app_password)
-        server.sendmail(sender_addr, [recipient_email], msg.as_string())
-        server.quit()
-        print(f"SMTP Email delivered successfully to {recipient_email}")
-        return True
-    except Exception as e:
-        print(f"Failed to dispatch SMTP email to {recipient_email}: {e}")
+    last_error = None
+    msg_str = msg.as_string()
+
+    for port in ports_to_try:
         try:
-            os.makedirs(os.path.dirname(LOG_FILE_PATH), exist_ok=True)
-            log_entry = (
-                f"========================================\n"
-                f"TIMESTAMP: {datetime.now().isoformat()}\n"
-                f"TO: {recipient_email}\n"
-                f"SUBJECT: {subject}\n"
-                f"ERROR: {str(e)}\n"
-                f"========================================\n\n"
-            )
-            with open(LOG_FILE_PATH, "a") as f:
-                f.write(log_entry)
-        except Exception:
-            pass
-        return False
+            print(f"Attempting SMTP delivery to {clean_recipient} via {host}:{port}...")
+            if port == 465:
+                server = smtplib.SMTP_SSL(host, port, timeout=15)
+            else:
+                server = smtplib.SMTP(host, port, timeout=15)
+                server.starttls()
+
+            server.login(username, password)
+            server.sendmail(sender_addr, [clean_recipient], msg_str)
+            server.quit()
+            print(f"SMTP Email delivered successfully to {clean_recipient} via {host}:{port}")
+            return True
+        except Exception as e:
+            last_error = e
+            print(f"SMTP delivery attempt failed via port {port}: {e}")
+
+    # Fallback error logging for diagnostics
+    try:
+        os.makedirs(os.path.dirname(LOG_FILE_PATH), exist_ok=True)
+        log_entry = (
+            f"========================================\n"
+            f"TIMESTAMP: {datetime.now().isoformat()}\n"
+            f"TO: {clean_recipient}\n"
+            f"SUBJECT: {subject}\n"
+            f"ERROR: {str(last_error)}\n"
+            f"========================================\n\n"
+        )
+        with open(LOG_FILE_PATH, "a") as f:
+            f.write(log_entry)
+    except Exception:
+        pass
+
+    return False

@@ -9,6 +9,7 @@ import {
   ShieldCheckIcon,
   CheckCircleIcon,
   KeyIcon,
+  PencilSquareIcon,
 } from "@heroicons/react/24/outline";
 import api from "../api";
 import { useToast } from "../context/ToastContext";
@@ -29,7 +30,17 @@ export default function AccountSettingsSection({ isDark }) {
   const [sendingCode, setSendingCode] = useState(false);
   const [verifying, setVerifying] = useState(false);
 
+  const [targetEmail, setTargetEmail] = useState(user?.email || "");
+  const [isEditingEmail, setIsEditingEmail] = useState(false);
+  const [savingEmail, setSavingEmail] = useState(false);
+
   const [resendTimer, setResendTimer] = useState(0);
+
+  useEffect(() => {
+    if (user?.email && !targetEmail) {
+      setTargetEmail(user.email);
+    }
+  }, [user?.email]);
 
   // Countdown timer for resending verification code
   useEffect(() => {
@@ -44,17 +55,49 @@ export default function AccountSettingsSection({ isDark }) {
     return () => clearInterval(interval);
   }, [resendTimer]);
 
+  const handleUpdateEmail = async () => {
+    const trimmed = targetEmail.trim().toLowerCase();
+    if (!trimmed || !trimmed.includes("@") || !trimmed.includes(".")) {
+      showWarning("Please enter a valid email address.");
+      return;
+    }
+    setSavingEmail(true);
+    try {
+      const res = await api.put("/auth/update-email", { email: trimmed });
+      if (user) {
+        login({ ...user, email: res.data.email });
+      }
+      setIsEditingEmail(false);
+      showSuccess(res.data?.message || "Registered email updated successfully.");
+    } catch (err) {
+      console.error("Failed to update email:", err);
+      showError(err.response?.data?.detail || "Failed to update email address.");
+    } finally {
+      setSavingEmail(false);
+    }
+  };
+
   const handleSendCode = async () => {
-    if (sendingCode || !user?.email) return;
+    const emailToSend = targetEmail.trim().toLowerCase() || user?.email;
+    if (!emailToSend || !emailToSend.includes("@")) {
+      showWarning("Please enter a valid Microsoft / school email address.");
+      return;
+    }
+    if (sendingCode) return;
     setSendingCode(true);
     try {
-      await api.post("/auth/request-verification-code", {
-        email: user.email,
+      const res = await api.post("/auth/request-verification-code", {
+        email: emailToSend,
       });
+      const resolvedEmail = res.data?.email || emailToSend;
+      if (user && user.email !== resolvedEmail) {
+        login({ ...user, email: resolvedEmail });
+      }
+      setTargetEmail(resolvedEmail);
       setCodeSent(true);
       setVerificationCode("");
       setResendTimer(60);
-      showSuccess(`Verification code sent to ${user.email}. Please check your inbox.`);
+      showSuccess(`Verification code sent to ${resolvedEmail}. Please check your inbox.`);
     } catch (error) {
       console.error("Failed to send code:", error);
       showError(error.response?.data?.detail || "Failed to send verification code. Please try again.");
@@ -80,8 +123,9 @@ export default function AccountSettingsSection({ isDark }) {
 
     setVerifying(true);
     try {
+      const emailToVerify = targetEmail.trim().toLowerCase() || user?.email;
       await api.post("/auth/verify-and-change-password", {
-        email: user.email,
+        email: emailToVerify,
         code: verificationCode.trim(),
         new_password: newPassword,
       });
@@ -183,15 +227,76 @@ export default function AccountSettingsSection({ isDark }) {
             <div className={`p-4 rounded-2xl border text-left space-y-2 ${
               isDark ? "bg-slate-950/60 border-slate-800" : "bg-slate-50 border-slate-200"
             }`}>
-              <div className="flex items-center gap-2">
-                <EnvelopeIcon className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
-                <span className={`text-xs font-bold uppercase tracking-wider ${isDark ? "text-slate-300" : "text-slate-600"}`}>
-                  Registered Email
-                </span>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <EnvelopeIcon className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
+                  <span className={`text-xs font-bold uppercase tracking-wider ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+                    Registered Email
+                  </span>
+                </div>
+                {!isEditingEmail && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTargetEmail(user?.email || "");
+                      setIsEditingEmail(true);
+                    }}
+                    className="text-[11px] font-bold text-blue-500 hover:text-blue-400 flex items-center gap-1 cursor-pointer transition"
+                  >
+                    <PencilSquareIcon className="w-3.5 h-3.5" />
+                    Edit
+                  </button>
+                )}
               </div>
-              <div className={`text-sm font-bold truncate ${isDark ? "text-white" : "text-slate-900"}`}>
-                {user?.email}
-              </div>
+
+              {isEditingEmail ? (
+                <div className="space-y-2 pt-1">
+                  <input
+                    type="email"
+                    value={targetEmail}
+                    onChange={(e) => setTargetEmail(e.target.value)}
+                    placeholder="Enter Microsoft email"
+                    className={`w-full px-3 py-1.5 text-xs rounded-xl border outline-none font-medium ${
+                      isDark
+                        ? "bg-slate-900 border-blue-500 text-white"
+                        : "bg-white border-blue-600 text-slate-900"
+                    }`}
+                  />
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={savingEmail}
+                      onClick={handleUpdateEmail}
+                      className="px-2.5 py-1 text-xs font-bold rounded-lg bg-blue-600 hover:bg-blue-500 text-white transition cursor-pointer"
+                    >
+                      {savingEmail ? "Saving..." : "Save"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTargetEmail(user?.email || "");
+                        setIsEditingEmail(false);
+                      }}
+                      className={`px-2.5 py-1 text-xs font-semibold rounded-lg border transition cursor-pointer ${
+                        isDark ? "border-slate-700 text-slate-300 hover:bg-slate-800" : "border-slate-300 text-slate-600 hover:bg-slate-100"
+                      }`}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <div className={`text-sm font-bold truncate ${isDark ? "text-white" : "text-slate-900"}`}>
+                    {user?.email}
+                  </div>
+                  {user?.email?.endsWith("@school.edu") && (
+                    <span className="inline-block mt-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                      Placeholder email &mdash; Click Edit to set Microsoft email
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Bullet points info box */}
@@ -252,17 +357,41 @@ export default function AccountSettingsSection({ isDark }) {
                     <div className="p-2.5 rounded-xl bg-blue-600 text-white shrink-0 shadow-md shadow-blue-600/20">
                       <EnvelopeIcon className="w-5 h-5" />
                     </div>
-                    <div>
-                      <h3 className={`text-sm font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
-                        Send Security Verification Code
-                      </h3>
-                      <p className={`text-xs leading-relaxed mt-1.5 ${isDark ? "text-slate-300" : "text-slate-600"}`}>
-                        Click below to generate and send a 6-digit one-time code to{" "}
-                        <strong className={`font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
-                          {user?.email}
-                        </strong>
-                        . Once received, enter the code along with your new password.
-                      </p>
+                    <div className="space-y-3 flex-1">
+                      <div>
+                        <h3 className={`text-sm font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
+                          Send Security Verification Code
+                        </h3>
+                        <p className={`text-xs leading-relaxed mt-1 ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+                          The 6-digit code will be delivered via SMTP to your Microsoft account. Make sure the recipient email below matches your active mailbox.
+                        </p>
+                      </div>
+
+                      <div className="pt-1">
+                        <label className={`block text-[11px] font-bold uppercase tracking-wider mb-1.5 ${isDark ? "text-slate-300" : "text-slate-700"}`}>
+                          Destination Microsoft / School Email
+                        </label>
+                        <input
+                          type="email"
+                          value={targetEmail}
+                          onChange={(e) => setTargetEmail(e.target.value)}
+                          placeholder="e.g. yourname@domain.edu or yourname@outlook.com"
+                          className={`w-full px-3.5 py-2.5 rounded-xl text-xs font-semibold border outline-none transition ${
+                            isDark
+                              ? "bg-slate-900 border-slate-700 text-white focus:border-blue-500"
+                              : "bg-white border-slate-300 text-slate-900 focus:border-blue-600"
+                          }`}
+                        />
+                        {targetEmail?.endsWith("@school.edu") ? (
+                          <p className="text-[11px] text-amber-500 font-semibold mt-1.5 flex items-center gap-1">
+                            <span>⚠️</span> Currently placeholder ({targetEmail}). Replace with your Microsoft email to receive the code!
+                          </p>
+                        ) : (
+                          <p className={`text-[11px] mt-1 ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                            Verification code will be dispatched to this address.
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
