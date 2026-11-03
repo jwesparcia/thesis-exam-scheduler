@@ -25,9 +25,21 @@
 
   body {
     overflow-x: hidden;
+    color: #0f172a;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+
+  html.dark,
+  html.dark body {
+    color-scheme: dark;
+    color: #f8fafc;
+  }
+
+  html.dark strong,
+  html.dark b {
+    color: #ffffff;
   }
 
   *,

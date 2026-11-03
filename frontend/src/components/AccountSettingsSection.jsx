@@ -9,7 +9,6 @@ import {
   ShieldCheckIcon,
   CheckCircleIcon,
   KeyIcon,
-  UserCircleIcon,
 } from "@heroicons/react/24/outline";
 import api from "../api";
 import { useToast } from "../context/ToastContext";
@@ -127,7 +126,9 @@ export default function AccountSettingsSection({ isDark }) {
     newPassword === confirmPassword;
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto pb-12 animate-in fade-in duration-300">
+    <div className={`space-y-6 max-w-4xl mx-auto pb-12 animate-in fade-in duration-300 ${
+      isDark ? "text-slate-100" : "text-slate-900"
+    }`}>
       {/* Top Banner */}
       <div
         className={`p-6 sm:p-8 rounded-3xl border shadow-sm relative overflow-hidden transition-all ${
@@ -150,7 +151,7 @@ export default function AccountSettingsSection({ isDark }) {
                   Password Management
                 </span>
               </div>
-              <p className={`text-xs sm:text-sm mt-1 leading-relaxed ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+              <p className={`text-xs sm:text-sm mt-1 leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
                 Verify your identity via registered email code to update your private password.
               </p>
             </div>
@@ -167,7 +168,7 @@ export default function AccountSettingsSection({ isDark }) {
               isDark ? "bg-slate-900/90 border-slate-800" : "bg-white border-slate-200"
             }`}
           >
-            <h2 className={`text-sm font-bold uppercase tracking-wider mb-4 ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+            <h2 className={`text-xs font-bold uppercase tracking-wider mb-4 ${isDark ? "text-slate-300" : "text-slate-600"}`}>
               User Profile
             </h2>
             <div className="flex items-center gap-3.5 mb-5">
@@ -191,27 +192,34 @@ export default function AccountSettingsSection({ isDark }) {
             }`}>
               <div className="flex items-center gap-2">
                 <EnvelopeIcon className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
-                <span className={`text-xs font-semibold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                <span className={`text-xs font-bold uppercase tracking-wider ${isDark ? "text-slate-300" : "text-slate-600"}`}>
                   Registered Email
                 </span>
               </div>
-              <div className={`text-sm font-semibold truncate ${isDark ? "text-slate-200" : "text-slate-800"}`}>
+              <div className={`text-sm font-bold truncate ${isDark ? "text-white" : "text-slate-900"}`}>
                 {user?.email}
               </div>
             </div>
 
-            <div className="mt-5 space-y-2 text-xs leading-relaxed opacity-80">
-              <div className="flex items-center gap-2">
+            {/* Bullet points info box */}
+            <div className={`mt-5 space-y-2.5 text-xs leading-relaxed ${isDark ? "text-slate-200" : "text-slate-700"}`}>
+              <div className="flex items-center gap-2.5">
                 <CheckCircleIcon className="w-4 h-4 text-blue-500 shrink-0" />
-                <span>Verification code will be sent to this email</span>
+                <span className={isDark ? "text-slate-200 font-medium" : "text-slate-700"}>
+                  Verification code will be sent to this email
+                </span>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2.5">
                 <CheckCircleIcon className="w-4 h-4 text-blue-500 shrink-0" />
-                <span>Codes remain active for 15 minutes</span>
+                <span className={isDark ? "text-slate-200 font-medium" : "text-slate-700"}>
+                  Codes remain active for 15 minutes
+                </span>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2.5">
                 <CheckCircleIcon className="w-4 h-4 text-blue-500 shrink-0" />
-                <span>Password must be between 8 and 12 characters</span>
+                <span className={isDark ? "text-slate-200 font-medium" : "text-slate-700"}>
+                  Password must be between 8 and 12 characters
+                </span>
               </div>
             </div>
           </div>
@@ -229,8 +237,8 @@ export default function AccountSettingsSection({ isDark }) {
                 <h2 className={`text-base font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
                   Email Verification & Password Change
                 </h2>
-                <p className={`text-xs mt-0.5 ${isDark ? "text-slate-400" : "text-slate-600"}`}>
-                  Step 1: Request 6-digit code $\rightarrow$ Step 2: Set your new password
+                <p className={`text-xs mt-1 ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+                  Step 1: Request 6-digit code → Step 2: Set your new password
                 </p>
               </div>
               {codeSent && (
@@ -255,8 +263,12 @@ export default function AccountSettingsSection({ isDark }) {
                       <h3 className={`text-sm font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
                         Send Security Verification Code
                       </h3>
-                      <p className={`text-xs leading-relaxed mt-1 ${isDark ? "text-slate-400" : "text-slate-600"}`}>
-                        Click below to generate and send a 6-digit one-time code to <strong>{user?.email}</strong>. Once received, enter the code along with your new password.
+                      <p className={`text-xs leading-relaxed mt-1.5 ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+                        Click below to generate and send a 6-digit one-time code to{" "}
+                        <strong className={`font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
+                          {user?.email}
+                        </strong>
+                        . Once received, enter the code along with your new password.
                       </p>
                     </div>
                   </div>
@@ -305,8 +317,8 @@ export default function AccountSettingsSection({ isDark }) {
                   <div className="flex items-center justify-between mb-1.5">
                     <label
                       htmlFor="verification-code"
-                      className={`block text-xs font-semibold uppercase tracking-wider ${
-                        isDark ? "text-slate-300" : "text-slate-700"
+                      className={`block text-xs font-bold uppercase tracking-wider ${
+                        isDark ? "text-slate-200" : "text-slate-700"
                       }`}
                     >
                       6-Digit Verification Code
@@ -348,8 +360,8 @@ export default function AccountSettingsSection({ isDark }) {
                   <div className="flex items-center justify-between mb-1.5">
                     <label
                       htmlFor="new-password"
-                      className={`block text-xs font-semibold uppercase tracking-wider ${
-                        isDark ? "text-slate-300" : "text-slate-700"
+                      className={`block text-xs font-bold uppercase tracking-wider ${
+                        isDark ? "text-slate-200" : "text-slate-700"
                       }`}
                     >
                       New Password
@@ -357,12 +369,12 @@ export default function AccountSettingsSection({ isDark }) {
                     <span
                       className={`text-xs font-medium transition-colors ${
                         newPassword.length >= 8 && newPassword.length <= 12
-                          ? "text-emerald-500 font-semibold"
+                          ? "text-emerald-500 font-bold"
                           : newPassword.length > 0
                           ? "text-amber-500"
                           : isDark
-                          ? "text-slate-500"
-                          : "text-slate-400"
+                          ? "text-slate-300"
+                          : "text-slate-500"
                       }`}
                     >
                       {newPassword.length}/12 chars (8–12 required)
@@ -371,7 +383,7 @@ export default function AccountSettingsSection({ isDark }) {
                   <div className="relative group">
                     <LockClosedIcon
                       className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors ${
-                        isDark ? "text-slate-500 group-focus-within:text-blue-400" : "text-slate-400 group-focus-within:text-blue-600"
+                        isDark ? "text-slate-400 group-focus-within:text-blue-400" : "text-slate-400 group-focus-within:text-blue-600"
                       }`}
                     />
                     <input
@@ -392,7 +404,7 @@ export default function AccountSettingsSection({ isDark }) {
                       type="button"
                       onClick={() => setShowNewPassword(!showNewPassword)}
                       className={`absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-colors cursor-pointer ${
-                        isDark ? "text-slate-400 hover:text-slate-200" : "text-slate-500 hover:text-slate-700"
+                        isDark ? "text-slate-300 hover:text-white" : "text-slate-500 hover:text-slate-700"
                       }`}
                     >
                       {showNewPassword ? <EyeSlashIcon className="w-5 h-5" /> : <EyeIcon className="w-5 h-5" />}
@@ -405,8 +417,8 @@ export default function AccountSettingsSection({ isDark }) {
                   <div className="flex items-center justify-between mb-1.5">
                     <label
                       htmlFor="confirm-password"
-                      className={`block text-xs font-semibold uppercase tracking-wider ${
-                        isDark ? "text-slate-300" : "text-slate-700"
+                      className={`block text-xs font-bold uppercase tracking-wider ${
+                        isDark ? "text-slate-200" : "text-slate-700"
                       }`}
                     >
                       Confirm Password
@@ -414,7 +426,7 @@ export default function AccountSettingsSection({ isDark }) {
                     {confirmPassword && (
                       <span
                         className={`text-xs font-medium transition-colors ${
-                          confirmPassword === newPassword ? "text-emerald-500 font-semibold" : "text-rose-500"
+                          confirmPassword === newPassword ? "text-emerald-500 font-bold" : "text-rose-500"
                         }`}
                       >
                         {confirmPassword === newPassword ? "Passwords match" : "Does not match"}
@@ -424,7 +436,7 @@ export default function AccountSettingsSection({ isDark }) {
                   <div className="relative group">
                     <LockClosedIcon
                       className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors ${
-                        isDark ? "text-slate-500 group-focus-within:text-blue-400" : "text-slate-400 group-focus-within:text-blue-600"
+                        isDark ? "text-slate-400 group-focus-within:text-blue-400" : "text-slate-400 group-focus-within:text-blue-600"
                       }`}
                     />
                     <input
@@ -445,7 +457,7 @@ export default function AccountSettingsSection({ isDark }) {
                       type="button"
                       onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                       className={`absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-colors cursor-pointer ${
-                        isDark ? "text-slate-400 hover:text-slate-200" : "text-slate-500 hover:text-slate-700"
+                        isDark ? "text-slate-300 hover:text-white" : "text-slate-500 hover:text-slate-700"
                       }`}
                     >
                       {showConfirmPassword ? <EyeSlashIcon className="w-5 h-5" /> : <EyeIcon className="w-5 h-5" />}
@@ -463,10 +475,10 @@ export default function AccountSettingsSection({ isDark }) {
                       setNewPassword("");
                       setConfirmPassword("");
                     }}
-                    className={`px-4 py-2.5 rounded-xl text-xs font-semibold transition border ${
+                    className={`px-4 py-2.5 rounded-xl text-xs font-bold transition border ${
                       isDark
-                        ? "border-slate-800 hover:bg-slate-800 text-slate-400"
-                        : "border-slate-200 hover:bg-slate-100 text-slate-600"
+                        ? "border-slate-700 hover:bg-slate-800 text-slate-200 hover:text-white"
+                        : "border-slate-300 hover:bg-slate-100 text-slate-700"
                     }`}
                   >
                     Start Over
