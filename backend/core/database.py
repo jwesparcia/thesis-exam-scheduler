@@ -11,8 +11,20 @@ print("Looking for .env at:", dotenv_path)
 load_dotenv(dotenv_path)
 
 DATABASE_URL = os.getenv("DATABASE_URL")
-if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+if DATABASE_URL:
+    if DATABASE_URL.startswith("postgres://"):
+        DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+    if DATABASE_URL.startswith("postgresql://") and not DATABASE_URL.startswith("postgresql+"):
+        try:
+            import psycopg2  # noqa: F401
+            DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://", 1)
+        except ImportError:
+            try:
+                import psycopg  # noqa: F401
+                DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg://", 1)
+            except ImportError:
+                pass
+
 print("Loaded DATABASE_URL:", DATABASE_URL)
 
 if not DATABASE_URL:
