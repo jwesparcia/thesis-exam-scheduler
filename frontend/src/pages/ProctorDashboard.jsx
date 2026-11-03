@@ -27,6 +27,7 @@ import {
   InformationCircleIcon,
   SparklesIcon,
   ListBulletIcon,
+  Cog6ToothIcon,
 } from "@heroicons/react/24/outline";
 import { useTheme } from "../context/themeStore";
 import { useUser } from "../context/userStore";

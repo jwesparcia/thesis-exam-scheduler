@@ -145,7 +145,6 @@ export default function AccountSettingsSection({ isDark }) {
       setNewPassword("");
       setConfirmPassword("");
       setCodeSent(false);
-      setDemoCode("");
     } catch (error) {
       console.error("Failed to change password:", error);
       showError(error.response?.data?.detail || "Verification failed. Please check the code and try again.");
