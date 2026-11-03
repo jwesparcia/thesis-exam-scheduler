@@ -72,19 +72,87 @@ def on_startup():
         from routers.auth import hash_password
 
         with SessionLocal() as db_session:
-            # 1. Admin / Program Head user
-            admin_user = db_session.query(User).filter(User.role.in_(["admin", "program_head"])).first()
-            if not admin_user:
-                default_admin = User(
-                    name="Dr. Maria Santos",
-                    email="admin@school.edu",
-                    hashed_password=hash_password("admin123"),
-                    role="program_head",
+            # 1. Ensure departments table is seeded
+            from model import Department, Course
+            departments_data = [
+                ("GE", "General Education", "Oversees core curriculum, general education courses, and university-wide scheduling.", True, True),
+                ("ICT", "Information and Communications Technology", "Department for BSIT, BSCS, and BSCpE programs.", False, False),
+                ("BM", "Business and Management", "Department for Accountancy (BSA) and Business Administration.", False, False),
+                ("THM", "Tourism and Hospitality Management", "Department for BSTM and BSHM programs.", False, False),
+                ("AS", "Arts and Sciences", "Department for BSPsych, BMMA, and BACOMM programs.", False, False),
+                ("CRIM", "Criminology", "Department for BSCrim program.", False, False),
+                ("SHS", "Senior High School", "Department for all Senior High School strands (STEM, ABM, HUMMS, etc.).", False, False),
+            ]
+            for code_dept, name_dept, desc_dept, is_ge, is_super in departments_data:
+                dept = db_session.query(Department).filter(Department.code == code_dept).first()
+                if not dept:
+                    db_session.add(Department(
+                        code=code_dept,
+                        name=name_dept,
+                        description=desc_dept,
+                        is_general_education=is_ge,
+                        is_super=is_super,
+                    ))
+            db_session.commit()
+
+            # 2. Dedicated Program Head accounts per department
+            admin_accounts = [
+                ("Dr. Maria Santos", "admin@school.edu", "GE", True),
+                ("GE Administrator (Super Admin)", "ge.admin@school.edu", "GE", True),
+                ("ICT Department Administrator", "ict.admin@school.edu", "ICT", False),
+                ("BM Department Administrator", "bm.admin@school.edu", "BM", False),
+                ("THM Department Administrator", "thm.admin@school.edu", "THM", False),
+                ("AS Department Administrator", "as.admin@school.edu", "AS", False),
+                ("CRIM Department Administrator", "crim.admin@school.edu", "CRIM", False),
+                ("SHS Department Administrator", "shs.admin@school.edu", "SHS", False),
+            ]
+            for aname, aemail, adcode, asuper in admin_accounts:
+                head_user = db_session.query(User).filter(User.email == aemail).first()
+                if not head_user:
+                    head_user = User(
+                        name=aname,
+                        email=aemail,
+                        hashed_password=hash_password("admin123"),
+                        role="program_head",
+                        department_code=adcode,
+                        is_super_admin=asuper,
+                        is_first_login=False,
+                    )
+                    db_session.add(head_user)
+                else:
+                    head_user.role = "program_head"
+                    if not head_user.department_code:
+                        head_user.department_code = adcode
+                    if asuper:
+                        head_user.is_super_admin = True
+
+            # Also seed default irregular student if missing
+            irreg_user = db_session.query(User).filter(User.email == "irreg@school.edu").first()
+            if not irreg_user:
+                db_session.add(User(
+                    name="Irregular Student",
+                    email="irreg@school.edu",
+                    hashed_password=hash_password("student123"),
+                    role="student",
+                    student_type="irregular",
                     is_first_login=False,
-                )
-                db_session.add(default_admin)
-                db_session.commit()
-                print("Default admin created on startup: admin@school.edu / admin123")
+                ))
+
+            # Course to department mapping backfill
+            course_dept_map = {
+                "BSIT": "ICT", "BSCS": "ICT", "BSCpE": "ICT",
+                "BSTM": "THM", "BSHM": "THM", "BSA": "BM",
+                "BSPsych": "AS", "BSCrim": "CRIM", "BMMA": "AS", "BACOMM": "AS",
+                "STEM": "SHS", "ABM": "SHS", "HUMMS": "SHS", "Culinary": "SHS",
+                "Digital Arts": "SHS", "IT-MAWDEV": "SHS", "Tourism": "SHS",
+            }
+            for cname, dcode in course_dept_map.items():
+                c = db_session.query(Course).filter(Course.name == cname).first()
+                if c and not c.department_code:
+                    c.department_code = dcode
+
+            db_session.commit()
+            print("All Program Head accounts and department links ensured on startup!")
 
             # 2. Default YearLevels
             if db_session.query(YearLevel).count() == 0:
