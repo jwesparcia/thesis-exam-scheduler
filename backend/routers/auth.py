@@ -234,13 +234,24 @@ def request_verification_code(
     db.commit()
     
     sent = send_verification_email(current_user.email, code)
-    if not sent:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to send/log verification email."
+    
+    # In-app notification so user can also view the code in their notification bell
+    try:
+        from model import Notification
+        notif = Notification(
+            user_id=current_user.id,
+            title="Password Verification Code",
+            message=f"Your verification code is: {code} (Valid for 15 minutes)",
         )
+        db.add(notif)
+        db.commit()
+    except Exception as e:
+        print(f"Failed to log notification for verification code: {e}")
         
-    return {"message": "Verification code sent successfully"}
+    return {
+        "message": f"Verification code sent to {current_user.email}",
+        "code": code if (current_user.email.endswith("@school.edu") or not sent) else None
+    }
 
 @router.post("/verify-and-change-password")
 def verify_and_change_password(

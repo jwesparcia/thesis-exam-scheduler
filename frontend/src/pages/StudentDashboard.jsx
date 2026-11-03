@@ -32,6 +32,7 @@ import { useNavigate } from "react-router-dom";
 import api from "../api";
 import { useToast } from "../context/ToastContext";
 import SettingsDropdown from "../components/SettingsDropdown";
+import AccountSettingsSection from "../components/AccountSettingsSection";
 import ConfirmationModal from "../components/ConfirmationModal";
 import FirstTimePasswordChange from "../components/FirstTimePasswordChange";
 
@@ -2000,7 +2001,7 @@ export default function StudentDashboard() {
                 </button>
               </div>
               <div className="h-8 w-px bg-slate-200 dark:bg-slate-700 mx-1 sm:mx-2 hidden sm:block"></div>
-              <SettingsDropdown onLogout={handleLogout} isDark={isDark} />
+              <SettingsDropdown onLogout={handleLogout} isDark={isDark} onOpenSettings={() => setActiveTab("settings")} />
             </div>
           </div>
         </div>
@@ -2128,6 +2129,10 @@ export default function StudentDashboard() {
 
       {activeTab === "chat" ? (
         <StudentChatPanel />
+      ) : activeTab === "settings" ? (
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6">
+          <AccountSettingsSection isDark={isDark} />
+        </div>
       ) : activeTab === "schedule" ? (
         <>
 

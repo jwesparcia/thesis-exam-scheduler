@@ -33,6 +33,7 @@ import { useUser } from "../context/userStore";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "../context/ToastContext";
 import SettingsDropdown from "../components/SettingsDropdown";
+import AccountSettingsSection from "../components/AccountSettingsSection";
 import ConfirmationModal from "../components/ConfirmationModal";
 import FirstTimePasswordChange from "../components/FirstTimePasswordChange";
 import api from "../api";
@@ -1544,6 +1545,7 @@ export default function ProctorDashboard() {
             { id: "schedule", icon: TableCellsIcon, label: "My Schedule" },
             { id: "chat", icon: ChatBubbleLeftRightIcon, label: "Chat" },
             { id: "manual", icon: BookOpenIcon, label: "User Manual" },
+            { id: "settings", icon: Cog6ToothIcon, label: "Settings" },
           ].map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
@@ -1622,7 +1624,7 @@ export default function ProctorDashboard() {
                   </button>
                 </div>
                 <div className="h-8 w-px bg-slate-200 dark:bg-slate-700 mx-1 hidden sm:block"></div>
-                <SettingsDropdown onLogout={handleLogout} isDark={isDark} />
+                <SettingsDropdown onLogout={handleLogout} isDark={isDark} onOpenSettings={() => setActiveTab("settings")} />
               </div>
             </div>
           </div>
@@ -2022,6 +2024,8 @@ export default function ProctorDashboard() {
               <ProctorChatPanel />
             ) : activeTab === "manual" ? (
               <ProctorManual />
+            ) : activeTab === "settings" ? (
+              <AccountSettingsSection isDark={isDark} />
             ) : exams.length === 0 ? (
               <div className={`text-center py-14 sm:py-24 px-4 rounded-2xl sm:rounded-3xl border-2 border-dashed transition-all animate-in fade-in zoom-in-95 duration-500 ${isDark ? "border-slate-700 bg-slate-800/30" : "border-slate-300 bg-white/50 backdrop-blur-sm"}`}>
                 <div className="max-w-sm mx-auto">

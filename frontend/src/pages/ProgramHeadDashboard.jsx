@@ -43,6 +43,7 @@ import GeneratedExamSchedules from "../components/GeneratedExamSchedules";
 import ProctorMonitoring from "../components/ProctorMonitoring";
 import RoomManagement from "../components/RoomManagement";
 import SettingsDropdown from "../components/SettingsDropdown";
+import AccountSettingsSection from "../components/AccountSettingsSection";
 import DataImport from "../components/DataImport";
 import StudentImport from "../components/StudentImport";
 import ProctorImport from "../components/ProctorImport";
@@ -2024,6 +2025,7 @@ function NavSidebar({ activeTab, setActiveTab, isDark, unreadChatCount, pendingR
       {/* Help standalone */}
       <div className={`pt-2 border-t ${isDark ? "border-slate-800" : "border-slate-100"}`}>
         <NavItem item={{ id: "manual", icon: BookOpenIcon, label: "User Manual" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
+        <NavItem item={{ id: "settings", icon: Cog6ToothIcon, label: "Account Settings" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
       </div>
     </nav>
   );
@@ -2325,7 +2327,7 @@ export default function ProgramHeadDashboard() {
                                         activeTab === "proctors-import" ? "Proctor Accounts & Import" :
                                          activeTab === "students" ? "Student Accounts & Import" :
                                            activeTab === "section-students" ? "Section List" :
-                                             activeTab === "manual" ? "User Manual" : "Program Head Dashboard"}
+                                             activeTab === "manual" ? "User Manual" : activeTab === "settings" ? "Account Settings & Password" : "Program Head Dashboard"}
                   </h1>
                 </div>
               </div>
@@ -2349,7 +2351,7 @@ export default function ProgramHeadDashboard() {
                   </button>
                 </div>
                 <div className="h-8 w-px bg-slate-200 dark:bg-slate-700 mx-2 hidden sm:block"></div>
-                <SettingsDropdown onLogout={handleLogout} isDark={isDark} />
+                <SettingsDropdown onLogout={handleLogout} isDark={isDark} onOpenSettings={() => setActiveTab("settings")} />
               </div>
             </div>
           </div>
@@ -2462,6 +2464,7 @@ export default function ProgramHeadDashboard() {
                               activeTab === "chat" ? <ChatSupportPanel /> :
                                 activeTab === "section-students" ? <SectionStudentList /> :
                                   activeTab === "manual" ? <ProgramHeadManual /> :
+                                  activeTab === "settings" ? <AccountSettingsSection isDark={isDark} /> :
                                     null}
               </div>
             </div>
