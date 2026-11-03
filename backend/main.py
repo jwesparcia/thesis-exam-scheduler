@@ -65,11 +65,14 @@ def on_startup():
             _conn.commit()
         print("Chat database soft-delete columns migration successful!")
 
-        # Seed default admin if missing (useful for fresh Render databases)
+        # Seed default data if missing (useful for fresh databases on Render)
         from core import SessionLocal
-        from model import User
+        from model import User, Room, YearLevel
+        from room_data import AVAILABLE_EXAM_ROOMS
         from routers.auth import hash_password
+
         with SessionLocal() as db_session:
+            # 1. Admin / Program Head user
             admin_user = db_session.query(User).filter(User.role.in_(["admin", "program_head"])).first()
             if not admin_user:
                 default_admin = User(
@@ -82,6 +85,48 @@ def on_startup():
                 db_session.add(default_admin)
                 db_session.commit()
                 print("Default admin created on startup: admin@school.edu / admin123")
+
+            # 2. Default YearLevels
+            if db_session.query(YearLevel).count() == 0:
+                default_years = [
+                    YearLevel(name="1st Year"),
+                    YearLevel(name="2nd Year"),
+                    YearLevel(name="3rd Year"),
+                    YearLevel(name="4th Year"),
+                    YearLevel(name="Grade 11"),
+                    YearLevel(name="Grade 12"),
+                ]
+                db_session.add_all(default_years)
+                db_session.commit()
+                print("Default YearLevels seeded on startup")
+
+            # 3. Exam Rooms (College & SHS)
+            existing_room_names = {r[0] for r in db_session.query(Room.name).all()}
+            rooms_to_add = []
+            for r in AVAILABLE_EXAM_ROOMS:
+                if r["name"] not in existing_room_names:
+                    rooms_to_add.append(
+                        Room(
+                            name=r["name"],
+                            building=r["building"],
+                            department=r["department"],
+                            capacity=r.get("capacity", 40),
+                        )
+                    )
+                    existing_room_names.add(r["name"])
+            if "Consultation Area" not in existing_room_names:
+                rooms_to_add.append(
+                    Room(
+                        name="Consultation Area",
+                        building="Consultation Area",
+                        department="College",
+                        capacity=50,
+                    )
+                )
+            if rooms_to_add:
+                db_session.add_all(rooms_to_add)
+                db_session.commit()
+                print(f"Auto-seeded {len(rooms_to_add)} exam rooms into database!")
     except Exception as e:
         print(f"Failed to create database tables or run migrations: {e}")
         print("Make sure the database is accessible")
