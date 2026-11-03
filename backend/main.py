@@ -6,19 +6,29 @@ from routers import catalog, scheduler, sections, exams, proctors, rescheduling,
 app = FastAPI()
 
 # CORS (only once)
+import os
+
+frontend_env = os.getenv("FRONTEND_URL")
+allowed_origins = [
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "http://localhost:3000",
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:5174",
+    "http://127.0.0.1:3000",
+    "http://localhost:5176",
+    "http://localhost:5175",
+]
+if frontend_env:
+    for u in frontend_env.split(","):
+        clean_u = u.strip().rstrip("/")
+        if clean_u and clean_u not in allowed_origins:
+            allowed_origins.append(clean_u)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://localhost:5174",
-        "http://localhost:3000",
-        "http://127.0.0.1:5173",
-        "http://127.0.0.1:5174",
-        "http://127.0.0.1:3000",
-        "http://localhost:5176",
-        "http://localhost:5175"
-    ],
-    allow_origin_regex=r"http://(localhost|127\.0\.0\.1):\d+",
+    allow_origins=allowed_origins,
+    allow_origin_regex=r"(https://.*\.onrender\.com|http://(localhost|127\.0\.0\.1):\d+)",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -53,6 +63,24 @@ def on_startup():
             """))
             _conn.commit()
         print("Chat database soft-delete columns migration successful!")
+
+        # Seed default admin if missing (useful for fresh Render databases)
+        from core import SessionLocal
+        from model import User
+        from routers.auth import hash_password
+        with SessionLocal() as db_session:
+            admin_user = db_session.query(User).filter(User.role.in_(["admin", "program_head"])).first()
+            if not admin_user:
+                default_admin = User(
+                    name="Dr. Maria Santos",
+                    email="admin@school.edu",
+                    hashed_password=hash_password("admin123"),
+                    role="admin",
+                    is_first_login=False,
+                )
+                db_session.add(default_admin)
+                db_session.commit()
+                print("Default admin created on startup: admin@school.edu / admin123")
     except Exception as e:
         print(f"Failed to create database tables or run migrations: {e}")
         print("Make sure the database is accessible")

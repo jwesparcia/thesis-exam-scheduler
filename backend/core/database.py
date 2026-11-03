@@ -11,6 +11,8 @@ print("Looking for .env at:", dotenv_path)
 load_dotenv(dotenv_path)
 
 DATABASE_URL = os.getenv("DATABASE_URL")
+if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 print("Loaded DATABASE_URL:", DATABASE_URL)
 
 if not DATABASE_URL:
