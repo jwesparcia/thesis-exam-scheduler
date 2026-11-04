@@ -851,7 +851,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                         className={`text-white px-5 sm:px-6 py-3 sm:py-3.5 rounded-xl shadow-lg flex items-center justify-center gap-2 sm:gap-2.5 transition-all font-semibold text-xs sm:text-sm ${
                                             isGenerating || saving
                                                 ? "bg-slate-600/50 opacity-50 cursor-not-allowed"
-                                                : "bg-slate-750 hover:bg-slate-700 border border-slate-650"
+                                                : "bg-blue-600 hover:bg-blue-700 active:bg-blue-800 shadow-blue-500/25 border border-blue-500"
                                         }`}
                                         title={isGenerating ? "Cannot save schedules while schedule generation is ongoing" : ""}
                                     >

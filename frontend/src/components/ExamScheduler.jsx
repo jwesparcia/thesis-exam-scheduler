@@ -11,8 +11,13 @@ const INITIAL_GENERATION_PROGRESS = {
   detail: "",
 };
 
-const toLocalISODate = (d) =>
-  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const toLocalISODate = (d) => {
+  if (!d || isNaN(d.getTime())) return "";
+  const y = String(d.getFullYear()).padStart(4, "0");
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+};
 
 export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChange }) {
   const { theme } = useTheme();
@@ -638,20 +643,22 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
                       value={startDate}
                       onChange={(e) => {
                         const picked = e.target.value;
-                        if (!picked) {
-                          setStartDate("");
-                          return;
+                        setStartDate(picked);
+                        // Auto-suggest end date (+3 exam days) only if end date is currently empty and a complete date was entered
+                        if (picked && /^\d{4}-\d{2}-\d{2}$/.test(picked)) {
+                          const [y, m, day] = picked.split("-").map(Number);
+                          if (y >= 2000 && y <= 2100 && !endDate) {
+                            const d = new Date(y, m - 1, day);
+                            if (!isNaN(d.getTime())) {
+                              let remaining = 3;
+                              while (remaining > 0) {
+                                d.setDate(d.getDate() + 1);
+                                if (d.getDay() !== 0) remaining -= 1;
+                              }
+                              setEndDate(toLocalISODate(d));
+                            }
+                          }
                         }
-                        // Always auto-assign the end date (3 exam days after start), skipping Sundays
-                        const d = new Date(`${picked}T00:00:00`);
-                        if (d.getDay() === 0) d.setDate(d.getDate() + 1); // Sunday start -> Monday
-                        setStartDate(toLocalISODate(d));
-                        let remaining = 3;
-                        while (remaining > 0) {
-                          d.setDate(d.getDate() + 1);
-                          if (d.getDay() !== 0) remaining -= 1;
-                        }
-                        setEndDate(toLocalISODate(d));
                       }}
                       className={`rounded-xl p-3 w-full border focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all ${isDark
                         ? "bg-slate-800 text-slate-100 border-slate-700"
@@ -659,21 +666,36 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
                         }`} id="examscheduler-field-5" aria-label="Start Date" />
                   </div>
                   <div className="flex-1 space-y-2">
-                    <label className={`block text-xs font-semibold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-600"}`} htmlFor="examscheduler-field-6">
-                      End Date
-                    </label>
+                    <div className="flex items-center justify-between">
+                      <label className={`block text-xs font-semibold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-600"}`} htmlFor="examscheduler-field-6">
+                        End Date
+                      </label>
+                      {startDate && /^\d{4}-\d{2}-\d{2}$/.test(startDate) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const [y, m, day] = startDate.split("-").map(Number);
+                            const d = new Date(y, m - 1, day);
+                            if (!isNaN(d.getTime())) {
+                              let remaining = 3;
+                              while (remaining > 0) {
+                                d.setDate(d.getDate() + 1);
+                                if (d.getDay() !== 0) remaining -= 1;
+                              }
+                              setEndDate(toLocalISODate(d));
+                            }
+                          }}
+                          className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                        >
+                          Auto-set +3 exam days
+                        </button>
+                      )}
+                    </div>
                     <input
                       type="date"
                       value={endDate}
                       onChange={(e) => {
-                        const picked = e.target.value;
-                        if (!picked) {
-                          setEndDate("");
-                          return;
-                        }
-                        const d = new Date(`${picked}T00:00:00`);
-                        if (d.getDay() === 0) d.setDate(d.getDate() - 1); // Sunday end -> Saturday
-                        setEndDate(toLocalISODate(d));
+                        setEndDate(e.target.value);
                       }}
                       className={`rounded-xl p-3 w-full border focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all ${isDark
                         ? "bg-slate-800 text-slate-100 border-slate-700"
