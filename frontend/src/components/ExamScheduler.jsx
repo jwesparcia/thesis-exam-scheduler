@@ -644,10 +644,10 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
                       onChange={(e) => {
                         const picked = e.target.value;
                         setStartDate(picked);
-                        // Auto-suggest end date (+3 exam days) only if end date is currently empty and a complete date was entered
+                        // Always auto-set end date (+3 exam days, skipping Sundays) whenever a valid start date is selected
                         if (picked && /^\d{4}-\d{2}-\d{2}$/.test(picked)) {
                           const [y, m, day] = picked.split("-").map(Number);
-                          if (y >= 2000 && y <= 2100 && !endDate) {
+                          if (y >= 2000 && y <= 2100) {
                             const d = new Date(y, m - 1, day);
                             if (!isNaN(d.getTime())) {
                               let remaining = 3;
