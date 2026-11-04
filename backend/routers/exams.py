@@ -680,6 +680,22 @@ def get_room_status(
 
     exams = exam_query.all()
 
+    # A newly generated (draft/saved) schedule supersedes the previously posted one for the
+    # same (course, semester, term) scope -- posting it deletes the old posted exams. Viewing
+    # both versions together would flag every room as "conflict" (old vs new copy of the
+    # same schedule), so hide superseded posted exams when showing all statuses.
+    if status_val not in ["draft", "posted"]:
+        pending_scopes = {
+            (e.course_id, e.semester, e.term)
+            for e in exams
+            if e.status in ("draft", "saved")
+        }
+        if pending_scopes:
+            exams = [
+                e for e in exams
+                if not (e.status == "posted" and (e.course_id, e.semester, e.term) in pending_scopes)
+            ]
+
     # Collect exam IDs that were assigned via an approved rescheduling request,
     # and count how many irregular students are rescheduled to each exam.
     approved_requests = db.query(
