@@ -77,6 +77,8 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
   const { showSuccess, showError } = useToast();
   // Room selection state for approve modal
   const [approveModalReq, setApproveModalReq] = useState(null);
+  const [rejectModalReq, setRejectModalReq] = useState(null);
+  const [rejectComment, setRejectComment] = useState("");
   const [availableRooms, setAvailableRooms] = useState([]);
   const [availableProctors, setAvailableProctors] = useState([]);
   const [loadingRooms, setLoadingRooms] = useState(false);
@@ -354,8 +356,8 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
                         <button
                           onClick={() => {
                             if (isGenerating) return;
-                            const comments = prompt("Rejection reason (optional):");
-                            if (comments !== null) handleReview(req.id, "rejected", comments || "");
+                            setRejectComment("");
+                            setRejectModalReq(req);
                           }}
                           disabled={isGenerating}
                           className={`flex-1 sm:flex-initial px-4 py-2.5 rounded-xl font-bold text-sm transition ${isGenerating ? "bg-rose-900/40 text-rose-300 cursor-not-allowed" : "bg-rose-600 hover:bg-rose-700 text-white"
@@ -707,6 +709,75 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
                 className="px-5 py-2.5 rounded-xl text-sm font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition disabled:opacity-50"
               >
                 Confirm Approve
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Rejection Modal ── */}
+      {rejectModalReq && (
+        <div 
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+        >
+          <div 
+            className="absolute inset-0"
+            onClick={() => setRejectModalReq(null)}
+          />
+          <div className={`relative w-full max-w-md rounded-2xl border shadow-2xl p-6 ${isDark ? "bg-slate-900 border-slate-700" : "bg-white border-slate-200"}`}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className={`text-lg font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
+                Reject Rescheduling Request
+              </h3>
+              <button 
+                type="button"
+                onClick={() => setRejectModalReq(null)} 
+                aria-label="Close dialog"
+                className={`p-1.5 rounded-lg transition ${isDark ? "hover:bg-slate-800 text-slate-400 hover:text-white" : "hover:bg-slate-100 text-slate-500 hover:text-slate-800"}`}
+              >
+                <XMarkIcon className="w-5 h-5" />
+              </button>
+            </div>
+            <p className={`text-sm mb-4 leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+              Are you sure you want to reject the rescheduling request for <strong className="text-slate-900 dark:text-slate-100">{rejectModalReq.student_name}</strong> ({rejectModalReq.course_name})?
+            </p>
+            <div className="mb-5">
+              <label className={`block text-xs font-bold uppercase tracking-wider mb-2 ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+                Rejection Reason (Optional)
+              </label>
+              <textarea
+                value={rejectComment}
+                onChange={(e) => setRejectComment(e.target.value)}
+                placeholder="State reason for rejecting this request..."
+                rows={3}
+                className={`w-full p-3 rounded-xl border text-sm transition focus:outline-none focus:ring-2 focus:ring-rose-500 ${
+                  isDark
+                    ? "bg-slate-800/80 border-slate-700 text-white placeholder-slate-500"
+                    : "bg-slate-50 border-slate-300 text-slate-900 placeholder-slate-400"
+                }`}
+              />
+            </div>
+            <div className="flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setRejectModalReq(null)}
+                className={`px-4 py-2.5 rounded-xl text-sm font-semibold transition ${isDark ? "bg-slate-800 text-slate-200 hover:bg-slate-700" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}`}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  const reqId = rejectModalReq.id;
+                  const comments = rejectComment;
+                  setRejectModalReq(null);
+                  await handleReview(reqId, "rejected", comments || "");
+                }}
+                className="px-5 py-2.5 rounded-xl text-sm font-bold bg-rose-600 hover:bg-rose-700 text-white transition"
+              >
+                Confirm Reject
               </button>
             </div>
           </div>

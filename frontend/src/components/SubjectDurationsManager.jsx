@@ -19,6 +19,7 @@ import {
 import { useTheme } from "../context/themeStore";
 import { useToast } from "../context/ToastContext";
 import api from "../api";
+import ConfirmationModal from "./ConfirmationModal";
 
 const COLLEGE_TERMS = ["All", "Prelim", "Midterm", "Pre-Final", "Final"];
 const SHS_TERMS = ["All", "ST1", "ST2", "T1"];
@@ -600,21 +601,37 @@ export default function SubjectDurationsManager() {
   const [bulkDuration, setBulkDuration] = useState(75);
   const [modal, setModal] = useState({ open: false, subject: null });
   const [consolidating, setConsolidating] = useState(false);
+  const [confirmConfig, setConfirmConfig] = useState({
+    isOpen: false,
+    title: "",
+    message: "",
+    confirmLabel: "Confirm",
+    isDanger: false,
+    onConfirm: () => {},
+  });
 
-  const handleConsolidateShared = async () => {
-    if (!window.confirm("Consolidate shared subjects across programs? Identical minor/GE and common major subjects will be merged into single master records with multi-program assignments. All section teaching assignments and exams will be safely preserved.")) {
-      return;
-    }
-    setConsolidating(true);
-    try {
-      const res = await api.post("/catalog/subjects/consolidate-shared");
-      showSuccess(res.data?.message || "Consolidated shared subjects successfully!");
-      await fetchSubjects();
-    } catch (err) {
-      showError(err.response?.data?.detail || "Failed to consolidate subjects");
-    } finally {
-      setConsolidating(false);
-    }
+  const handleConsolidateShared = () => {
+    setConfirmConfig({
+      isOpen: true,
+      title: "Consolidate Shared Subjects",
+      message:
+        "Identical General Education (GE) and common major subjects across degree programs will be merged into single master records with multi-program assignments. All section teaching assignments, irregular student enrollments, and scheduled exams will be safely preserved.",
+      confirmLabel: "Consolidate Subjects",
+      isDanger: false,
+      onConfirm: async () => {
+        setConfirmConfig((prev) => ({ ...prev, isOpen: false }));
+        setConsolidating(true);
+        try {
+          const res = await api.post("/catalog/subjects/consolidate-shared");
+          showSuccess(res.data?.message || "Consolidated shared subjects successfully!");
+          await fetchSubjects();
+        } catch (err) {
+          showError(err.response?.data?.detail || "Failed to consolidate subjects");
+        } finally {
+          setConsolidating(false);
+        }
+      },
+    });
   };
 
   const fetchMetadata = async () => {
@@ -702,44 +719,80 @@ export default function SubjectDurationsManager() {
     }
   };
 
-  const handleDelete = async (sub) => {
-    if (!window.confirm(`Delete subject "${sub.name}"?\nThis also removes any draft exams using it.`)) return;
-    setDeletingId(sub.id);
-    try {
-      await api.delete(`/catalog/subjects/${sub.id}`);
-      showSuccess(`"${sub.name}" deleted.`);
-      setSubjects((prev) => prev.filter((s) => s.id !== sub.id));
-    } catch (err) {
-      showError(err.response?.data?.detail || "Failed to delete subject");
-    } finally { setDeletingId(null); }
+  const handleDelete = (sub) => {
+    setConfirmConfig({
+      isOpen: true,
+      title: "Delete Subject",
+      message: `Are you sure you want to delete "${sub.name}"? This will also remove any draft exams using it.`,
+      confirmLabel: "Delete Subject",
+      isDanger: true,
+      onConfirm: async () => {
+        setConfirmConfig((prev) => ({ ...prev, isOpen: false }));
+        setDeletingId(sub.id);
+        try {
+          await api.delete(`/catalog/subjects/${sub.id}`);
+          showSuccess(`"${sub.name}" deleted.`);
+          setSubjects((prev) => prev.filter((s) => s.id !== sub.id));
+        } catch (err) {
+          showError(err.response?.data?.detail || "Failed to delete subject");
+        } finally {
+          setDeletingId(null);
+        }
+      },
+    });
   };
 
-  const handleApplyPreset = async (presetKey, label) => {
-    if (!window.confirm(`Apply "${label}" preset to all subjects?`)) return;
-    setBulkApplying(true);
-    try {
-      const res = await api.put("/catalog/subjects/bulk-duration", { preset: presetKey });
-      showSuccess(res.data?.message || `Preset applied!`);
-      await fetchSubjects();
-    } catch (err) {
-      showError(err.response?.data?.detail || "Failed to apply preset");
-    } finally { setBulkApplying(false); }
+  const handleApplyPreset = (presetKey, label) => {
+    setConfirmConfig({
+      isOpen: true,
+      title: "Apply Duration Preset",
+      message: `Are you sure you want to apply the "${label}" preset to all subjects?`,
+      confirmLabel: "Apply Preset",
+      isDanger: false,
+      onConfirm: async () => {
+        setConfirmConfig((prev) => ({ ...prev, isOpen: false }));
+        setBulkApplying(true);
+        try {
+          const res = await api.put("/catalog/subjects/bulk-duration", { preset: presetKey });
+          showSuccess(res.data?.message || `Preset applied!`);
+          await fetchSubjects();
+        } catch (err) {
+          showError(err.response?.data?.detail || "Failed to apply preset");
+        } finally {
+          setBulkApplying(false);
+        }
+      },
+    });
   };
 
-  const handleApplyBulkToFiltered = async () => {
-    if (filteredSubjects.length === 0) { showError("No subjects matched"); return; }
-    if (!window.confirm(`Apply ${formatDur(bulkDuration)} to ${filteredSubjects.length} subjects?`)) return;
-    setBulkApplying(true);
-    try {
-      const res = await api.put("/catalog/subjects/bulk-duration", {
-        subject_ids: filteredSubjects.map((s) => s.id),
-        duration_minutes: parseInt(bulkDuration, 10),
-      });
-      showSuccess(res.data?.message || "Updated!");
-      await fetchSubjects();
-    } catch (err) {
-      showError(err.response?.data?.detail || "Failed");
-    } finally { setBulkApplying(false); }
+  const handleApplyBulkToFiltered = () => {
+    if (filteredSubjects.length === 0) {
+      showError("No subjects matched");
+      return;
+    }
+    setConfirmConfig({
+      isOpen: true,
+      title: "Apply Bulk Duration",
+      message: `Apply ${formatDur(bulkDuration)} duration to ${filteredSubjects.length} filtered subjects?`,
+      confirmLabel: "Apply to All",
+      isDanger: false,
+      onConfirm: async () => {
+        setConfirmConfig((prev) => ({ ...prev, isOpen: false }));
+        setBulkApplying(true);
+        try {
+          const res = await api.put("/catalog/subjects/bulk-duration", {
+            subject_ids: filteredSubjects.map((s) => s.id),
+            duration_minutes: parseInt(bulkDuration, 10),
+          });
+          showSuccess(res.data?.message || "Updated!");
+          await fetchSubjects();
+        } catch (err) {
+          showError(err.response?.data?.detail || "Failed");
+        } finally {
+          setBulkApplying(false);
+        }
+      },
+    });
   };
 
   const filteredSubjects = useMemo(() => subjects.filter((sub) => {
@@ -1271,6 +1324,17 @@ export default function SubjectDurationsManager() {
         yearLevels={yearLevels}
         departments={departments}
         initial={modal.subject}
+      />
+
+      {/* Modern Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={confirmConfig.isOpen}
+        title={confirmConfig.title}
+        message={confirmConfig.message}
+        confirmLabel={confirmConfig.confirmLabel}
+        isDanger={confirmConfig.isDanger}
+        onConfirm={confirmConfig.onConfirm}
+        onCancel={() => setConfirmConfig((prev) => ({ ...prev, isOpen: false }))}
       />
     </div>
   );
