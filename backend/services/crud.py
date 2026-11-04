@@ -23,12 +23,13 @@ def get_course_year_sem_details(course_id: int, year_level_id: int, semester: in
     subjects = db.query(Subject).filter(
         or_(
             Subject.course_id == course_id,
+            Subject.course_id.is_(None),
             Subject.id.in_(
                 db.query(SubjectProgram.subject_id).filter(SubjectProgram.course_id == course_id)
             )
         ),
         Subject.year_level_id == year_level_id,
-        Subject.semester == semester
+        or_(Subject.semester == semester, Subject.semester.is_(None))
     ).all()
 
     result = []
@@ -72,4 +73,3 @@ def get_sections_with_subjects(db: Session, year_name: str):
         ]
         result.append({"id": sec.id, "name": sec.name, "subjects": subjects})
     return {"sections": result}
-
