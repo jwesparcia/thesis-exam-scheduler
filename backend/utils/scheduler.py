@@ -494,10 +494,35 @@ def generate_exam_schedule(
     if not room_ids:
         raise ValueError(f"No available exam rooms found for {department}. Sync or seed the Exam-Rooms.xlsx room list first.")
     sec_dept_filter = (Course.category == department) if department in ("College", "SHS") else or_(Course.category == department, Course.department_code == department)
-    sections = db.query(Section).join(Course).filter(
+    all_dept_sections = db.query(Section).join(Course).filter(
         sec_dept_filter,
         or_(Section.semester == semester, Section.semester.is_(None))
     ).all()
+
+    # Fetch accurate student headcounts per section from User table
+    from model import User, IrregularSelection
+    from sqlalchemy import func
+    section_user_counts = dict(
+        db.query(User.section_name, func.count(User.id))
+        .filter(User.role == "student", User.section_name.isnot(None))
+        .group_by(User.section_name)
+        .all()
+    )
+
+    # Only schedule sections that have actual enrolled regular students.
+    # Empty curriculum placeholder sections (e.g. 1-104 with 0 students) must not consume
+    # exam rooms, timeslots, or proctor allocations.
+    active_sections = [
+        sec for sec in all_dept_sections
+        if (section_user_counts.get(sec.name, 0) > 0) or ((sec.student_count or 0) > 0)
+    ]
+    sections = active_sections if active_sections else all_dept_sections
+
+    for sec in sections:
+        cnt = section_user_counts.get(sec.name)
+        if cnt and sec.student_count != cnt:
+            sec.student_count = cnt
+    db.flush()
     
     import re as _re_sec
     def _get_section_year_level_id(sec):
@@ -529,21 +554,6 @@ def generate_exam_schedule(
             )
             and sub.year_level_id == sec_yl
         )
-
-    # Fetch accurate student headcounts per section from User table
-    from model import User, IrregularSelection
-    from sqlalchemy import func
-    section_user_counts = dict(
-        db.query(User.section_name, func.count(User.id))
-        .filter(User.role == "student", User.section_name.isnot(None))
-        .group_by(User.section_name)
-        .all()
-    )
-    for sec in sections:
-        cnt = section_user_counts.get(sec.name)
-        if cnt and sec.student_count != cnt:
-            sec.student_count = cnt
-    db.flush()
 
     date_map = {d: i + 1 for i, d in enumerate(exam_days)}
     # Filter posted exams to only those OUTSIDE the current generation scope.

@@ -1794,6 +1794,26 @@ def upload_students_excel(
         sections_by_course.setdefault(s.course_id, []).append(s)
     all_sections = sorted(list(sections_cache.values()), key=lambda x: x.name or "")
 
+    # Identify sections that have active regular student enrollment
+    active_regular_sec_names = {
+        r[0].strip().upper()
+        for r in db.query(User.section_name)
+        .filter(User.role == "student", User.section_name.isnot(None))
+        .distinct()
+        .all()
+        if r[0] and r[0].strip().lower() not in ["irregular", "nan", "none", "n/a"]
+    }
+    for _, r_row in df.iterrows():
+        sec_val = str(r_row.get("SECTION", "") or "").strip()
+        if sec_val and sec_val.lower() not in ["irregular", "nan", "none", "n/a"]:
+            active_regular_sec_names.add(sec_val.upper())
+
+    def _pick_active_sec(sec_list, fallback=None):
+        if not sec_list:
+            return fallback
+        active = [s for s in sec_list if s.name and s.name.strip().upper() in active_regular_sec_names]
+        return active[0] if active else sec_list[0]
+
     existing_teaching_pairs = {
         (tt.subject_id, tt.section_id)
         for tt in db.query(TeacherTeaching.subject_id, TeacherTeaching.section_id).all()
@@ -2022,6 +2042,18 @@ def upload_students_excel(
                 if cand_sec and course_category_map.get(cand_sec.course_id, "College") != student_dept:
                     cand_sec = None  # Strictly block SHS <-> College cross-department sections
 
+                # Align irregular students to active regular sections only; never isolate in empty placeholder sections
+                if cand_sec and cand_sec.name and cand_sec.name.strip().upper() not in active_regular_sec_names:
+                    sec_yl, sec_sem = get_sec_yl_sem(cand_sec)
+                    active_alts = [
+                        s for s in sections_by_course.get(cand_sec.course_id, [])
+                        if s.name and s.name.strip().upper() in active_regular_sec_names
+                        and (sec_yl is None or s.year_level_id == sec_yl)
+                        and (sec_sem is None or s.semester == sec_sem or s.semester is None)
+                    ]
+                    if active_alts:
+                        cand_sec = active_alts[0]
+
                 # ── Subject Matching (supports shared SubjectProgram & cross-course irregulars) ──
                 lookup_keys = []
                 for k in (
@@ -2131,7 +2163,7 @@ def upload_students_excel(
                                 s for s in all_sections
                                 if course_category_map.get(s.course_id, "College") == student_dept
                             ]
-                        chosen_sec = offering_secs[0] if offering_secs else None
+                        chosen_sec = _pick_active_sec(offering_secs, fallback=cand_sec)
 
                     sel_pair = (matched_sub.id, chosen_sec.id if chosen_sec else None)
                     if sel_pair not in seen_sel_pairs:
