@@ -112,14 +112,21 @@ def generate_exam_schedule(payload: dict = Body(...), db: Session = Depends(get_
         ("04:00 PM", "05:30 PM"),   # Slot 7 (back-to-back)
     ]
 
+    valid_dates = []
+    curr_d = start_date
+    while curr_d <= end_date:
+        if curr_d.weekday() != 6:
+            valid_dates.append(curr_d)
+        curr_d += timedelta(days=1)
+    if not valid_dates:
+        curr_d = start_date + timedelta(days=1 if start_date.weekday() == 6 else 0)
+        valid_dates.append(curr_d)
+
     exam_days = []
     day_index = 0
     for subject in subjects:
-        # Skip Sunday (6)
-        while (start_date + timedelta(days=day_index)).weekday() == 6:  # 6=Sunday
-            day_index += 1
-
-        exam_date = start_date + timedelta(days=day_index % total_days)
+        exam_date = valid_dates[day_index % len(valid_dates)]
+        day_index += 1
         start_str, end_str = TIMESLOTS[len(exam_days) % len(TIMESLOTS)]
         start_time = datetime.strptime(start_str, "%I:%M %p").time()
         end_time = datetime.strptime(end_str, "%I:%M %p").time()
