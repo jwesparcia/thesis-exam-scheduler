@@ -1096,6 +1096,7 @@ export default function ProctorDashboard() {
   const [assignmentFilter, setAssignmentFilter] = useState("all");
   const [assignmentSearch, setAssignmentSearch] = useState("");
   const [confirmingExamId, setConfirmingExamId] = useState(null);
+  const [attendanceConfirmExam, setAttendanceConfirmExam] = useState(null);
 
   const isAttendanceConfirmed = useCallback((attendance) => {
     return attendance === "confirmed" || attendance === "attended";
@@ -2259,7 +2260,7 @@ export default function ProctorDashboard() {
                                       </span>
                                     ) : (
                                       <button
-                                        onClick={() => handleConfirmAttendance(exam.id)}
+                                        onClick={() => setAttendanceConfirmExam(exam)}
                                         disabled={confirmingExamId === exam.id}
                                         className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition hover:shadow-md hover:-translate-y-0.5 ${
                                           confirmingExamId === exam.id ? "opacity-60 cursor-not-allowed" : ""
@@ -2373,7 +2374,7 @@ export default function ProctorDashboard() {
                                 </div>
                               ) : (
                                 <button
-                                  onClick={() => handleConfirmAttendance(exam.id)}
+                                  onClick={() => setAttendanceConfirmExam(exam)}
                                   disabled={confirmingExamId === exam.id}
                                   className={`w-full py-2.5 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/20 active:scale-[0.99] ${
                                     confirmingExamId === exam.id ? "opacity-60 cursor-not-allowed" : ""
@@ -2432,7 +2433,7 @@ export default function ProctorDashboard() {
                           
                           {!isConfirmed ? (
                             <button
-                              onClick={() => handleConfirmAttendance(exam.id)}
+                              onClick={() => setAttendanceConfirmExam(exam)}
                               disabled={confirmingExamId === exam.id}
                               className={`w-full mt-7 py-3 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 hover:-translate-y-0.5 ${
                                 confirmingExamId === exam.id ? "opacity-60 cursor-not-allowed" : ""
@@ -2532,6 +2533,59 @@ export default function ProctorDashboard() {
         isDanger={true}
         onConfirm={executeClearAllNotifications}
         onCancel={() => setIsClearNotifModalOpen(false)}
+      />
+
+      {/* Attendance Check-in Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={Boolean(attendanceConfirmExam)}
+        title="Confirm Proctoring Attendance"
+        message={
+          attendanceConfirmExam ? (
+            <div className="space-y-3 text-left">
+              <p>
+                Are you sure you want to confirm that you have attended your proctoring duty for this exam assignment?
+              </p>
+              <div className={`p-3.5 rounded-xl border text-xs space-y-1.5 ${
+                isDark ? "bg-slate-800/80 border-slate-700/80 text-slate-300" : "bg-slate-50 border-slate-200 text-slate-700"
+              }`}>
+                <div>
+                  <span className="font-semibold text-slate-900 dark:text-slate-100">Subject: </span>
+                  {attendanceConfirmExam.subject_name || attendanceConfirmExam.subject_code}
+                  {attendanceConfirmExam.subject_code && attendanceConfirmExam.subject_name ? ` (${attendanceConfirmExam.subject_code})` : ""}
+                </div>
+                {attendanceConfirmExam.section_name && (
+                  <div>
+                    <span className="font-semibold text-slate-900 dark:text-slate-100">Section: </span>
+                    {attendanceConfirmExam.section_name}
+                  </div>
+                )}
+                {attendanceConfirmExam.room && (
+                  <div>
+                    <span className="font-semibold text-slate-900 dark:text-slate-100">Room / Venue: </span>
+                    {attendanceConfirmExam.room}
+                  </div>
+                )}
+                <div>
+                  <span className="font-semibold text-slate-900 dark:text-slate-100">Schedule: </span>
+                  {formatDate(attendanceConfirmExam.exam_date)} &bull; {attendanceConfirmExam.start_time} - {attendanceConfirmExam.end_time}
+                </div>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                This will record your verified check-in and notify the department head and academic administration monitoring board.
+              </p>
+            </div>
+          ) : ""
+        }
+        confirmLabel="Yes, Confirm Attendance"
+        cancelLabel="Cancel"
+        isDanger={false}
+        onConfirm={async () => {
+          if (!attendanceConfirmExam) return;
+          const examToConfirm = attendanceConfirmExam;
+          setAttendanceConfirmExam(null);
+          await handleConfirmAttendance(examToConfirm.id);
+        }}
+        onCancel={() => setAttendanceConfirmExam(null)}
       />
     </div>
   );

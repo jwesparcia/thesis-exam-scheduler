@@ -109,9 +109,9 @@ export default function ConfirmationModal({
 
         {/* Content */}
         <div className="space-y-4 mb-6">
-          <p className={`text-sm leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+          <div className={`text-sm leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
             {message}
-          </p>
+          </div>
 
           {hasTypedConfirm && (
             <div className="space-y-2">
