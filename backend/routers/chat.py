@@ -32,6 +32,12 @@ def send_message(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    clean_message = body.message.strip()
+    if not clean_message:
+        raise HTTPException(status_code=400, detail="Message cannot be empty")
+    if len(clean_message) > 1000:
+        raise HTTPException(status_code=400, detail="Message cannot exceed 1000 characters")
+
     # Validate recipient exists
     recipient = db.query(User).filter(User.id == body.recipient_id).first()
     if not recipient:
@@ -40,7 +46,7 @@ def send_message(
     db_msg = ChatMessage(
         sender_id=current_user.id,
         recipient_id=body.recipient_id,
-        message=body.message
+        message=clean_message
     )
     db.add(db_msg)
     db.commit()
@@ -214,13 +220,19 @@ def edit_message(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    clean_message = body.message.strip()
+    if not clean_message:
+        raise HTTPException(status_code=400, detail="Message cannot be empty")
+    if len(clean_message) > 1000:
+        raise HTTPException(status_code=400, detail="Message cannot exceed 1000 characters")
+
     msg = db.query(ChatMessage).filter(ChatMessage.id == message_id).first()
     if not msg:
         raise HTTPException(status_code=404, detail="Message not found")
     if msg.sender_id != current_user.id:
         raise HTTPException(status_code=403, detail="You can only edit your own messages")
         
-    msg.message = body.message.strip()
+    msg.message = clean_message
     db.commit()
     db.refresh(msg)
     

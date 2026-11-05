@@ -680,7 +680,7 @@ function StudentChatPanel() {
   }, [chatMessages]);
 
   const handleSend = async () => {
-    if (!chatInput.trim() || !activeContactId || chatSending) return;
+    if (!chatInput.trim() || !activeContactId || chatSending || chatInput.length > 1000) return;
     setChatSending(true);
     try {
       await api.post("/chat/send", { recipient_id: activeContactId, message: chatInput.trim() });
@@ -689,7 +689,7 @@ function StudentChatPanel() {
       setChatMessages(res.data);
       fetchConversations(false);
     } catch (err) {
-      showError("Failed to send message");
+      showError(err.response?.data?.detail || "Failed to send message");
     } finally {
       setChatSending(false);
     }
@@ -753,14 +753,14 @@ function StudentChatPanel() {
   };
 
   const saveEditChatMessage = async (msgId, newText) => {
-    if (!newText.trim()) return;
+    if (!newText.trim() || newText.length > 1000) return;
     try {
       await api.put(`/chat/messages/${msgId}`, { message: newText.trim() });
       setChatMessages(prev => prev.map(m => m.id === msgId ? { ...m, message: newText.trim() } : m));
       setEditingMessageId(null);
       setEditingText("");
     } catch (err) {
-      showError("Failed to edit message");
+      showError(err.response?.data?.detail || "Failed to edit message");
     }
   };
 
@@ -974,24 +974,37 @@ function StudentChatPanel() {
                             <textarea
                               value={editingText}
                               onChange={(e) => setEditingText(e.target.value)}
+                              maxLength={1000}
                               className="w-full p-2 text-xs rounded-xl border outline-none text-slate-800 bg-white dark:bg-slate-800 dark:text-white dark:border-slate-700 resize-none focus:border-blue-500"
                               rows={2} aria-label="Edit message" />
-                            <div className="flex gap-2 justify-end">
-                              <button
-                                onClick={() => {
-                                  setEditingMessageId(null);
-                                  setEditingText("");
-                                }}
-                                className="px-2.5 py-1 text-xs bg-slate-500 hover:bg-slate-600 text-white rounded-lg font-medium transition"
-                              >
-                                Cancel
-                              </button>
-                              <button
-                                onClick={() => saveEditChatMessage(msg.id, editingText)}
-                                className="px-2.5 py-1 text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium transition"
-                              >
-                                Save
-                              </button>
+                            <div className="flex items-center justify-between gap-2">
+                              <span className={`text-[10px] font-mono ${
+                                editingText.length >= 1000
+                                  ? "text-rose-500 font-semibold"
+                                  : editingText.length >= 900
+                                  ? "text-amber-500 font-semibold"
+                                  : "text-slate-400"
+                              }`}>
+                                {editingText.length}/1000
+                              </span>
+                              <div className="flex gap-2 justify-end">
+                                <button
+                                  onClick={() => {
+                                    setEditingMessageId(null);
+                                    setEditingText("");
+                                  }}
+                                  className="px-2.5 py-1 text-xs bg-slate-500 hover:bg-slate-600 text-white rounded-lg font-medium transition"
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  onClick={() => saveEditChatMessage(msg.id, editingText)}
+                                  disabled={!editingText.trim() || editingText.length > 1000}
+                                  className="px-2.5 py-1 text-xs bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg font-medium transition"
+                                >
+                                  Save
+                                </button>
+                              </div>
                             </div>
                           </div>
                         ) : (
@@ -1011,37 +1024,54 @@ function StudentChatPanel() {
             </div>
 
             {/* Chat Message Input Footer */}
-            <div className={`p-2 sm:p-4 border-t flex gap-2 sm:gap-3 items-end ${isDark ? "border-slate-700 bg-slate-800/50" : "border-slate-200 bg-slate-50"}`}>
-              <textarea
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSend();
-                  }
-                }}
-                placeholder="Type a message..."
-                rows={1}
-                aria-label="Type your message"
-                className={`min-w-0 min-h-11 flex-1 p-3 rounded-xl border resize-none outline-none text-base sm:text-sm transition ${
-                  isDark
-                    ? "bg-slate-900 border-slate-700 text-white placeholder-slate-500 focus:border-blue-500"
-                    : "bg-white border-slate-300 text-slate-900 placeholder-slate-400 focus:border-blue-500"
-                }`}
-              />
-              <button
-                onClick={handleSend}
-                disabled={chatSending || !chatInput.trim()}
-                aria-label="Send message"
-                className={`w-11 h-11 shrink-0 rounded-xl transition flex items-center justify-center ${
-                  chatSending || !chatInput.trim()
-                    ? isDark ? "bg-slate-700 text-slate-500" : "bg-slate-200 text-slate-400"
-                    : "bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/25"
-                }`}
-              >
-                <PaperAirplaneIcon className="w-4 h-4" />
-              </button>
+            <div className={`p-2 sm:p-4 border-t flex flex-col gap-1.5 ${isDark ? "border-slate-700 bg-slate-800/50" : "border-slate-200 bg-slate-50"}`}>
+              <div className="flex gap-2 sm:gap-3 items-end">
+                <textarea
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  maxLength={1000}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSend();
+                    }
+                  }}
+                  placeholder="Type a message (max 1,000 characters)..."
+                  rows={1}
+                  aria-label="Type your message"
+                  className={`min-w-0 min-h-11 flex-1 p-3 rounded-xl border resize-none outline-none text-base sm:text-sm transition ${
+                    isDark
+                      ? "bg-slate-900 border-slate-700 text-white placeholder-slate-500 focus:border-blue-500"
+                      : "bg-white border-slate-300 text-slate-900 placeholder-slate-400 focus:border-blue-500"
+                  }`}
+                />
+                <button
+                  onClick={handleSend}
+                  disabled={chatSending || !chatInput.trim() || chatInput.length > 1000}
+                  aria-label="Send message"
+                  className={`w-11 h-11 shrink-0 rounded-xl transition flex items-center justify-center ${
+                    chatSending || !chatInput.trim() || chatInput.length > 1000
+                      ? isDark ? "bg-slate-700 text-slate-500" : "bg-slate-200 text-slate-400"
+                      : "bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/25"
+                  }`}
+                >
+                  <PaperAirplaneIcon className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="flex justify-between items-center px-1 text-[11px]">
+                <span className={isDark ? "text-slate-400" : "text-slate-500"}>
+                  Press <kbd className="px-1 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-[10px]">Enter</kbd> to send, <kbd className="px-1 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-[10px]">Shift+Enter</kbd> for new line
+                </span>
+                <span className={`font-mono font-medium ${
+                  chatInput.length >= 1000
+                    ? "text-rose-500 font-semibold"
+                    : chatInput.length >= 900
+                    ? "text-amber-500 font-semibold"
+                    : isDark ? "text-slate-500" : "text-slate-400"
+                }`}>
+                  {chatInput.length}/1000
+                </span>
+              </div>
             </div>
           </>
         ) : (
