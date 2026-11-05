@@ -15,6 +15,7 @@ from collections import defaultdict
 from dotenv import load_dotenv
 from utils.logging import log_activity
 from utils.mail import send_verification_email
+from utils.rate_limiter import login_rate_limiter, get_client_ip
 
 load_dotenv()
 
@@ -99,11 +100,12 @@ class LoginRequest(BaseModel):
 
 @router.post("/login", response_model=Token)
 def login(request: Request, login_data: LoginRequest, db: Session = Depends(get_db)):
-    ip_address = request.client.host
-    
-    # Rate limiting check removed to allow uninterrupted student/user access
-
+    ip_address = get_client_ip(request)
     clean_email = login_data.email.strip().lower() if login_data.email else ""
+
+    # Pre-auth rate limiting check: verifies account cooldown, IP cooldown, and IP burst limits
+    login_rate_limiter.check_rate_limit(request, clean_email, db)
+
     if not clean_email or not login_data.password:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -114,12 +116,17 @@ def login(request: Request, login_data: LoginRequest, db: Session = Depends(get_
     
     if not user or not verify_password(login_data.password, user.hashed_password):
         log_activity(db, user.id if user else None, "LOGIN_FAILED", f"Email: {clean_email}", ip_address)
+        # Record failure: increments failure counts, triggers temporary cooldown if threshold is hit
+        _, remaining = login_rate_limiter.record_failure(request, clean_email, db)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
+            detail=f"Incorrect email or password. You have {remaining} attempt(s) remaining before a temporary account lock.",
             headers={"WWW-Authenticate": "Bearer"},
         )
     
+    # Successful login: reset failed attempts for this account (no penalty on legitimate logins)
+    login_rate_limiter.record_success(request, clean_email, db)
+
     # Normalize role for compatibility
     role = user.role
     if role == "teacher":
@@ -131,7 +138,7 @@ def login(request: Request, login_data: LoginRequest, db: Session = Depends(get_
         expires_delta=access_token_expires
     )
     
-    log_activity(db, user.id, "LOGIN_SUCCESS", f"Role: {role}", ip_address)
+    log_activity(db, user.id, "LOGIN_SUCCESS", f"Email: {clean_email} | Role: {role}", ip_address)
     
     return {
         "access_token": access_token,

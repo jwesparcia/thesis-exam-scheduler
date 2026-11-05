@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useUser } from "../context/userStore";
 import { useTheme } from "../context/themeStore";
@@ -25,6 +25,7 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const { showSuccess, showError } = useToast();
   const [loading, setLoading] = useState(false);
+  const isSubmittingRef = useRef(false);
 
   // Forgot Password modal state
   const [showForgotModal, setShowForgotModal] = useState(false);
@@ -44,9 +45,10 @@ export default function Login() {
   const isFormValid = email.trim().length > 0 && password.trim().length > 0;
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!isFormValid) return;
+    if (e && e.preventDefault) e.preventDefault();
+    if (isSubmittingRef.current || loading || !isFormValid) return;
 
+    isSubmittingRef.current = true;
     setLoading(true);
     try {
       const response = await api.post("/auth/login", {
@@ -79,6 +81,7 @@ export default function Login() {
       console.error("Login failed:", error);
       showError(error.response?.data?.detail || "Login failed. Please check your credentials.");
     } finally {
+      isSubmittingRef.current = false;
       setLoading(false);
     }
   };
@@ -224,6 +227,7 @@ export default function Login() {
                   name="email"
                   autoComplete="username"
                   required
+                  disabled={loading}
                   placeholder="name@sti.edu.ph"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -274,6 +278,7 @@ export default function Login() {
                   name="password"
                   autoComplete="current-password"
                   required
+                  disabled={loading}
                   placeholder="Enter your password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}

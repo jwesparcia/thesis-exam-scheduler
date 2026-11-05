@@ -32,7 +32,8 @@ if not DATABASE_URL:
 
 try:
     print("Attempting to connect to database...")
-    engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+    connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
+    engine = create_engine(DATABASE_URL, pool_pre_ping=True, connect_args=connect_args)
     # Test the connection
     with engine.connect() as conn:
         print("Database connection successful!")
