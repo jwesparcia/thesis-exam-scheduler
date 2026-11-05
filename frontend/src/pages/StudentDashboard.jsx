@@ -622,7 +622,15 @@ function StudentChatPanel() {
   const fetchConversations = async (selectFirst = false) => {
     try {
       const res = await api.get("/chat/conversations");
-      setConversations(res.data);
+      setConversations(prev => {
+        if (activeContactId && !res.data.some(c => c.student_id === activeContactId)) {
+          const currentActive = prev.find(c => c.student_id === activeContactId);
+          if (currentActive) {
+            return [currentActive, ...res.data];
+          }
+        }
+        return res.data;
+      });
       if (selectFirst && res.data.length > 0 && !activeContactId) {
         const first = res.data[0];
         setActiveContactId(first.student_id);
@@ -724,15 +732,14 @@ function StudentChatPanel() {
     try {
       await api.delete(`/chat/conversations/${convToClearId}`);
       setChatMessages([]);
-      setConversations(prev => prev.filter(c => c.student_id !== convToClearId));
-      if (activeContactId === convToClearId) {
-        setActiveContactId(null);
-        setActiveContactName("");
-        setActiveContactRole("");
-      }
-      showSuccess("Conversation cleared");
+      setConversations(prev => prev.map(c => 
+        c.student_id === convToClearId 
+          ? { ...c, last_message: null, last_message_time: null, unread_count: 0 } 
+          : c
+      ));
+      showSuccess("Chat messages cleared");
     } catch (err) {
-      showError("Failed to clear conversation");
+      showError("Failed to clear chat messages");
     } finally {
       setIsClearConvModalOpen(false);
       setConvToClearId(null);
@@ -1186,9 +1193,9 @@ function StudentChatPanel() {
           onClose={() => setIsClearConvModalOpen(false)}
           onCancel={() => setIsClearConvModalOpen(false)}
           onConfirm={executeClearConversation}
-          title="Clear Conversation"
-          message="Are you sure you want to clear your conversation history with this contact? This action will permanently remove all messages for you."
-          confirmLabel="Yes, Clear"
+          title="Clear Chat Messages"
+          message="Are you sure you want to clear your chat messages with this contact? The messages will be removed, but the contact will remain in your conversations."
+          confirmLabel="Yes, Clear Messages"
           cancelLabel="Cancel"
           requireTypedConfirm={false}
           type="danger"

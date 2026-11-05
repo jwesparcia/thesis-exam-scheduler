@@ -818,7 +818,15 @@ function ChatSupportPanel() {
   const fetchConversations = async () => {
     try {
       const res = await api.get("/chat/conversations");
-      setConversations(res.data);
+      setConversations(prev => {
+        if (activeStudentId && !res.data.some(c => c.student_id === activeStudentId)) {
+          const currentActive = prev.find(c => c.student_id === activeStudentId);
+          if (currentActive) {
+            return [currentActive, ...res.data];
+          }
+        }
+        return res.data;
+      });
     } catch (err) { console.error("conv err", err); }
   };
 
@@ -943,7 +951,11 @@ function ChatSupportPanel() {
     try {
       await api.delete(`/chat/conversations/${convToClearStudentId}`);
       setMessages([]);
-      fetchConversations();
+      setConversations(prev => prev.map(c => 
+        c.student_id === convToClearStudentId 
+          ? { ...c, last_message: "", last_message_time: null, unread_count: 0 } 
+          : c
+      ));
     } catch (err) {
       console.error("clear conv err", err);
     } finally {
@@ -1238,9 +1250,9 @@ function ChatSupportPanel() {
 
       <ConfirmationModal
         isOpen={isClearConvModalOpen}
-        title="Clear Conversation History"
-        message="Are you sure you want to clear this conversation? This will permanently delete all messages."
-        confirmLabel="Clear Conversation"
+        title="Clear Chat Messages"
+        message="Are you sure you want to clear all chat messages with this contact? The messages will be removed, but the contact will remain in your conversations."
+        confirmLabel="Clear Messages"
         isDanger={true}
         onConfirm={executeClearConversation}
         onCancel={() => {

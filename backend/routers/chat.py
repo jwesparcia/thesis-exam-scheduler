@@ -269,6 +269,8 @@ def delete_conversation(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    # Mark messages as deleted for the current user so message history is cleared,
+    # but the conversation contact is retained in the conversation list across reloads.
     db.query(ChatMessage).filter(
         ChatMessage.sender_id == current_user.id,
         ChatMessage.recipient_id == other_user_id
@@ -278,16 +280,6 @@ def delete_conversation(
         ChatMessage.sender_id == other_user_id,
         ChatMessage.recipient_id == current_user.id
     ).update({"deleted_by_recipient": True}, synchronize_session=False)
-
-    # Physically purge messages that both parties have now soft-deleted
-    db.query(ChatMessage).filter(
-        ChatMessage.deleted_by_sender == True,
-        ChatMessage.deleted_by_recipient == True,
-        (
-            ((ChatMessage.sender_id == current_user.id) & (ChatMessage.recipient_id == other_user_id)) |
-            ((ChatMessage.sender_id == other_user_id) & (ChatMessage.recipient_id == current_user.id))
-        )
-    ).delete(synchronize_session=False)
 
     db.commit()
     return {"message": "Conversation cleared successfully"}
