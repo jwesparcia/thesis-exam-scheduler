@@ -21,6 +21,7 @@ import {
   PencilIcon,
   PlusIcon,
   MagnifyingGlassIcon,
+  ChevronLeftIcon,
   ChevronRightIcon,
   Bars3Icon,
   ShieldCheckIcon,
@@ -44,6 +45,27 @@ function ProctorManual() {
   const isDark = theme === "dark";
   const [activeSubTab, setActiveSubTab] = useState("assignments");
   const [searchQuery, setSearchQuery] = useState("");
+  const tabsRef = useRef(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const checkScroll = useCallback(() => {
+    if (tabsRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = tabsRef.current;
+      setCanScrollLeft(scrollLeft > 2);
+      setCanScrollRight(scrollLeft + clientWidth < scrollWidth - 2);
+    }
+  }, []);
+
+  const scrollTabs = (direction) => {
+    if (tabsRef.current) {
+      const scrollAmount = 260;
+      tabsRef.current.scrollBy({
+        left: direction === "left" ? -scrollAmount : scrollAmount,
+        behavior: "smooth",
+      });
+    }
+  };
 
   const topics = [
     { id: "assignments", label: "My Assignments & Views", icon: CalendarDaysIcon, badge: "Dual View" },
@@ -58,6 +80,12 @@ function ProctorManual() {
     t.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
     t.badge.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  useEffect(() => {
+    checkScroll();
+    window.addEventListener("resize", checkScroll);
+    return () => window.removeEventListener("resize", checkScroll);
+  }, [checkScroll, filteredTopics]);
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -117,39 +145,83 @@ function ProctorManual() {
         </div>
       </div>
 
-      {/* Sub-tab Navigation */}
-      <div className="flex overflow-x-auto no-scrollbar gap-2 pb-1 border-b border-slate-200/80 dark:border-slate-800">
-        {filteredTopics.map((t) => {
-          const SubIcon = t.icon;
-          const isSelected = activeSubTab === t.id;
-          return (
-            <button
-              key={t.id}
-              onClick={() => setActiveSubTab(t.id)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all whitespace-nowrap shrink-0 group ${
-                isSelected
-                  ? isDark 
-                    ? "bg-blue-600 text-white shadow-lg shadow-blue-900/40" 
-                    : "bg-blue-600 text-white shadow-md shadow-blue-500/25"
-                  : isDark
-                    ? "text-slate-400 hover:bg-slate-800 hover:text-white"
-                    : "text-slate-600 hover:bg-blue-50 hover:text-blue-700"
-              }`}
-            >
-              <SubIcon className={`w-4 h-4 transition-transform group-hover:scale-110 ${isSelected ? "text-white" : isDark ? "text-slate-400" : "text-slate-500"}`} />
-              <span>{t.label}</span>
-              <span className={`text-xs px-1.5 py-0.5 rounded-md font-bold uppercase ${
-                isSelected
-                  ? "bg-white/20 text-white"
-                  : isDark
-                    ? "bg-slate-800 text-slate-400 group-hover:text-slate-200"
-                    : "bg-slate-100 text-slate-600"
-              }`}>
-                {t.badge}
-              </span>
-            </button>
-          );
-        })}
+      {/* Sub-tab Navigation with Left/Right Scroll Buttons */}
+      <div className="relative flex items-center gap-1.5 pb-1 border-b border-slate-200/80 dark:border-slate-800">
+        <button
+          type="button"
+          onClick={() => scrollTabs("left")}
+          disabled={!canScrollLeft}
+          className={`p-2 rounded-xl border shrink-0 transition-all ${
+            canScrollLeft
+              ? isDark
+                ? "bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700 shadow-sm"
+                : "bg-white hover:bg-slate-50 text-slate-700 border-slate-200 shadow-sm"
+              : isDark
+                ? "bg-slate-900/40 text-slate-600 border-slate-800/60 cursor-not-allowed"
+                : "bg-slate-100/50 text-slate-300 border-slate-100 cursor-not-allowed"
+          }`}
+          title="Scroll topics left"
+          aria-label="Scroll topics left"
+        >
+          <ChevronLeftIcon className="w-4 h-4" />
+        </button>
+
+        <div
+          ref={tabsRef}
+          onScroll={checkScroll}
+          className="flex-1 flex overflow-x-auto no-scrollbar gap-2 scroll-smooth py-0.5"
+        >
+          {filteredTopics.map((t) => {
+            const SubIcon = t.icon;
+            const isSelected = activeSubTab === t.id;
+            return (
+              <button
+                key={t.id}
+                onClick={() => setActiveSubTab(t.id)}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all whitespace-nowrap shrink-0 group ${
+                  isSelected
+                    ? isDark 
+                      ? "bg-blue-600 text-white shadow-lg shadow-blue-900/40" 
+                      : "bg-blue-600 text-white shadow-md shadow-blue-500/25"
+                    : isDark
+                      ? "text-slate-400 hover:bg-slate-800 hover:text-white"
+                      : "text-slate-600 hover:bg-blue-50 hover:text-blue-700"
+                }`}
+              >
+                <SubIcon className={`w-4 h-4 transition-transform group-hover:scale-110 ${isSelected ? "text-white" : isDark ? "text-slate-400" : "text-slate-500"}`} />
+                <span>{t.label}</span>
+                <span className={`text-xs px-1.5 py-0.5 rounded-md font-bold uppercase ${
+                  isSelected
+                    ? "bg-white/20 text-white"
+                    : isDark
+                      ? "bg-slate-800 text-slate-400 group-hover:text-slate-200"
+                      : "bg-slate-100 text-slate-600"
+                }`}>
+                  {t.badge}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        <button
+          type="button"
+          onClick={() => scrollTabs("right")}
+          disabled={!canScrollRight}
+          className={`p-2 rounded-xl border shrink-0 transition-all ${
+            canScrollRight
+              ? isDark
+                ? "bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700 shadow-sm"
+                : "bg-white hover:bg-slate-50 text-slate-700 border-slate-200 shadow-sm"
+              : isDark
+                ? "bg-slate-900/40 text-slate-600 border-slate-800/60 cursor-not-allowed"
+                : "bg-slate-100/50 text-slate-300 border-slate-100 cursor-not-allowed"
+          }`}
+          title="Scroll topics right"
+          aria-label="Scroll topics right"
+        >
+          <ChevronRightIcon className="w-4 h-4" />
+        </button>
       </div>
 
       {/* Content Panels */}
