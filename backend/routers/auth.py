@@ -18,10 +18,7 @@ from utils.mail import send_verification_email
 
 load_dotenv()
 
-# Rate limiting
-login_attempts = defaultdict(list)
-MAX_LOGIN_ATTEMPTS = 5
-LOGIN_ATTEMPT_WINDOW = 60  # seconds
+# Rate limiting removed for seamless login access
 
 # JWT Constants
 SECRET_KEY = os.getenv("SECRET_KEY")
@@ -104,23 +101,7 @@ class LoginRequest(BaseModel):
 def login(request: Request, login_data: LoginRequest, db: Session = Depends(get_db)):
     ip_address = request.client.host
     
-    # Rate Limiting
-    current_time = time.time()
-    login_attempts[ip_address] = [t for t in login_attempts[ip_address] if current_time - t < LOGIN_ATTEMPT_WINDOW]
-    
-    # Prune expired IP keys to prevent unbounded memory growth
-    expired_ips = [ip for ip, timestamps in list(login_attempts.items()) if not [t for t in timestamps if current_time - t < LOGIN_ATTEMPT_WINDOW]]
-    for exp_ip in expired_ips:
-        login_attempts.pop(exp_ip, None)
-    
-    if len(login_attempts[ip_address]) >= MAX_LOGIN_ATTEMPTS:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Too many login attempts. Please try again in a minute."
-        )
-    
-    # Record attempt
-    login_attempts[ip_address].append(current_time)
+    # Rate limiting check removed to allow uninterrupted student/user access
 
     clean_email = login_data.email.strip().lower() if login_data.email else ""
     if not clean_email or not login_data.password:
