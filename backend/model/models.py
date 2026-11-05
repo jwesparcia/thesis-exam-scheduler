@@ -266,6 +266,7 @@ class User(Base):
     is_first_login = Column(Boolean, default=True)
     department_code = Column(String, ForeignKey("departments.code"), nullable=True)
     is_super_admin = Column(Boolean, default=False)
+    active_session_id = Column(String, nullable=True)
 
     course = relationship("Course")
     department_rel = relationship("Department", back_populates="users", foreign_keys=[department_code])

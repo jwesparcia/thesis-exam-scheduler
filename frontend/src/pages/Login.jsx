@@ -14,7 +14,8 @@ import {
   KeyIcon,
   XMarkIcon,
   ArrowPathIcon,
-  CheckCircleIcon
+  CheckCircleIcon,
+  ExclamationTriangleIcon
 } from "@heroicons/react/24/outline";
 import api from "../api";
 import { useToast } from "../context/ToastContext";
@@ -39,8 +40,17 @@ export default function Login() {
   const [forgotLoading, setForgotLoading] = useState(false);
   const { theme, toggleTheme } = useTheme();
   const isDark = theme === "dark";
-  const { login } = useUser();
+  const { user, login, logout } = useUser();
   const navigate = useNavigate();
+
+  const [authNotice, setAuthNotice] = useState(() => {
+    const notice = sessionStorage.getItem("auth_notice");
+    if (notice) {
+      sessionStorage.removeItem("auth_notice");
+      return notice;
+    }
+    return "";
+  });
 
   const isFormValid = email.trim().length > 0 && password.trim().length > 0;
 
@@ -206,126 +216,177 @@ export default function Login() {
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5" noValidate>
-            <div>
-              <label 
-                htmlFor="login-email" 
-                className={`block text-xs font-semibold uppercase tracking-wider mb-2 ${isDark ? "text-slate-300" : "text-slate-700"}`}
-              >
-                Email Address
-              </label>
-              <div className="relative group">
-                <UserCircleIcon 
-                  aria-hidden="true"
-                  className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors ${
-                    isDark ? "text-slate-500 group-focus-within:text-blue-400" : "text-slate-400 group-focus-within:text-blue-600"
-                  }`} 
-                />
-                <input
-                  id="login-email"
-                  type="email"
-                  name="email"
-                  autoComplete="username"
-                  required
-                  disabled={loading}
-                  placeholder="name@sti.edu.ph"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className={`w-full pl-11 pr-4 py-3 rounded-xl border text-sm outline-none transition-all ${
-                    isDark
-                      ? "bg-slate-950 border-slate-700 text-slate-100 placeholder-slate-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-                      : "bg-slate-50 border-slate-300 text-slate-900 placeholder-slate-400 focus:border-blue-600 focus:bg-white focus:ring-2 focus:ring-blue-500/20"
-                  }`}
-                />
+          {authNotice && (
+            <div className="mb-6 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/25 text-amber-700 dark:text-amber-300 text-xs flex items-start gap-3 shadow-sm animate-in fade-in duration-200">
+              <ExclamationTriangleIcon className="w-5 h-5 shrink-0 text-amber-500 mt-0.5" />
+              <div className="flex-1">
+                <span className="font-bold block mb-0.5">Session Terminated</span>
+                <span>{authNotice}</span>
               </div>
             </div>
+          )}
 
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label 
-                  htmlFor="login-password" 
-                  className={`block text-xs font-semibold uppercase tracking-wider ${isDark ? "text-slate-300" : "text-slate-700"}`}
-                >
-                  Password
-                </label>
+          {user && user.access_token ? (
+            <div className={`p-6 rounded-2xl border shadow-sm ${
+              isDark ? "bg-slate-800/80 border-slate-700 text-slate-200" : "bg-blue-50/80 border-blue-200 text-slate-800"
+            }`}>
+              <div className="w-12 h-12 mx-auto mb-3 rounded-2xl bg-blue-600/10 dark:bg-blue-400/20 flex items-center justify-center text-blue-600 dark:text-blue-400">
+                <UserCircleIcon className="w-7 h-7" />
+              </div>
+              <h2 className="text-base font-bold text-center">Active Session in this Browser</h2>
+              <p className="text-xs mt-2 text-center text-slate-500 dark:text-slate-400 leading-relaxed">
+                You are currently signed in as <span className="font-bold text-blue-600 dark:text-blue-400">{user.name}</span> ({user.role === 'program_head' || user.role === 'admin' ? 'Program Head / Admin' : user.role === 'proctor' ? 'Proctor' : 'Student'}).
+              </p>
+              <p className="text-[11px] mt-1 text-center text-slate-400 dark:text-slate-500">
+                A single browser session only supports one active account. To sign in with a different account, please log out first.
+              </p>
+              <div className="mt-5 flex flex-col gap-2.5">
                 <button
                   type="button"
                   onClick={() => {
-                    setForgotEmail(email.trim());
-                    setShowForgotModal(true);
-                    setForgotStep(1);
-                    setForgotCode("");
-                    setForgotNewPassword("");
-                    setForgotConfirmPassword("");
-                    setShowForgotNewPassword(false);
-                    setShowForgotConfirmPassword(false);
+                    if (user.role === "program_head" || user.role === "admin") navigate("/program-head", { replace: true });
+                    else if (user.role === "proctor") navigate("/proctor", { replace: true });
+                    else navigate("/student", { replace: true });
                   }}
-                  className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                  className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition shadow-sm flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  Forgot password?
+                  <ArrowRightStartOnRectangleIcon className="w-4 h-4" />
+                  <span>Continue to Dashboard</span>
                 </button>
-              </div>
-              <div className="relative group">
-                <LockClosedIcon 
-                  aria-hidden="true"
-                  className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors ${
-                    isDark ? "text-slate-500 group-focus-within:text-blue-400" : "text-slate-400 group-focus-within:text-blue-600"
-                  }`} 
-                />
-                <input
-                  id="login-password"
-                  type={showPassword ? "text" : "password"}
-                  name="password"
-                  autoComplete="current-password"
-                  required
-                  disabled={loading}
-                  placeholder="Enter your password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className={`w-full pl-11 pr-12 py-3 rounded-xl border text-sm outline-none transition-all ${
-                    isDark
-                      ? "bg-slate-950 border-slate-700 text-slate-100 placeholder-slate-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-                      : "bg-slate-50 border-slate-300 text-slate-900 placeholder-slate-400 focus:border-blue-600 focus:bg-white focus:ring-2 focus:ring-blue-500/20"
-                  }`}
-                />
                 <button
                   type="button"
-                  onClick={togglePasswordVisibility}
-                  className={`absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-colors cursor-pointer ${
-                    isDark
-                      ? "text-slate-400 hover:text-slate-200 hover:bg-slate-800"
-                      : "text-slate-500 hover:text-slate-700 hover:bg-slate-100"
-                  }`}
-                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  onClick={() => {
+                    logout();
+                    setAuthNotice("");
+                  }}
+                  className="w-full py-2.5 px-4 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold transition cursor-pointer"
                 >
-                  {showPassword ? <EyeSlashIcon className="w-5 h-5" /> : <EyeIcon className="w-5 h-5" />}
+                  Log Out of {user.name}
                 </button>
               </div>
             </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+              <div>
+                <label 
+                  htmlFor="login-email" 
+                  className={`block text-xs font-semibold uppercase tracking-wider mb-2 ${isDark ? "text-slate-300" : "text-slate-700"}`}
+                >
+                  Email Address
+                </label>
+                <div className="relative group">
+                  <UserCircleIcon 
+                    aria-hidden="true"
+                    className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors ${
+                      isDark ? "text-slate-500 group-focus-within:text-blue-400" : "text-slate-400 group-focus-within:text-blue-600"
+                    }`} 
+                  />
+                  <input
+                    id="login-email"
+                    type="email"
+                    name="email"
+                    autoComplete="username"
+                    required
+                    disabled={loading}
+                    placeholder="name@sti.edu.ph"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className={`w-full pl-11 pr-4 py-3 rounded-xl border text-sm outline-none transition-all ${
+                      isDark
+                        ? "bg-slate-950 border-slate-700 text-slate-100 placeholder-slate-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                        : "bg-slate-50 border-slate-300 text-slate-900 placeholder-slate-400 focus:border-blue-600 focus:bg-white focus:ring-2 focus:ring-blue-500/20"
+                    }`}
+                  />
+                </div>
+              </div>
 
-            <button
-              type="submit"
-              disabled={loading || !isFormValid}
-              className={`w-full py-3.5 mt-2 rounded-xl font-semibold text-sm transition-all duration-200 shadow-sm flex items-center justify-center gap-2 ${
-                loading || !isFormValid
-                  ? isDark
-                    ? "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed"
-                    : "bg-slate-200 text-slate-400 border border-slate-200 cursor-not-allowed"
-                  : "bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white shadow-blue-600/20 hover:shadow-md active:scale-[0.99]"
-              }`} aria-label="Action button">
-              {loading ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                  <span>Authenticating...</span>
-                </>
-              ) : (
-                <>
-                  <ArrowRightStartOnRectangleIcon className="w-5 h-5" />
-                  <span>Sign In</span>
-                </>
-              )}
-            </button>
-          </form>
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label 
+                    htmlFor="login-password" 
+                    className={`block text-xs font-semibold uppercase tracking-wider ${isDark ? "text-slate-300" : "text-slate-700"}`}
+                  >
+                    Password
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setForgotEmail(email.trim());
+                      setShowForgotModal(true);
+                      setForgotStep(1);
+                      setForgotCode("");
+                      setForgotNewPassword("");
+                      setForgotConfirmPassword("");
+                      setShowForgotNewPassword(false);
+                      setShowForgotConfirmPassword(false);
+                    }}
+                    className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                  >
+                    Forgot password?
+                  </button>
+                </div>
+                <div className="relative group">
+                  <LockClosedIcon 
+                    aria-hidden="true"
+                    className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors ${
+                      isDark ? "text-slate-500 group-focus-within:text-blue-400" : "text-slate-400 group-focus-within:text-blue-600"
+                    }`} 
+                  />
+                  <input
+                    id="login-password"
+                    type={showPassword ? "text" : "password"}
+                    name="password"
+                    autoComplete="current-password"
+                    required
+                    disabled={loading}
+                    placeholder="Enter your password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className={`w-full pl-11 pr-12 py-3 rounded-xl border text-sm outline-none transition-all ${
+                      isDark
+                        ? "bg-slate-950 border-slate-700 text-slate-100 placeholder-slate-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                        : "bg-slate-50 border-slate-300 text-slate-900 placeholder-slate-400 focus:border-blue-600 focus:bg-white focus:ring-2 focus:ring-blue-500/20"
+                    }`}
+                  />
+                  <button
+                    type="button"
+                    onClick={togglePasswordVisibility}
+                    className={`absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-colors cursor-pointer ${
+                      isDark
+                        ? "text-slate-400 hover:text-slate-200 hover:bg-slate-800"
+                        : "text-slate-500 hover:text-slate-700 hover:bg-slate-100"
+                    }`}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? <EyeSlashIcon className="w-5 h-5" /> : <EyeIcon className="w-5 h-5" />}
+                  </button>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading || !isFormValid}
+                className={`w-full py-3.5 mt-2 rounded-xl font-semibold text-sm transition-all duration-200 shadow-sm flex items-center justify-center gap-2 ${
+                  loading || !isFormValid
+                    ? isDark
+                      ? "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed"
+                      : "bg-slate-200 text-slate-400 border border-slate-200 cursor-not-allowed"
+                    : "bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white shadow-blue-600/20 hover:shadow-md active:scale-[0.99]"
+                }`} aria-label="Action button">
+                {loading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    <span>Authenticating...</span>
+                  </>
+                ) : (
+                  <>
+                    <ArrowRightStartOnRectangleIcon className="w-5 h-5" />
+                    <span>Sign In</span>
+                  </>
+                )}
+              </button>
+            </form>
+          )}
 
           <div className="mt-10 pt-6 border-t border-slate-200 dark:border-slate-800 text-center">
             <p className={`text-xs ${isDark ? "text-slate-500" : "text-slate-500"}`}>

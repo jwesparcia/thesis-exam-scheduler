@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
-from core import get_db
+from core import get_db, cache
 from model import User, PasswordResetToken
 import bcrypt
+import uuid
 from pydantic import BaseModel
 from jose import JWTError, jwt
 from datetime import datetime, timedelta, timezone
@@ -69,6 +70,25 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
     user = db.query(User).filter(User.email == email).first()
     if user is None:
         raise credentials_exception
+
+    # Enforce single active session per account
+    token_sid = payload.get("sid")
+    if token_sid:
+        # Check active session ID in memory/cache or DB
+        active_sid = user.active_session_id
+        if not active_sid:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Session expired or logged out. Please log in again.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        if token_sid != active_sid:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Session superseded. Your account was signed in from another device or location.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
     return user
 
 def require_role(allowed_roles: List[str]):
@@ -132,9 +152,20 @@ def login(request: Request, login_data: LoginRequest, db: Session = Depends(get_
     if role == "teacher":
         role = "proctor"
         
+    # Issue a unique session identifier for this login to enforce single active session per account
+    session_id = str(uuid.uuid4())
+    user.active_session_id = session_id
+    db.commit()
+
+    if cache and getattr(cache, "is_available", False):
+        try:
+            cache.set(f"user:session:{user.id}", session_id, ttl=ACCESS_TOKEN_EXPIRE_MINUTES * 60)
+        except Exception:
+            pass
+
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": user.email, "role": role},
+        data={"sub": user.email, "role": role, "sid": session_id},
         expires_delta=access_token_expires
     )
     
@@ -160,6 +191,20 @@ def login(request: Request, login_data: LoginRequest, db: Session = Depends(get_
             "is_first_login": user.is_first_login
         }
     }
+
+@router.post("/logout")
+def logout_user(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    current_user.active_session_id = None
+    db.commit()
+    if cache and getattr(cache, "is_available", False):
+        try:
+            cache.delete(f"user:session:{current_user.id}")
+        except Exception:
+            pass
+    return {"message": "Logged out successfully"}
 
 @router.get("/me")
 def read_users_me(current_user: User = Depends(get_current_user)):

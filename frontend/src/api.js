@@ -5,10 +5,10 @@ const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || "http://localhost:8000",
 });
 
-// Add logic to check for token in localStorage and add to headers
+// Add logic to check for token in localStorage or sessionStorage and add to headers
 api.interceptors.request.use(
   (config) => {
-    const userStr = sessionStorage.getItem("user");
+    const userStr = localStorage.getItem("user") || sessionStorage.getItem("user");
     if (userStr) {
       try {
         const user = JSON.parse(userStr);
@@ -16,7 +16,7 @@ api.interceptors.request.use(
           config.headers.Authorization = `Bearer ${user.access_token}`;
         }
       } catch (e) {
-        console.error("Error parsing user from sessionStorage", e);
+        console.error("Error parsing user from storage", e);
       }
     }
     return config;
@@ -25,11 +25,29 @@ api.interceptors.request.use(
 );
 
 // Replace technical error text with a message users can understand.
-// Components keep reading `err.response.data.detail`, which is now always friendly.
+// Also intercept 401 session invalidations (e.g., account logged in from another device)
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     try {
+      if (error.response && error.response.status === 401) {
+        const isLoginReq = error.config?.url && error.config.url.includes("/auth/login");
+        if (!isLoginReq) {
+          localStorage.removeItem("user");
+          sessionStorage.removeItem("user");
+          const detail = String(error.response.data?.detail || "");
+          if (detail.toLowerCase().includes("superseded")) {
+            sessionStorage.setItem(
+              "auth_notice",
+              "Your account was signed in from another device or browser. This session has been terminated."
+            );
+          }
+          if (window.location.pathname !== "/login" && window.location.pathname !== "/") {
+            window.location.href = "/login";
+          }
+        }
+      }
+
       const friendly = getFriendlyErrorMessage(error);
       if (!error.response) {
         error.response = { status: 0, data: { detail: friendly } };

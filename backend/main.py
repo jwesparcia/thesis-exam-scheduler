@@ -48,6 +48,13 @@ def on_startup():
             _conn.execute(_text("ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS deleted_by_recipient BOOLEAN DEFAULT FALSE"))
             _conn.execute(_text("ALTER TABLE rescheduling_requests ADD COLUMN IF NOT EXISTS rescheduled_exam_id INTEGER REFERENCES exams(id)"))
             _conn.execute(_text("ALTER TABLE distribution_rules ADD COLUMN IF NOT EXISTS break_minutes INTEGER NOT NULL DEFAULT 0"))
+            if not str(engine.url).startswith("sqlite"):
+                _conn.execute(_text("ALTER TABLE users ADD COLUMN IF NOT EXISTS active_session_id VARCHAR(255)"))
+            else:
+                try:
+                    _conn.execute(_text("ALTER TABLE users ADD COLUMN active_session_id VARCHAR(255)"))
+                except Exception:
+                    pass
             _conn.execute(_text("""
                 INSERT INTO exam_break_settings (category_type, break_seconds)
                 SELECT LOWER(category_type), MAX(COALESCE(break_minutes, 0)) * 60
