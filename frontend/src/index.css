@@ -37,6 +37,16 @@
     color: #f8fafc;
   }
 
+  /* Disable native browser password reveal eye (Edge / Chromium) to avoid double eye */
+  input::-ms-reveal,
+  input::-ms-clear,
+  input[type="password"]::-ms-reveal,
+  input[type="password"]::-ms-clear {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+  }
+
   /* Universal select and option styling for contrast in dark and light mode */
   select {
     color-scheme: light;

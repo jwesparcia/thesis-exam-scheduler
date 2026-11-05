@@ -192,6 +192,14 @@ class DirectChangePasswordRequest(BaseModel):
     current_password: str
     new_password: str
 
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+class ForgotPasswordResetRequest(BaseModel):
+    email: str
+    code: str
+    new_password: str
+
 @router.put("/update-email")
 def update_registered_email(
     payload: UpdateEmailRequest,
@@ -360,3 +368,105 @@ def change_password_direct(
     db.commit()
     log_activity(db, current_user.id, "PASSWORD_CHANGED", "Password changed via Settings menu.", None)
     return {"message": "Password changed successfully"}
+
+@router.post("/forgot-password/request-code")
+def forgot_password_request_code(
+    payload: ForgotPasswordRequest,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    ip_address = request.client.host if request.client else None
+    clean_email = payload.email.strip().lower() if payload.email else ""
+    if not clean_email or "@" not in clean_email or "." not in clean_email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Please enter a valid registered email address."
+        )
+
+    user = db.query(User).filter(User.email == clean_email).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No registered account found with that email address. Please make sure you entered your registered school or Outlook email."
+        )
+
+    code = f"{random.randint(100000, 999999)}"
+    expires_at = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(minutes=15)
+
+    db.query(PasswordResetToken).filter(PasswordResetToken.user_id == user.id).delete()
+
+    token_obj = PasswordResetToken(
+        user_id=user.id,
+        token=code,
+        expires_at=expires_at
+    )
+    db.add(token_obj)
+    db.commit()
+
+    sent = send_verification_email(user.email, code)
+    if not sent:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Unable to send verification code email to {clean_email}. Please check SMTP configuration or try again."
+        )
+
+    log_activity(db, user.id, "FORGOT_PASSWORD_CODE_SENT", f"Verification code sent to {clean_email}", ip_address)
+
+    return {
+        "message": f"A 6-digit verification code has been sent to {user.email}. Please check your email inbox or spam folder.",
+        "email": user.email
+    }
+
+@router.post("/forgot-password/reset")
+def forgot_password_reset(
+    payload: ForgotPasswordResetRequest,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    ip_address = request.client.host if request.client else None
+    clean_email = payload.email.strip().lower() if payload.email else ""
+    clean_code = payload.code.strip() if payload.code else ""
+
+    if not clean_email or not clean_code or not payload.new_password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email, verification code, and new password are required."
+        )
+
+    user = db.query(User).filter(User.email == clean_email).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No registered account found with that email address."
+        )
+
+    now_naive = datetime.now(timezone.utc).replace(tzinfo=None)
+    token_record = db.query(PasswordResetToken).filter(
+        PasswordResetToken.user_id == user.id,
+        PasswordResetToken.token == clean_code,
+        PasswordResetToken.expires_at > now_naive
+    ).first()
+
+    if not token_record:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired verification code. Please request a new code."
+        )
+
+    if len(payload.new_password) < 8 or len(payload.new_password) > 20:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="New password must be between 8 and 20 characters long."
+        )
+
+    user.hashed_password = hash_password(payload.new_password)
+    user.is_first_login = False
+
+    db.delete(token_record)
+    db.commit()
+
+    log_activity(db, user.id, "PASSWORD_RESET_SUCCESS", "Password reset successfully via forgot password verification code.", ip_address)
+
+    return {
+        "message": "Password reset successfully! You can now sign in with your new password."
+    }
