@@ -49,7 +49,7 @@ Please use the following 6-digit code:
 
     VERIFICATION CODE: {code}
 
-This code will expire in 15 minutes.
+This code will expire in 5 minutes.
 If you did not make this request, please contact the administrator immediately.
 
 Best regards,
@@ -92,7 +92,7 @@ STI Exam Scheduler Team
               </div>
 
               <p style="margin: 0 0 8px 0; color: #64748b; font-size: 13px; line-height: 1.5;">
-                ⏱️ This code is valid for <strong>15 minutes</strong>. Do not share it with anyone.
+                ⏱️ This code is valid for <strong>5 minutes</strong>. Do not share it with anyone.
               </p>
               <p style="margin: 0; color: #94a3b8; font-size: 12px; line-height: 1.5;">
                 If you did not initiate this request, you can safely ignore this message.

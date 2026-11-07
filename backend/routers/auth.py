@@ -286,36 +286,16 @@ def update_registered_email(
 
 @router.post("/request-verification-code")
 def request_verification_code(
-    payload: RequestCodeRequest,
+    payload: Optional[RequestCodeRequest] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    # Email is non-editable in change password; it defaults strictly to user's registered email
     target_email = current_user.email
-    clean_payload_email = payload.email.strip().lower() if payload.email else ""
-    
-    # If the user provides an updated email address (e.g., their Microsoft account)
-    if clean_payload_email and clean_payload_email != current_user.email:
-        if "@" in clean_payload_email and "." in clean_payload_email:
-            existing = db.query(User).filter(User.email == clean_payload_email, User.id != current_user.id).first()
-            if existing:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"The email {clean_payload_email} is already in use by another account."
-                )
-            old_email = current_user.email
-            current_user.email = clean_payload_email
-            db.commit()
-            db.refresh(current_user)
-            log_activity(db, current_user.id, "EMAIL_UPDATED", f"Updated email from {old_email} to {clean_payload_email}", None)
-            target_email = clean_payload_email
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Please enter a valid email address."
-            )
     
     code = f"{random.randint(100000, 999999)}"
-    expires_at = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(minutes=15)
+    # 5-minute expiration for password change verification codes
+    expires_at = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(minutes=5)
     
     db.query(PasswordResetToken).filter(PasswordResetToken.user_id == current_user.id).delete()
     
@@ -339,8 +319,8 @@ def request_verification_code(
         from model import Notification
         notif = Notification(
             user_id=current_user.id,
-            title="Password Verification Dispatched",
-            message=f"A 6-digit verification code was sent to your registered email {target_email}. Please check your inbox or spam folder.",
+            type="SECURITY",
+            message=f"A 6-digit verification code was sent to your registered email {target_email}. This code will expire in 5 minutes. Please check your inbox or spam folder.",
         )
         db.add(notif)
         db.commit()
@@ -348,7 +328,7 @@ def request_verification_code(
         print(f"Failed to log notification for verification code: {e}")
         
     return {
-        "message": f"Verification code sent to {target_email}. Please check your email inbox.",
+        "message": f"Verification code sent to {target_email}. This code will expire in 5 minutes.",
         "email": target_email
     }
 
@@ -443,7 +423,7 @@ def forgot_password_request_code(
         )
 
     code = f"{random.randint(100000, 999999)}"
-    expires_at = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(minutes=15)
+    expires_at = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(minutes=5)
 
     db.query(PasswordResetToken).filter(PasswordResetToken.user_id == user.id).delete()
 
@@ -465,7 +445,7 @@ def forgot_password_request_code(
     log_activity(db, user.id, "FORGOT_PASSWORD_CODE_SENT", f"Verification code sent to {clean_email}", ip_address)
 
     return {
-        "message": f"A 6-digit verification code has been sent to {user.email}. Please check your email inbox or spam folder.",
+        "message": f"A 6-digit verification code has been sent to {user.email}. This code will expire in 5 minutes. Please check your email inbox or spam folder.",
         "email": user.email
     }
 

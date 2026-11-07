@@ -510,6 +510,7 @@ export default function Login() {
                   <div className="truncate">
                     <span className="font-semibold">Code sent to: </span>
                     <strong className="underline">{forgotEmail}</strong>
+                    <span className="ml-1.5 opacity-80">(Valid for 5 mins)</span>
                   </div>
                   <button
                     type="button"
