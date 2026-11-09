@@ -69,6 +69,13 @@ def on_startup():
                 WHERE LOWER(TRIM(name)) = 'understanding the self' AND category != 'general'
             """))
             _conn.execute(_text("UPDATE users SET role = 'program_head' WHERE role = 'admin'"))
+            _conn.execute(_text("""
+                UPDATE users
+                SET name = 'Academic Head',
+                    email = 'academic.head@school.edu'
+                WHERE email = 'ge.admin@school.edu'
+                   OR (role = 'program_head' AND is_super_admin = TRUE AND (name ILIKE '%GE Administrator%' OR name ILIKE '%General Education%'))
+            """))
             _conn.commit()
         print("Chat database soft-delete columns migration successful!")
 
@@ -104,8 +111,8 @@ def on_startup():
 
             # 2. Dedicated Program Head accounts per department
             admin_accounts = [
+                ("Academic Head", "academic.head@school.edu", "GE", True),
                 ("Dr. Maria Santos", "admin@school.edu", "GE", True),
-                ("GE Administrator (Super Admin)", "ge.admin@school.edu", "GE", True),
                 ("ICT Department Administrator", "ict.admin@school.edu", "ICT", False),
                 ("BM Department Administrator", "bm.admin@school.edu", "BM", False),
                 ("THM Department Administrator", "thm.admin@school.edu", "THM", False),

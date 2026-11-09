@@ -34,7 +34,7 @@ def run_tests():
         # 2. Get department admins
         ict_admin = db.query(User).filter(User.email == "ict.admin@school.edu").first()
         bm_admin = db.query(User).filter(User.email == "bm.admin@school.edu").first()
-        ge_admin = db.query(User).filter(User.email == "ge.admin@school.edu").first()
+        ge_admin = db.query(User).filter(User.email == "academic.head@school.edu").first() or db.query(User).filter(User.email == "ge.admin@school.edu").first()
 
         assert ict_admin is not None, "ICT admin must exist"
         assert bm_admin is not None, "BM admin must exist"

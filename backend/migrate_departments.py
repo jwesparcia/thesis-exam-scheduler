@@ -164,7 +164,7 @@ def run_department_migration():
 
         # 8. Seed dedicated administrator account per department
         admin_accounts = [
-            ("GE Administrator (Super Admin)", "ge.admin@school.edu", "GE", True),
+            ("Academic Head (Super Admin)", "academic.head@school.edu", "GE", True),
             ("ICT Department Administrator", "ict.admin@school.edu", "ICT", False),
             ("BM Department Administrator", "bm.admin@school.edu", "BM", False),
             ("THM Department Administrator", "thm.admin@school.edu", "THM", False),

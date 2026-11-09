@@ -1,8 +1,8 @@
 # Automated Examination Timetable and Proctor Scheduling System
 # Master System User Manual (All User Roles)
 
-**Document Version:** 2.4.0 (Current System Release)  
-**Applicable Roles:** Program Head / Administrator, Faculty Proctors, Regular & Irregular Students  
+**Document Version:** 2.5.0 (Current System Release)  
+**Applicable Roles:** Academic Head (Super Admin), Program Heads / Department Administrators, Faculty Proctors, Regular & Irregular Students  
 **System Architecture:** FastAPI Backend + React 19 / Vite Frontend + PostgreSQL + Redis + Genetic Algorithm Engine  
 
 ---
@@ -10,7 +10,7 @@
 ## Table of Contents
 
 1. [System Overview & Architecture](#1-system-overview--architecture)
-2. [Program Head / Administrator Manual](#2-program-head--administrator-manual)
+2. [Academic Head & Program Head / Administrator Manual](#2-academic-head--program-head--administrator-manual)
    - [2.1 Examination Schedule Generator (Genetic Algorithm Engine)](#21-examination-schedule-generator-genetic-algorithm-engine)
    - [2.2 Master Timetable Views & Excel Export](#22-master-timetable-views--excel-export)
    - [2.3 Subject Management & Custom Exam Durations](#23-subject-management--custom-exam-durations)
@@ -20,6 +20,7 @@
    - [2.7 Academic Distribution Rules Engine](#27-academic-distribution-rules-engine)
    - [2.8 Data Ingestion (Curriculum, Proctors, Students) & Section Attendance Sheets](#28-data-ingestion-curriculum-proctors-students--section-attendance-sheets)
    - [2.9 In-App Real-Time Chat & Notification Broadcasts](#29-in-app-real-time-chat--notification-broadcasts)
+   - [2.10 Account Security, Session Management & Password Controls](#210-account-security-session-management--password-controls)
 3. [Faculty Proctor Manual](#3-faculty-proctor-manual)
    - [3.1 Supervisory Assignments Dashboard (Grid View vs List View)](#31-supervisory-assignments-dashboard-grid-view-vs-list-view)
    - [3.2 On-Site Exam Room Attendance Check-in](#32-on-site-exam-room-attendance-check-in)
@@ -61,9 +62,9 @@ The **Automated Examination Timetable and Proctor Scheduling System** eliminates
 
 ---
 
-## 2. Program Head / Administrator Manual
+## 2. Academic Head & Program Head / Administrator Manual
 
-The Program Head dashboard serves as the administrative command center for the entire examination lifecycle.
+The Program Head and Academic Head dashboard serves as the administrative command center for the entire examination lifecycle. The **Academic Head (Super Admin)** exercises institution-wide oversight with cross-departmental approval and scheduling authority, while individual **Department Program Heads** manage their assigned faculties and degree cohorts.
 
 ### 2.1 Examination Schedule Generator (Genetic Algorithm Engine)
 
@@ -232,6 +233,21 @@ Enforces institutional curriculum distribution directives to prevent student exa
 - **Directory Messaging:** Search for any faculty proctor or student to initiate direct communication regarding room directions or special accommodations.
 - **Message Management:** Edit typos in sent messages, delete messages, or clear message threads with confirmation modals.
 - **Notification Broadcasts:** Publishing schedules or approving reschedule petitions triggers instant in-app alerts and automated transactional email notifications.
+
+---
+
+### 2.10 Account Security, Session Management & Password Controls
+
+#### Single Active Session Enforcement:
+To maintain institutional integrity and comply with strict access standards:
+- **One Active Session per Account:** Logging into an account from a new browser or device immediately invalidates and supersedes prior sessions. Stale devices receive an instant `401 Unauthorized: Session superseded` notification and are routed to the login console.
+- **Cross-Tab Browser Synchronization:** All tabs within the same browser instance share synchronized authentication state via unified local storage event listeners. Signing in or out of one tab seamlessly syncs across all open tabs.
+- **Multi-Account Browser Guard:** Attempting to log into a different account in the same browser displays an *Active Session* guard card, requiring an explicit logout to prevent cross-account session contamination.
+
+#### Email Verification & Password Change Security:
+- **Default Registered Email:** In the Change Password portal, the destination email address is non-editable and strictly bound to the user's registered institutional mailbox.
+- **5-Minute Code Expiration Window:** One-time 6-digit verification codes sent via SMTP expire after exactly 5 minutes.
+- **Password Length Policies:** Passwords must strictly measure between 8 and 12 characters (or 8–20 for forgot-password reset).
 
 ---
 

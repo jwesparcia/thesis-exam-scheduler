@@ -133,6 +133,11 @@ def login(request: Request, login_data: LoginRequest, db: Session = Depends(get_
         )
 
     user = db.query(User).filter(User.email == clean_email).first()
+    # Seamless backward compatibility for Academic Head account
+    if not user and clean_email == "ge.admin@school.edu":
+        user = db.query(User).filter(User.email == "academic.head@school.edu").first()
+        if user:
+            clean_email = "academic.head@school.edu"
     
     if not user or not verify_password(login_data.password, user.hashed_password):
         log_activity(db, user.id if user else None, "LOGIN_FAILED", f"Email: {clean_email}", ip_address)
@@ -416,6 +421,11 @@ def forgot_password_request_code(
         )
 
     user = db.query(User).filter(User.email == clean_email).first()
+    # Seamless backward compatibility for Academic Head account
+    if not user and clean_email == "ge.admin@school.edu":
+        user = db.query(User).filter(User.email == "academic.head@school.edu").first()
+        if user:
+            clean_email = "academic.head@school.edu"
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -466,6 +476,11 @@ def forgot_password_reset(
         )
 
     user = db.query(User).filter(User.email == clean_email).first()
+    # Seamless backward compatibility for Academic Head account
+    if not user and clean_email == "ge.admin@school.edu":
+        user = db.query(User).filter(User.email == "academic.head@school.edu").first()
+        if user:
+            clean_email = "academic.head@school.edu"
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

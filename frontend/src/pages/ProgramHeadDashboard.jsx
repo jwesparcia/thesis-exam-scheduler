@@ -250,7 +250,7 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
           )}
           <div>
             <span className="font-bold uppercase tracking-wider block text-xs">
-              {user?.is_super_admin ? "Super Admin Authority (General Education)" : `${user?.department_code || "Department"} Administrator`}
+              {user?.is_super_admin ? "Academic Head Authority (Super Admin)" : `${user?.department_code || "Department"} Administrator`}
             </span>
             <p className="mt-0.5 text-xs opacity-90">
               {user?.is_super_admin
@@ -1477,26 +1477,39 @@ function ProgramHeadManual() {
             </div>
           </div>
 
-          {/* Search Bar */}
-          <div className="relative min-w-[240px] sm:min-w-[280px]">
-            <MagnifyingGlassIcon className={`w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 ${isDark ? "text-slate-400" : "text-slate-500"}`} />
-            <input
-              type="text"
-              placeholder="Search guide topics..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className={`w-full pl-9 pr-4 py-2 rounded-xl text-xs sm:text-sm font-medium border transition-all focus:outline-none focus:ring-2 ${
-                isDark
-                  ? "bg-slate-900/70 border-slate-700 text-white placeholder-slate-500 focus:ring-blue-500/50"
-                  : "bg-white border-slate-200 text-slate-900 placeholder-slate-400 focus:ring-blue-500/30 shadow-sm"
-              }`} aria-label="Search guide topics" />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery("")}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200" aria-label="Clear search">
-                <XMarkIcon className="w-3.5 h-3.5" />
-              </button>
-            )}
+          {/* Search Bar & Download PDF Button */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 min-w-[240px] sm:min-w-[380px]">
+            <div className="relative flex-1">
+              <MagnifyingGlassIcon className={`w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 ${isDark ? "text-slate-400" : "text-slate-500"}`} />
+              <input
+                type="text"
+                placeholder="Search guide topics..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className={`w-full pl-9 pr-4 py-2 rounded-xl text-xs sm:text-sm font-medium border transition-all focus:outline-none focus:ring-2 ${
+                  isDark
+                    ? "bg-slate-900/70 border-slate-700 text-white placeholder-slate-500 focus:ring-blue-500/50"
+                    : "bg-white border-slate-200 text-slate-900 placeholder-slate-400 focus:ring-blue-500/30 shadow-sm"
+                }`} aria-label="Search guide topics" />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200" aria-label="Clear search">
+                  <XMarkIcon className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+            <a
+              href="/USER_MANUAL.pdf"
+              download="STI_Exam_Scheduler_User_Manual.pdf"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl font-bold text-xs bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white shadow-sm transition-all duration-200 hover:scale-[1.02] shrink-0 cursor-pointer"
+              title="Download Complete System User Manual PDF"
+            >
+              <ArrowDownTrayIcon className="w-4 h-4" />
+              <span>Download PDF</span>
+            </a>
           </div>
         </div>
       </div>
@@ -2458,7 +2471,7 @@ export default function ProgramHeadDashboard() {
             <div className="flex items-center justify-center gap-1 mt-1">
               {user?.is_super_admin ? (
                 <span className="px-2 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-amber-500/20 text-amber-400 border border-amber-500/30">
-                  Super Admin (GE)
+                  Academic Head
                 </span>
               ) : (
                 <span className={`px-2 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider ${isDark ? "bg-blue-500/20 text-blue-400 border border-blue-500/30" : "bg-blue-50 text-blue-700 border border-blue-200"}`}>
@@ -2523,7 +2536,7 @@ export default function ProgramHeadDashboard() {
                     : isDark ? "bg-blue-500/20 text-blue-400 border border-blue-500/30" : "bg-blue-50 text-blue-700 border border-blue-100"
                 }`}>
                   <ShieldCheckIcon className="w-3.5 h-3.5" />
-                  {user?.is_super_admin ? "Super Admin (GE)" : `${user?.department_code || "Dept"} Admin`}
+                  {user?.is_super_admin ? "Academic Head" : `${user?.department_code || "Dept"} Admin`}
                 </div>
                 <div className="relative">
                   <button onClick={() => setShowNotifications(!showNotifications)} className={`relative p-2.5 rounded-xl transition-all duration-300 ${isDark ? "text-slate-300 hover:text-white hover:bg-slate-800" : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"}`}>

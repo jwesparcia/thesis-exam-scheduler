@@ -63,7 +63,7 @@ def run_tests():
         # TEST 3: Dedicated administrator accounts per department
         print("\n--- Test 3: Dedicated Administrator Accounts ---")
         admin_emails = {
-            "GE": "ge.admin@school.edu",
+            "GE": "academic.head@school.edu",
             "ICT": "ict.admin@school.edu",
             "BM": "bm.admin@school.edu",
             "THM": "thm.admin@school.edu",
@@ -73,13 +73,15 @@ def run_tests():
         }
         for code, email in admin_emails.items():
             user = db.query(User).filter(User.email == email).first()
+            if not user and code == "GE":
+                user = db.query(User).filter(User.email == "ge.admin@school.edu").first()
             assert_true(user is not None, f"Admin account for {code} ({email}) exists")
             if user:
                 assert_true(user.department_code == code, f"Account {email} assigned to department {code}")
                 assert_true(user.role == "program_head", f"Account {email} has role 'program_head'")
                 assert_true(verify_password("admin123", user.hashed_password), f"Account {email} password verification succeeds")
                 if code == "GE":
-                    assert_true(user.is_super_admin == True, "GE Admin has is_super_admin=True (Super Admin)")
+                    assert_true(user.is_super_admin == True, "Academic Head / GE Admin has is_super_admin=True (Super Admin)")
                 else:
                     assert_true(user.is_super_admin == False, f"{code} Admin has is_super_admin=False")
 
@@ -140,7 +142,7 @@ def run_tests():
         from routers.rescheduling import check_request_department_access
         from fastapi import HTTPException
 
-        ge_admin = db.query(User).filter(User.email == "ge.admin@school.edu").first()
+        ge_admin = db.query(User).filter(User.email == "academic.head@school.edu").first() or db.query(User).filter(User.email == "ge.admin@school.edu").first()
         ict_admin = db.query(User).filter(User.email == "ict.admin@school.edu").first()
         bm_admin = db.query(User).filter(User.email == "bm.admin@school.edu").first()
 

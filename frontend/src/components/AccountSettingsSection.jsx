@@ -178,7 +178,7 @@ export default function AccountSettingsSection({ isDark }) {
                 </div>
                 <div className="flex items-center gap-1.5 mt-0.5">
                   <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                    {user?.is_super_admin ? "Super Admin (GE)" : user?.department_code ? `${user.department_code} Admin` : user?.role || "Active Account"}
+                    {user?.is_super_admin ? "Academic Head" : user?.department_code ? `${user.department_code} Admin` : user?.role || "Active Account"}
                   </span>
                 </div>
               </div>

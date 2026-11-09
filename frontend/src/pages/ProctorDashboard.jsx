@@ -12,6 +12,7 @@ import {
   CalendarDaysIcon,
   TableCellsIcon,
   ArrowUpTrayIcon,
+  ArrowDownTrayIcon,
   CheckCircleIcon,
   XMarkIcon,
   TrashIcon,
@@ -121,26 +122,39 @@ function ProctorManual() {
             </div>
           </div>
 
-          {/* Search Bar */}
-          <div className="relative min-w-[240px] sm:min-w-[280px]">
-            <MagnifyingGlassIcon className={`w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 ${isDark ? "text-slate-400" : "text-slate-500"}`} />
-            <input
-              type="text"
-              placeholder="Search proctor guide..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className={`w-full pl-9 pr-4 py-2 rounded-xl text-xs sm:text-sm font-medium border transition-all focus:outline-none focus:ring-2 ${
-                isDark
-                  ? "bg-slate-900/70 border-slate-700 text-white placeholder-slate-500 focus:ring-blue-500/50"
-                  : "bg-white border-slate-200 text-slate-900 placeholder-slate-400 focus:ring-blue-500/30 shadow-sm"
-              }`} aria-label="Search proctor guide" />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery("")}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200" aria-label="Clear search">
-                <XMarkIcon className="w-3.5 h-3.5" />
-              </button>
-            )}
+          {/* Search Bar & Download PDF Button */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 min-w-[240px] sm:min-w-[380px]">
+            <div className="relative flex-1">
+              <MagnifyingGlassIcon className={`w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 ${isDark ? "text-slate-400" : "text-slate-500"}`} />
+              <input
+                type="text"
+                placeholder="Search proctor guide..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className={`w-full pl-9 pr-4 py-2 rounded-xl text-xs sm:text-sm font-medium border transition-all focus:outline-none focus:ring-2 ${
+                  isDark
+                    ? "bg-slate-900/70 border-slate-700 text-white placeholder-slate-500 focus:ring-blue-500/50"
+                    : "bg-white border-slate-200 text-slate-900 placeholder-slate-400 focus:ring-blue-500/30 shadow-sm"
+                }`} aria-label="Search proctor guide" />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200" aria-label="Clear search">
+                  <XMarkIcon className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+            <a
+              href="/USER_MANUAL.pdf"
+              download="STI_Exam_Scheduler_User_Manual.pdf"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl font-bold text-xs bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white shadow-sm transition-all duration-200 hover:scale-[1.02] shrink-0 cursor-pointer"
+              title="Download Complete System User Manual PDF"
+            >
+              <ArrowDownTrayIcon className="w-4 h-4" />
+              <span>Download PDF</span>
+            </a>
           </div>
         </div>
       </div>
