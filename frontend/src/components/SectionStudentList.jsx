@@ -95,7 +95,7 @@ export default function SectionStudentList() {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.get("/catalog/exams/attendance-roster", {
+      const res = await api.get("/catalog/exams/attendance-list", {
         params: { compact: true },
       });
       const payload = res.data;
@@ -159,8 +159,8 @@ export default function SectionStudentList() {
       setExpandedExams({});
       setCurrentPage(1);
     } catch (err) {
-      console.error("Error fetching attendance roster:", err);
-      setError("Failed to load exam roster. Please try again.");
+      console.error("Error fetching attendance list:", err);
+      setError("Failed to load exam attendance list. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -276,7 +276,7 @@ export default function SectionStudentList() {
 
   // Print a single exam attendance / signature sheet
   const handlePrint = (exam) => {
-    // When printing an exam card found via student search, print the full exam roster
+    // When printing an exam card found via student search, print the full exam attendance list
     // unless a specific student type filter (Regular/Irregular) was selected.
     const students =
       filterType === "all" ? exam.students : (exam.displayStudents ?? exam.students);
@@ -297,7 +297,7 @@ export default function SectionStudentList() {
 
     const html = `
       <!DOCTYPE html>
-      <html><head><title>Attendance Roster</title>
+      <html><head><title>Attendance List</title>
       <style>
         @page { size: A4 landscape; margin: 5mm; }
         @media print {
@@ -319,7 +319,7 @@ export default function SectionStudentList() {
       </style></head>
       <body>
         <main id="sheet"><div id="fit-content">
-        <h2>Exam Attendance Roster</h2>
+        <h2>Exam Attendance List</h2>
         <div class="meta">
           <strong>${escapeHtml(exam.subject_code)} — ${escapeHtml(exam.subject_name)}</strong><br/>
           Section: ${escapeHtml(exam.section_name)}${exam.is_rescheduled ? " (Rescheduled)" : ""} &nbsp;|&nbsp;
@@ -362,7 +362,7 @@ export default function SectionStudentList() {
           className={`w-10 h-10 animate-spin ${isDark ? "text-violet-400" : "text-violet-600"}`}
         />
         <p className={`text-sm font-medium ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-          Loading exam attendance roster…
+          Loading exam attendance list…
         </p>
       </div>
     );

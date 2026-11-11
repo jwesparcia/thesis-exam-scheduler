@@ -218,7 +218,7 @@ After executing `python setup_db.py`, the following administrative account is re
 | **Program Head / Admin** | `admin@school.edu` | `admin123` | Full access to schedule generator, proctor monitoring, rules, and student import |
 
 > [!NOTE]
-> Additional faculty, proctor, and student accounts are created automatically upon importing Excel rosters or proctor schedules through the Admin Dashboard.
+> Additional faculty, proctor, and student accounts are created automatically upon importing Excel lists or proctor schedules through the Admin Dashboard.
 
 ---
 

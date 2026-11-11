@@ -1428,7 +1428,7 @@ function ProgramHeadManual() {
     { id: "proctors", label: "Proctors & Live Monitoring", icon: UsersIcon, badge: "Check-ins" },
     { id: "rescheduling", label: "Rescheduling & Irregular", icon: ClipboardDocumentListIcon, badge: "Smart Auto" },
     { id: "rules", label: "Distribution Rules", icon: AdjustmentsHorizontalIcon, badge: "Policies" },
-    { id: "data", label: "Data Ingestion & Rosters", icon: CircleStackIcon, badge: "Excel Ingest" },
+    { id: "data", label: "Data Ingestion & Lists", icon: CircleStackIcon, badge: "Excel Ingest" },
     { id: "chat_notif", label: "Chat & Notifications", icon: ChatBubbleLeftRightIcon, badge: "Real-time" },
   ];
 
@@ -1734,7 +1734,7 @@ function ProgramHeadManual() {
                   Master Excel Export (.xlsx)
                 </h4>
                 <p className={`text-xs leading-relaxed mb-3 ${isDark ? "text-slate-300" : "text-slate-600"}`}>
-                  Click <strong>Export to Excel</strong> to generate an officially formatted, color-coded spreadsheet with separate sheets for College, SHS, and Proctor Duty Rosters.
+                  Click <strong>Export to Excel</strong> to generate an officially formatted, color-coded spreadsheet with separate sheets for College, SHS, and Proctor Duty Lists.
                 </p>
                 <div className={`p-3 rounded-xl border text-xs leading-relaxed flex items-center gap-2 ${
                   isDark ? "bg-emerald-950/20 border-emerald-900/40 text-emerald-300" : "bg-emerald-50 border-emerald-200 text-emerald-800"
@@ -1892,7 +1892,7 @@ function ProgramHeadManual() {
               <div className={`p-4 rounded-2xl border ${isDark ? "bg-slate-800/50 border-slate-700/60" : "bg-slate-50 border-slate-200/80"}`}>
                 <h4 className={`font-bold text-sm mb-1.5 ${isDark ? "text-slate-200" : "text-slate-800"}`}>2. Exclusions & Limits</h4>
                 <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-600"}`}>
-                  Toggle exclusion switches for department heads or part-time staff. The system strictly caps assignments at <strong>2 consecutive duties</strong> and balances cumulative hours across the roster.
+                  Toggle exclusion switches for department heads or part-time staff. The system strictly caps assignments at <strong>2 consecutive duties</strong> and balances cumulative hours across the list.
                 </p>
               </div>
 
@@ -2012,7 +2012,7 @@ function ProgramHeadManual() {
           </div>
         )}
 
-        {/* TAB 8: Data Ingestion & Section Rosters */}
+        {/* TAB 8: Data Ingestion & Section Lists */}
         {activeSubTab === "data" && (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
             <div className="flex items-center justify-between flex-wrap gap-3 pb-4 border-b border-slate-200 dark:border-slate-800">
@@ -2020,7 +2020,7 @@ function ProgramHeadManual() {
                 <div className="w-10 h-10 rounded-xl bg-teal-100 dark:bg-teal-900/40 flex items-center justify-center text-teal-600 dark:text-teal-400 font-bold text-base shadow-sm">8</div>
                 <div>
                   <h3 className={`text-lg sm:text-xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
-                    Data Ingestion & Section Rosters
+                    Data Ingestion & Section Lists
                   </h3>
                   <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
                     Bulk Excel Ingestion for Curricula, Proctors, Students, and Printable Attendance Sheets

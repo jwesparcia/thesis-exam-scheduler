@@ -1009,7 +1009,7 @@ export default function StudentImport({ isGenerating }) {
               <div className="p-3.5 rounded-xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800/60 text-xs text-purple-900 dark:text-purple-200 flex items-start gap-2.5">
                 <CheckCircleIcon className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0 mt-0.5" />
                 <span className="leading-relaxed">
-                  <strong>Auto-Enrolled from Spreadsheet:</strong> These subjects were imported directly from the student roster. The student is scheduled into the examination slots corresponding to these subjects.
+                  <strong>Auto-Enrolled from Spreadsheet:</strong> These subjects were imported directly from the student list. The student is scheduled into the examination slots corresponding to these subjects.
                 </span>
               </div>
 

@@ -205,14 +205,14 @@ def get_year_levels(db: Session = Depends(get_db), current_user: User = Depends(
     cache.set(_KEY_YEAR_LEVELS, result, TTL_STATIC)
     return result
 
-@router.get("/exams/attendance-roster")
-def get_exams_attendance_roster(
+@router.get("/exams/attendance-list")
+def get_exams_attendance_list(
     compact: bool = Query(False),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(["admin", "program_head"]))
 ):
     """
-    Returns all generated exams with their attendance roster (students who will take each exam).
+    Returns all generated exams with their attendance list (students who will take each exam).
     For each exam:
     - Regular students: User.section_name matches exam.section.name (and student_type == 'regular')
     - Irregular students: Included ONLY when they have an active schedule in that exact
@@ -293,7 +293,7 @@ def get_exams_attendance_roster(
         if eff_type == "regular" and sec_clean and sec_clean.lower() not in {"irregular", "nan", "none", "n/a"}:
             regular_map.setdefault(_norm_sec(sec_clean), []).append(s_dict)
 
-    # Pre-sort each regular section's roster ONCE (368 sections instead of 2,800 exams)
+    # Pre-sort each regular section's list ONCE (368 sections instead of 2,800 exams)
     for sec_k in regular_map:
         regular_map[sec_k].sort(key=_last_name_key)
 

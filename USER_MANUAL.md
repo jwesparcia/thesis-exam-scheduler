@@ -78,7 +78,7 @@ Executes the AI-driven scheduling engine to generate a multi-day examination tim
    - **Examination Term:** Select `Prelim`, `Midterm`, `Semi-Final`, or `Final`.
    - **Date Range:** Select the **Start Date** and **End Date** of the examination week.
 3. **Configure Section-Preferred Rooms (Optional Override):**
-   - In the section roster table, locate sections with specialized room requirements (e.g., `BSIT 3-201` requiring a computer lab).
+   - In the section list table, locate sections with specialized room requirements (e.g., `BSIT 3-201` requiring a computer lab).
    - Use the **Preferred Room** dropdown to pin that section to a specific room (e.g., `Computer Lab 1 (Cap: 40)`). The GA engine will prioritize reserving this room for all exams of that section.
 4. **Exclude Subjects:**
    - Use the **Exclude Subjects** search input to exclude non-classroom subjects (e.g., Online-only courses, OJT/Practicum, Physical Education, Thesis Defense).
@@ -109,7 +109,7 @@ Inspects published and draft timetables, filters by criteria, and downloads offi
   - Filter by **Date**, **Room Code**, **Section**, **Proctor Name**, or **Course**.
 - **Master Excel Export (`.xlsx`):**
   - Click **Export to Excel** in the top-right toolbar.
-  - The system downloads a styled spreadsheet with separate tabs for College Timetables, SHS Timetables, and Proctor Duty Rosters.
+  - The system downloads a styled spreadsheet with separate tabs for College Timetables, SHS Timetables, and Proctor Duty Lists.
 
 ---
 
@@ -219,9 +219,9 @@ Enforces institutional curriculum distribution directives to prevent student exa
 ### 2.8 Data Ingestion (Curriculum, Proctors, Students) & Section Attendance Sheets
 
 #### Features:
-- **Curriculum & Catalog Import:** Upload Excel rosters containing course codes, titles, prerequisites, and lecture/lab unit distributions.
+- **Curriculum & Catalog Import:** Upload Excel lists containing course codes, titles, prerequisites, and lecture/lab unit distributions.
 - **Proctor Accounts Import:** Bulk ingest faculty profiles, departmental affiliations, and contract hours.
-- **Student Accounts Import:** Bulk ingest student rosters with automatic classification into **Regular** or **Irregular** based on curriculum adherence.
+- **Student Accounts Import:** Bulk ingest student lists with automatic classification into **Regular** or **Irregular** based on curriculum adherence.
 - **Section List & Printable Attendance Sheets:**
   - View enrolled students per section.
   - Click **Export Attendance Sheet** to download official printable room sign-in sheets for proctors.
