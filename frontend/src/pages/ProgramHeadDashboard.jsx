@@ -2123,13 +2123,16 @@ function ProgramHeadManual() {
   );
 }
 
-function NavGroup({ label, icon: GroupIcon, children, defaultOpen = false, isDark }) {
+function NavGroup({ label, icon: GroupIcon, children, defaultOpen = false, isDark, minimized = false }) {
   const [open, setOpen] = useState(defaultOpen);
+  const items = React.Children.map(children, (child) => (
+    React.isValidElement(child) ? React.cloneElement(child, { minimized }) : child
+  ));
   return (
     <div className="space-y-1">
       <button
         onClick={() => setOpen(o => !o)}
-        className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-all duration-200 group ${
+        className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-all duration-200 group ${minimized ? "lg:hidden" : ""} ${
           isDark
             ? "text-slate-500 hover:text-slate-300"
             : "text-slate-400 hover:text-slate-600"
@@ -2143,16 +2146,16 @@ function NavGroup({ label, icon: GroupIcon, children, defaultOpen = false, isDar
           className={`w-3.5 h-3.5 transition-transform duration-200 ${open ? "rotate-90" : ""}`}
         />
       </button>
-      {open && (
+      {(open || minimized) && (
         <div className="space-y-1 ml-0">
-          {children}
+          {items}
         </div>
       )}
     </div>
   );
 }
 
-function NavItem({ item, activeTab, setActiveTab, isDark, badge, onSelect }) {
+function NavItem({ item, activeTab, setActiveTab, isDark, badge, onSelect, minimized = false }) {
   const Icon = item.icon;
   const isActive = activeTab === item.id;
   return (
@@ -2161,7 +2164,9 @@ function NavItem({ item, activeTab, setActiveTab, isDark, badge, onSelect }) {
         setActiveTab(item.id);
         if (onSelect) onSelect();
       }}
-      className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-200 group ${
+      title={item.label}
+      aria-label={item.label}
+      className={`relative w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-200 group ${minimized ? "lg:justify-center lg:px-3" : ""} ${
         isActive
           ? isDark
             ? "bg-blue-600 text-white shadow-lg shadow-blue-900/50"
@@ -2171,12 +2176,12 @@ function NavItem({ item, activeTab, setActiveTab, isDark, badge, onSelect }) {
             : "text-slate-600 hover:bg-blue-50 hover:text-blue-700"
       }`}
     >
-      <div className="flex items-center gap-3">
+      <div className={`flex items-center gap-3 ${minimized ? "lg:gap-0" : ""}`}>
         <Icon className={`w-4.5 h-4.5 transition-transform duration-200 ${isActive ? "scale-110" : "group-hover:scale-110"}`} />
-        <span className="text-sm font-semibold">{item.label}</span>
+        <span className={`text-sm font-semibold ${minimized ? "lg:hidden" : ""}`}>{item.label}</span>
       </div>
       {badge > 0 && (
-        <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full animate-pulse">
+        <span className={`bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full animate-pulse ${minimized ? "lg:absolute lg:-top-1 lg:-right-1 lg:px-1.5" : ""}`}>
           {badge}
         </span>
       )}
@@ -2184,7 +2189,7 @@ function NavItem({ item, activeTab, setActiveTab, isDark, badge, onSelect }) {
   );
 }
 
-function NavSidebar({ activeTab, setActiveTab, isDark, unreadChatCount, pendingRescheduleCount, onSelectNavItem }) {
+function NavSidebar({ activeTab, setActiveTab, isDark, unreadChatCount, pendingRescheduleCount, onSelectNavItem, minimized = false }) {
   const schedulingIds = ["generate", "schedules", "durations"];
   const managementIds = ["proctors", "rooms", "monitoring", "rescheduling", "chat", "section-students"];
   const dataIds = ["import", "proctors-import", "students", "rules"];
@@ -2194,16 +2199,16 @@ function NavSidebar({ activeTab, setActiveTab, isDark, unreadChatCount, pendingR
   const isDataActive = dataIds.includes(activeTab);
 
   return (
-    <nav className="flex-1 px-4 py-5 space-y-3 overflow-y-auto custom-scrollbar">
+    <nav className={`flex-1 px-4 py-5 space-y-3 overflow-y-auto custom-scrollbar ${minimized ? "lg:px-2" : ""}`}>
       {/* Scheduling Group */}
-      <NavGroup label="Scheduling" icon={CalendarIcon} defaultOpen={isSchedulingActive} isDark={isDark}>
+      <NavGroup label="Scheduling" icon={CalendarIcon} defaultOpen={isSchedulingActive} isDark={isDark} minimized={minimized}>
         <NavItem item={{ id: "generate", icon: CalendarIcon, label: "Generate Schedule" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
         <NavItem item={{ id: "schedules", icon: CalendarDaysIcon, label: "Generated Schedules" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
         <NavItem item={{ id: "durations", icon: ClockIcon, label: "Subject Management" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
       </NavGroup>
 
       {/* Management Group */}
-      <NavGroup label="Management" icon={UsersIcon} defaultOpen={isManagementActive} isDark={isDark}>
+      <NavGroup label="Management" icon={UsersIcon} defaultOpen={isManagementActive} isDark={isDark} minimized={minimized}>
         <NavItem item={{ id: "proctors", icon: UsersIcon, label: "Proctor Management" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
         <NavItem item={{ id: "rooms", icon: BuildingOffice2Icon, label: "Room Management" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
         <NavItem item={{ id: "monitoring", icon: ShieldCheckIcon, label: "Proctor Monitoring" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
@@ -2213,7 +2218,7 @@ function NavSidebar({ activeTab, setActiveTab, isDark, unreadChatCount, pendingR
       </NavGroup>
 
       {/* Data & Imports Group */}
-      <NavGroup label="Data & Imports" icon={CircleStackIcon} defaultOpen={isDataActive} isDark={isDark}>
+      <NavGroup label="Data & Imports" icon={CircleStackIcon} defaultOpen={isDataActive} isDark={isDark} minimized={minimized}>
         <NavItem item={{ id: "import", icon: CircleStackIcon, label: "Data Import" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
         <NavItem item={{ id: "proctors-import", icon: UsersIcon, label: "Proctor Accounts" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
         <NavItem item={{ id: "students", icon: UserIcon, label: "Student Accounts" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
@@ -2222,8 +2227,8 @@ function NavSidebar({ activeTab, setActiveTab, isDark, unreadChatCount, pendingR
 
       {/* Help standalone */}
       <div className={`pt-2 border-t ${isDark ? "border-slate-800" : "border-slate-100"}`}>
-        <NavItem item={{ id: "manual", icon: BookOpenIcon, label: "User Manual" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
-        <NavItem item={{ id: "settings", icon: Cog6ToothIcon, label: "Account Settings" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
+        <NavItem item={{ id: "manual", icon: BookOpenIcon, label: "User Manual" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} minimized={minimized} />
+        <NavItem item={{ id: "settings", icon: Cog6ToothIcon, label: "Account Settings" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} minimized={minimized} />
       </div>
     </nav>
   );
@@ -2232,6 +2237,9 @@ function NavSidebar({ activeTab, setActiveTab, isDark, unreadChatCount, pendingR
 export default function ProgramHeadDashboard() {
   const [activeTab, setActiveTab] = useState("generate");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
+    return localStorage.getItem("program_head_sidebar_collapsed") === "true";
+  });
   const [generationState, setGenerationState] = useState(INITIAL_GENERATION_STATE);
   const { theme } = useTheme();
   const { user, login, logout } = useUser();
@@ -2371,6 +2379,14 @@ export default function ProgramHeadDashboard() {
     navigate("/login", { replace: true });
   };
 
+  const toggleSidebar = () => {
+    setIsSidebarCollapsed((collapsed) => {
+      const nextValue = !collapsed;
+      localStorage.setItem("program_head_sidebar_collapsed", String(nextValue));
+      return nextValue;
+    });
+  };
+
   // Function to warn about missing schedules (used when generating)
   const checkMissingSchedulesBeforeGenerate = async () => {
     try {
@@ -2453,8 +2469,8 @@ export default function ProgramHeadDashboard() {
       )}
 
       {/* Sidebar */}
-      <aside className={`fixed lg:static inset-y-0 left-0 w-[min(18rem,85vw)] h-full flex flex-col border-r transition-transform duration-300 z-50 shrink-0 transform ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"} ${isDark ? "bg-slate-900/95 lg:bg-slate-900/80 border-slate-800 backdrop-blur-xl" : "bg-white/95 lg:bg-white border-slate-200 backdrop-blur-xl"}`}>
-        <div className="p-6 flex flex-col items-center gap-4 border-b border-transparent relative">
+      <aside className={`fixed lg:static inset-y-0 left-0 w-[min(18rem,85vw)] ${isSidebarCollapsed ? "lg:w-20" : "lg:w-72"} h-full flex flex-col border-r transition-[transform,width] duration-300 z-50 shrink-0 transform ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"} ${isDark ? "bg-slate-900/95 lg:bg-slate-900/80 border-slate-800 backdrop-blur-xl" : "bg-white/95 lg:bg-white border-slate-200 backdrop-blur-xl"}`}>
+        <div className={`p-6 flex flex-col items-center gap-4 border-b border-transparent relative ${isSidebarCollapsed ? "lg:p-4" : ""}`}>
           <button 
             onClick={() => setIsMobileMenuOpen(false)}
             type="button"
@@ -2463,10 +2479,19 @@ export default function ProgramHeadDashboard() {
           >
             <XMarkIcon className="w-5 h-5" />
           </button>
-          <div className={`w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg transition-transform hover:scale-105 duration-300 ${isDark ? "bg-gradient-to-br from-blue-600 to-indigo-700" : "bg-gradient-to-br from-blue-500 to-blue-700"}`}>
+          <button
+            type="button"
+            onClick={toggleSidebar}
+            className={`hidden lg:flex absolute top-4 right-3 p-2 rounded-lg transition-colors ${isDark ? "text-slate-400 hover:bg-slate-800 hover:text-white" : "text-slate-500 hover:bg-slate-100 hover:text-slate-900"}`}
+            title={isSidebarCollapsed ? "Expand sidebar" : "Minimize sidebar"}
+            aria-label={isSidebarCollapsed ? "Expand sidebar" : "Minimize sidebar"}
+          >
+            {isSidebarCollapsed ? <ChevronRightIcon className="w-5 h-5" /> : <ChevronLeftIcon className="w-5 h-5" />}
+          </button>
+          <div className={`w-16 h-16 ${isSidebarCollapsed ? "lg:w-12 lg:h-12" : ""} rounded-2xl flex items-center justify-center shadow-lg transition-transform hover:scale-105 duration-300 ${isDark ? "bg-gradient-to-br from-blue-600 to-indigo-700" : "bg-gradient-to-br from-blue-500 to-blue-700"}`}>
             <UserIcon className="w-8 h-8 text-white" />
           </div>
-          <div className="text-center">
+          <div className={`text-center ${isSidebarCollapsed ? "lg:hidden" : ""}`}>
             <h2 className={`text-lg font-bold tracking-tight ${isDark ? "text-white" : "text-slate-900"}`}>{user?.name || "Admin"}</h2>
             <div className="flex items-center justify-center gap-1 mt-1">
               {user?.is_super_admin ? (
@@ -2489,10 +2514,11 @@ export default function ProgramHeadDashboard() {
           unreadChatCount={unreadChatCount}
           pendingRescheduleCount={pendingRescheduleCount}
           onSelectNavItem={() => setIsMobileMenuOpen(false)}
+          minimized={isSidebarCollapsed}
         />
 
-        <footer className={`p-6 text-xs text-center font-medium border-t transition-colors ${isDark ? "border-slate-800 text-slate-500" : "border-slate-100 text-slate-400"}`}>
-          v1.0 • Built with React
+        <footer className={`p-6 text-xs text-center font-medium border-t transition-colors ${isSidebarCollapsed ? "lg:p-3" : ""} ${isDark ? "border-slate-800 text-slate-500" : "border-slate-100 text-slate-400"}`}>
+          <span className={isSidebarCollapsed ? "lg:hidden" : ""}>v1.0 • Built with React</span>
         </footer>
       </aside>
 

@@ -1256,6 +1256,45 @@ export default function ProctorDashboard() {
     return "Schedule unavailable";
   }, []);
 
+  const getAttendanceStatus = useCallback((exam, referenceTime = new Date()) => {
+    if (isAttendanceConfirmed(exam?.proctor_attendance)) return "confirmed";
+
+    const windowStatus = getAttendanceWindowStatus(exam, referenceTime);
+    if (windowStatus === "upcoming") return "upcoming";
+    if (windowStatus === "ended") return "missed";
+    return "pending";
+  }, [getAttendanceWindowStatus, isAttendanceConfirmed]);
+
+  const getAttendanceStatusDetails = useCallback((status) => {
+    const details = {
+      confirmed: {
+        label: "Confirmed",
+        badgeClass: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/60",
+        indicatorClass: "bg-emerald-500 animate-pulse",
+        accentClass: "bg-emerald-500",
+      },
+      upcoming: {
+        label: "Upcoming",
+        badgeClass: "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400 border-blue-200 dark:border-blue-800/60",
+        indicatorClass: "bg-blue-500",
+        accentClass: "bg-blue-500",
+      },
+      missed: {
+        label: "Missed",
+        badgeClass: "bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400 border-rose-200 dark:border-rose-800/60",
+        indicatorClass: "bg-rose-500",
+        accentClass: "bg-rose-500",
+      },
+      pending: {
+        label: "Pending",
+        badgeClass: "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 border-amber-200 dark:border-amber-800/60",
+        indicatorClass: "bg-amber-500",
+        accentClass: "bg-amber-500",
+      },
+    };
+    return details[status] || details.pending;
+  }, []);
+
   useEffect(() => {
     const timer = window.setInterval(() => setCurrentTime(new Date()), 1000);
     return () => window.clearInterval(timer);
@@ -1275,14 +1314,20 @@ export default function ProctorDashboard() {
     localStorage.setItem("proctor_assignment_view_mode", mode);
   };
 
-  const pendingExamsCount = useMemo(() => exams.filter(e => !isAttendanceConfirmed(e.proctor_attendance)).length, [exams, isAttendanceConfirmed]);
-  const confirmedExamsCount = useMemo(() => exams.filter(e => isAttendanceConfirmed(e.proctor_attendance)).length, [exams, isAttendanceConfirmed]);
+  const pendingExamsCount = useMemo(
+    () => exams.filter((exam) => getAttendanceStatus(exam, currentTime) === "pending").length,
+    [currentTime, exams, getAttendanceStatus]
+  );
+  const confirmedExamsCount = useMemo(
+    () => exams.filter((exam) => getAttendanceStatus(exam, currentTime) === "confirmed").length,
+    [currentTime, exams, getAttendanceStatus]
+  );
 
   const filteredExams = useMemo(() => {
     return exams.filter((exam) => {
-      const isConfirmed = isAttendanceConfirmed(exam.proctor_attendance);
-      if (assignmentFilter === "confirmed" && !isConfirmed) return false;
-      if (assignmentFilter === "pending" && isConfirmed) return false;
+      const attendanceStatus = getAttendanceStatus(exam, currentTime);
+      if (assignmentFilter === "confirmed" && attendanceStatus !== "confirmed") return false;
+      if (assignmentFilter === "pending" && attendanceStatus !== "pending") return false;
 
       if (assignmentSearch.trim()) {
         const query = assignmentSearch.toLowerCase();
@@ -1297,7 +1342,7 @@ export default function ProctorDashboard() {
 
       return true;
     });
-  }, [exams, assignmentFilter, assignmentSearch, isAttendanceConfirmed]);
+  }, [exams, assignmentFilter, assignmentSearch, currentTime, getAttendanceStatus]);
   const [uploading, setUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [mySchedule, setMySchedule] = useState([]);
@@ -1308,6 +1353,9 @@ export default function ProctorDashboard() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [isClearNotifModalOpen, setIsClearNotifModalOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
+    return localStorage.getItem("proctor_sidebar_collapsed") === "true";
+  });
   const [showDeleteScheduleModal, setShowDeleteScheduleModal] = useState(false);
   const [deletingSchedule, setDeletingSchedule] = useState(false);
 
@@ -1579,6 +1627,14 @@ export default function ProctorDashboard() {
     setIsMobileMenuOpen(true);
   };
 
+  const toggleSidebar = () => {
+    setIsSidebarCollapsed((collapsed) => {
+      const nextValue = !collapsed;
+      localStorage.setItem("proctor_sidebar_collapsed", String(nextValue));
+      return nextValue;
+    });
+  };
+
   const formatDate = (dateStr) => {
     if (!dateStr) return "";
     try {
@@ -1709,8 +1765,8 @@ export default function ProctorDashboard() {
       )}
 
       {/* Sidebar */}
-      <aside className={`fixed lg:static inset-y-0 left-0 w-[min(18rem,85vw)] h-full flex flex-col border-r transition-transform duration-300 z-50 shrink-0 transform ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"} ${isDark ? "bg-slate-900/95 lg:bg-slate-900/80 border-slate-800 backdrop-blur-xl" : "bg-white/95 lg:bg-white border-slate-200 backdrop-blur-xl"}`}>
-        <div className="p-6 flex flex-col items-center gap-4 border-b border-transparent relative">
+      <aside className={`fixed lg:static inset-y-0 left-0 w-[min(18rem,85vw)] ${isSidebarCollapsed ? "lg:w-20" : "lg:w-72"} h-full flex flex-col border-r transition-[transform,width] duration-300 z-50 shrink-0 transform ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"} ${isDark ? "bg-slate-900/95 lg:bg-slate-900/80 border-slate-800 backdrop-blur-xl" : "bg-white/95 lg:bg-white border-slate-200 backdrop-blur-xl"}`}>
+        <div className={`p-6 flex flex-col items-center gap-4 border-b border-transparent relative ${isSidebarCollapsed ? "lg:p-4" : ""}`}>
           <button 
             onClick={() => setIsMobileMenuOpen(false)}
             type="button"
@@ -1719,16 +1775,25 @@ export default function ProctorDashboard() {
           >
             <XMarkIcon className="w-5 h-5" />
           </button>
-          <div className={`w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg transition-transform hover:scale-105 duration-300 ${isDark ? "bg-gradient-to-br from-blue-600 to-indigo-700" : "bg-gradient-to-br from-blue-500 to-blue-700"}`}>
+          <button
+            type="button"
+            onClick={toggleSidebar}
+            className={`hidden lg:flex absolute top-4 right-3 p-2 rounded-lg transition-colors ${isDark ? "text-slate-400 hover:bg-slate-800 hover:text-white" : "text-slate-500 hover:bg-slate-100 hover:text-slate-900"}`}
+            title={isSidebarCollapsed ? "Expand sidebar" : "Minimize sidebar"}
+            aria-label={isSidebarCollapsed ? "Expand sidebar" : "Minimize sidebar"}
+          >
+            {isSidebarCollapsed ? <ChevronRightIcon className="w-5 h-5" /> : <ChevronLeftIcon className="w-5 h-5" />}
+          </button>
+          <div className={`w-16 h-16 ${isSidebarCollapsed ? "lg:w-12 lg:h-12" : ""} rounded-2xl flex items-center justify-center shadow-lg transition-transform hover:scale-105 duration-300 ${isDark ? "bg-gradient-to-br from-blue-600 to-indigo-700" : "bg-gradient-to-br from-blue-500 to-blue-700"}`}>
             <img src="/images.png" alt="STI Logo" className="rounded-xl h-10 w-10 object-contain drop-shadow-md" />
           </div>
-          <div className="text-center">
+          <div className={`text-center ${isSidebarCollapsed ? "lg:hidden" : ""}`}>
             <h2 className={`text-lg font-bold tracking-tight ${isDark ? "text-white" : "text-slate-900"}`}>Proctor Portal</h2>
             <p className={`text-xs font-medium tracking-wide uppercase mt-1 ${isDark ? "text-blue-400" : "text-blue-600"}`}>STI Education System</p>
           </div>
         </div>
         
-        <nav className="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto custom-scrollbar">
+        <nav className={`flex-1 px-4 py-6 space-y-1.5 overflow-y-auto custom-scrollbar ${isSidebarCollapsed ? "lg:px-2" : ""}`}>
           {[
             { id: "assignments", icon: CalendarDaysIcon, label: "My Assignments" },
             { id: "schedule", icon: TableCellsIcon, label: "My Schedule" },
@@ -1746,7 +1811,9 @@ export default function ProctorDashboard() {
                   setIsMobileMenuOpen(false);
                 }}
                 type="button"
-                className={`w-full flex items-center gap-3.5 px-4 py-3.5 rounded-xl transition-all duration-300 group ${
+                title={item.label}
+                aria-label={item.label}
+                className={`w-full flex items-center gap-3.5 px-4 py-3.5 rounded-xl transition-all duration-300 group ${isSidebarCollapsed ? "lg:justify-center lg:px-3" : ""} ${
                   isActive
                     ? isDark 
                       ? "bg-blue-600 text-white shadow-lg shadow-blue-900/50" 
@@ -1757,14 +1824,14 @@ export default function ProctorDashboard() {
                 }`}
               >
                 <Icon className={`w-5 h-5 transition-transform duration-300 ${isActive ? "scale-110" : "group-hover:scale-110"}`} />
-                <span className="text-sm font-semibold">{item.label}</span>
+                <span className={`text-sm font-semibold ${isSidebarCollapsed ? "lg:hidden" : ""}`}>{item.label}</span>
               </button>
             );
           })}
         </nav>
         
-        <footer className={`p-6 text-xs text-center font-medium border-t transition-colors ${isDark ? "border-slate-800 text-slate-500" : "border-slate-100 text-slate-400"}`}>
-          v1.0 • Built with React
+        <footer className={`p-6 text-xs text-center font-medium border-t transition-colors ${isSidebarCollapsed ? "lg:p-3" : ""} ${isDark ? "border-slate-800 text-slate-500" : "border-slate-100 text-slate-400"}`}>
+          <span className={isSidebarCollapsed ? "lg:hidden" : ""}>v1.0 • Built with React</span>
         </footer>
       </aside>
 
@@ -2369,6 +2436,8 @@ export default function ProctorDashboard() {
                               const isConfirmed = isAttendanceConfirmed(exam.proctor_attendance);
                               const attendanceWindowStatus = getAttendanceWindowStatus(exam, currentTime);
                               const attendanceWindowMessage = getAttendanceWindowMessage(attendanceWindowStatus, exam);
+                              const attendanceStatus = getAttendanceStatus(exam, currentTime);
+                              const attendanceStatusDetails = getAttendanceStatusDetails(attendanceStatus);
                               return (
                                 <tr
                                   key={exam.id}
@@ -2430,17 +2499,10 @@ export default function ProctorDashboard() {
 
                                   {/* Attendance Status */}
                                   <td className="py-4 px-4 text-center whitespace-nowrap">
-                                    {isConfirmed ? (
-                                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/60 shadow-xs">
-                                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                                        Confirmed
-                                      </span>
-                                    ) : (
-                                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200 dark:border-amber-800/60 shadow-xs">
-                                        <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-                                        Pending
-                                      </span>
-                                    )}
+                                    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border shadow-xs ${attendanceStatusDetails.badgeClass}`}>
+                                      <span className={`w-2 h-2 rounded-full ${attendanceStatusDetails.indicatorClass}`}></span>
+                                      {attendanceStatusDetails.label}
+                                    </span>
                                   </td>
 
                                   {/* Actions */}
@@ -2490,6 +2552,8 @@ export default function ProctorDashboard() {
                         const isConfirmed = isAttendanceConfirmed(exam.proctor_attendance);
                         const attendanceWindowStatus = getAttendanceWindowStatus(exam, currentTime);
                         const attendanceWindowMessage = getAttendanceWindowMessage(attendanceWindowStatus, exam);
+                        const attendanceStatus = getAttendanceStatus(exam, currentTime);
+                        const attendanceStatusDetails = getAttendanceStatusDetails(attendanceStatus);
                         return (
                           <div
                             key={exam.id}
@@ -2522,17 +2586,10 @@ export default function ProctorDashboard() {
 
                               {/* Status Badge */}
                               <div className="shrink-0">
-                                {isConfirmed ? (
-                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/60 shadow-xs">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                                    Confirmed
-                                  </span>
-                                ) : (
-                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200 dark:border-amber-800/60 shadow-xs">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-                                    Pending
-                                  </span>
-                                )}
+                                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border shadow-xs ${attendanceStatusDetails.badgeClass}`}>
+                                  <span className={`w-1.5 h-1.5 rounded-full ${attendanceStatusDetails.indicatorClass}`}></span>
+                                  {attendanceStatusDetails.label}
+                                </span>
                               </div>
                             </div>
 
@@ -2615,16 +2672,24 @@ export default function ProctorDashboard() {
                       const isConfirmed = isAttendanceConfirmed(exam.proctor_attendance);
                       const attendanceWindowStatus = getAttendanceWindowStatus(exam, currentTime);
                       const attendanceWindowMessage = getAttendanceWindowMessage(attendanceWindowStatus, exam);
+                      const attendanceStatus = getAttendanceStatus(exam, currentTime);
+                      const attendanceStatusDetails = getAttendanceStatusDetails(attendanceStatus);
                       return (
                       <div key={exam.id} className={`rounded-2xl sm:rounded-3xl border transition-all duration-300 hover:shadow-lg relative overflow-hidden group ${isDark ? "bg-slate-800/90 border-slate-700/50 hover:border-slate-600" : "bg-white border-slate-200 hover:border-blue-200 shadow-sm"}`}>
-                        <div className={`h-2 w-full ${isConfirmed ? "bg-emerald-500" : "bg-amber-500"}`}></div>
+                        <div className={`h-2 w-full ${attendanceStatusDetails.accentClass}`}></div>
                         
                         <div className="p-4 sm:p-6">
-                          <div className="flex flex-col gap-1.5 mb-5 pr-16 sm:pr-20">
-                            <span className={`inline-block w-fit px-2 py-0.5 rounded text-xs font-bold tracking-widest uppercase mb-1 ${isDark ? "bg-blue-500/20 text-blue-400" : "bg-blue-50 text-blue-600"}`}>{exam.section_name}</span>
-                            <h3 className={`text-lg sm:text-xl font-bold leading-tight break-words ${isDark ? "text-white" : "text-slate-900"}`}>{exam.subject_name}</h3>
-                            <p className={`text-xs font-medium ${isDark ? "text-slate-500" : "text-slate-500"}`}>ID: {exam.subject_code}</p>
-                            <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>Instructor: <span className="font-semibold">{exam.instructor_name || "Not assigned"}</span></p>
+                          <div className="flex items-start justify-between gap-3 mb-5">
+                            <div className="min-w-0 flex flex-col gap-1.5">
+                              <span className={`inline-block w-fit px-2 py-0.5 rounded text-xs font-bold tracking-widest uppercase mb-1 ${isDark ? "bg-blue-500/20 text-blue-400" : "bg-blue-50 text-blue-600"}`}>{exam.section_name}</span>
+                              <h3 className={`text-lg sm:text-xl font-bold leading-tight break-words ${isDark ? "text-white" : "text-slate-900"}`}>{exam.subject_name}</h3>
+                              <p className={`text-xs font-medium ${isDark ? "text-slate-500" : "text-slate-500"}`}>ID: {exam.subject_code}</p>
+                              <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>Instructor: <span className="font-semibold">{exam.instructor_name || "Not assigned"}</span></p>
+                            </div>
+                            <span className={`shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${attendanceStatusDetails.badgeClass}`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${attendanceStatusDetails.indicatorClass}`}></span>
+                              {attendanceStatusDetails.label}
+                            </span>
                           </div>
                           
                           <div className={`space-y-3.5 pt-5 border-t ${isDark ? "border-slate-700/50" : "border-slate-100"}`}>
