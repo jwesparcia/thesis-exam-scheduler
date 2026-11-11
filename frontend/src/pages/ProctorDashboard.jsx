@@ -1778,7 +1778,15 @@ export default function ProctorDashboard() {
           <button
             type="button"
             onClick={toggleSidebar}
-            className={`hidden lg:flex absolute top-4 right-3 p-2 rounded-lg transition-colors ${isDark ? "text-slate-400 hover:bg-slate-800 hover:text-white" : "text-slate-500 hover:bg-slate-100 hover:text-slate-900"}`}
+            className={`hidden lg:flex absolute p-2 transition-all duration-200 ${
+              isSidebarCollapsed
+                ? isDark
+                  ? "top-4 -right-5 z-20 rounded-full border border-slate-700 bg-slate-800 text-slate-200 shadow-lg shadow-slate-950/40 hover:bg-slate-700 hover:text-white"
+                  : "top-4 -right-5 z-20 rounded-full border border-slate-200 bg-white text-slate-600 shadow-lg shadow-slate-300/40 hover:bg-slate-50 hover:text-slate-900"
+                : isDark
+                  ? "top-4 right-3 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white"
+                  : "top-4 right-3 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+            }`}
             title={isSidebarCollapsed ? "Expand sidebar" : "Minimize sidebar"}
             aria-label={isSidebarCollapsed ? "Expand sidebar" : "Minimize sidebar"}
           >
