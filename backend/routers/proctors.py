@@ -5,7 +5,9 @@ from core.cache import TTL_PROCTORS, TTL_MONITORING
 from model import models
 import pandas as pd
 import io
-from datetime import datetime, date
+import os
+from datetime import datetime, date, timedelta, timezone
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from sqlalchemy import text, func
 from .auth import get_current_user, require_role
 from utils.logging import log_activity
@@ -13,6 +15,37 @@ from .exams import is_generation_ongoing
 from utils.schedule_translator import translate_grid_schedule_from_bytes, translate_row_schedule
 
 router = APIRouter(prefix="/proctors", tags=["Proctors"])
+
+
+def _get_schedule_timezone():
+    """Return the timezone in which the institution's timetable is defined."""
+    timezone_name = os.getenv("EXAM_SCHEDULE_TIMEZONE", "Asia/Manila")
+    try:
+        return ZoneInfo(timezone_name)
+    except ZoneInfoNotFoundError:
+        # The application is used in a UTC+8 institution. Keep the attendance
+        # safeguard working on hosts that do not ship the IANA timezone database.
+        return timezone(timedelta(hours=8))
+
+
+SCHEDULE_TIMEZONE = _get_schedule_timezone()
+
+
+def _get_current_schedule_datetime():
+    """Get the current time in the same timezone as stored exam timeslots."""
+    return datetime.now(SCHEDULE_TIMEZONE)
+
+
+def _get_timeslot_window(timeslot):
+    """Build timezone-aware start/end datetimes from a Timeslot, if complete."""
+    if not timeslot or not timeslot.date or not timeslot.start_time or not timeslot.end_time:
+        return None
+
+    starts_at = datetime.combine(timeslot.date, timeslot.start_time, tzinfo=SCHEDULE_TIMEZONE)
+    ends_at = datetime.combine(timeslot.date, timeslot.end_time, tzinfo=SCHEDULE_TIMEZONE)
+    if ends_at < starts_at:
+        ends_at += timedelta(days=1)
+    return starts_at, ends_at
 
 def get_excel_engine(file_content: bytes, filename: str):
     if filename.endswith('.xls') and not filename.endswith('.xlsx'):
@@ -469,8 +502,23 @@ def confirm_attendance(
     exam = db.query(models.Exam).filter(models.Exam.id == exam_id, models.Exam.proctor_id == proctor_id).first()
     if not exam:
         raise HTTPException(status_code=404, detail="Exam assignment not found for this proctor")
+    if exam.status != "posted":
+        raise HTTPException(status_code=400, detail="Attendance can only be confirmed for a posted exam assignment")
     if exam.proctor_attendance in ["attended", "confirmed"]:
         raise HTTPException(status_code=400, detail="Attendance has already been confirmed for this exam")
+
+    attendance_window = _get_timeslot_window(exam.timeslot)
+    if not attendance_window:
+        raise HTTPException(status_code=400, detail="This exam assignment does not have a complete schedule")
+
+    starts_at, ends_at = attendance_window
+    now = _get_current_schedule_datetime()
+    if now < starts_at or now > ends_at:
+        raise HTTPException(
+            status_code=403,
+            detail="Attendance can only be confirmed while the scheduled exam is in progress",
+        )
+
     exam.proctor_attendance = "confirmed"
     proctor = db.query(models.Proctor).get(proctor_id)
     proctor_name = proctor.name if proctor else f"Proctor {proctor_id}"

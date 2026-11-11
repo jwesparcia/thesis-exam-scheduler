@@ -1225,10 +1225,50 @@ export default function ProctorDashboard() {
   const [assignmentSearch, setAssignmentSearch] = useState("");
   const [confirmingExamId, setConfirmingExamId] = useState(null);
   const [attendanceConfirmExam, setAttendanceConfirmExam] = useState(null);
+  const [currentTime, setCurrentTime] = useState(() => new Date());
 
   const isAttendanceConfirmed = useCallback((attendance) => {
     return attendance === "confirmed" || attendance === "attended";
   }, []);
+
+  const getAttendanceWindowStatus = useCallback((exam, referenceTime = new Date()) => {
+    if (!exam?.exam_date_iso || !exam?.start_time_24h || !exam?.end_time_24h) {
+      return "unavailable";
+    }
+
+    const startsAt = new Date(`${exam.exam_date_iso}T${exam.start_time_24h}`);
+    const endsAt = new Date(`${exam.exam_date_iso}T${exam.end_time_24h}`);
+    if (Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime())) {
+      return "unavailable";
+    }
+    if (endsAt < startsAt) {
+      endsAt.setDate(endsAt.getDate() + 1);
+    }
+
+    if (referenceTime < startsAt) return "upcoming";
+    if (referenceTime > endsAt) return "ended";
+    return "active";
+  }, []);
+
+  const getAttendanceWindowMessage = useCallback((status, exam) => {
+    if (status === "upcoming") return `Available at ${exam.start_time}`;
+    if (status === "ended") return "Attendance window closed";
+    return "Schedule unavailable";
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    if (
+      attendanceConfirmExam &&
+      getAttendanceWindowStatus(attendanceConfirmExam, currentTime) !== "active"
+    ) {
+      setAttendanceConfirmExam(null);
+    }
+  }, [attendanceConfirmExam, currentTime, getAttendanceWindowStatus]);
 
   const handleViewModeChange = (mode) => {
     setAssignmentViewMode(mode);
@@ -1248,10 +1288,11 @@ export default function ProctorDashboard() {
         const query = assignmentSearch.toLowerCase();
         const matchName = (exam.subject_name || "").toLowerCase().includes(query);
         const matchCode = (exam.subject_code || "").toLowerCase().includes(query);
+        const matchInstructor = (exam.instructor_name || "").toLowerCase().includes(query);
         const matchSection = (exam.section_name || "").toLowerCase().includes(query);
         const matchRoom = (exam.room || "").toLowerCase().includes(query);
         const matchDate = (exam.exam_date || "").toLowerCase().includes(query);
-        if (!matchName && !matchCode && !matchSection && !matchRoom && !matchDate) return false;
+        if (!matchName && !matchCode && !matchInstructor && !matchSection && !matchRoom && !matchDate) return false;
       }
 
       return true;
@@ -1466,12 +1507,30 @@ export default function ProctorDashboard() {
     }
   };
 
+  const requestAttendanceConfirmation = useCallback((exam) => {
+    const windowStatus = getAttendanceWindowStatus(exam);
+    if (windowStatus !== "active") {
+      showError(getAttendanceWindowMessage(windowStatus, exam));
+      return;
+    }
+    setAttendanceConfirmExam(exam);
+  }, [getAttendanceWindowMessage, getAttendanceWindowStatus, showError]);
+
   const handleConfirmAttendance = async (examId) => {
     if (confirmingExamId) return; // Prevent spamming / multiple concurrent clicks
 
     const targetExam = exams.find((e) => e.id === examId);
-    if (targetExam && isAttendanceConfirmed(targetExam.proctor_attendance)) {
+    if (!targetExam) {
+      showError("Exam assignment not found. Please refresh and try again.");
+      return;
+    }
+    if (isAttendanceConfirmed(targetExam.proctor_attendance)) {
       showError("Attendance has already been confirmed for this exam.");
+      return;
+    }
+    const windowStatus = getAttendanceWindowStatus(targetExam);
+    if (windowStatus !== "active") {
+      showError(getAttendanceWindowMessage(windowStatus, targetExam));
       return;
     }
 
@@ -2292,7 +2351,7 @@ export default function ProctorDashboard() {
                       isDark ? "border-slate-700/80 bg-slate-900/60" : "border-slate-200 bg-white"
                     }`}>
                       <div className="overflow-x-auto custom-scrollbar">
-                        <table className="w-full text-left border-collapse text-xs min-w-[760px]">
+                        <table className="w-full text-left border-collapse text-xs min-w-[820px]">
                           <thead>
                             <tr className={`border-b font-semibold uppercase tracking-wider text-xs ${
                               isDark ? "border-slate-700/80 bg-slate-800/60 text-slate-400" : "border-slate-200 bg-slate-50/80 text-slate-600"
@@ -2308,6 +2367,8 @@ export default function ProctorDashboard() {
                           <tbody className={`divide-y ${isDark ? "divide-slate-800/80 text-slate-200" : "divide-slate-100 text-slate-800"}`}>
                             {filteredExams.map((exam) => {
                               const isConfirmed = isAttendanceConfirmed(exam.proctor_attendance);
+                              const attendanceWindowStatus = getAttendanceWindowStatus(exam, currentTime);
+                              const attendanceWindowMessage = getAttendanceWindowMessage(attendanceWindowStatus, exam);
                               return (
                                 <tr
                                   key={exam.id}
@@ -2329,6 +2390,9 @@ export default function ProctorDashboard() {
                                           <span className="font-mono font-bold text-slate-400 dark:text-slate-500">{exam.subject_code}</span>
                                           <span>•</span>
                                           <span className="font-semibold text-blue-600 dark:text-blue-400">{exam.section_name}</span>
+                                        </p>
+                                        <p className={`text-xs mt-1 ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                                          Instructor: <span className="font-semibold">{exam.instructor_name || "Not assigned"}</span>
                                         </p>
                                       </div>
                                     </div>
@@ -2386,9 +2450,9 @@ export default function ProctorDashboard() {
                                         <CheckBadgeIcon className="w-4 h-4 text-emerald-500" />
                                         Verified
                                       </span>
-                                    ) : (
+                                    ) : attendanceWindowStatus === "active" ? (
                                       <button
-                                        onClick={() => setAttendanceConfirmExam(exam)}
+                                        onClick={() => requestAttendanceConfirmation(exam)}
                                         disabled={confirmingExamId === exam.id}
                                         className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition hover:shadow-md hover:-translate-y-0.5 ${
                                           confirmingExamId === exam.id ? "opacity-60 cursor-not-allowed" : ""
@@ -2401,6 +2465,15 @@ export default function ProctorDashboard() {
                                         )}
                                         {confirmingExamId === exam.id ? "Confirming..." : "Confirm Attendance"}
                                       </button>
+                                    ) : (
+                                      <span
+                                        className={`inline-flex max-w-36 text-right text-xs font-semibold leading-snug ${
+                                          isDark ? "text-slate-500" : "text-slate-500"
+                                        }`}
+                                        title={attendanceWindowMessage}
+                                      >
+                                        {attendanceWindowMessage}
+                                      </span>
                                     )}
                                   </td>
                                 </tr>
@@ -2415,6 +2488,8 @@ export default function ProctorDashboard() {
                     <div className="block lg:hidden space-y-3">
                       {filteredExams.map((exam) => {
                         const isConfirmed = isAttendanceConfirmed(exam.proctor_attendance);
+                        const attendanceWindowStatus = getAttendanceWindowStatus(exam, currentTime);
+                        const attendanceWindowMessage = getAttendanceWindowMessage(attendanceWindowStatus, exam);
                         return (
                           <div
                             key={exam.id}
@@ -2438,6 +2513,9 @@ export default function ProctorDashboard() {
                                     <span className="font-mono font-bold text-slate-400 dark:text-slate-500">{exam.subject_code}</span>
                                     <span>•</span>
                                     <span className="font-semibold text-blue-600 dark:text-blue-400">{exam.section_name}</span>
+                                  </p>
+                                  <p className={`text-xs mt-1 ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                                    Instructor: <span className="font-semibold">{exam.instructor_name || "Not assigned"}</span>
                                   </p>
                                 </div>
                               </div>
@@ -2500,9 +2578,9 @@ export default function ProctorDashboard() {
                                   <CheckBadgeIcon className="w-4 h-4 text-emerald-500" />
                                   Attendance Verified
                                 </div>
-                              ) : (
+                              ) : attendanceWindowStatus === "active" ? (
                                 <button
-                                  onClick={() => setAttendanceConfirmExam(exam)}
+                                  onClick={() => requestAttendanceConfirmation(exam)}
                                   disabled={confirmingExamId === exam.id}
                                   className={`w-full py-2.5 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/20 active:scale-[0.99] ${
                                     confirmingExamId === exam.id ? "opacity-60 cursor-not-allowed" : ""
@@ -2515,6 +2593,14 @@ export default function ProctorDashboard() {
                                   )}
                                   {confirmingExamId === exam.id ? "Confirming..." : "Confirm Attendance"}
                                 </button>
+                              ) : (
+                                <div className={`w-full py-2.5 px-3 rounded-xl text-xs font-semibold text-center ${
+                                  isDark
+                                    ? "bg-slate-800/70 text-slate-400 border border-slate-700"
+                                    : "bg-slate-50 text-slate-500 border border-slate-200"
+                                }`}>
+                                  {attendanceWindowMessage}
+                                </div>
                               )}
                             </div>
                           </div>
@@ -2527,6 +2613,8 @@ export default function ProctorDashboard() {
                   <div className="grid gap-4 sm:gap-6 md:grid-cols-2 xl:grid-cols-3">
                     {filteredExams.map((exam) => {
                       const isConfirmed = isAttendanceConfirmed(exam.proctor_attendance);
+                      const attendanceWindowStatus = getAttendanceWindowStatus(exam, currentTime);
+                      const attendanceWindowMessage = getAttendanceWindowMessage(attendanceWindowStatus, exam);
                       return (
                       <div key={exam.id} className={`rounded-2xl sm:rounded-3xl border transition-all duration-300 hover:shadow-lg relative overflow-hidden group ${isDark ? "bg-slate-800/90 border-slate-700/50 hover:border-slate-600" : "bg-white border-slate-200 hover:border-blue-200 shadow-sm"}`}>
                         <div className={`h-2 w-full ${isConfirmed ? "bg-emerald-500" : "bg-amber-500"}`}></div>
@@ -2536,6 +2624,7 @@ export default function ProctorDashboard() {
                             <span className={`inline-block w-fit px-2 py-0.5 rounded text-xs font-bold tracking-widest uppercase mb-1 ${isDark ? "bg-blue-500/20 text-blue-400" : "bg-blue-50 text-blue-600"}`}>{exam.section_name}</span>
                             <h3 className={`text-lg sm:text-xl font-bold leading-tight break-words ${isDark ? "text-white" : "text-slate-900"}`}>{exam.subject_name}</h3>
                             <p className={`text-xs font-medium ${isDark ? "text-slate-500" : "text-slate-500"}`}>ID: {exam.subject_code}</p>
+                            <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>Instructor: <span className="font-semibold">{exam.instructor_name || "Not assigned"}</span></p>
                           </div>
                           
                           <div className={`space-y-3.5 pt-5 border-t ${isDark ? "border-slate-700/50" : "border-slate-100"}`}>
@@ -2559,9 +2648,9 @@ export default function ProctorDashboard() {
                             </div>
                           </div>
                           
-                          {!isConfirmed ? (
+                          {!isConfirmed && attendanceWindowStatus === "active" ? (
                             <button
-                              onClick={() => setAttendanceConfirmExam(exam)}
+                              onClick={() => requestAttendanceConfirmation(exam)}
                               disabled={confirmingExamId === exam.id}
                               className={`w-full mt-7 py-3 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 hover:-translate-y-0.5 ${
                                 confirmingExamId === exam.id ? "opacity-60 cursor-not-allowed" : ""
@@ -2574,10 +2663,18 @@ export default function ProctorDashboard() {
                               )}
                               {confirmingExamId === exam.id ? "Confirming..." : "Confirm My Attendance"}
                             </button>
-                          ) : (
+                          ) : isConfirmed ? (
                             <div className={`w-full mt-7 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 ${isDark ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-emerald-50 text-emerald-700 border border-emerald-200"}`}>
                               <CheckBadgeIcon className="w-4 h-4 text-emerald-500" /> 
                               Attendance Confirmed
+                            </div>
+                          ) : (
+                            <div className={`w-full mt-7 py-3 px-4 rounded-xl text-sm font-semibold text-center ${
+                              isDark
+                                ? "bg-slate-900/70 text-slate-400 border border-slate-700"
+                                : "bg-slate-50 text-slate-500 border border-slate-200"
+                            }`}>
+                              {attendanceWindowMessage}
                             </div>
                           )}
                         </div>
@@ -2665,7 +2762,10 @@ export default function ProctorDashboard() {
 
       {/* Attendance Check-in Confirmation Modal */}
       <ConfirmationModal
-        isOpen={Boolean(attendanceConfirmExam)}
+        isOpen={
+          Boolean(attendanceConfirmExam) &&
+          getAttendanceWindowStatus(attendanceConfirmExam, currentTime) === "active"
+        }
         title="Confirm Proctoring Attendance"
         message={
           attendanceConfirmExam ? (
@@ -2687,6 +2787,10 @@ export default function ProctorDashboard() {
                     {attendanceConfirmExam.section_name}
                   </div>
                 )}
+                <div>
+                  <span className="font-semibold text-slate-900 dark:text-slate-100">Instructor: </span>
+                  {attendanceConfirmExam.instructor_name || "Not assigned"}
+                </div>
                 {attendanceConfirmExam.room && (
                   <div>
                     <span className="font-semibold text-slate-900 dark:text-slate-100">Room / Venue: </span>

@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, or_
 from core import get_db, cache
 from core.cache import TTL_ROOMS, TTL_EXAM_COUNT
-from model import Exam, Subject, Section, Room, Timeslot, Course, YearLevel, Teacher, User, Notification, Proctor, ReschedulingRequest, Department
+from model import Exam, Subject, Section, Room, Timeslot, Course, YearLevel, Teacher, TeacherTeaching, User, Notification, Proctor, ReschedulingRequest, Department
 from utils.scheduler import generate_exam_schedule, validate_proctor_availability
 from utils.errors import humanize_error
 from datetime import datetime, time
@@ -151,7 +151,7 @@ def get_exams(
     print(f"[DEBUG] get_exams called filters: status={status}, section={section_name}, course={course_id}, year={year_level_id}, sem={semester}, term={term}")
     
     query = db.query(Exam).options(
-        joinedload(Exam.subject),
+        joinedload(Exam.subject).joinedload(Subject.teacher),
         joinedload(Exam.section),
         joinedload(Exam.room),
         joinedload(Exam.timeslot),
@@ -240,6 +240,34 @@ def get_exams(
     if not exams:
         return []
 
+    # Prefer the instructor linked to this exact subject/section pair. A subject-level
+    # teacher remains the fallback for older curriculum data without that mapping.
+    exam_subject_section_pairs = {
+        (exam.subject_id, exam.section_id)
+        for exam in exams
+        if exam.subject_id is not None and exam.section_id is not None
+    }
+    instructors_by_subject_section = {}
+    if exam_subject_section_pairs:
+        subject_ids = {subject_id for subject_id, _ in exam_subject_section_pairs}
+        section_ids = {section_id for _, section_id in exam_subject_section_pairs}
+        teaching_assignments = (
+            db.query(TeacherTeaching)
+            .options(joinedload(TeacherTeaching.teacher))
+            .filter(
+                TeacherTeaching.subject_id.in_(subject_ids),
+                TeacherTeaching.section_id.in_(section_ids),
+            )
+            .all()
+        )
+        for assignment in teaching_assignments:
+            key = (assignment.subject_id, assignment.section_id)
+            if key not in exam_subject_section_pairs or not assignment.teacher or not assignment.teacher.name:
+                continue
+            instructor_names = instructors_by_subject_section.setdefault(key, [])
+            if assignment.teacher.name not in instructor_names:
+                instructor_names.append(assignment.teacher.name)
+
     result = []
     for e in exams:
         subject = e.subject
@@ -259,11 +287,16 @@ def get_exams(
             full_date = "-"
 
         proctor_name = proctor.name if proctor else "Unassigned"
+        instructor_names = instructors_by_subject_section.get((e.subject_id, e.section_id), [])
+        instructor_name = ", ".join(instructor_names) if instructor_names else (
+            subject.teacher.name if subject and subject.teacher else "Not assigned"
+        )
 
         result.append({
             "id": e.id,
             "subject_code": subject.code if subject else "-",
             "subject_name": subject.name if subject else "-",
+            "instructor_name": instructor_name,
             "exam_type": subject.exam_type if subject else "-",
             "category": subject.category if subject else "-",
             "section_name": section.name if section else "-",
@@ -273,8 +306,11 @@ def get_exams(
             "term": e.term or "Midterm",
             "status": e.status or "draft",
             "exam_date": full_date,
+            "exam_date_iso": timeslot.date.isoformat() if timeslot else None,
             "start_time": timeslot.start_time.strftime("%I:%M %p") if timeslot else "-",
+            "start_time_24h": timeslot.start_time.strftime("%H:%M") if timeslot else None,
             "end_time": timeslot.end_time.strftime("%I:%M %p") if timeslot else "-",
+            "end_time_24h": timeslot.end_time.strftime("%H:%M") if timeslot else None,
             "room": room.name if room else "-",
             "room_id": e.room_id,
             "timeslot_id": e.timeslot_id,
