@@ -19,6 +19,7 @@ import {
 } from "@heroicons/react/24/outline";
 import api from "../api";
 import { useToast } from "../context/ToastContext";
+import ConfirmationModal from "../components/ConfirmationModal";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -38,6 +39,7 @@ export default function Login() {
   const [showForgotNewPassword, setShowForgotNewPassword] = useState(false);
   const [showForgotConfirmPassword, setShowForgotConfirmPassword] = useState(false);
   const [forgotLoading, setForgotLoading] = useState(false);
+  const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
   const { theme, toggleTheme } = useTheme();
   const isDark = theme === "dark";
   const { user, login, logout } = useUser();
@@ -98,6 +100,12 @@ export default function Login() {
 
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
+  };
+
+  const handleConfirmLogout = () => {
+    setIsLogoutConfirmOpen(false);
+    logout();
+    setAuthNotice("");
   };
 
   const handleRequestForgotCode = async (e) => {
@@ -255,10 +263,7 @@ export default function Login() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    logout();
-                    setAuthNotice("");
-                  }}
+                  onClick={() => setIsLogoutConfirmOpen(true)}
                   className="w-full py-2.5 px-4 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold transition cursor-pointer"
                 >
                   Log Out of {user.name}
@@ -667,6 +672,15 @@ export default function Login() {
           </div>
         </div>
       )}
+
+      <ConfirmationModal
+        isOpen={isLogoutConfirmOpen}
+        title="Log Out?"
+        message="Are you sure you want to log out?"
+        confirmLabel="Log Out"
+        onConfirm={handleConfirmLogout}
+        onCancel={() => setIsLogoutConfirmOpen(false)}
+      />
     </div>
   );
 }

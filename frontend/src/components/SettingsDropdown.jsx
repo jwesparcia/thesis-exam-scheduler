@@ -1,9 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Cog6ToothIcon, ArrowLeftStartOnRectangleIcon, SunIcon, MoonIcon, KeyIcon } from '@heroicons/react/24/outline';
 import { useTheme } from '../context/themeStore';
+import ConfirmationModal from './ConfirmationModal';
 
 export default function SettingsDropdown({ onLogout, isDark, onOpenSettings }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
   const { theme, toggleTheme } = useTheme();
   const dropdownRef = useRef(null);
 
@@ -29,6 +31,16 @@ export default function SettingsDropdown({ onLogout, isDark, onOpenSettings }) {
     if (onOpenSettings) {
       onOpenSettings();
     }
+  };
+
+  const handleLogoutRequest = () => {
+    setIsOpen(false);
+    setIsLogoutConfirmOpen(true);
+  };
+
+  const handleConfirmLogout = () => {
+    setIsLogoutConfirmOpen(false);
+    onLogout?.();
   };
 
   return (
@@ -94,7 +106,7 @@ export default function SettingsDropdown({ onLogout, isDark, onOpenSettings }) {
 
             {/* Logout Item */}
             <button
-              onClick={() => { setIsOpen(false); onLogout(); }}
+              onClick={handleLogoutRequest}
               type="button"
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition group text-left cursor-pointer ${
                 effectiveIsDark ? "hover:bg-rose-950/40 text-rose-400" : "hover:bg-rose-50 text-rose-600"
@@ -113,6 +125,15 @@ export default function SettingsDropdown({ onLogout, isDark, onOpenSettings }) {
           </div>
         </div>
       )}
+
+      <ConfirmationModal
+        isOpen={isLogoutConfirmOpen}
+        title="Log Out?"
+        message="Are you sure you want to log out?"
+        confirmLabel="Log Out"
+        onConfirm={handleConfirmLogout}
+        onCancel={() => setIsLogoutConfirmOpen(false)}
+      />
     </div>
   );
 }
