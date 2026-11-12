@@ -26,7 +26,7 @@ from model import Course, Exam, Proctor, Room, Section, Subject, Teacher, Teache
 from utils import scheduler  # noqa: E402
 
 
-def run_test():
+def run_test(room_names, expected_batch_count):
     Base.metadata.create_all(engine)
     db = SessionLocal()
     try:
@@ -51,7 +51,7 @@ def run_test():
                 sections.append(section)
                 db.add(section)
 
-        for room_name in ("B401", "B402", "B403", "B501", "B502", "B503"):
+        for room_name in room_names:
             db.add(Room(name=room_name, building="B", department="College", capacity=40))
 
         # Separate catalogue rows and codes, but the same actual exam paper.
@@ -113,10 +113,32 @@ def run_test():
         exams = db.query(Exam).filter(Exam.status == "draft").all()
         assert result["total_exams"] == 6
         assert len(exams) == 6
-        assert len({(exam.timeslot.date, exam.timeslot.start_time, exam.timeslot.end_time) for exam in exams}) == 1
-        assert len({exam.room_id for exam in exams}) == 6
+        batch_slots = sorted({
+            (exam.timeslot.date, exam.timeslot.start_time, exam.timeslot.end_time)
+            for exam in exams
+        })
+        assert len(batch_slots) == expected_batch_count
+        exams_by_slot = {}
+        for exam in exams:
+            exams_by_slot.setdefault(exam.timeslot_id, []).append(exam)
+        assert all(
+            len({exam.room_id for exam in batch_exams}) == len(batch_exams)
+            for batch_exams in exams_by_slot.values()
+        )
         assert all(exam.room.capacity >= exam.section.student_count for exam in exams)
-        print("Shared-subject atomic scheduling passed.")
+        if expected_batch_count > 1:
+            # No other exam uses these rooms, so the batch fallback must use
+            # the immediately following generated timeslot, not skip ahead.
+            for (previous_date, _, previous_end), (next_date, next_start, _) in zip(batch_slots, batch_slots[1:]):
+                assert next_date == previous_date
+                previous_end_minutes = previous_end.hour * 60 + previous_end.minute
+                next_start_minutes = next_start.hour * 60 + next_start.minute
+                assert next_start_minutes - previous_end_minutes == 15
+            assert all(
+                len({exam.course_id for exam in batch_exams}) == 1
+                for batch_exams in exams_by_slot.values()
+            )
+        print(f"Shared-subject scheduling passed with {expected_batch_count} batch(es).")
     finally:
         db.close()
         Base.metadata.drop_all(engine)
@@ -125,4 +147,8 @@ def run_test():
 
 
 if __name__ == "__main__":
-    run_test()
+    # All six sections fit concurrently: one anti-leakage session.
+    run_test(("B401", "B402", "B403", "B501", "B502", "B503"), expected_batch_count=1)
+    # Only three rooms: remaining whole-program cohort must continue in the
+    # immediately following 75-minute slot, rather than failing or scattering.
+    run_test(("B401", "B402", "B403"), expected_batch_count=2)

@@ -912,16 +912,10 @@ def generate_exam_schedule(
                 }
                 course_name = sample_sec.course.name if (sample_sec and sample_sec.course) else (sample_sub.course.name if sample_sub.course else f"Course {c_key[0]}")
 
-                # Do not split a shared subject across timeslots: that would
-                # expose its exam paper before every program has taken it.
-                # Report a physical-room limitation instead of silently
-                # weakening the anti-leakage rule.
-                if len(cohort_sections) > slot_limit:
-                    raise ValueError(
-                        f"Shared subject '{sample_sub.name}' requires {len(cohort_sections)} rooms at one time, "
-                        f"but only {slot_limit} {department} exam rooms are available. "
-                        "Add rooms or reduce the number of active sections."
-                    )
+                # Keep this as one group even when it needs more rooms than
+                # one timeslot provides.  Final allocation first honours the
+                # fixed slot, then uses the chronological batch fallback for
+                # any complete course cohorts that remain.
                 cohort_chunks = [cohort_sections]
                 for chunk_idx, chunk_secs in enumerate(cohort_chunks):
                     chunk_len = len(chunk_secs)
@@ -3120,18 +3114,6 @@ def generate_exam_schedule(
                         room_slots_set.add((r_idx, ov_idx))
                     room_loads[r_idx] += 1
 
-            # A synchronized subject is atomic: moving only its remaining
-            # course clusters to a later slot would reintroduce exam leakage.
-            # The optimizer and `pick_group_slot` already seek a slot that can
-            # hold every section; if final placement cannot do so, surface the
-            # real capacity/floor constraint instead of splitting the paper.
-            if group.get("synchronized_subject") and len(assigned_rooms) != len(slot_exams):
-                shared_name = group["sections"][0].get("sub_name", "Shared subject")
-                raise ValueError(
-                    f"Unable to place every section taking shared subject '{shared_name}' at the same date and time "
-                    f"while preserving room capacity and same-floor grouping. Add suitable rooms or reduce active sections."
-                )
-
             # Fallback for any overflow, unscheduled clusters, or gap-divergent sections
             unassigned_by_course = {}
             for prep_sec in slot_exams:
@@ -3140,6 +3122,112 @@ def generate_exam_schedule(
                     continue
                 c_key = (prep_sec.get("course_id"), prep_sec.get("year_level_id"))
                 unassigned_by_course.setdefault(c_key, []).append(prep_sec)
+
+            # Normally a shared subject is placed simultaneously.  When its
+            # complete set of course cohorts cannot fit at one time (for
+            # example, due to same-floor packing), retain the shared grouping
+            # and create chronological batches instead.  Each batch contains
+            # whole course cohorts only, and the unplaced cohorts are filled in
+            # the next compatible timeslot before a later slot is considered.
+            # This is the controlled fallback for the anti-leakage rule; it
+            # never scatters a shared paper across arbitrary dates/times.
+            if group.get("synchronized_subject") and unassigned_by_course:
+                base_slot_info = timeslot_info_list[slot_idx]
+                base_slot_order = (base_slot_info["date"], base_slot_info["start_m"])
+                req_dur = group.get("duration", 75)
+
+                # Fixed subjects retain their configured first batch; any
+                # overflow may continue only to chronologically later slots.
+                batch_slot_pool = set(group["allowed_slots"])
+                if group.get("is_fixed", False):
+                    batch_slot_pool.update(
+                        s for s in generated_timeslot_indices
+                        if timeslot_info_list[s]["duration_m"] == req_dur
+                    )
+                batch_slots = [slot_idx] + sorted(
+                    (
+                        s for s in batch_slot_pool
+                        if s != slot_idx
+                        and timeslot_info_list[s]["duration_m"] == req_dur
+                        and (timeslot_info_list[s]["date"], timeslot_info_list[s]["start_m"]) > base_slot_order
+                    ),
+                    key=lambda s: (timeslot_info_list[s]["date"], timeslot_info_list[s]["start_m"]),
+                )
+
+                def assign_shared_subject_batch(cluster_secs):
+                    """Assign one whole course cohort to the earliest viable batch slot."""
+                    cluster_size = len(cluster_secs)
+                    for batch_slot_idx in batch_slots:
+                        if any(
+                            any(
+                                (section["sec_id"], overlap_idx) in section_slots_set
+                                or (section["sec_id"], overlap_idx) in posted_section_slots_set
+                                for overlap_idx in slot_overlaps[batch_slot_idx]
+                            )
+                            for section in cluster_secs
+                        ):
+                            continue
+                        if not all(
+                            is_slot_gap_safe_for_sec(
+                                section["sec_id"], batch_slot_idx, section.get("break_seconds", 0)
+                            )
+                            for section in cluster_secs
+                        ):
+                            continue
+
+                        available_rooms = [
+                            r_idx for r_idx in allowed_r_indices
+                            if (r_idx, batch_slot_idx) not in room_slots_set
+                        ]
+                        rooms_by_floor = {}
+                        for r_idx in available_rooms:
+                            rooms_by_floor.setdefault(
+                                (room_buildings[r_idx], room_floors[r_idx]), []
+                            ).append(r_idx)
+
+                        floor_matches = []
+                        for floor_key, floor_rooms in rooms_by_floor.items():
+                            if len(floor_rooms) < cluster_size:
+                                continue
+                            room_map, used_rooms = match_sections_to_rooms(cluster_secs, floor_rooms)
+                            if room_map is None:
+                                continue
+                            pack_prio, leftover = floor_packing_prio(
+                                floor_key, cluster_size, len(floor_rooms)
+                            )
+                            floor_matches.append(
+                                ((pack_prio, leftover, sum(room_key(r)[0] for r in used_rooms)), room_map, used_rooms)
+                            )
+
+                        if not floor_matches:
+                            continue
+                        floor_matches.sort(key=lambda item: item[0])
+                        _, room_map, used_rooms = floor_matches[0]
+                        assigned_rooms.update(room_map)
+                        for section in cluster_secs:
+                            assigned_slots[section["sec_id"]] = batch_slot_idx
+                        for r_idx in used_rooms:
+                            for overlap_idx in slot_overlaps[batch_slot_idx]:
+                                room_slots_set.add((r_idx, overlap_idx))
+                            room_loads[r_idx] += 1
+                        return True
+                    return False
+
+                remaining_batches = sorted(
+                    unassigned_by_course.values(), key=lambda sections: -len(sections)
+                )
+                for remaining_cluster in remaining_batches:
+                    if not assign_shared_subject_batch(remaining_cluster):
+                        shared_name = group["sections"][0].get("sub_name", "Shared subject")
+                        raise ValueError(
+                            f"Unable to schedule the next batch for shared subject '{shared_name}' while preserving "
+                            "room capacity, same-floor grouping, and section breaks. Add suitable rooms or widen the exam range."
+                        )
+                # All shared-subject sections are now assigned in the earliest
+                # viable sequence of batches; skip the older per-cluster repair
+                # path below, which is intentionally allowed to use arbitrary
+                # alternative slots for unrelated subjects.
+                unassigned_by_course = {}
 
             for c_key, rem_cluster in unassigned_by_course.items():
                 rcN = len(rem_cluster)
