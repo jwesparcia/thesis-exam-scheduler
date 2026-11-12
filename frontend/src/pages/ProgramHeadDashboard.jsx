@@ -66,6 +66,24 @@ const INITIAL_GENERATION_STATE = {
   },
 };
 
+const getManagedDepartmentCodes = (user) => {
+  const departmentCodes = Array.isArray(user?.department_codes)
+    ? user.department_codes
+    : [user?.department_code];
+
+  return [...new Set(
+    departmentCodes
+      .filter(Boolean)
+      .map((code) => String(code).trim().toUpperCase())
+      .filter(Boolean)
+  )];
+};
+
+const getDepartmentAdminLabel = (user, fallback = "Exam Management") => {
+  const departmentCodes = getManagedDepartmentCodes(user);
+  return departmentCodes.length ? `${departmentCodes.join(" & ")} Admin` : fallback;
+};
+
 function ReschedulingRequests({ isGenerating, onRequestsChange }) {
   const { theme } = useTheme();
   const { user } = useUser();
@@ -85,6 +103,8 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
   const [loadingRooms, setLoadingRooms] = useState(false);
   const [selectedRoomId, setSelectedRoomId] = useState("");
   const [selectedProctorId, setSelectedProctorId] = useState("");
+  const managedDepartmentCodes = getManagedDepartmentCodes(user);
+  const managedDepartmentLabel = managedDepartmentCodes.join(" & ") || "your department";
 
   useEffect(() => {
     const fetchRequests = async () => {
@@ -250,12 +270,12 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
           )}
           <div>
             <span className="font-bold uppercase tracking-wider block text-xs">
-              {user?.is_super_admin ? "Academic Head Authority (Super Admin)" : `${user?.department_code || "Department"} Administrator`}
+              {user?.is_super_admin ? "Academic Head Authority (Super Admin)" : `${managedDepartmentLabel} Administrator`}
             </span>
             <p className="mt-0.5 text-xs opacity-90">
               {user?.is_super_admin
                 ? "Full cross-department access active: You can review, approve, and auto-assign requests across all school departments and academic programs."
-                : `Student rescheduling requests for ${user?.department_code || "your department"} are automatically routed here. Cross-department approvals are restricted to Super Admin.`}
+                : `Student rescheduling requests for ${managedDepartmentLabel} are automatically routed here. Cross-department approvals are restricted to Super Admin.`}
             </p>
           </div>
         </div>
@@ -303,7 +323,7 @@ function ReschedulingRequests({ isGenerating, onRequestsChange }) {
                     </p>
                   </div>
                   {(() => {
-                    const canReview = user?.is_super_admin || !req.department_code || user?.department_code === req.department_code;
+                    const canReview = user?.is_super_admin || !req.department_code || managedDepartmentCodes.includes(req.department_code);
                     if (!canReview) {
                       return (
                         <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
@@ -2508,7 +2528,7 @@ export default function ProgramHeadDashboard() {
                 </span>
               ) : (
                 <span className={`px-2 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider ${isDark ? "bg-blue-500/20 text-blue-400 border border-blue-500/30" : "bg-blue-50 text-blue-700 border border-blue-200"}`}>
-                  {user?.department_code ? `${user.department_code} Admin` : "Exam Management"}
+                  {getDepartmentAdminLabel(user)}
                 </span>
               )}
             </div>
@@ -2570,7 +2590,7 @@ export default function ProgramHeadDashboard() {
                     : isDark ? "bg-blue-500/20 text-blue-400 border border-blue-500/30" : "bg-blue-50 text-blue-700 border border-blue-100"
                 }`}>
                   <ShieldCheckIcon className="w-3.5 h-3.5" />
-                  {user?.is_super_admin ? "Academic Head" : `${user?.department_code || "Dept"} Admin`}
+                  {user?.is_super_admin ? "Academic Head" : getDepartmentAdminLabel(user, "Dept Admin")}
                 </div>
                 <div className="relative">
                   <button onClick={() => setShowNotifications(!showNotifications)} className={`relative p-2.5 rounded-xl transition-all duration-300 ${isDark ? "text-slate-300 hover:text-white hover:bg-slate-800" : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"}`}>

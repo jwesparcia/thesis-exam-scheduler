@@ -2,10 +2,11 @@
 backend/test_academic_head_and_manual.py
 ─────────────────────────────────────────────────────────────
 Automated test suite verifying:
-1. Academic Head account exists with email 'academic.head@school.edu', is_super_admin=True, role='program_head'.
-2. Login with 'academic.head@school.edu' succeeds.
-3. Login fallback with legacy 'ge.admin@school.edu' resolves to Academic Head.
-4. User manual PDF exists in both root and frontend/public/ and has valid size.
+1. General Academic Administrator account exists with email 'ge.admin@school.edu', is_super_admin=False, role='program_head'.
+2. Login with 'ge.admin@school.edu' succeeds.
+3. The retired 'academic.head@school.edu' account cannot be used to log in.
+4. GE admin is denied cross-department rescheduling access.
+5. User manual PDF exists in both root and frontend/public/ and has valid size.
 """
 
 import os
@@ -27,9 +28,11 @@ os.environ["DATABASE_URL"] = f"sqlite:///{TEST_DB_FILE}"
 os.environ["SECRET_KEY"] = "9f8a3c2b1e4d567890abcdef1234567890abcdef1234567890abcdef12345678"
 
 from core import SessionLocal, Base, engine
-from model.models import User
+from model.models import ReschedulingRequest, User
 from routers.auth import login, LoginRequest, hash_password
+from routers.rescheduling import check_request_department_access
 from utils.rate_limiter import login_rate_limiter
+from fastapi import HTTPException
 
 
 class MockClient:
@@ -45,7 +48,7 @@ class MockRequest:
 
 def run_tests():
     print("=" * 70)
-    print("RUNNING ACADEMIC HEAD & USER MANUAL TESTS")
+    print("RUNNING GENERAL ACADEMIC ADMIN & USER MANUAL TESTS")
     print("=" * 70)
 
     Base.metadata.create_all(engine)
@@ -65,48 +68,62 @@ def run_tests():
     try:
         login_rate_limiter.reset()
 
-        # Ensure Academic Head exists in test DB
-        academic_head = db.query(User).filter(User.email == "academic.head@school.edu").first()
-        if not academic_head:
-            academic_head = User(
-                name="Academic Head",
-                email="academic.head@school.edu",
+        # Ensure General Academic Administrator exists in test DB
+        ge_admin = db.query(User).filter(User.email == "ge.admin@school.edu").first()
+        if not ge_admin:
+            ge_admin = User(
+                name="General Academic Administrator",
+                email="ge.admin@school.edu",
                 hashed_password=hash_password("admin123"),
                 role="program_head",
                 department_code="GE",
-                is_super_admin=True,
+                is_super_admin=False,
                 is_first_login=False,
             )
-            db.add(academic_head)
+            db.add(ge_admin)
             db.commit()
-            db.refresh(academic_head)
+            db.refresh(ge_admin)
 
-        # ── TEST 1: Academic Head Account Attributes ──────────────────────────
-        print("\n--- Test 1: Academic Head Account Attributes ---")
-        assert_true(academic_head.name == "Academic Head", f"Name is 'Academic Head': {academic_head.name}")
-        assert_true(academic_head.email == "academic.head@school.edu", f"Email is 'academic.head@school.edu': {academic_head.email}")
-        assert_true(academic_head.is_super_admin is True, "is_super_admin is True")
-        assert_true(academic_head.role == "program_head", f"Role is 'program_head': {academic_head.role}")
+        # ── TEST 1: General Academic Admin Account Attributes ─────────────────
+        print("\n--- Test 1: General Academic Admin Account Attributes ---")
+        assert_true(ge_admin.name == "General Academic Administrator", f"Name is '{ge_admin.name}'")
+        assert_true(ge_admin.email == "ge.admin@school.edu", f"Email is '{ge_admin.email}'")
+        assert_true(ge_admin.is_super_admin is False, "is_super_admin is False")
+        assert_true(ge_admin.role == "program_head", f"Role is 'program_head': {ge_admin.role}")
+        assert_true(
+            db.query(User).filter(User.email == "academic.head@school.edu").first() is None,
+            "Academic Head account is absent",
+        )
 
-        # ── TEST 2: Login with academic.head@school.edu ──────────────────────
-        print("\n--- Test 2: Direct Login with academic.head@school.edu ---")
+        # ── TEST 2: Login with ge.admin@school.edu ────────────────────────────
+        print("\n--- Test 2: Direct Login with ge.admin@school.edu ---")
         req1 = MockRequest()
-        res1 = login(req1, LoginRequest(email="academic.head@school.edu", password="admin123"), db)
+        res1 = login(req1, LoginRequest(email="ge.admin@school.edu", password="admin123"), db)
         assert_true("access_token" in res1, "Login returned access token")
-        assert_true(res1["user"]["email"] == "academic.head@school.edu", "Token user email is academic.head@school.edu")
-        assert_true(res1["user"]["is_super_admin"] is True, "Token user is_super_admin is True")
-        assert_true(res1["user"]["name"] == "Academic Head", "Token user name is Academic Head")
+        assert_true(res1["user"]["email"] == "ge.admin@school.edu", "Token user email is ge.admin@school.edu")
+        assert_true(res1["user"]["is_super_admin"] is False, "Token user is not super admin")
+        assert_true(res1["user"]["name"] == "General Academic Administrator", "Token user name is General Academic Administrator")
 
-        # ── TEST 3: Legacy Login Fallback with ge.admin@school.edu ───────────
-        print("\n--- Test 3: Legacy Login Fallback with ge.admin@school.edu ---")
+        # ── TEST 3: Retired Academic Head Account Is Rejected ─────────────────
+        print("\n--- Test 3: Academic Head Account Cannot Log In ---")
         req2 = MockRequest()
-        res2 = login(req2, LoginRequest(email="ge.admin@school.edu", password="admin123"), db)
-        assert_true("access_token" in res2, "Legacy login returned access token")
-        assert_true(res2["user"]["email"] == "academic.head@school.edu", "Legacy ge.admin resolved to academic.head@school.edu")
-        assert_true(res2["user"]["is_super_admin"] is True, "Legacy login is_super_admin is True")
+        try:
+            login(req2, LoginRequest(email="academic.head@school.edu", password="admin123"), db)
+            assert_true(False, "Academic Head login was rejected")
+        except HTTPException as error:
+            assert_true(error.status_code == 401, "Academic Head login is rejected with 401")
 
-        # ── TEST 4: Verification of User Manual PDF Files ─────────────────────
-        print("\n--- Test 4: User Manual PDF Generation Verification ---")
+        # ── TEST 4: GE Admin Cannot Access Another Department ─────────────────
+        print("\n--- Test 4: GE Admin Cross-Department Access Is Rejected ---")
+        cross_department_request = ReschedulingRequest(department_code="ICT")
+        try:
+            check_request_department_access(cross_department_request, ge_admin, db)
+            assert_true(False, "GE Admin was blocked from cross-department access")
+        except HTTPException as error:
+            assert_true(error.status_code == 403, "GE Admin cross-department access is rejected with 403")
+
+        # ── TEST 5: Verification of User Manual PDF Files ─────────────────────
+        print("\n--- Test 5: User Manual PDF Generation Verification ---")
         pdf_root = os.path.join(ROOT_DIR, "USER_MANUAL.pdf")
         pdf_public = os.path.join(ROOT_DIR, "frontend", "public", "USER_MANUAL.pdf")
 
@@ -121,7 +138,7 @@ def run_tests():
             assert_true(size_pub > 100000, f"Public PDF size is valid ({size_pub:,} bytes > 100 KB)")
 
         print("\n" + "=" * 70)
-        print(f"ACADEMIC HEAD & MANUAL TESTS RESULT: {passed} PASSED, {failed} FAILED")
+        print(f"GENERAL ACADEMIC ADMIN & MANUAL TESTS RESULT: {passed} PASSED, {failed} FAILED")
         print("=" * 70)
 
         if failed > 0:

@@ -1,4 +1,5 @@
 import os
+import json
 import dotenv
 import bcrypt
 from sqlalchemy import create_engine, text
@@ -150,41 +151,149 @@ def run_department_migration():
             ADD COLUMN IF NOT EXISTS department_code VARCHAR(20) REFERENCES departments(code);
             ALTER TABLE users
             ADD COLUMN IF NOT EXISTS is_super_admin BOOLEAN DEFAULT FALSE;
+            ALTER TABLE users
+            ADD COLUMN IF NOT EXISTS managed_department_codes JSON;
         """))
         conn.commit()
-        print("[OK] user columns department_code and is_super_admin added.")
+        print("[OK] user columns department_code, managed_department_codes, and is_super_admin added.")
 
-        # 7. Update existing admin to GE Super Admin
+        # 7. Retire the legacy Academic Head account in favor of a standard GE admin.
+        ge_admin_id = conn.execute(text("""
+            SELECT id FROM users WHERE email = 'ge.admin@school.edu'
+        """)).scalar()
+        academic_head_id = conn.execute(text("""
+            SELECT id FROM users WHERE email = 'academic.head@school.edu'
+        """)).scalar()
+
+        if academic_head_id:
+            if ge_admin_id:
+                # Preserve historical records if both accounts exist before
+                # removing the duplicate Academic Head account.
+                related_user_columns = [
+                    ("activity_logs", "user_id"),
+                    ("chat_messages", "sender_id"),
+                    ("chat_messages", "recipient_id"),
+                    ("irregular_selections", "user_id"),
+                    ("notifications", "user_id"),
+                    ("password_reset_tokens", "user_id"),
+                ]
+                for table_name, column_name in related_user_columns:
+                    table_exists = conn.execute(
+                        text("SELECT to_regclass(:table_name)"),
+                        {"table_name": table_name},
+                    ).scalar()
+                    if table_exists:
+                        conn.execute(
+                            text(f"UPDATE {table_name} SET {column_name} = :ge_admin_id WHERE {column_name} = :academic_head_id"),
+                            {"ge_admin_id": ge_admin_id, "academic_head_id": academic_head_id},
+                        )
+                conn.execute(
+                    text("DELETE FROM users WHERE id = :academic_head_id"),
+                    {"academic_head_id": academic_head_id},
+                )
+            else:
+                conn.execute(text("""
+                    UPDATE users
+                    SET email = 'ge.admin@school.edu',
+                        name = 'General Academic Administrator',
+                        role = 'program_head',
+                        department_code = 'GE',
+                        is_super_admin = FALSE
+                    WHERE id = :academic_head_id
+                """), {"academic_head_id": academic_head_id})
+        conn.commit()
+
+        # BM and THM are handled by one administrator. Retain the BM account
+        # and move all legacy THM-account history to it before removing the
+        # duplicate login.
+        bm_admin_id = conn.execute(text("""
+            SELECT id FROM users WHERE email = 'bm.admin@school.edu'
+        """)).scalar()
+        thm_admin_id = conn.execute(text("""
+            SELECT id FROM users WHERE email = 'thm.admin@school.edu'
+        """)).scalar()
+        if thm_admin_id:
+            if bm_admin_id:
+                related_user_columns = [
+                    ("activity_logs", "user_id"),
+                    ("chat_messages", "sender_id"),
+                    ("chat_messages", "recipient_id"),
+                    ("irregular_selections", "user_id"),
+                    ("notifications", "user_id"),
+                    ("password_reset_tokens", "user_id"),
+                ]
+                for table_name, column_name in related_user_columns:
+                    table_exists = conn.execute(
+                        text("SELECT to_regclass(:table_name)"),
+                        {"table_name": table_name},
+                    ).scalar()
+                    if table_exists:
+                        conn.execute(
+                            text(f"UPDATE {table_name} SET {column_name} = :bm_admin_id WHERE {column_name} = :thm_admin_id"),
+                            {"bm_admin_id": bm_admin_id, "thm_admin_id": thm_admin_id},
+                        )
+                conn.execute(
+                    text("DELETE FROM users WHERE id = :thm_admin_id"),
+                    {"thm_admin_id": thm_admin_id},
+                )
+            else:
+                conn.execute(text("""
+                    UPDATE users
+                    SET email = 'bm.admin@school.edu'
+                    WHERE id = :thm_admin_id
+                """), {"thm_admin_id": thm_admin_id})
+        conn.commit()
+
+        # Existing single-department users retain their current scope until
+        # explicitly assigned additional departments below.
         conn.execute(text("""
             UPDATE users
-            SET department_code = 'GE', is_super_admin = TRUE
-            WHERE email = 'admin@school.edu' OR role = 'program_head' AND is_super_admin IS NOT TRUE;
+            SET managed_department_codes = json_build_array(department_code)
+            WHERE department_code IS NOT NULL
+              AND managed_department_codes IS NULL;
         """))
         conn.commit()
 
-        # 8. Seed dedicated administrator account per department
+        # Keep the designated system administrator as the only seeded GE super admin.
+        conn.execute(text("""
+            UPDATE users
+            SET department_code = 'GE',
+                managed_department_codes = json_build_array('GE'),
+                is_super_admin = TRUE
+            WHERE email = 'admin@school.edu';
+        """))
+        conn.commit()
+
+        # 8. Seed administrator accounts. BM and THM share one account.
         admin_accounts = [
-            ("Academic Head (Super Admin)", "academic.head@school.edu", "GE", True),
-            ("ICT Department Administrator", "ict.admin@school.edu", "ICT", False),
-            ("BM Department Administrator", "bm.admin@school.edu", "BM", False),
-            ("THM Department Administrator", "thm.admin@school.edu", "THM", False),
-            ("AS Department Administrator", "as.admin@school.edu", "AS", False),
-            ("CRIM Department Administrator", "crim.admin@school.edu", "CRIM", False),
-            ("SHS Department Administrator", "shs.admin@school.edu", "SHS", False),
+            ("General Academic Administrator", "ge.admin@school.edu", "GE", ["GE"], False),
+            ("ICT Department Administrator", "ict.admin@school.edu", "ICT", ["ICT"], False),
+            ("BM & THM Department Administrator", "bm.admin@school.edu", "BM", ["BM", "THM"], False),
+            ("AS Department Administrator", "as.admin@school.edu", "AS", ["AS"], False),
+            ("CRIM Department Administrator", "crim.admin@school.edu", "CRIM", ["CRIM"], False),
+            ("SHS Department Administrator", "shs.admin@school.edu", "SHS", ["SHS"], False),
         ]
         hashed = hash_password("admin123")
-        for aname, aemail, adcode, asuper in admin_accounts:
+        for aname, aemail, adcode, managed_codes, asuper in admin_accounts:
             conn.execute(text("""
-                INSERT INTO users (name, email, hashed_password, role, department_code, is_super_admin, is_first_login)
-                VALUES (:name, :email, :hashed, 'program_head', :dcode, :is_super, FALSE)
+                INSERT INTO users (name, email, hashed_password, role, department_code, managed_department_codes, is_super_admin, is_first_login)
+                VALUES (:name, :email, :hashed, 'program_head', :dcode, CAST(:managed_codes AS JSON), :is_super, FALSE)
                 ON CONFLICT (email) DO UPDATE
                 SET name = EXCLUDED.name,
                     department_code = EXCLUDED.department_code,
+                    managed_department_codes = EXCLUDED.managed_department_codes,
                     is_super_admin = EXCLUDED.is_super_admin,
                     role = 'program_head';
-            """), {"name": aname, "email": aemail, "hashed": hashed, "dcode": adcode, "is_super": asuper})
+            """), {
+                "name": aname,
+                "email": aemail,
+                "hashed": hashed,
+                "dcode": adcode,
+                "managed_codes": json.dumps(managed_codes),
+                "is_super": asuper,
+            })
         conn.commit()
-        print("[OK] Ensured dedicated administrator accounts for all 7 departments.")
+        print("[OK] Ensured 6 department-admin accounts covering all 7 departments.")
 
         # 9. Add department_code to rescheduling_requests and backfill
         conn.execute(text("""

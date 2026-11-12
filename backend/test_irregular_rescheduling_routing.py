@@ -33,14 +33,18 @@ def run_tests():
 
         # 2. Get department admins
         ict_admin = db.query(User).filter(User.email == "ict.admin@school.edu").first()
-        bm_admin = db.query(User).filter(User.email == "bm.admin@school.edu").first()
-        ge_admin = db.query(User).filter(User.email == "academic.head@school.edu").first() or db.query(User).filter(User.email == "ge.admin@school.edu").first()
+        bm_thm_admin = db.query(User).filter(User.email == "bm.admin@school.edu").first()
+        ge_admin = db.query(User).filter(User.email == "ge.admin@school.edu").first()
+        super_admin = db.query(User).filter(User.email == "admin@school.edu").first()
 
         assert ict_admin is not None, "ICT admin must exist"
-        assert bm_admin is not None, "BM admin must exist"
+        assert bm_thm_admin is not None, "Shared BM/THM admin must exist"
         assert ge_admin is not None, "GE admin must exist"
+        assert super_admin is not None, "Super admin must exist"
 
-        print(f"[OK] Program head accounts verified: ICT ({ict_admin.email}), BM ({bm_admin.email}), GE ({ge_admin.email})")
+        assert bm_thm_admin.manages_department("BM"), "Shared admin must manage BM"
+        assert bm_thm_admin.manages_department("THM"), "Shared admin must manage THM"
+        print(f"[OK] Program head accounts verified: ICT ({ict_admin.email}), BM/THM ({bm_thm_admin.email}), GE ({ge_admin.email}), Super ({super_admin.email})")
 
         # 3. Create or get an irregular student enrolled in BSIT (course_id = bsit_course.id)
         irreg_student_email = "test.irreg.bsit@school.edu"
@@ -166,10 +170,14 @@ def run_tests():
         assert new_req.department_code == "ICT", f"Request must be assigned to student's department 'ICT', got {new_req.department_code}"
 
         # 7. Test notification targeting
-        target_admin = db.query(User).filter(
-            User.role.in_(["program_head", "admin"]),
-            User.department_code == new_req.department_code
-        ).first()
+        target_admin = next(
+            (
+                candidate
+                for candidate in db.query(User).filter(User.role.in_(["program_head", "admin"])).all()
+                if candidate.manages_department(new_req.department_code)
+            ),
+            None,
+        )
 
         assert target_admin is not None, "Target admin should be found"
         assert target_admin.id == ict_admin.id, f"Target admin must be ICT Admin (id {ict_admin.id}), got {target_admin.id} ({target_admin.email})"
@@ -187,13 +195,13 @@ def run_tests():
         db.refresh(notif)
         print(f"[PASS] Notification {notif.id} exclusively routed to: {target_admin.name} ({target_admin.email})")
 
-        # Verify other department admins (e.g. BM admin) have NOT received this notification
-        bm_notifs = db.query(Notification).filter(
-            Notification.user_id == bm_admin.id,
+        # Verify the shared BM/THM admin has NOT received an ICT notification.
+        bm_thm_notifs = db.query(Notification).filter(
+            Notification.user_id == bm_thm_admin.id,
             Notification.related_id == new_req.id
         ).all()
-        assert len(bm_notifs) == 0, f"BM admin should NOT receive notification for ICT request, found {len(bm_notifs)}"
-        print(f"[PASS] BM Admin received 0 notifications for this request (correct)")
+        assert len(bm_thm_notifs) == 0, f"BM/THM admin should NOT receive notification for ICT request, found {len(bm_thm_notifs)}"
+        print(f"[PASS] BM/THM Admin received 0 notifications for this request (correct)")
 
         # 8. Test pending request visibility for ICT Admin
         from routers.rescheduling import check_request_department_access
@@ -205,20 +213,29 @@ def run_tests():
         except Exception as e:
             assert False, f"ICT Admin should have access: {e}"
 
-        # BM Admin CANNOT access (should raise HTTPException with status 403)
+        # BM/THM Admin CANNOT access (should raise HTTPException with status 403)
         access_denied = False
         try:
-            check_request_department_access(new_req, bm_admin, db)
+            check_request_department_access(new_req, bm_thm_admin, db)
         except Exception as e:
             access_denied = True
-            print(f"[PASS] BM Admin access correctly denied: {e.detail}")
+            print(f"[PASS] BM/THM Admin access correctly denied: {e.detail}")
 
-        assert access_denied, "BM Admin must be denied access to ICT irregular student request"
+        assert access_denied, "BM/THM Admin must be denied access to ICT irregular student request"
 
-        # Super Admin (GE) has access
+        # GE administrator cannot access another department's request.
+        access_denied = False
         try:
             check_request_department_access(new_req, ge_admin, db)
-            print(f"[PASS] GE Super Admin has oversight access across departments.")
+        except Exception as e:
+            access_denied = True
+            print(f"[PASS] GE Admin access correctly denied: {e.detail}")
+        assert access_denied, "GE Admin must be denied access to ICT irregular student request"
+
+        # Dedicated super admin has access across departments.
+        try:
+            check_request_department_access(new_req, super_admin, db)
+            print(f"[PASS] Super Admin has oversight access across departments.")
         except Exception as e:
             assert False, f"Super Admin should have access: {e}"
 

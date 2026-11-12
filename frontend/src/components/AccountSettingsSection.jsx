@@ -14,6 +14,20 @@ import api from "../api";
 import { useToast } from "../context/ToastContext";
 import { useUser } from "../context/userStore";
 
+const getDepartmentAdminLabel = (user) => {
+  const departmentCodes = Array.isArray(user?.department_codes)
+    ? user.department_codes
+    : [user?.department_code];
+  const label = [...new Set(
+    departmentCodes
+      .filter(Boolean)
+      .map((code) => String(code).trim().toUpperCase())
+      .filter(Boolean)
+  )].join(" & ");
+
+  return label ? `${label} Admin` : user?.role || "Active Account";
+};
+
 export default function AccountSettingsSection({ isDark }) {
   const { user, login } = useUser();
   const { showSuccess, showError, showWarning } = useToast();
@@ -178,7 +192,7 @@ export default function AccountSettingsSection({ isDark }) {
                 </div>
                 <div className="flex items-center gap-1.5 mt-0.5">
                   <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                    {user?.is_super_admin ? "Academic Head" : user?.department_code ? `${user.department_code} Admin` : user?.role || "Active Account"}
+                    {user?.is_super_admin ? "Academic Head" : getDepartmentAdminLabel(user)}
                   </span>
                 </div>
               </div>

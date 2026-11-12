@@ -31,12 +31,24 @@ def is_consultation_request(db: Session, request: ReschedulingRequest) -> bool:
         )
     )
 
+
+def find_department_admin(db: Session, department_code: str):
+    """Find the program head responsible for a department, including shared accounts."""
+    candidates = db.query(User).filter(
+        User.role.in_(["program_head", "admin"])
+    ).all()
+    return next(
+        (candidate for candidate in candidates if candidate.manages_department(department_code)),
+        None,
+    )
+
+
 def check_request_department_access(request: ReschedulingRequest, current_user: User, db: Session):
     """
     Prevent department administrators from approving requests belonging to other departments
     unless they have Super Admin privileges (Requirements 4, 5, 7).
     """
-    is_super = bool(current_user.is_super_admin or current_user.department_code == "GE")
+    is_super = bool(current_user.is_super_admin)
     if is_super:
         return
     req_dept = request.department_code
@@ -49,10 +61,11 @@ def check_request_department_access(request: ReschedulingRequest, current_user: 
     if not req_dept:
         req_dept = "GE"
     
-    if current_user.department_code != req_dept:
+    if not current_user.manages_department(req_dept):
+        managed_departments = ", ".join(current_user.department_codes) or "no department"
         raise HTTPException(
             status_code=403,
-            detail=f"Access denied: You are the administrator for {current_user.department_code}, but this request belongs to {req_dept}. Only the {req_dept} department administrator or Super Admin can approve or reject this request."
+            detail=f"Access denied: You are the administrator for {managed_departments}, but this request belongs to {req_dept}. Only the {req_dept} department administrator or Super Admin can approve or reject this request."
         )
 
 @router.post("/submit")
@@ -176,10 +189,7 @@ def submit_rescheduling_request(request: ReschedulingRequestCreate, db: Session 
     db.refresh(db_request)
 
     # Route only to the program head responsible for the student's department
-    dept_admin = db.query(User).filter(
-        User.role.in_(["program_head", "admin"]),
-        User.department_code == dept_code
-    ).first()
+    dept_admin = find_department_admin(db, dept_code)
 
     target_admin = dept_admin
     if not target_admin:
@@ -204,9 +214,9 @@ def submit_rescheduling_request(request: ReschedulingRequestCreate, db: Session 
 @router.get("/pending/count")
 def get_pending_rescheduling_count(db: Session = Depends(get_db), current_user: User = Depends(require_role(["admin"]))):
     query = db.query(ReschedulingRequest).filter(ReschedulingRequest.status == "pending")
-    is_super = bool(current_user.is_super_admin or current_user.department_code == "GE")
+    is_super = bool(current_user.is_super_admin)
     if not is_super:
-        query = query.filter(ReschedulingRequest.department_code == current_user.department_code)
+        query = query.filter(ReschedulingRequest.department_code.in_(current_user.department_codes))
     count = query.count()
     return {"count": count}
 
@@ -216,14 +226,14 @@ def get_pending_requests(
     db: Session = Depends(get_db), 
     current_user: User = Depends(require_role(["admin"]))
 ):
-    is_super = bool(current_user.is_super_admin or current_user.department_code == "GE")
+    is_super = bool(current_user.is_super_admin)
     query = db.query(ReschedulingRequest).options(
         joinedload(ReschedulingRequest.exam).joinedload(Exam.course),
         joinedload(ReschedulingRequest.department_rel)
     ).filter(ReschedulingRequest.status == "pending")
 
     if not is_super:
-        query = query.filter(ReschedulingRequest.department_code == current_user.department_code)
+        query = query.filter(ReschedulingRequest.department_code.in_(current_user.department_codes))
     elif department and department != "All":
         query = query.filter(ReschedulingRequest.department_code == department)
 
@@ -248,7 +258,7 @@ def get_pending_requests(
         
         req_dept_code = req.department_code or (req.exam.course.department_code if (req.exam and req.exam.course) else None)
         req_dept_name = req.department_rel.name if req.department_rel else (req_dept_code or student_category)
-        can_approve = bool(is_super or (current_user.department_code and current_user.department_code == req_dept_code))
+        can_approve = bool(is_super or current_user.manages_department(req_dept_code))
 
         result.append({
             "id": req.id,
@@ -283,7 +293,7 @@ def get_rescheduling_history(
     db: Session = Depends(get_db), 
     current_user: User = Depends(require_role(["admin"]))
 ):
-    is_super = bool(current_user.is_super_admin or current_user.department_code == "GE")
+    is_super = bool(current_user.is_super_admin)
     query = db.query(ReschedulingRequest).options(
         joinedload(ReschedulingRequest.exam),
         joinedload(ReschedulingRequest.rescheduled_exam),
@@ -291,7 +301,7 @@ def get_rescheduling_history(
     ).filter(ReschedulingRequest.status.in_(["approved", "rejected"]))
 
     if not is_super:
-        query = query.filter(ReschedulingRequest.department_code == current_user.department_code)
+        query = query.filter(ReschedulingRequest.department_code.in_(current_user.department_codes))
     elif department and department != "All":
         query = query.filter(ReschedulingRequest.department_code == department)
 

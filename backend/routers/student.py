@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime, time, timedelta
 from .auth import get_current_user, require_role
+from .rescheduling import find_department_admin
 from utils.logging import log_activity
 from services.auto_rescheduler import get_assigned_student_count_for_room, get_solo_rescheduled_exam_ids
 
@@ -557,10 +558,7 @@ def submit_reschedule_request(
     db.refresh(db_req)
 
     # Forward notification to the student's dedicated department program head
-    dept_admin = db.query(User).filter(
-        User.role.in_(["program_head", "admin"]),
-        User.department_code == dept_code
-    ).first()
+    dept_admin = find_department_admin(db, dept_code)
 
     target_admin = dept_admin
     if not target_admin:

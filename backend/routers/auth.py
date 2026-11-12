@@ -133,11 +133,6 @@ def login(request: Request, login_data: LoginRequest, db: Session = Depends(get_
         )
 
     user = db.query(User).filter(User.email == clean_email).first()
-    # Seamless backward compatibility for Academic Head account
-    if not user and clean_email == "ge.admin@school.edu":
-        user = db.query(User).filter(User.email == "academic.head@school.edu").first()
-        if user:
-            clean_email = "academic.head@school.edu"
     
     if not user or not verify_password(login_data.password, user.hashed_password):
         log_activity(db, user.id if user else None, "LOGIN_FAILED", f"Email: {clean_email}", ip_address)
@@ -185,6 +180,7 @@ def login(request: Request, login_data: LoginRequest, db: Session = Depends(get_
             "email": user.email,
             "role": role,
             "department_code": user.department_code,
+            "department_codes": user.department_codes,
             "department_name": user.department_rel.name if user.department_rel else None,
             "is_super_admin": bool(user.is_super_admin),
             "student_id": user.student_id or (f"02000{str(user.id * 123457 % 900000 + 100000)}" if user.role == "student" else None),
@@ -223,6 +219,7 @@ def read_users_me(current_user: User = Depends(get_current_user)):
         "email": current_user.email,
         "role": role,
         "department_code": current_user.department_code,
+        "department_codes": current_user.department_codes,
         "department_name": current_user.department_rel.name if current_user.department_rel else None,
         "is_super_admin": bool(current_user.is_super_admin),
         "student_id": current_user.student_id or (f"02000{str(current_user.id * 123457 % 900000 + 100000)}" if current_user.role == "student" else None),
@@ -421,11 +418,6 @@ def forgot_password_request_code(
         )
 
     user = db.query(User).filter(User.email == clean_email).first()
-    # Seamless backward compatibility for Academic Head account
-    if not user and clean_email == "ge.admin@school.edu":
-        user = db.query(User).filter(User.email == "academic.head@school.edu").first()
-        if user:
-            clean_email = "academic.head@school.edu"
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -476,11 +468,6 @@ def forgot_password_reset(
         )
 
     user = db.query(User).filter(User.email == clean_email).first()
-    # Seamless backward compatibility for Academic Head account
-    if not user and clean_email == "ge.admin@school.edu":
-        user = db.query(User).filter(User.email == "academic.head@school.edu").first()
-        if user:
-            clean_email = "academic.head@school.edu"
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

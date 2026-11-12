@@ -60,30 +60,28 @@ def run_tests():
         bsa = db.query(Course).filter(Course.name == "BSA").first()
         assert_true(bsa and bsa.department_code == "BM", f"BSA assigned to BM department: {bsa.department_code if bsa else None}")
 
-        # TEST 3: Dedicated administrator accounts per department
-        print("\n--- Test 3: Dedicated Administrator Accounts ---")
-        admin_emails = {
-            "GE": "academic.head@school.edu",
-            "ICT": "ict.admin@school.edu",
-            "BM": "bm.admin@school.edu",
-            "THM": "thm.admin@school.edu",
-            "AS": "as.admin@school.edu",
-            "CRIM": "crim.admin@school.edu",
-            "SHS": "shs.admin@school.edu",
+        # TEST 3: Department administrator accounts, including shared BM/THM access
+        print("\n--- Test 3: Department Administrator Accounts ---")
+        admin_accounts = {
+            "GE": ("ge.admin@school.edu", ["GE"]),
+            "ICT": ("ict.admin@school.edu", ["ICT"]),
+            "BM & THM": ("bm.admin@school.edu", ["BM", "THM"]),
+            "AS": ("as.admin@school.edu", ["AS"]),
+            "CRIM": ("crim.admin@school.edu", ["CRIM"]),
+            "SHS": ("shs.admin@school.edu", ["SHS"]),
         }
-        for code, email in admin_emails.items():
+        for label, (email, managed_codes) in admin_accounts.items():
             user = db.query(User).filter(User.email == email).first()
-            if not user and code == "GE":
-                user = db.query(User).filter(User.email == "ge.admin@school.edu").first()
-            assert_true(user is not None, f"Admin account for {code} ({email}) exists")
+            assert_true(user is not None, f"Admin account for {label} ({email}) exists")
             if user:
-                assert_true(user.department_code == code, f"Account {email} assigned to department {code}")
+                assert_true(user.department_code == managed_codes[0], f"Account {email} primary department is {managed_codes[0]}")
+                assert_true(user.department_codes == managed_codes, f"Account {email} manages {', '.join(managed_codes)}")
                 assert_true(user.role == "program_head", f"Account {email} has role 'program_head'")
                 assert_true(verify_password("admin123", user.hashed_password), f"Account {email} password verification succeeds")
-                if code == "GE":
-                    assert_true(user.is_super_admin == True, "Academic Head / GE Admin has is_super_admin=True (Super Admin)")
-                else:
-                    assert_true(user.is_super_admin == False, f"{code} Admin has is_super_admin=False")
+                assert_true(user.is_super_admin == False, f"{label} Admin has is_super_admin=False")
+
+        legacy_thm_admin = db.query(User).filter(User.email == "thm.admin@school.edu").first()
+        assert_true(legacy_thm_admin is None, "Legacy THM-only administrator account is retired")
 
         # TEST 4: Configurable Subject Department & Multi-program support
         print("\n--- Test 4: Configurable Subject Department & Multi-Program Assignment ---")
@@ -142,9 +140,10 @@ def run_tests():
         from routers.rescheduling import check_request_department_access
         from fastapi import HTTPException
 
-        ge_admin = db.query(User).filter(User.email == "academic.head@school.edu").first() or db.query(User).filter(User.email == "ge.admin@school.edu").first()
+        ge_admin = db.query(User).filter(User.email == "ge.admin@school.edu").first()
+        super_admin = db.query(User).filter(User.email == "admin@school.edu").first()
         ict_admin = db.query(User).filter(User.email == "ict.admin@school.edu").first()
-        bm_admin = db.query(User).filter(User.email == "bm.admin@school.edu").first()
+        bm_thm_admin = db.query(User).filter(User.email == "bm.admin@school.edu").first()
 
         # Create a mock request belonging to ICT
         test_request = ReschedulingRequest(
@@ -164,19 +163,43 @@ def run_tests():
         except HTTPException:
             assert_true(False, "ICT Admin was blocked from reviewing ICT request")
 
-        # 2. BM Admin reviews ICT request -> Must be blocked with 403
+        # 2. The shared BM/THM admin reviews ICT request -> Must be blocked with 403
         try:
-            check_request_department_access(test_request, bm_admin, db)
-            assert_true(False, "BM Admin was incorrectly allowed to review ICT request")
+            check_request_department_access(test_request, bm_thm_admin, db)
+            assert_true(False, "BM/THM Admin was incorrectly allowed to review ICT request")
         except HTTPException as e:
-            assert_true(e.status_code == 403, f"BM Admin correctly blocked with 403 Forbidden: '{e.detail}'")
+            assert_true(e.status_code == 403, f"BM/THM Admin correctly blocked with 403 Forbidden: '{e.detail}'")
 
-        # 3. GE Admin (Super Admin) reviews ICT request -> Must succeed
+        # 3. The same account can approve requests from both BM and THM.
+        for code in ["BM", "THM"]:
+            shared_department_request = ReschedulingRequest(
+                student_id=f"{code}-STUDENT001",
+                exam_id=1,
+                program="BSA" if code == "BM" else "BSTM",
+                reason_type="Academic Conflict",
+                detailed_explanation="Shared-admin access test",
+                status="pending",
+                department_code=code,
+            )
+            try:
+                check_request_department_access(shared_department_request, bm_thm_admin, db)
+                assert_true(True, f"BM/THM Admin allowed to review {code} department request")
+            except HTTPException:
+                assert_true(False, f"BM/THM Admin was blocked from reviewing {code} department request")
+
+        # 4. GE Admin cannot review another department's request.
         try:
             check_request_department_access(test_request, ge_admin, db)
-            assert_true(True, "GE Super Admin allowed to review cross-department (ICT) request")
+            assert_true(False, "GE Admin was incorrectly allowed to review cross-department request")
+        except HTTPException as e:
+            assert_true(e.status_code == 403, f"GE Admin correctly blocked with 403 Forbidden: '{e.detail}'")
+
+        # 5. The dedicated super admin can review cross-department requests.
+        try:
+            check_request_department_access(test_request, super_admin, db)
+            assert_true(True, "Super Admin allowed to review cross-department (ICT) request")
         except HTTPException:
-            assert_true(False, "GE Super Admin was blocked from reviewing cross-department request")
+            assert_true(False, "Super Admin was blocked from reviewing cross-department request")
 
         # TEST 6: Preservation of Existing Records
         print("\n--- Test 6: Preservation of Existing Records & Scheduling Rules ---")

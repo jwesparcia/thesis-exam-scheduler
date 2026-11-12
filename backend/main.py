@@ -42,7 +42,7 @@ def on_startup():
         print("Database tables created successfully!")
         
         # Add soft delete columns idempotently
-        from sqlalchemy import text as _text
+        from sqlalchemy import inspect as _inspect, text as _text
         with engine.connect() as _conn:
             _conn.execute(_text("ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS deleted_by_sender BOOLEAN DEFAULT FALSE"))
             _conn.execute(_text("ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS deleted_by_recipient BOOLEAN DEFAULT FALSE"))
@@ -55,6 +55,9 @@ def on_startup():
                     _conn.execute(_text("ALTER TABLE users ADD COLUMN active_session_id VARCHAR(255)"))
                 except Exception:
                     pass
+            user_columns = {column["name"] for column in _inspect(engine).get_columns("users")}
+            if "managed_department_codes" not in user_columns:
+                _conn.execute(_text("ALTER TABLE users ADD COLUMN managed_department_codes JSON"))
             _conn.execute(_text("""
                 INSERT INTO exam_break_settings (category_type, break_seconds)
                 SELECT LOWER(category_type), MAX(COALESCE(break_minutes, 0)) * 60
@@ -69,19 +72,21 @@ def on_startup():
                 WHERE LOWER(TRIM(name)) = 'understanding the self' AND category != 'general'
             """))
             _conn.execute(_text("UPDATE users SET role = 'program_head' WHERE role = 'admin'"))
-            _conn.execute(_text("""
-                UPDATE users
-                SET name = 'Academic Head',
-                    email = 'academic.head@school.edu'
-                WHERE email = 'ge.admin@school.edu'
-                   OR (role = 'program_head' AND is_super_admin = TRUE AND (name ILIKE '%GE Administrator%' OR name ILIKE '%General Education%'))
-            """))
             _conn.commit()
         print("Chat database soft-delete columns migration successful!")
 
         # Seed default data if missing (useful for fresh databases on Render)
         from core import SessionLocal
-        from model import User, Room, YearLevel
+        from model import (
+            ActivityLog,
+            ChatMessage,
+            IrregularSelection,
+            Notification,
+            PasswordResetToken,
+            Room,
+            User,
+            YearLevel,
+        )
         from room_data import AVAILABLE_EXAM_ROOMS
         from routers.auth import hash_password
 
@@ -109,18 +114,76 @@ def on_startup():
                     ))
             db_session.commit()
 
-            # 2. Dedicated Program Head accounts per department
+            # Retire the old Academic Head account while preserving its user ID and
+            # related history by converting it back to the GE administrator account.
+            ge_admin = db_session.query(User).filter(User.email == "ge.admin@school.edu").first()
+            academic_head = db_session.query(User).filter(User.email == "academic.head@school.edu").first()
+            if academic_head:
+                if ge_admin:
+                    related_user_columns = [
+                        (ActivityLog, ActivityLog.user_id),
+                        (ChatMessage, ChatMessage.sender_id),
+                        (ChatMessage, ChatMessage.recipient_id),
+                        (IrregularSelection, IrregularSelection.user_id),
+                        (Notification, Notification.user_id),
+                        (PasswordResetToken, PasswordResetToken.user_id),
+                    ]
+                    for model, user_column in related_user_columns:
+                        db_session.query(model).filter(user_column == academic_head.id).update(
+                            {user_column: ge_admin.id},
+                            synchronize_session=False,
+                        )
+                    db_session.delete(academic_head)
+                else:
+                    academic_head.email = "ge.admin@school.edu"
+                    ge_admin = academic_head
+
+            if ge_admin:
+                ge_admin.name = "General Academic Administrator"
+                ge_admin.role = "program_head"
+                ge_admin.department_code = "GE"
+                ge_admin.is_super_admin = False
+                ge_admin.active_session_id = None
+            db_session.commit()
+
+            # BM and THM are handled by one program head.  Preserve the BM
+            # account and its credentials while merging any legacy THM history.
+            bm_thm_admin = db_session.query(User).filter(User.email == "bm.admin@school.edu").first()
+            legacy_thm_admin = db_session.query(User).filter(User.email == "thm.admin@school.edu").first()
+            if legacy_thm_admin:
+                if bm_thm_admin:
+                    related_user_columns = [
+                        (ActivityLog, ActivityLog.user_id),
+                        (ChatMessage, ChatMessage.sender_id),
+                        (ChatMessage, ChatMessage.recipient_id),
+                        (IrregularSelection, IrregularSelection.user_id),
+                        (Notification, Notification.user_id),
+                        (PasswordResetToken, PasswordResetToken.user_id),
+                    ]
+                    for model, user_column in related_user_columns:
+                        db_session.query(model).filter(user_column == legacy_thm_admin.id).update(
+                            {user_column: bm_thm_admin.id},
+                            synchronize_session=False,
+                        )
+                    db_session.delete(legacy_thm_admin)
+                else:
+                    # Keep the only existing account and make it the shared,
+                    # canonical BM/THM account.
+                    legacy_thm_admin.email = "bm.admin@school.edu"
+                    bm_thm_admin = legacy_thm_admin
+            db_session.commit()
+
+            # 2. Program Head accounts. BM and THM deliberately share one account.
             admin_accounts = [
-                ("Academic Head", "academic.head@school.edu", "GE", True),
-                ("Dr. Maria Santos", "admin@school.edu", "GE", True),
-                ("ICT Department Administrator", "ict.admin@school.edu", "ICT", False),
-                ("BM Department Administrator", "bm.admin@school.edu", "BM", False),
-                ("THM Department Administrator", "thm.admin@school.edu", "THM", False),
-                ("AS Department Administrator", "as.admin@school.edu", "AS", False),
-                ("CRIM Department Administrator", "crim.admin@school.edu", "CRIM", False),
-                ("SHS Department Administrator", "shs.admin@school.edu", "SHS", False),
+                ("General Academic Administrator", "ge.admin@school.edu", "GE", ["GE"], False),
+                ("Dr. Maria Santos", "admin@school.edu", "GE", ["GE"], True),
+                ("ICT Department Administrator", "ict.admin@school.edu", "ICT", ["ICT"], False),
+                ("BM & THM Department Administrator", "bm.admin@school.edu", "BM", ["BM", "THM"], False),
+                ("AS Department Administrator", "as.admin@school.edu", "AS", ["AS"], False),
+                ("CRIM Department Administrator", "crim.admin@school.edu", "CRIM", ["CRIM"], False),
+                ("SHS Department Administrator", "shs.admin@school.edu", "SHS", ["SHS"], False),
             ]
-            for aname, aemail, adcode, asuper in admin_accounts:
+            for aname, aemail, adcode, managed_codes, asuper in admin_accounts:
                 head_user = db_session.query(User).filter(User.email == aemail).first()
                 if not head_user:
                     head_user = User(
@@ -129,16 +192,17 @@ def on_startup():
                         hashed_password=hash_password("admin123"),
                         role="program_head",
                         department_code=adcode,
+                        managed_department_codes=managed_codes,
                         is_super_admin=asuper,
                         is_first_login=False,
                     )
                     db_session.add(head_user)
                 else:
+                    head_user.name = aname
                     head_user.role = "program_head"
-                    if not head_user.department_code:
-                        head_user.department_code = adcode
-                    if asuper:
-                        head_user.is_super_admin = True
+                    head_user.department_code = adcode
+                    head_user.managed_department_codes = managed_codes
+                    head_user.is_super_admin = asuper
 
             # Also seed default irregular student if missing
             irreg_user = db_session.query(User).filter(User.email == "irreg@school.edu").first()
@@ -166,7 +230,7 @@ def on_startup():
                     c.department_code = dcode
 
             db_session.commit()
-            print("All Program Head accounts and department links ensured on startup!")
+            print("Program Head accounts and department links ensured on startup (BM and THM share one account)!")
 
             # 2. Default YearLevels
             if db_session.query(YearLevel).count() == 0:
