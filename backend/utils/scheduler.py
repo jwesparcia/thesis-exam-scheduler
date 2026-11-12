@@ -754,12 +754,17 @@ def generate_exam_schedule(
         if _re.search(r'(3rd|4th|grade\s*1[12])', name.lower())
     }
 
-    # Group subjects by name and duration
+    # Group subjects by canonical name and duration.  One subject may be
+    # represented by separate curriculum records for different programs (and
+    # therefore different subject codes).  Those records must share an exam
+    # session so students cannot receive the same paper at different times.
     report_progress(32, "Grouping subjects", "Synchronizing shared subjects across sections")
     shared_subject_groups = {}
     for sub in subjects:
         sub_dur = subject_durations.get(sub.id, getattr(sub, "duration_minutes", 75) or 75)
-        key = (sub.name, sub_dur)
+        canonical_name = " ".join(str(sub.name or "").casefold().split())
+        # A blank name must not accidentally combine unrelated curriculum rows.
+        key = (canonical_name or f"subject-{sub.id}", sub_dur)
         shared_subject_groups.setdefault(key, []).append(sub)
 
     import copy
@@ -841,6 +846,20 @@ def generate_exam_schedule(
         if not cohort_dict:
             continue
 
+        # Keep every section taking this subject in one optimizer group.  The
+        # previous per-course iteration produced separate groups, which meant
+        # that a shared subject (for example, a GE subject offered by several
+        # programs) could be scheduled at different dates/times.  Rooms remain
+        # assigned one per section later in the allocator, with the same
+        # capacity, floor, and proctor constraints.
+        shared_sections_by_id = {}
+        for cohort_sections in cohort_dict.values():
+            for sec, sub in cohort_sections:
+                shared_sections_by_id.setdefault(sec.id, (sec, sub))
+        synchronized_cohort_items = [
+            (("shared-subject", name_key, group_dur), list(shared_sections_by_id.values()))
+        ]
+
         if fixed_sub:
             f_day = fixed_sub.fixed_day
             f_start = parse_time_obj(fixed_sub.fixed_start_time)
@@ -883,7 +902,7 @@ def generate_exam_schedule(
             cur_slot_pos = 0
             cur_slot_count = 0
 
-            for c_key, cohort_sections in cohort_dict.items():
+            for c_key, cohort_sections in synchronized_cohort_items:
                 sample_sec, sample_sub = cohort_sections[0]
                 classification = classify_subject(sample_sub.name, sample_sub.category)
                 req_dur = subject_durations.get(sample_sub.id, group_dur)
@@ -893,8 +912,17 @@ def generate_exam_schedule(
                 }
                 course_name = sample_sec.course.name if (sample_sec and sample_sec.course) else (sample_sub.course.name if sample_sub.course else f"Course {c_key[0]}")
 
-                # Handle cohort split if a single cohort is larger than total room capacity
-                cohort_chunks = [cohort_sections[i:i + slot_limit] for i in range(0, len(cohort_sections), slot_limit)] or [cohort_sections]
+                # Do not split a shared subject across timeslots: that would
+                # expose its exam paper before every program has taken it.
+                # Report a physical-room limitation instead of silently
+                # weakening the anti-leakage rule.
+                if len(cohort_sections) > slot_limit:
+                    raise ValueError(
+                        f"Shared subject '{sample_sub.name}' requires {len(cohort_sections)} rooms at one time, "
+                        f"but only {slot_limit} {department} exam rooms are available. "
+                        "Add rooms or reduce the number of active sections."
+                    )
+                cohort_chunks = [cohort_sections]
                 for chunk_idx, chunk_secs in enumerate(cohort_chunks):
                     chunk_len = len(chunk_secs)
                     if cur_slot_count + chunk_len > slot_limit and cur_slot_count > 0:
@@ -918,47 +946,57 @@ def generate_exam_schedule(
                         "break_seconds_by_section": break_seconds_by_section,
                         "is_fixed": True,
                         "fixed_slot_id": assigned_slot.id if assigned_slot else None,
+                        "synchronized_subject": True,
                     })
         else:
             # Not fixed to a specific timeslot: follow distribution rules
-            for c_key, cohort_sections in cohort_dict.items():
+            for c_key, cohort_sections in synchronized_cohort_items:
                 sample_sec, sample_sub = cohort_sections[0]
                 classification = classify_subject(sample_sub.name, sample_sub.category)
                 req_dur = subject_durations.get(sample_sub.id, group_dur)
-                is_minor_subject = is_minor_subject_category(sample_sub.category)
-                cohort_has_minor_subject = any(
-                    section_has_minor_subject.get(sec.id, False)
-                    for sec, _sub in cohort_sections
-                )
-                session_preferred_slots = _allowed_slots_for_classification(
-                    classification,
-                    sample_sub.year_level_id,
-                    req_dur,
-                    is_minor_subject=is_minor_subject,
-                    cohort_has_minor_subject=cohort_has_minor_subject,
-                )
                 duration_slots = {
                     s for s in timeslots
                     if ((s.end_time.hour * 60 + s.end_time.minute) - (s.start_time.hour * 60 + s.start_time.minute)) == req_dur
                 }
-                if not session_preferred_slots:
-                    session_preferred_slots = set(duration_slots)
 
-                # Session placement is a high-priority preference rather than
-                # an impossible hard wall.  A full department may not have
-                # enough afternoon rooms for every major, and a usable schedule
-                # is preferable to a failed generation.  The GA and final
-                # allocator rank these slots first and relax only when capacity
-                # or conflicts require it.
-                if not is_minor_subject and not cohort_has_minor_subject:
-                    # A section with an all-major load may use either session;
-                    # prefer morning so it can form the reference-style chain.
-                    preferred_slots = {
-                        s for s in duration_slots
-                        if s.start_time < datetime.strptime("11:30:00", "%H:%M:%S").time()
-                    } or set(duration_slots)
-                else:
-                    preferred_slots = session_preferred_slots
+                # Preserve the existing minor-morning / major-afternoon logic
+                # for every participating section.  The common preferred set
+                # is its intersection, so the shared exam follows all programs'
+                # session preferences whenever that is possible.
+                participant_preferences = []
+                for participant_sec, participant_sub in cohort_sections:
+                    participant_classification = classify_subject(
+                        participant_sub.name, participant_sub.category
+                    )
+                    participant_is_minor = is_minor_subject_category(participant_sub.category)
+                    participant_has_minor = section_has_minor_subject.get(participant_sec.id, False)
+                    session_preferred_slots = _allowed_slots_for_classification(
+                        participant_classification,
+                        participant_sub.year_level_id,
+                        req_dur,
+                        is_minor_subject=participant_is_minor,
+                        cohort_has_minor_subject=participant_has_minor,
+                    ) or set(duration_slots)
+                    if not participant_is_minor and not participant_has_minor:
+                        # An all-major section can use either session, but
+                        # morning remains preferred for consecutive chaining.
+                        participant_preferred = {
+                            s for s in duration_slots
+                            if s.start_time < datetime.strptime("11:30:00", "%H:%M:%S").time()
+                        } or set(duration_slots)
+                    else:
+                        participant_preferred = session_preferred_slots
+                    participant_preferences.append(participant_preferred)
+
+                preferred_slots = (
+                    set.intersection(*participant_preferences)
+                    if participant_preferences else set(duration_slots)
+                )
+                # A mismatched curriculum category must not weaken the
+                # anti-leakage rule.  Retain a common timeslot even if no
+                # single session is preferred by every participating program.
+                if not preferred_slots:
+                    preferred_slots = set(duration_slots)
 
                 break_seconds_by_section = {
                     sec.id: _break_after_exam(sub.category)
@@ -976,6 +1014,7 @@ def generate_exam_schedule(
                     "duration": req_dur,
                     "break_seconds_by_section": break_seconds_by_section,
                     "is_fixed": False,
+                    "synchronized_subject": True,
                 })
 
     # -------------------------
@@ -1210,6 +1249,7 @@ def generate_exam_schedule(
             "slot_proctors": slot_proctors,
             "duration": g.get("duration", 75),
             "is_fixed": g.get("is_fixed", False),
+            "synchronized_subject": g.get("synchronized_subject", False),
         })
 
     preprocessed_groups.sort(
@@ -3079,6 +3119,18 @@ def generate_exam_schedule(
                     for ov_idx in slot_overlaps[slot_idx]:
                         room_slots_set.add((r_idx, ov_idx))
                     room_loads[r_idx] += 1
+
+            # A synchronized subject is atomic: moving only its remaining
+            # course clusters to a later slot would reintroduce exam leakage.
+            # The optimizer and `pick_group_slot` already seek a slot that can
+            # hold every section; if final placement cannot do so, surface the
+            # real capacity/floor constraint instead of splitting the paper.
+            if group.get("synchronized_subject") and len(assigned_rooms) != len(slot_exams):
+                shared_name = group["sections"][0].get("sub_name", "Shared subject")
+                raise ValueError(
+                    f"Unable to place every section taking shared subject '{shared_name}' at the same date and time "
+                    f"while preserving room capacity and same-floor grouping. Add suitable rooms or reduce active sections."
+                )
 
             # Fallback for any overflow, unscheduled clusters, or gap-divergent sections
             unassigned_by_course = {}
