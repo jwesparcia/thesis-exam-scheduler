@@ -37,35 +37,58 @@ app.add_middleware(
 @app.on_event("startup")
 def on_startup():
     try:
-        print("Creating database tables...")
+        print("Creating database tables...", flush=True)
         Base.metadata.create_all(bind=engine)
-        print("Database tables created successfully!")
+        print("Database tables created successfully!", flush=True)
         
-        # Add soft delete columns idempotently
+        # Only apply legacy schema changes when a column is actually absent.
+        # PostgreSQL takes an exclusive table lock even for `ADD COLUMN IF NOT
+        # EXISTS`, which made every Render deployment wait before binding its
+        # HTTP port.
         from sqlalchemy import inspect as _inspect, text as _text
         with engine.connect() as _conn:
-            _conn.execute(_text("ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS deleted_by_sender BOOLEAN DEFAULT FALSE"))
-            _conn.execute(_text("ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS deleted_by_recipient BOOLEAN DEFAULT FALSE"))
-            _conn.execute(_text("ALTER TABLE rescheduling_requests ADD COLUMN IF NOT EXISTS rescheduled_exam_id INTEGER REFERENCES exams(id)"))
-            _conn.execute(_text("ALTER TABLE distribution_rules ADD COLUMN IF NOT EXISTS break_minutes INTEGER NOT NULL DEFAULT 0"))
-            if not str(engine.url).startswith("sqlite"):
-                _conn.execute(_text("ALTER TABLE users ADD COLUMN IF NOT EXISTS active_session_id VARCHAR(255)"))
-            else:
-                try:
-                    _conn.execute(_text("ALTER TABLE users ADD COLUMN active_session_id VARCHAR(255)"))
-                except Exception:
-                    pass
-            user_columns = {column["name"] for column in _inspect(engine).get_columns("users")}
-            if "managed_department_codes" not in user_columns:
-                _conn.execute(_text("ALTER TABLE users ADD COLUMN managed_department_codes JSON"))
-            _conn.execute(_text("""
-                INSERT INTO exam_break_settings (category_type, break_seconds)
-                SELECT LOWER(category_type), MAX(COALESCE(break_minutes, 0)) * 60
-                FROM distribution_rules
-                WHERE LOWER(category_type) IN ('general', 'major')
-                GROUP BY LOWER(category_type)
-                ON CONFLICT (category_type) DO NOTHING
-            """))
+            _inspector = _inspect(_conn)
+
+            def _column_names(table_name):
+                return {column["name"] for column in _inspector.get_columns(table_name)}
+
+            def _add_column_if_missing(table_name, column_name, ddl):
+                if column_name not in _column_names(table_name):
+                    print(f"Applying one-time schema update: {table_name}.{column_name}", flush=True)
+                    _conn.execute(_text(ddl))
+
+            _add_column_if_missing(
+                "chat_messages",
+                "deleted_by_sender",
+                "ALTER TABLE chat_messages ADD COLUMN deleted_by_sender BOOLEAN DEFAULT FALSE",
+            )
+            _add_column_if_missing(
+                "chat_messages",
+                "deleted_by_recipient",
+                "ALTER TABLE chat_messages ADD COLUMN deleted_by_recipient BOOLEAN DEFAULT FALSE",
+            )
+            _add_column_if_missing(
+                "rescheduling_requests",
+                "rescheduled_exam_id",
+                "ALTER TABLE rescheduling_requests ADD COLUMN rescheduled_exam_id INTEGER REFERENCES exams(id)",
+            )
+            _add_column_if_missing(
+                "users",
+                "active_session_id",
+                "ALTER TABLE users ADD COLUMN active_session_id VARCHAR(255)",
+            )
+
+            # `break_minutes` belongs to an older schema. New installations
+            # use exam_break_settings directly, so copy it only when present.
+            if "break_minutes" in _column_names("distribution_rules"):
+                _conn.execute(_text("""
+                    INSERT INTO exam_break_settings (category_type, break_seconds)
+                    SELECT LOWER(category_type), MAX(COALESCE(break_minutes, 0)) * 60
+                    FROM distribution_rules
+                    WHERE LOWER(category_type) IN ('general', 'major')
+                    GROUP BY LOWER(category_type)
+                    ON CONFLICT (category_type) DO NOTHING
+                """))
             _conn.execute(_text("""
                 UPDATE subjects
                 SET category = 'general'
@@ -73,7 +96,7 @@ def on_startup():
             """))
             _conn.execute(_text("UPDATE users SET role = 'program_head' WHERE role = 'admin'"))
             _conn.commit()
-        print("Chat database soft-delete columns migration successful!")
+        print("Startup schema checks completed.", flush=True)
 
         # Seed default data if missing (useful for fresh databases on Render)
         from core import SessionLocal
@@ -175,15 +198,15 @@ def on_startup():
 
             # 2. Program Head accounts. BM and THM deliberately share one account.
             admin_accounts = [
-                ("General Academic Administrator", "ge.admin@school.edu", "GE", ["GE"], False),
-                ("Dr. Maria Santos", "admin@school.edu", "GE", ["GE"], True),
-                ("ICT Department Administrator", "ict.admin@school.edu", "ICT", ["ICT"], False),
-                ("BM & THM Department Administrator", "bm.admin@school.edu", "BM", ["BM", "THM"], False),
-                ("AS Department Administrator", "as.admin@school.edu", "AS", ["AS"], False),
-                ("CRIM Department Administrator", "crim.admin@school.edu", "CRIM", ["CRIM"], False),
-                ("SHS Department Administrator", "shs.admin@school.edu", "SHS", ["SHS"], False),
+                ("General Academic Administrator", "ge.admin@school.edu", "GE", False),
+                ("Dr. Maria Santos", "admin@school.edu", "GE", True),
+                ("ICT Department Administrator", "ict.admin@school.edu", "ICT", False),
+                ("BM & THM Department Administrator", "bm.admin@school.edu", "BM", False),
+                ("AS Department Administrator", "as.admin@school.edu", "AS", False),
+                ("CRIM Department Administrator", "crim.admin@school.edu", "CRIM", False),
+                ("SHS Department Administrator", "shs.admin@school.edu", "SHS", False),
             ]
-            for aname, aemail, adcode, managed_codes, asuper in admin_accounts:
+            for aname, aemail, adcode, asuper in admin_accounts:
                 head_user = db_session.query(User).filter(User.email == aemail).first()
                 if not head_user:
                     head_user = User(
@@ -192,7 +215,6 @@ def on_startup():
                         hashed_password=hash_password("admin123"),
                         role="program_head",
                         department_code=adcode,
-                        managed_department_codes=managed_codes,
                         is_super_admin=asuper,
                         is_first_login=False,
                     )
@@ -201,7 +223,6 @@ def on_startup():
                     head_user.name = aname
                     head_user.role = "program_head"
                     head_user.department_code = adcode
-                    head_user.managed_department_codes = managed_codes
                     head_user.is_super_admin = asuper
 
             # Also seed default irregular student if missing
@@ -274,14 +295,17 @@ def on_startup():
                 db_session.commit()
                 print(f"Auto-seeded {len(rooms_to_add)} exam rooms into database!")
     except Exception as e:
-        print(f"Failed to create database tables or run migrations: {e}")
-        print("Make sure the database is accessible")
+        print(f"Failed to create database tables or run migrations: {e}", flush=True)
+        print("Make sure the database is accessible", flush=True)
 
     # Connect Redis cache (non-fatal — app works without Redis)
     from core import cache
     connected = cache.connect()
     if not connected:
-        print("[WARNING] Redis unavailable - running without cache (PostgreSQL only)")
+        if os.getenv("REDIS_HOST"):
+            print("[WARNING] Redis unavailable - running without cache (PostgreSQL only)", flush=True)
+        else:
+            print("Redis is not configured - running without cache.", flush=True)
 
 @app.on_event("shutdown")
 def on_shutdown():

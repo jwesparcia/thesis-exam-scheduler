@@ -25,21 +25,25 @@ if DATABASE_URL:
             except ImportError:
                 pass
 
-print("Loaded DATABASE_URL:", DATABASE_URL)
+print("DATABASE_URL configured" if DATABASE_URL else "DATABASE_URL is missing", flush=True)
 
 if not DATABASE_URL:
     raise RuntimeError("Set DATABASE_URL in .env")
 
 try:
-    print("Attempting to connect to database...")
+    print("Attempting to connect to database...", flush=True)
     connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
+    if DATABASE_URL.startswith("postgresql"):
+        # Avoid an indefinitely stalled deployment when the configured
+        # database endpoint cannot be reached from the hosting service.
+        connect_args["connect_timeout"] = 10
     engine = create_engine(DATABASE_URL, pool_pre_ping=True, connect_args=connect_args)
     # Test the connection
     with engine.connect() as conn:
-        print("Database connection successful!")
+        print("Database connection successful!", flush=True)
 except Exception as e:
-    print(f"Database connection failed: {e}")
-    print("Make sure PostgreSQL is running and the database exists")
+    print(f"Database connection failed: {e}", flush=True)
+    print("Make sure PostgreSQL is running and the database exists", flush=True)
     raise
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

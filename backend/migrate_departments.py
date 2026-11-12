@@ -1,5 +1,4 @@
 import os
-import json
 import dotenv
 import bcrypt
 from sqlalchemy import create_engine, text
@@ -151,11 +150,9 @@ def run_department_migration():
             ADD COLUMN IF NOT EXISTS department_code VARCHAR(20) REFERENCES departments(code);
             ALTER TABLE users
             ADD COLUMN IF NOT EXISTS is_super_admin BOOLEAN DEFAULT FALSE;
-            ALTER TABLE users
-            ADD COLUMN IF NOT EXISTS managed_department_codes JSON;
         """))
         conn.commit()
-        print("[OK] user columns department_code, managed_department_codes, and is_super_admin added.")
+        print("[OK] user columns department_code and is_super_admin added.")
 
         # 7. Retire the legacy Academic Head account in favor of a standard GE admin.
         ge_admin_id = conn.execute(text("""
@@ -244,21 +241,10 @@ def run_department_migration():
                 """), {"thm_admin_id": thm_admin_id})
         conn.commit()
 
-        # Existing single-department users retain their current scope until
-        # explicitly assigned additional departments below.
-        conn.execute(text("""
-            UPDATE users
-            SET managed_department_codes = json_build_array(department_code)
-            WHERE department_code IS NOT NULL
-              AND managed_department_codes IS NULL;
-        """))
-        conn.commit()
-
         # Keep the designated system administrator as the only seeded GE super admin.
         conn.execute(text("""
             UPDATE users
             SET department_code = 'GE',
-                managed_department_codes = json_build_array('GE'),
                 is_super_admin = TRUE
             WHERE email = 'admin@school.edu';
         """))
@@ -266,22 +252,21 @@ def run_department_migration():
 
         # 8. Seed administrator accounts. BM and THM share one account.
         admin_accounts = [
-            ("General Academic Administrator", "ge.admin@school.edu", "GE", ["GE"], False),
-            ("ICT Department Administrator", "ict.admin@school.edu", "ICT", ["ICT"], False),
-            ("BM & THM Department Administrator", "bm.admin@school.edu", "BM", ["BM", "THM"], False),
-            ("AS Department Administrator", "as.admin@school.edu", "AS", ["AS"], False),
-            ("CRIM Department Administrator", "crim.admin@school.edu", "CRIM", ["CRIM"], False),
-            ("SHS Department Administrator", "shs.admin@school.edu", "SHS", ["SHS"], False),
+            ("General Academic Administrator", "ge.admin@school.edu", "GE", False),
+            ("ICT Department Administrator", "ict.admin@school.edu", "ICT", False),
+            ("BM & THM Department Administrator", "bm.admin@school.edu", "BM", False),
+            ("AS Department Administrator", "as.admin@school.edu", "AS", False),
+            ("CRIM Department Administrator", "crim.admin@school.edu", "CRIM", False),
+            ("SHS Department Administrator", "shs.admin@school.edu", "SHS", False),
         ]
         hashed = hash_password("admin123")
-        for aname, aemail, adcode, managed_codes, asuper in admin_accounts:
+        for aname, aemail, adcode, asuper in admin_accounts:
             conn.execute(text("""
-                INSERT INTO users (name, email, hashed_password, role, department_code, managed_department_codes, is_super_admin, is_first_login)
-                VALUES (:name, :email, :hashed, 'program_head', :dcode, CAST(:managed_codes AS JSON), :is_super, FALSE)
+                INSERT INTO users (name, email, hashed_password, role, department_code, is_super_admin, is_first_login)
+                VALUES (:name, :email, :hashed, 'program_head', :dcode, :is_super, FALSE)
                 ON CONFLICT (email) DO UPDATE
                 SET name = EXCLUDED.name,
                     department_code = EXCLUDED.department_code,
-                    managed_department_codes = EXCLUDED.managed_department_codes,
                     is_super_admin = EXCLUDED.is_super_admin,
                     role = 'program_head';
             """), {
@@ -289,7 +274,6 @@ def run_department_migration():
                 "email": aemail,
                 "hashed": hashed,
                 "dcode": adcode,
-                "managed_codes": json.dumps(managed_codes),
                 "is_super": asuper,
             })
         conn.commit()

@@ -3,7 +3,6 @@ from passlib.context import CryptContext
 from datetime import datetime, timezone
 from sqlalchemy.orm import relationship
 from core.database import Base
-import json
 
 class Department(Base):
     __tablename__ = "departments"
@@ -266,9 +265,6 @@ class User(Base):
     student_id = Column(String, nullable=True, index=True)
     is_first_login = Column(Boolean, default=True)
     department_code = Column(String, ForeignKey("departments.code"), nullable=True)
-    # The primary department is retained above for backwards compatibility.
-    # Program heads may additionally manage more than one department.
-    managed_department_codes = Column(JSON, nullable=True)
     is_super_admin = Column(Boolean, default=False)
     active_session_id = Column(String, nullable=True)
 
@@ -277,26 +273,18 @@ class User(Base):
 
     @property
     def department_codes(self):
-        """Return every department this account is authorized to manage.
+        """Return every department this account is authorized to manage."""
+        primary_code = str(self.department_code).strip().upper() if self.department_code else ""
+        if not primary_code:
+            return []
 
-        Existing users that predate multi-department support continue to work
-        through their original ``department_code``.
-        """
-        configured_codes = self.managed_department_codes
-        if isinstance(configured_codes, str):
-            try:
-                configured_codes = json.loads(configured_codes)
-            except (TypeError, json.JSONDecodeError):
-                configured_codes = configured_codes.split(",")
-
-        if not isinstance(configured_codes, (list, tuple, set)):
-            configured_codes = []
-
-        codes = []
-        for code in [self.department_code, *configured_codes]:
-            clean_code = str(code).strip().upper() if code else ""
-            if clean_code and clean_code not in codes:
-                codes.append(clean_code)
+        codes = [primary_code]
+        # The school has one program head for Business & Management and
+        # Tourism & Hospitality Management. Keep this business rule in code so
+        # the shared account does not require a blocking database migration at
+        # application startup.
+        if self.role in ("program_head", "admin") and primary_code == "BM":
+            codes.append("THM")
         return codes
 
     def manages_department(self, department_code):

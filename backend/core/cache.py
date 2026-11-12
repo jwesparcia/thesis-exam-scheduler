@@ -35,7 +35,7 @@ from dotenv import load_dotenv
 _BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 load_dotenv(os.path.join(os.path.dirname(_BASE_DIR), ".env"))
 
-REDIS_HOST     = os.getenv("REDIS_HOST", "localhost")
+REDIS_HOST     = os.getenv("REDIS_HOST")
 REDIS_PORT     = int(os.getenv("REDIS_PORT", "6379"))
 REDIS_PASSWORD = os.getenv("REDIS_PASSWORD") or None   # None disables AUTH
 REDIS_DB       = int(os.getenv("REDIS_DB", "0"))
@@ -79,6 +79,11 @@ class CacheManager:
         Returns True on success, False if Redis is unavailable.
         Called once at application startup.
         """
+        if not REDIS_HOST:
+            logger.info("Redis is not configured; caching disabled")
+            self._available = False
+            return False
+
         try:
             self._pool = redis.ConnectionPool(
                 host=REDIS_HOST,
