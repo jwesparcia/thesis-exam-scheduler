@@ -26,7 +26,13 @@ from model import Course, Exam, Proctor, Room, Section, Subject, Teacher, Teache
 from utils import scheduler  # noqa: E402
 
 
-def run_test(room_names, expected_batch_count, shared_subject_names=("Ethics",)):
+def run_test(
+    room_names,
+    expected_batch_count,
+    shared_subject_names=("Ethics",),
+    sections_per_course=3,
+    expect_whole_course_batches=True,
+):
     Base.metadata.create_all(engine)
     db = SessionLocal()
     try:
@@ -40,7 +46,7 @@ def run_test(room_names, expected_batch_count, shared_subject_names=("Ethics",))
         # room.  Each course can still be kept on one floor.
         sections = []
         for course in (bsit, bscs):
-            for suffix in range(101, 104):
+            for suffix in range(101, 101 + sections_per_course):
                 section = Section(
                     name=f"{course.name} 1-{suffix}",
                     course_id=course.id,
@@ -115,8 +121,9 @@ def run_test(room_names, expected_batch_count, shared_subject_names=("Ethics",))
         )
 
         exams = db.query(Exam).filter(Exam.status == "draft").all()
-        assert result["total_exams"] == 6 * len(shared_subject_names)
-        assert len(exams) == 6 * len(shared_subject_names)
+        expected_exam_count = 2 * sections_per_course * len(shared_subject_names)
+        assert result["total_exams"] == expected_exam_count
+        assert len(exams) == expected_exam_count
         assert all(exam.room.capacity >= exam.section.student_count for exam in exams)
 
         exams_by_subject = {}
@@ -145,10 +152,11 @@ def run_test(room_names, expected_batch_count, shared_subject_names=("Ethics",))
                     previous_end_minutes = previous_end.hour * 60 + previous_end.minute
                     next_start_minutes = next_start.hour * 60 + next_start.minute
                     assert next_start_minutes - previous_end_minutes == 15
-                assert all(
-                    len({exam.course_id for exam in batch_exams}) == 1
-                    for batch_exams in exams_by_slot.values()
-                )
+                if expect_whole_course_batches:
+                    assert all(
+                        len({exam.course_id for exam in batch_exams}) == 1
+                        for batch_exams in exams_by_slot.values()
+                    )
         print(f"Shared-subject scheduling passed with {expected_batch_count} batch(es) per subject.")
     finally:
         db.close()
@@ -169,4 +177,13 @@ if __name__ == "__main__":
         ("B401", "B501", "B601"),
         expected_batch_count=2,
         shared_subject_names=("Ethics", "Mathematics in the Modern World"),
+    )
+    # Four sections in each program cannot form a complete cohort in only
+    # three rooms. Remaining sections must still be scheduled, in order,
+    # rather than aborting the generation.
+    run_test(
+        ("B401", "B402", "B403"),
+        expected_batch_count=3,
+        sections_per_course=4,
+        expect_whole_course_batches=False,
     )

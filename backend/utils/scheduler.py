@@ -3301,11 +3301,20 @@ def generate_exam_schedule(
                 )
                 for remaining_cluster in remaining_batches:
                     if not assign_shared_subject_batch(remaining_cluster):
-                        shared_name = group["sections"][0].get("sub_name", "Shared subject")
-                        raise ValueError(
-                            f"Unable to schedule the next batch for shared subject '{shared_name}' while preserving "
-                            "room capacity, same-floor grouping, and section breaks. Add suitable rooms or widen the exam range."
-                        )
+                        # Last resort: retain the shared subject's chronological
+                        # batch sequence but allow the remaining sections of a
+                        # course to occupy the earliest available slots one at
+                        # a time.  This avoids failing the entire generation
+                        # merely because a full course cohort cannot share a
+                        # floor in any remaining batch.  Capacity and section
+                        # overlap checks still run for every section.
+                        for remaining_section in remaining_cluster:
+                            if not assign_shared_subject_batch([remaining_section]):
+                                shared_name = group["sections"][0].get("sub_name", "Shared subject")
+                                raise ValueError(
+                                    f"Unable to schedule a remaining section for shared subject '{shared_name}' "
+                                    "within the selected exam range. Add suitable rooms or widen the exam range."
+                                )
                 # All shared-subject sections are now assigned in the earliest
                 # viable sequence of batches; skip the older per-cluster repair
                 # path below, which is intentionally allowed to use arbitrary
