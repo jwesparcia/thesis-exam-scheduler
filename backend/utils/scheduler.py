@@ -47,6 +47,10 @@ NUM_EXAM_DAYS = 4
 MAX_EXAMS_PER_DAY = 3
 ROOM_BOOKING_TARGET = 22
 HIGH_FLOOR_MIN = 5
+# A student section must have at least this much recovery time between two
+# consecutive written exams.  Slot generation and validation use one common
+# value so a valid 15-minute gap is always available for every subject.
+MIN_SECTION_BREAK_MINUTES = 15
 
 # Genetic Algorithm Parameters (default values)
 POP_SIZE = 40
@@ -109,6 +113,17 @@ def parse_time_obj(val):
         except ValueError:
             pass
     return None
+
+
+def is_minor_subject_category(category) -> bool:
+    """Return whether a subject belongs to a section's minor/GE load.
+
+    Older imports use ``general`` while newer catalogues may use ``minor`` or
+    ``GE``.  Treat them consistently so the morning/afternoon rule does not
+    depend on how the curriculum file was worded.
+    """
+    normalized = str(category or "").strip().casefold()
+    return normalized in {"general", "general education", "ge", "minor"} or normalized.startswith("minor")
 
 def intervals_cover(intervals, target_start, target_end):
     t_start = time_to_minutes(target_start)
@@ -426,10 +441,18 @@ def generate_exam_schedule(
         setting.category_type: setting.break_seconds
         for setting in db.query(ExamBreakSetting).all()
     }
+    # A break setting may be missing (or left at zero on older deployments).
+    # Always make the generated timetable offer the required 15-minute gap.
+    # If an administrator explicitly requires a longer break, honour it for
+    # every written exam so mixed categories can still be consecutive.
+    configured_break_seconds = max(
+        (int(value or 0) for value in break_seconds_by_category.values()),
+        default=0,
+    )
+    section_break_seconds = max(MIN_SECTION_BREAK_MINUTES * 60, configured_break_seconds)
 
     def _break_after_exam(category):
-        category_type = "general" if str(category or "major").lower() == "general" else "major"
-        return break_seconds_by_category.get(category_type, 0)
+        return section_break_seconds
 
     # 3. Build exam days and daily time slots
     report_progress(12, "Preparing timeslots", f"Building exam days and daily time slots ({distinct_durations}m)")
@@ -449,7 +472,7 @@ def generate_exam_schedule(
     timeslots = []
     existing_ts_list = db.query(Timeslot).filter(Timeslot.date.in_(exam_days)).all()
     existing_ts_map = {(ts.date, ts.start_time, ts.end_time): ts for ts in existing_ts_list}
-    break_m = (max(break_seconds_by_category.values()) // 60) if break_seconds_by_category else 15
+    break_m = section_break_seconds // 60
     for d in exam_days:
         for dur_m in distinct_durations:
             day_slots = generate_slots_for_day(
@@ -541,18 +564,29 @@ def generate_exam_schedule(
                 return 6
         return None
 
-    # Pre-calculate count of written exam subjects per section
+    def _subject_applies_to_section(sub, sec, sec_year_level_id):
+        assigned_course_ids = {sp.course_id for sp in getattr(sub, "assigned_programs", [])}
+        if sub.course_id:
+            assigned_course_ids.add(sub.course_id)
+        return (
+            (not assigned_course_ids or sec.course_id in assigned_course_ids)
+            and sub.year_level_id == sec_year_level_id
+        )
+
+    # Pre-calculate count of written exam subjects per section and whether the
+    # section has a minor/GE exam.  This drives the required session split:
+    # minor exams in the morning and major exams in the afternoon.
     subjects_per_section = {}
+    section_has_minor_subject = {}
     for sec in sections:
         sec_yl = _get_section_year_level_id(sec)
-        subjects_per_section[sec.id] = sum(
-            1 for sub in subjects
-            if (
-                sub.course_id == sec.course_id
-                or sec.course_id in {sp.course_id for sp in getattr(sub, "assigned_programs", [])}
-                or (not sub.course_id and not getattr(sub, "assigned_programs", []))
-            )
-            and sub.year_level_id == sec_yl
+        section_subjects = [
+            sub for sub in subjects
+            if _subject_applies_to_section(sub, sec, sec_yl)
+        ]
+        subjects_per_section[sec.id] = len(section_subjects)
+        section_has_minor_subject[sec.id] = any(
+            is_minor_subject_category(sub.category) for sub in section_subjects
         )
 
     date_map = {d: i + 1 for i, d in enumerate(exam_days)}
@@ -696,7 +730,7 @@ def generate_exam_schedule(
         ]):
             return "COMP_FUND"
 
-        if category == 'general':
+        if is_minor_subject_category(category):
             # Day 1 Morning GE: Communication, Literature, Math, Sciences
             if any(k in sub_name_lower for k in [
                 'math', 'calculus', 'statistics', 'quantitative', 'pre-calculus', 'business math',
@@ -730,26 +764,34 @@ def generate_exam_schedule(
 
     import copy
 
-    def _allowed_slots_for_classification(classification, year_level_id, required_duration):
+    def _allowed_slots_for_classification(
+        classification,
+        year_level_id,
+        required_duration,
+        *,
+        is_minor_subject=False,
+        cohort_has_minor_subject=False,
+    ):
         """
-        Return the set of timeslots allowed for a subject based on its classification,
-        year level, and required duration (mins):
-          Day 1 Morning   (7:00-11:30):  GE_GROUP_1
-          Day 1 Afternoon (11:30-17:30): COMP_FUND, MAJOR (Y3/Y4 only)
-          Day 2 Morning   (7:00-11:30):  GE_GROUP_2
-          Day 2 Afternoon (11:30-17:30): MAJOR (all year levels)
-          Day 3 All slots:               MAJOR (all year levels)
-          Day 4 All slots:               MAJOR (all year levels)
+        Return the timeslots allowed for a subject.  A section that has any
+        minor/GE subject follows the required session split: minor/GE exams are
+        in the morning and major exams are in the afternoon.  A section whose
+        entire load is major may use either session.
         """
         allowed = set()
-        is_senior = year_level_id in senior_year_level_ids
         for slot in timeslots:
             slot_dur = (slot.end_time.hour * 60 + slot.end_time.minute) - (slot.start_time.hour * 60 + slot.start_time.minute)
             if slot_dur != required_duration:
                 continue
             day_num = date_map.get(slot.date)
             is_morning = slot.start_time < datetime.strptime("11:30:00", "%H:%M:%S").time()
-            if classification == "GE_GROUP_1":
+            if is_minor_subject:
+                if is_morning:
+                    allowed.add(slot)
+            elif cohort_has_minor_subject:
+                if not is_morning:
+                    allowed.add(slot)
+            elif classification == "GE_GROUP_1":
                 if day_num in (1, 3) and is_morning:
                     allowed.add(slot)
             elif classification == "GE_GROUP_2":
@@ -881,15 +923,19 @@ def generate_exam_schedule(
             for c_key, cohort_sections in cohort_dict.items():
                 sample_sec, sample_sub = cohort_sections[0]
                 classification = classify_subject(sample_sub.name, sample_sub.category)
-                import re
-                is_lit = sample_sub.category == "general" and (
-                    "literature" in sample_sub.name.lower() or re.search(r"\blit\b", sample_sub.name.lower())
-                )
-                if is_lit:
-                    classification = "MAJOR"
-
                 req_dur = subject_durations.get(sample_sub.id, group_dur)
-                allowed_slots = _allowed_slots_for_classification(classification, sample_sub.year_level_id, req_dur)
+                is_minor_subject = is_minor_subject_category(sample_sub.category)
+                cohort_has_minor_subject = any(
+                    section_has_minor_subject.get(sec.id, False)
+                    for sec, _sub in cohort_sections
+                )
+                allowed_slots = _allowed_slots_for_classification(
+                    classification,
+                    sample_sub.year_level_id,
+                    req_dur,
+                    is_minor_subject=is_minor_subject,
+                    cohort_has_minor_subject=cohort_has_minor_subject,
+                )
                 if not allowed_slots:
                     allowed_slots = {
                         s for s in timeslots
@@ -1312,6 +1358,36 @@ def generate_exam_schedule(
             )
         ]
 
+    def section_continuity_score(group_idx, slot_idx, current_individual):
+        """Count sections this slot continues with the required break.
+
+        The gap validator prevents an invalid same-day pair, but it does not
+        by itself prefer a valid same-day pair over an empty day.  Giving an
+        exact continuation a higher construction score creates the compact
+        per-section chains shown in the reference schedule.
+        """
+        if not current_individual:
+            return 0
+
+        ts_inf = timeslot_info_list[slot_idx]
+        day = ts_inf["date"]
+        existing_by_section_day = get_individual_section_day_slots(
+            current_individual,
+            exclude_group_idx=group_idx,
+        )
+        continuations = 0
+        for sec_id in preprocessed_groups[group_idx]["section_ids_set"]:
+            existing = existing_by_section_day.get((sec_id, day), [])
+            required_break = preprocessed_groups[group_idx]["break_seconds_by_section"].get(sec_id, 0)
+            if existing and _gap_seconds_ok(
+                existing,
+                ts_inf["start_m"],
+                ts_inf["end_m"],
+                required_break,
+            ):
+                continuations += 1
+        return continuations
+
     def choose_capacity_balanced_slot(group_idx, candidate_slots, current_individual=None):
         if not candidate_slots:
             return None
@@ -1329,10 +1405,12 @@ def generate_exam_schedule(
             else:
                 large_rem = 0
                 large_fits = 1
+            continuity = section_continuity_score(group_idx, slot_idx, current_individual)
             is_pri = 1 if timeslot_info_list[slot_idx]["start_time"] in PRIMARY_TIMES else 0
             return (
                 fits,
                 large_fits,
+                continuity,
                 is_pri,
                 large_rem,
                 rem,
@@ -1449,13 +1527,9 @@ def generate_exam_schedule(
             large_demand_by_slot = get_slot_large_demand(individual)
         candidates = []
 
+        # Repairs must retain the subject's session rule (minor in the
+        # morning, major in the afternoon when the section has a minor).
         search_slots = list(group["allowed_slots"])
-        req_dur = group.get("duration", 75)
-        other_slots = [
-            s for s in sorted(generated_timeslot_indices)
-            if s not in group["allowed_slots"] and timeslot_info_list[s]["duration_m"] == req_dur
-        ]
-        search_slots.extend(other_slots)
 
         for slot_idx in search_slots:
             if slot_idx == current_slot_idx:
@@ -1594,13 +1668,7 @@ def generate_exam_schedule(
                         best_alt_score = -999999
 
                         allowed_cands = [s for s in group["allowed_slots"] if s != curr_slot]
-                        other_cands = [
-                            s for s in sorted(generated_timeslot_indices)
-                            if s != curr_slot and s not in group["allowed_slots"]
-                            and timeslot_info_list[s]["duration_m"] == group.get("duration", 75)
-                        ]
-
-                        for cand_slot in allowed_cands + other_cands:
+                        for cand_slot in allowed_cands:
                             if group_has_section_conflict(repaired, g_idx, cand_slot):
                                 continue
                             rem_cap = slot_room_capacity[cand_slot] - demand_by_slot[cand_slot]
@@ -1923,19 +1991,6 @@ def generate_exam_schedule(
             if major_count > 2:
                 score -= 500000 * (major_count - 2)
 
-        # Reward for spreading exams
-        active_days_by_sec = {}
-        for sec_id in active_run_sections:
-            for (posted_sec_id, day) in posted_section_day_counts.keys():
-                if posted_sec_id == sec_id:
-                    active_days_by_sec.setdefault(sec_id, set()).add(day)
-        for (sec_id, day) in section_day_counts.keys():
-            active_days_by_sec.setdefault(sec_id, set()).add(day)
-            
-        for sec_id, days_set in active_days_by_sec.items():
-            if len(days_set) >= 3:
-                score += 1000
-
         # Check daily counts and gap limits for each section
         for sec_id in active_run_sections:
             new_days = {day for (s_id, day) in section_day_slots.keys() if s_id == sec_id}
@@ -1979,6 +2034,11 @@ def generate_exam_schedule(
                             score -= 50000000 + (required_break - gap_seconds) * 10000
                         elif gap_seconds > max_gap:
                             score -= 50000000 + (gap_seconds - max_gap) * 10000
+                        else:
+                            # Prefer compact, continuous section schedules.
+                            # This replaces the old incentive to spread a
+                            # section across three or more days.
+                            score += 2000
 
         return score
 
@@ -2013,21 +2073,6 @@ def generate_exam_schedule(
                 if not group_slot_creates_gap_violation(group_idx, s, assigned, exclude_group_idx=group_idx)
             ]
             chosen_slot = choose_capacity_balanced_slot(group_idx, gap_safe_capacity_slots, assigned) if gap_safe_capacity_slots else None
-
-            if chosen_slot is None:
-                req_dur = group.get("duration", 75)
-                all_non_conflicting_slots = [
-                    slot_idx for slot_idx in sorted(generated_timeslot_indices)
-                    if timeslot_info_list[slot_idx]["duration_m"] == req_dur
-                    and not group_has_section_conflict(assigned, group_idx, slot_idx)
-                ]
-                all_capacity_slots = get_capacity_safe_slots(group_idx, all_non_conflicting_slots, assigned)
-                gap_safe_all_cap = [
-                    s for s in all_capacity_slots
-                    if not group_slot_creates_gap_violation(group_idx, s, assigned, exclude_group_idx=group_idx)
-                ]
-                if gap_safe_all_cap:
-                    chosen_slot = choose_capacity_balanced_slot(group_idx, gap_safe_all_cap, assigned)
 
             if chosen_slot is None:
                 gap_safe_non_conflicting = [
@@ -2515,7 +2560,9 @@ def generate_exam_schedule(
         def pick_group_slot(group_idx, preferred_slot_idx):
             group = preprocessed_groups[group_idx]
             req_dur = group.get("duration", 75)
-            all_cands = [preferred_slot_idx] + list(group["allowed_slots"]) + list(timeslot_id_to_idx.values())
+            # Do not let final room-repair logic override the session rule
+            # selected by the optimizer.
+            all_cands = [preferred_slot_idx] + list(group["allowed_slots"])
             candidate_slots = [
                 s for s in dict.fromkeys(all_cands)
                 if timeslot_info_list[s]["duration_m"] == req_dur
@@ -2584,8 +2631,20 @@ def generate_exam_schedule(
                 ),
             )
 
-        def pick_exam_slot(preferred_slot_idx, section_id, req_dur=75, break_seconds=0, min_capacity=0):
-            all_cands = [preferred_slot_idx] + sorted(generated_timeslot_indices)
+        def pick_exam_slot(
+            preferred_slot_idx,
+            section_id,
+            req_dur=75,
+            break_seconds=0,
+            min_capacity=0,
+            allowed_slot_indices=None,
+        ):
+            permitted_slots = (
+                generated_timeslot_indices
+                if allowed_slot_indices is None
+                else allowed_slot_indices
+            )
+            all_cands = [preferred_slot_idx] + list(permitted_slots)
             candidate_slots = [
                 s for s in dict.fromkeys(all_cands)
                 if timeslot_info_list[s]["duration_m"] == req_dur
@@ -2988,7 +3047,7 @@ def generate_exam_schedule(
                 # For multi-section clusters, search for an alternative slot where ALL sections
                 # can fit on the EXACT SAME FLOOR.
                 if rcN > 1:
-                    all_cands = [slot_idx] + list(group["allowed_slots"]) + sorted(generated_timeslot_indices)
+                    all_cands = [slot_idx] + list(group["allowed_slots"])
                     cand_slots = [s for s in dict.fromkeys(all_cands) if timeslot_info_list[s]["duration_m"] == req_dur]
                     cand_slots.sort(key=lambda s: (0 if timeslot_info_list[s]["start_time"] in PRIMARY_TIMES else 1, timeslot_info_list[s]["date"], timeslot_info_list[s]["start_time"]))
                     for tier in (1, 2, 3):
@@ -3055,9 +3114,10 @@ def generate_exam_schedule(
                                 group.get("duration", 75),
                                 first_sec.get("break_seconds", 0),
                                 min_capacity=first_sec.get("student_count", 0),
+                                allowed_slot_indices=group["allowed_slots"],
                             ),
                             slot_idx
-                        ] + list(group["allowed_slots"]) + sorted(generated_timeslot_indices)
+                        ] + list(group["allowed_slots"])
                         candidate_cohort_slots = [s for s in dict.fromkeys(candidate_cohort_slots) if timeslot_info_list[s]["duration_m"] == req_dur]
                         candidate_cohort_slots.sort(key=lambda s: (0 if timeslot_info_list[s]["start_time"] in PRIMARY_TIMES else 1, timeslot_info_list[s]["date"], timeslot_info_list[s]["start_time"]))
 
@@ -3103,6 +3163,7 @@ def generate_exam_schedule(
                                 group.get("duration", 75),
                                 prep_sec.get("break_seconds", 0),
                                 min_capacity=prep_sec.get("student_count", 0),
+                                allowed_slot_indices=group["allowed_slots"],
                             )
 
                             pref_f = None
@@ -3141,7 +3202,7 @@ def generate_exam_schedule(
                                     s_idx for s_idx in range(num_timeslots) if (sec_id, s_idx) in posted_section_slots_set
                                 }
                                 candidate_emergency_slots = [
-                                    s for s in sorted(generated_timeslot_indices)
+                                    s for s in group["allowed_slots"]
                                     if s not in sec_used_slots and available_room_count(s, group.get("duration", 75), min_capacity=prep_sec.get("student_count", 0)) > 0
                                 ]
                                 if candidate_emergency_slots:
