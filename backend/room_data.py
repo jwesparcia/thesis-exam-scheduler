@@ -23,6 +23,8 @@ AVAILABLE_EXAM_ROOMS = [
     {"name": "B408", "building": "B", "department": "College"},
     # B409 is a 50-seat computer laboratory approved for written examinations.
     {"name": "B409", "building": "B", "department": "College", "capacity": 50},
+    # B410 is a 50-seat computer laboratory approved for written examinations.
+    {"name": "B410", "building": "B", "department": "College", "capacity": 50},
     {"name": "B411", "building": "B", "department": "College"},
     {"name": "B412", "building": "B", "department": "College"},
     {"name": "B414", "building": "B", "department": "College"},

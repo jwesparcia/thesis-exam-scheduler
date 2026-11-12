@@ -2957,15 +2957,18 @@ def generate_exam_schedule(
         # 120-minute BSA exams have only four usable slots in an 8:00 AM-
         # 4:45 PM day, while a 75-minute exam has more alternatives.  Applying
         # draft exams strictly in chronological order let flexible groups fill
-        # every room that a later constrained group could use.
+        # every room that a later constrained group could use.  Within the
+        # same constraint level, honor chronological optimizer choices before
+        # group size so a large shared subject cannot consume rooms reserved
+        # for a smaller elective that must occur earlier.
         group_order = sorted(
             range(len(preprocessed_groups)),
             key=lambda idx: (
                 len(preprocessed_groups[idx]["allowed_slots"]),
-                -len(preprocessed_groups[idx]["sections"]),
-                -preprocessed_groups[idx].get("duration", 75),
                 timeslot_info_list[best_individual[idx]]["date"],
                 timeslot_info_list[best_individual[idx]]["start_m"],
+                -preprocessed_groups[idx].get("duration", 75),
+                -len(preprocessed_groups[idx]["sections"]),
             ),
         )
         total_groups_to_apply = max(1, len(group_order))
