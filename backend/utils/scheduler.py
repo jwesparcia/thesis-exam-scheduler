@@ -2691,6 +2691,32 @@ def generate_exam_schedule(
                 if not group_has_final_section_conflict(group, slot_idx)
             ]
             fallback_slots = non_conflicting_slots or candidate_slots
+
+            # A shared subject that cannot fit in one sitting will be handled
+            # as chronological room batches during final allocation.  Its first
+            # batch must start early in the valid exam range; choosing a late
+            # GA allele here leaves no later slots for the remaining cohorts.
+            # Preserve the session preference (minor morning / major afternoon)
+            # before choosing the earliest compatible starting slot.
+            if group.get("synchronized_subject"):
+                gap_safe_batch_starts = [
+                    slot_idx for slot_idx in fallback_slots
+                    if not group_slot_creates_gap_violation(group_idx, slot_idx, current_sec_day_map)
+                ]
+                batch_starts = gap_safe_batch_starts or fallback_slots
+                preferred_batch_starts = [
+                    slot_idx for slot_idx in batch_starts
+                    if slot_idx in group.get("preferred_slots_set", set())
+                ]
+                ranked_batch_starts = preferred_batch_starts or batch_starts
+                return min(
+                    ranked_batch_starts,
+                    key=lambda slot_idx: (
+                        timeslot_info_list[slot_idx]["date"],
+                        timeslot_info_list[slot_idx]["start_m"],
+                    ),
+                )
+
             # Even in fallback: hard-prefer gap-consecutive slots
             gap_safe_fallback = [
                 slot_idx for slot_idx in fallback_slots

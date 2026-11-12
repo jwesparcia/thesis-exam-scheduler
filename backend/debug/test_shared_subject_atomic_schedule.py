@@ -26,7 +26,7 @@ from model import Course, Exam, Proctor, Room, Section, Subject, Teacher, Teache
 from utils import scheduler  # noqa: E402
 
 
-def run_test(room_names, expected_batch_count):
+def run_test(room_names, expected_batch_count, shared_subject_names=("Ethics",)):
     Base.metadata.create_all(engine)
     db = SessionLocal()
     try:
@@ -55,30 +55,34 @@ def run_test(room_names, expected_batch_count):
             db.add(Room(name=room_name, building="B", department="College", capacity=40))
 
         # Separate catalogue rows and codes, but the same actual exam paper.
-        db.add_all([
-            Subject(
-                code="IT-GE-101",
-                name="Ethics",
-                course_id=bsit.id,
-                year_level_id=year_one.id,
-                semester=1,
-                exam_type="written",
-                category="general",
-                duration_minutes=75,
-                term="Midterm",
-            ),
-            Subject(
-                code="CS-GE-101",
-                name="  ethics  ",
-                course_id=bscs.id,
-                year_level_id=year_one.id,
-                semester=1,
-                exam_type="written",
-                category="general",
-                duration_minutes=75,
-                term="Midterm",
-            ),
-        ])
+        # The spelling difference verifies canonical-name synchronization.
+        subjects = []
+        for subject_index, subject_name in enumerate(shared_subject_names, start=1):
+            subjects.extend([
+                Subject(
+                    code=f"IT-GE-{subject_index:03d}",
+                    name=subject_name,
+                    course_id=bsit.id,
+                    year_level_id=year_one.id,
+                    semester=1,
+                    exam_type="written",
+                    category="general",
+                    duration_minutes=75,
+                    term="Midterm",
+                ),
+                Subject(
+                    code=f"CS-GE-{subject_index:03d}",
+                    name=f"  {subject_name.lower()}  ",
+                    course_id=bscs.id,
+                    year_level_id=year_one.id,
+                    semester=1,
+                    exam_type="written",
+                    category="general",
+                    duration_minutes=75,
+                    term="Midterm",
+                ),
+            ])
+        db.add_all(subjects)
 
         # Every concurrent exam needs an eligible proctor.
         for index in range(6):
@@ -111,34 +115,41 @@ def run_test(room_names, expected_batch_count):
         )
 
         exams = db.query(Exam).filter(Exam.status == "draft").all()
-        assert result["total_exams"] == 6
-        assert len(exams) == 6
-        batch_slots = sorted({
-            (exam.timeslot.date, exam.timeslot.start_time, exam.timeslot.end_time)
-            for exam in exams
-        })
-        assert len(batch_slots) == expected_batch_count
-        exams_by_slot = {}
-        for exam in exams:
-            exams_by_slot.setdefault(exam.timeslot_id, []).append(exam)
-        assert all(
-            len({exam.room_id for exam in batch_exams}) == len(batch_exams)
-            for batch_exams in exams_by_slot.values()
-        )
+        assert result["total_exams"] == 6 * len(shared_subject_names)
+        assert len(exams) == 6 * len(shared_subject_names)
         assert all(exam.room.capacity >= exam.section.student_count for exam in exams)
-        if expected_batch_count > 1:
-            # No other exam uses these rooms, so the batch fallback must use
-            # the immediately following generated timeslot, not skip ahead.
-            for (previous_date, _, previous_end), (next_date, next_start, _) in zip(batch_slots, batch_slots[1:]):
-                assert next_date == previous_date
-                previous_end_minutes = previous_end.hour * 60 + previous_end.minute
-                next_start_minutes = next_start.hour * 60 + next_start.minute
-                assert next_start_minutes - previous_end_minutes == 15
+
+        exams_by_subject = {}
+        for exam in exams:
+            canonical_name = " ".join(exam.subject.name.casefold().split())
+            exams_by_subject.setdefault(canonical_name, []).append(exam)
+
+        for subject_exams in exams_by_subject.values():
+            batch_slots = sorted({
+                (exam.timeslot.date, exam.timeslot.start_time, exam.timeslot.end_time)
+                for exam in subject_exams
+            })
+            assert len(batch_slots) == expected_batch_count
+            exams_by_slot = {}
+            for exam in subject_exams:
+                exams_by_slot.setdefault(exam.timeslot_id, []).append(exam)
             assert all(
-                len({exam.course_id for exam in batch_exams}) == 1
+                len({exam.room_id for exam in batch_exams}) == len(batch_exams)
                 for batch_exams in exams_by_slot.values()
             )
-        print(f"Shared-subject scheduling passed with {expected_batch_count} batch(es).")
+            if expected_batch_count > 1:
+                # No other exam uses these rooms, so the batch fallback must
+                # use the immediately following generated slot, not skip ahead.
+                for (previous_date, _, previous_end), (next_date, next_start, _) in zip(batch_slots, batch_slots[1:]):
+                    assert next_date == previous_date
+                    previous_end_minutes = previous_end.hour * 60 + previous_end.minute
+                    next_start_minutes = next_start.hour * 60 + next_start.minute
+                    assert next_start_minutes - previous_end_minutes == 15
+                assert all(
+                    len({exam.course_id for exam in batch_exams}) == 1
+                    for batch_exams in exams_by_slot.values()
+                )
+        print(f"Shared-subject scheduling passed with {expected_batch_count} batch(es) per subject.")
     finally:
         db.close()
         Base.metadata.drop_all(engine)
@@ -152,3 +163,9 @@ if __name__ == "__main__":
     # Only three rooms: remaining whole-program cohort must continue in the
     # immediately following 75-minute slot, rather than failing or scattering.
     run_test(("B401", "B402", "B403"), expected_batch_count=2)
+    # Two shared subjects must each retain their own consecutive room batches.
+    run_test(
+        ("B401", "B402", "B403"),
+        expected_batch_count=2,
+        shared_subject_names=("Ethics", "Mathematics in the Modern World"),
+    )
