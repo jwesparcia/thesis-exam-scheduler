@@ -2856,12 +2856,19 @@ def generate_exam_schedule(
             # Return None if no room with adequate capacity is available
             return None
 
+        # Allocate constrained cohorts before flexible ones.  In particular,
+        # 120-minute BSA exams have only four usable slots in an 8:00 AM-
+        # 4:45 PM day, while a 75-minute exam has more alternatives.  Applying
+        # draft exams strictly in chronological order let flexible groups fill
+        # every room that a later constrained group could use.
         group_order = sorted(
             range(len(preprocessed_groups)),
             key=lambda idx: (
-                best_individual[idx],
+                len(preprocessed_groups[idx]["allowed_slots"]),
                 -len(preprocessed_groups[idx]["sections"]),
-                len(preprocessed_groups[idx]["allowed_slots"])
+                -preprocessed_groups[idx].get("duration", 75),
+                timeslot_info_list[best_individual[idx]]["date"],
+                timeslot_info_list[best_individual[idx]]["start_m"],
             ),
         )
         total_groups_to_apply = max(1, len(group_order))
