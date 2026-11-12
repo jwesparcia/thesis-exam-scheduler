@@ -67,7 +67,7 @@ const INITIAL_GENERATION_STATE = {
 };
 
 const getManagedDepartmentCodes = (user) => {
-  const departmentCodes = Array.isArray(user?.department_codes)
+  const departmentCodes = Array.isArray(user?.department_codes) && user.department_codes.length
     ? user.department_codes
     : [user?.department_code];
 

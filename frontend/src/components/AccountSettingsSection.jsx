@@ -15,7 +15,7 @@ import { useToast } from "../context/ToastContext";
 import { useUser } from "../context/userStore";
 
 const getDepartmentAdminLabel = (user) => {
-  const departmentCodes = Array.isArray(user?.department_codes)
+  const departmentCodes = Array.isArray(user?.department_codes) && user.department_codes.length
     ? user.department_codes
     : [user?.department_code];
   const label = [...new Set(

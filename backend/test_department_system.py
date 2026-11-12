@@ -137,13 +137,22 @@ def run_tests():
 
         # TEST 5: Automatic Rescheduling Routing & Cross-Department Security
         print("\n--- Test 5: Rescheduling Routing & Cross-Department Access Control ---")
-        from routers.rescheduling import check_request_department_access
+        from routers.rescheduling import check_request_department_access, find_department_admin
         from fastapi import HTTPException
 
         ge_admin = db.query(User).filter(User.email == "ge.admin@school.edu").first()
         super_admin = db.query(User).filter(User.email == "admin@school.edu").first()
         ict_admin = db.query(User).filter(User.email == "ict.admin@school.edu").first()
         bm_thm_admin = db.query(User).filter(User.email == "bm.admin@school.edu").first()
+
+        assert_true(
+            find_department_admin(db, "BM").id == bm_thm_admin.id,
+            "BM rescheduling notifications route to the shared BM/THM Admin",
+        )
+        assert_true(
+            find_department_admin(db, "THM").id == bm_thm_admin.id,
+            "THM rescheduling notifications route to the shared BM/THM Admin",
+        )
 
         # Create a mock request belonging to ICT
         test_request = ReschedulingRequest(
