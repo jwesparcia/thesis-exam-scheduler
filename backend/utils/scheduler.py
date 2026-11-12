@@ -2632,6 +2632,38 @@ def generate_exam_schedule(
                     return False
             return True
 
+        def can_slot_start_shared_batch(slot_idx, grp):
+            """Return whether at least one intact course cohort can start here.
+
+            A large shared subject may need multiple batches, so requiring the
+            whole group to fit would reject every slot.  This check avoids
+            choosing an already-full first slot when another early slot can
+            begin a capacity-safe batch.
+            """
+            req_d = grp.get("duration", 75)
+            available = [
+                r_idx for r_idx in room_indices_for_dur.get(req_d, list(range(num_rooms)))
+                if (r_idx, slot_idx) not in room_slots_set
+            ]
+            if not available:
+                return False
+
+            course_clusters = {}
+            for section in grp["sections"]:
+                c_key = (section.get("course_id"), section.get("year_level_id"))
+                course_clusters.setdefault(c_key, []).append(section)
+
+            available_caps = sorted((room_capacities[r] for r in available), reverse=True)
+            for cluster_secs in course_clusters.values():
+                if len(available_caps) < len(cluster_secs):
+                    continue
+                required_caps = sorted(
+                    (section.get("student_count", 35) for section in cluster_secs), reverse=True
+                )
+                if all(room_cap >= section_cap for room_cap, section_cap in zip(available_caps, required_caps)):
+                    return True
+            return False
+
         def pick_group_slot(group_idx, preferred_slot_idx):
             group = preprocessed_groups[group_idx]
             req_dur = group.get("duration", 75)
@@ -2704,6 +2736,11 @@ def generate_exam_schedule(
                     if not group_slot_creates_gap_violation(group_idx, slot_idx, current_sec_day_map)
                 ]
                 batch_starts = gap_safe_batch_starts or fallback_slots
+                viable_batch_starts = [
+                    slot_idx for slot_idx in batch_starts
+                    if can_slot_start_shared_batch(slot_idx, group)
+                ]
+                batch_starts = viable_batch_starts or batch_starts
                 preferred_batch_starts = [
                     slot_idx for slot_idx in batch_starts
                     if slot_idx in group.get("preferred_slots_set", set())
@@ -3183,60 +3220,80 @@ def generate_exam_schedule(
                 def assign_shared_subject_batch(cluster_secs):
                     """Assign one whole course cohort to the earliest viable batch slot."""
                     cluster_size = len(cluster_secs)
-                    for batch_slot_idx in batch_slots:
-                        if any(
-                            any(
-                                (section["sec_id"], overlap_idx) in section_slots_set
-                                or (section["sec_id"], overlap_idx) in posted_section_slots_set
-                                for overlap_idx in slot_overlaps[batch_slot_idx]
-                            )
-                            for section in cluster_secs
-                        ):
-                            continue
-                        if not all(
-                            is_slot_gap_safe_for_sec(
-                                section["sec_id"], batch_slot_idx, section.get("break_seconds", 0)
-                            )
-                            for section in cluster_secs
-                        ):
-                            continue
-
-                        available_rooms = [
-                            r_idx for r_idx in allowed_r_indices
-                            if (r_idx, batch_slot_idx) not in room_slots_set
-                        ]
-                        rooms_by_floor = {}
-                        for r_idx in available_rooms:
-                            rooms_by_floor.setdefault(
-                                (room_buildings[r_idx], room_floors[r_idx]), []
-                            ).append(r_idx)
-
-                        floor_matches = []
-                        for floor_key, floor_rooms in rooms_by_floor.items():
-                            if len(floor_rooms) < cluster_size:
+                    # Consecutive 15-minute spacing remains the first choice.
+                    # If it is impossible because earlier cohorts already use
+                    # every compatible chain, retain non-overlap and capacity
+                    # as hard rules instead of failing the whole schedule.
+                    for require_gap_safe in (True, False):
+                        for batch_slot_idx in batch_slots:
+                            if any(
+                                any(
+                                    (section["sec_id"], overlap_idx) in section_slots_set
+                                    or (section["sec_id"], overlap_idx) in posted_section_slots_set
+                                    for overlap_idx in slot_overlaps[batch_slot_idx]
+                                )
+                                for section in cluster_secs
+                            ):
                                 continue
-                            room_map, used_rooms = match_sections_to_rooms(cluster_secs, floor_rooms)
-                            if room_map is None:
+                            if require_gap_safe and not all(
+                                is_slot_gap_safe_for_sec(
+                                    section["sec_id"], batch_slot_idx, section.get("break_seconds", 0)
+                                )
+                                for section in cluster_secs
+                            ):
                                 continue
-                            pack_prio, leftover = floor_packing_prio(
-                                floor_key, cluster_size, len(floor_rooms)
-                            )
-                            floor_matches.append(
-                                ((pack_prio, leftover, sum(room_key(r)[0] for r in used_rooms)), room_map, used_rooms)
-                            )
 
-                        if not floor_matches:
-                            continue
-                        floor_matches.sort(key=lambda item: item[0])
-                        _, room_map, used_rooms = floor_matches[0]
-                        assigned_rooms.update(room_map)
-                        for section in cluster_secs:
-                            assigned_slots[section["sec_id"]] = batch_slot_idx
-                        for r_idx in used_rooms:
-                            for overlap_idx in slot_overlaps[batch_slot_idx]:
-                                room_slots_set.add((r_idx, overlap_idx))
-                            room_loads[r_idx] += 1
-                        return True
+                            available_rooms = [
+                                r_idx for r_idx in allowed_r_indices
+                                if (r_idx, batch_slot_idx) not in room_slots_set
+                            ]
+                            rooms_by_floor = {}
+                            for r_idx in available_rooms:
+                                rooms_by_floor.setdefault(
+                                    (room_buildings[r_idx], room_floors[r_idx]), []
+                                ).append(r_idx)
+
+                            floor_matches = []
+                            for floor_key, floor_rooms in rooms_by_floor.items():
+                                if len(floor_rooms) < cluster_size:
+                                    continue
+                                room_map, used_rooms = match_sections_to_rooms(cluster_secs, floor_rooms)
+                                if room_map is None:
+                                    continue
+                                pack_prio, leftover = floor_packing_prio(
+                                    floor_key, cluster_size, len(floor_rooms)
+                                )
+                                floor_matches.append(
+                                    ((pack_prio, leftover, sum(room_key(r)[0] for r in used_rooms)), room_map, used_rooms)
+                                )
+
+                            # Same-floor placement is preferred for each course
+                            # cohort, but it must not make a valid room-capacity
+                            # batch fail when enough suitable rooms exist across
+                            # multiple floors.  This mirrors the normal allocator's
+                            # last-resort behaviour while keeping the batch at one
+                            # date/time and maintaining every capacity check.
+                            if not floor_matches:
+                                room_map, used_rooms = match_sections_to_rooms(
+                                    cluster_secs, available_rooms
+                                )
+                                if room_map is not None:
+                                    floor_matches.append(
+                                        ((99, 0, sum(room_key(r)[0] for r in used_rooms)), room_map, used_rooms)
+                                    )
+
+                            if not floor_matches:
+                                continue
+                            floor_matches.sort(key=lambda item: item[0])
+                            _, room_map, used_rooms = floor_matches[0]
+                            assigned_rooms.update(room_map)
+                            for section in cluster_secs:
+                                assigned_slots[section["sec_id"]] = batch_slot_idx
+                            for r_idx in used_rooms:
+                                for overlap_idx in slot_overlaps[batch_slot_idx]:
+                                    room_slots_set.add((r_idx, overlap_idx))
+                                room_loads[r_idx] += 1
+                            return True
                     return False
 
                 remaining_batches = sorted(

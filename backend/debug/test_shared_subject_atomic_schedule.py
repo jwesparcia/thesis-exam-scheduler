@@ -163,9 +163,10 @@ if __name__ == "__main__":
     # Only three rooms: remaining whole-program cohort must continue in the
     # immediately following 75-minute slot, rather than failing or scattering.
     run_test(("B401", "B402", "B403"), expected_batch_count=2)
-    # Two shared subjects must each retain their own consecutive room batches.
+    # Two shared subjects must each retain their own consecutive room batches
+    # even when no floor has all three rooms available for a course cohort.
     run_test(
-        ("B401", "B402", "B403"),
+        ("B401", "B501", "B601"),
         expected_batch_count=2,
         shared_subject_names=("Ethics", "Mathematics in the Modern World"),
     )
