@@ -311,6 +311,18 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
         return;
       }
       setGenerationProgress(res.data);
+      if (["completed", "failed", "cancelled"].includes(res.data.status)) {
+        stopProgressPolling(jobId);
+        setLoading(false);
+        setActiveJobId(null);
+        if (res.data.status === "completed") {
+          showSuccess(res.data.detail || "Schedule generated successfully.");
+        } else if (res.data.status === "failed") {
+          showError(res.data.detail || "Schedule generation failed.");
+        } else {
+          showWarning(res.data.detail || "Schedule generation was cancelled.");
+        }
+      }
     } catch (err) {
       console.error("Failed to fetch generation progress", err);
     }
@@ -342,6 +354,7 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
   // Actual execution of generation
   const executeGeneration = async (forceOverwrite = false) => {
     const jobId = `schedule-${Date.now()}`;
+    let generationQueued = false;
     setActiveJobId(jobId);
     setLoading(true);
     setGenerationProgress({
@@ -366,6 +379,10 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
         daily_end_time: dailyEndTime,
       });
       const data = res.data;
+      if (data.status === "accepted") {
+        generationQueued = true;
+        return;
+      }
       setGenerationProgress({
         status: "completed",
         percent: 100,
@@ -402,6 +419,9 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
         showError(message);
       }
     } finally {
+      if (generationQueued) {
+        return;
+      }
       stopProgressPolling(jobId);
       setLoading(false);
       setActiveJobId(null);

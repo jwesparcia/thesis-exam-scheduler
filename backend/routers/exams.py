@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, Body
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Body
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, or_
-from core import get_db, cache
+from core import SessionLocal, get_db, cache
 from core.cache import TTL_ROOMS, TTL_EXAM_COUNT
 from model import Exam, Subject, Section, Room, Timeslot, Course, YearLevel, Teacher, TeacherTeaching, User, Notification, Proctor, ReschedulingRequest, Department
 from utils.scheduler import generate_exam_schedule, validate_proctor_availability
@@ -17,8 +17,6 @@ import io
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
-
-from starlette.concurrency import run_in_threadpool
 
 router = APIRouter(prefix="/exams", tags=["Exams"])
 
@@ -73,6 +71,121 @@ def is_generation_ongoing() -> bool:
         return True
     with _generation_progress_lock:
         return any(job.get("status") == "running" for job in _generation_progress.values())
+
+
+def _run_generation_job(
+    *,
+    job_id: str,
+    user_id: int,
+    start_date,
+    end_date,
+    department: str,
+    semester: int,
+    term: str,
+    excluded_subjects: list,
+    force_overwrite: bool,
+    daily_start_time: time,
+    daily_end_time: time,
+):
+    """Run one long schedule generation after its HTTP request has returned."""
+    worker_db = SessionLocal()
+    try:
+        def _on_progress(progress):
+            current = _get_generation_progress(job_id)
+            if current.get("status") == "cancelled":
+                raise RuntimeError("Schedule generation cancelled by user.")
+            _set_generation_progress(
+                job_id,
+                "running",
+                progress.get("percent", 0),
+                progress.get("phase", "Generating schedule"),
+                progress.get("detail", ""),
+            )
+
+        # Keep the old overwrite behaviour, but run it in the same worker
+        # transaction as generation so an error leaves the previous schedule intact.
+        if force_overwrite:
+            if department in ("College", "SHS"):
+                generation_department = Course.category == department
+            else:
+                generation_department = or_(
+                    Course.category == department,
+                    Course.department_code == department,
+                )
+            exams_to_delete = (
+                worker_db.query(Exam)
+                .join(Course, Exam.course_id == Course.id)
+                .filter(
+                    generation_department,
+                    Exam.semester == semester,
+                    Exam.status != "posted",
+                )
+                .all()
+            )
+            deleted_exam_ids = [exam.id for exam in exams_to_delete]
+            if deleted_exam_ids:
+                worker_db.query(ReschedulingRequest).filter(
+                    ReschedulingRequest.exam_id.in_(deleted_exam_ids)
+                ).delete(synchronize_session=False)
+            for exam in exams_to_delete:
+                worker_db.delete(exam)
+            worker_db.flush()
+
+        result = generate_exam_schedule(
+            worker_db,
+            start_date=start_date,
+            end_date=end_date,
+            department=department,
+            semester=semester,
+            excluded_subjects=excluded_subjects,
+            term=term,
+            daily_start_time=daily_start_time,
+            daily_end_time=daily_end_time,
+            progress_callback=_on_progress,
+        )
+
+        total = result["total_exams"]
+        assigned = result["assigned_proctors"]
+        unassigned = result["unassigned"]
+        unassigned_rooms = result.get("unassigned_rooms", 0)
+        message = f"Schedule generated! {total} exams created for {department}. "
+        if assigned > 0:
+            message += f"{assigned} exams assigned a proctor. "
+        if unassigned > 0:
+            message += f"{unassigned} exams have no proctor due to insufficient availability or limits."
+        else:
+            message += "All exams have a proctor assigned."
+        if unassigned_rooms > 0:
+            message += f" {unassigned_rooms} exams still need rooms."
+
+        log_activity(worker_db, user_id, "EXAM_GENERATE", f"Dept: {department}, Sem: {semester}", None)
+        _set_generation_progress(job_id, "completed", 100, "Schedule generated", message)
+        cache.invalidate_exam_schedules()
+        print(f"[SCHEDULER] Generation job {job_id} completed.", flush=True)
+    except Exception as exc:
+        worker_db.rollback()
+        current_progress = _get_generation_progress(job_id)
+        if current_progress.get("status") == "cancelled" or "cancelled" in str(exc).lower():
+            _set_generation_progress(
+                job_id,
+                "cancelled",
+                0,
+                "Generation cancelled",
+                "Schedule generation was cancelled by the user.",
+            )
+            print(f"[SCHEDULER] Generation job {job_id} cancelled.", flush=True)
+        else:
+            detail = humanize_error(exc, "Schedule generation failed")
+            _set_generation_progress(
+                job_id,
+                "failed",
+                current_progress.get("percent", 0),
+                "Generation failed",
+                detail,
+            )
+            print(f"[SCHEDULER] Generation job {job_id} failed: {detail}", flush=True)
+    finally:
+        worker_db.close()
 
 
 def _format_exam_for_room_status(
@@ -966,8 +1079,9 @@ def cancel_schedule_generation(
                 return {"message": "Generation cancellation requested."}
             return {"message": "No active schedule generation job to cancel."}
 
-@router.post("/generate")
+@router.post("/generate", status_code=202)
 async def generate_schedule(
+    background_tasks: BackgroundTasks,
     payload: dict = Body(default={}),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(["admin"]))
@@ -1055,82 +1169,35 @@ async def generate_schedule(
                        f"Please delete or overwrite the existing schedule first."
             )
 
-        # --- If overwriting: replace only unposted (draft/saved) exams. ---
-        # Posted exams stay live for students/proctors until the admin posts the new
-        # schedule. Deletions are only flushed here, so a failed or cancelled generation
-        # rolls back and the previous draft is preserved.
-        if force_overwrite and existing_count > 0:
-            exams_to_delete = (
-                db.query(Exam)
-                .join(Course, Exam.course_id == Course.id)
-                .filter(gen_dept_cond, Exam.semester == semester, Exam.status != "posted")
-                .all()
-            )
-            exams_to_delete_ids = [e.id for e in exams_to_delete]
-            if exams_to_delete_ids:
-                from model import ReschedulingRequest
-                db.query(ReschedulingRequest).filter(
-                    ReschedulingRequest.exam_id.in_(exams_to_delete_ids)
-                ).delete(synchronize_session=False)
-            for e in exams_to_delete:
-                db.delete(e)
-            db.flush()
-
-        # --- Guard: Ensure at least one student account exists ---
+        # Validate before acknowledging the job.  The work itself is queued
+        # below so Render does not terminate a long HTTP request mid-search.
         student_count = db.query(User).filter(User.role == "student").count()
         if student_count == 0:
             _set_generation_progress(job_id, "failed", 0, "Generation blocked", "No student accounts found.")
             raise HTTPException(
                 status_code=400,
-                detail="Cannot generate schedule: no student accounts have been uploaded. Please import students first."
+                detail="Cannot generate schedule: no student accounts have been uploaded. Please import students first.",
             )
 
-        def _on_progress(progress):
-            current = _get_generation_progress(job_id)
-            if current.get("status") == "cancelled":
-                raise RuntimeError("Schedule generation cancelled by user.")
-            _set_generation_progress(
-                job_id,
-                "running",
-                progress.get("percent", 0),
-                progress.get("phase", "Generating schedule"),
-                progress.get("detail", "")
-            )
-
-        result = await run_in_threadpool(
-            generate_exam_schedule,
-            db, 
-            start_date=start_date, 
-            end_date=end_date, 
-            department=department, 
+        background_tasks.add_task(
+            _run_generation_job,
+            job_id=job_id,
+            user_id=current_user.id,
+            start_date=start_date,
+            end_date=end_date,
+            department=department,
             semester=semester,
-            excluded_subjects=excluded_subjects,
             term=term,
+            excluded_subjects=excluded_subjects,
+            force_overwrite=force_overwrite,
             daily_start_time=daily_start_t,
             daily_end_time=daily_end_t,
-            progress_callback=_on_progress
         )
-        
-        total = result["total_exams"]
-        assigned = result["assigned_proctors"]
-        unassigned = result["unassigned"]
-        unassigned_rooms = result.get("unassigned_rooms", 0)
-        
-        message = f"Schedule generated! {total} exams created for {department}. "
-        if assigned > 0:
-            message += f"{assigned} exams assigned a proctor. "
-        if unassigned > 0:
-            message += f"{unassigned} exams have no proctor due to insufficient availability or limits."
-        else:
-            message += "All exams have a proctor assigned."
-        if unassigned_rooms > 0:
-            message += f" {unassigned_rooms} exams still need rooms."
-        
-        log_activity(db, current_user.id, "EXAM_GENERATE", f"Dept: {department}, Sem: {semester}", None)
-        _set_generation_progress(job_id, "completed", 100, "Schedule generated", message)
-        # ── invalidate all schedule-related caches ───────────────────────
-        cache.invalidate_exam_schedules()
-        return {"message": message, "job_id": job_id}
+        return {
+            "status": "accepted",
+            "message": "Schedule generation started. Progress will update automatically.",
+            "job_id": job_id,
+        }
     except Exception as e:
         db.rollback()
         if "job_id" in locals():

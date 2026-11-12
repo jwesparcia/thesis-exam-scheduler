@@ -912,6 +912,7 @@ def generate_exam_schedule(
                         "name": g_name,
                         "sections": chunk_secs,
                         "allowed_slots": allowed_slot_ids,
+                        "preferred_slots": allowed_slot_ids,
                         "classification": classification,
                         "duration": req_dur,
                         "break_seconds_by_section": break_seconds_by_section,
@@ -929,18 +930,35 @@ def generate_exam_schedule(
                     section_has_minor_subject.get(sec.id, False)
                     for sec, _sub in cohort_sections
                 )
-                allowed_slots = _allowed_slots_for_classification(
+                session_preferred_slots = _allowed_slots_for_classification(
                     classification,
                     sample_sub.year_level_id,
                     req_dur,
                     is_minor_subject=is_minor_subject,
                     cohort_has_minor_subject=cohort_has_minor_subject,
                 )
-                if not allowed_slots:
-                    allowed_slots = {
-                        s for s in timeslots
-                        if ((s.end_time.hour * 60 + s.end_time.minute) - (s.start_time.hour * 60 + s.start_time.minute)) == req_dur
-                    }
+                duration_slots = {
+                    s for s in timeslots
+                    if ((s.end_time.hour * 60 + s.end_time.minute) - (s.start_time.hour * 60 + s.start_time.minute)) == req_dur
+                }
+                if not session_preferred_slots:
+                    session_preferred_slots = set(duration_slots)
+
+                # Session placement is a high-priority preference rather than
+                # an impossible hard wall.  A full department may not have
+                # enough afternoon rooms for every major, and a usable schedule
+                # is preferable to a failed generation.  The GA and final
+                # allocator rank these slots first and relax only when capacity
+                # or conflicts require it.
+                if not is_minor_subject and not cohort_has_minor_subject:
+                    # A section with an all-major load may use either session;
+                    # prefer morning so it can form the reference-style chain.
+                    preferred_slots = {
+                        s for s in duration_slots
+                        if s.start_time < datetime.strptime("11:30:00", "%H:%M:%S").time()
+                    } or set(duration_slots)
+                else:
+                    preferred_slots = session_preferred_slots
 
                 break_seconds_by_section = {
                     sec.id: _break_after_exam(sub.category)
@@ -952,7 +970,8 @@ def generate_exam_schedule(
                 groups.append({
                     "name": g_name,
                     "sections": cohort_sections,
-                    "allowed_slots": [s.id for s in allowed_slots],
+                    "allowed_slots": [s.id for s in duration_slots],
+                    "preferred_slots": [s.id for s in preferred_slots],
                     "classification": classification,
                     "duration": req_dur,
                     "break_seconds_by_section": break_seconds_by_section,
@@ -1174,11 +1193,17 @@ def generate_exam_schedule(
                 
         # Store the allowed slots as a set for fast membership testing in fitness function
         allowed_slots_set = {timeslot_id_to_idx[sid] for sid in g["allowed_slots"]}
+        preferred_slots_set = {
+            timeslot_id_to_idx[sid]
+            for sid in g.get("preferred_slots", g["allowed_slots"])
+        }
         preprocessed_groups.append({
             "name": g["name"],
             "sections": prep_sections,
             "allowed_slots": [timeslot_id_to_idx[sid] for sid in g["allowed_slots"]],
             "allowed_slots_set": allowed_slots_set,
+            "preferred_slots": [timeslot_id_to_idx[sid] for sid in g.get("preferred_slots", g["allowed_slots"])],
+            "preferred_slots_set": preferred_slots_set,
             "classification": g["classification"],
             "section_ids_set": section_ids_set,
             "break_seconds_by_section": g["break_seconds_by_section"],
@@ -1371,13 +1396,25 @@ def generate_exam_schedule(
 
         ts_inf = timeslot_info_list[slot_idx]
         day = ts_inf["date"]
-        existing_by_section_day = get_individual_section_day_slots(
-            current_individual,
-            exclude_group_idx=group_idx,
-        )
         continuations = 0
         for sec_id in preprocessed_groups[group_idx]["section_ids_set"]:
-            existing = existing_by_section_day.get((sec_id, day), [])
+            # This deliberately visits only the current section's subject
+            # groups.  Rebuilding the entire timetable for every candidate
+            # slot made large Render generations take minutes per GA round.
+            existing = list(posted_sec_day_slots_m.get((sec_id, day), ()))
+            for other_group_idx in section_to_groups.get(sec_id, ()):
+                if other_group_idx == group_idx or other_group_idx >= len(current_individual):
+                    continue
+                other_slot_idx = current_individual[other_group_idx]
+                if other_slot_idx is None:
+                    continue
+                other_ts = timeslot_info_list[other_slot_idx]
+                if other_ts["date"] == day:
+                    existing.append((
+                        other_ts["start_m"],
+                        other_ts["end_m"],
+                        preprocessed_groups[other_group_idx]["break_seconds_by_section"].get(sec_id, 0),
+                    ))
             required_break = preprocessed_groups[group_idx]["break_seconds_by_section"].get(sec_id, 0)
             if existing and _gap_seconds_ok(
                 existing,
@@ -1406,11 +1443,13 @@ def generate_exam_schedule(
                 large_rem = 0
                 large_fits = 1
             continuity = section_continuity_score(group_idx, slot_idx, current_individual)
+            is_preferred_session = 1 if slot_idx in preprocessed_groups[group_idx].get("preferred_slots_set", set()) else 0
             is_pri = 1 if timeslot_info_list[slot_idx]["start_time"] in PRIMARY_TIMES else 0
             return (
                 fits,
                 large_fits,
                 continuity,
+                is_preferred_session,
                 is_pri,
                 large_rem,
                 rem,
@@ -1794,14 +1833,16 @@ def generate_exam_schedule(
             day_num = ts_inf["day_num"]
             is_morning = ts_inf["is_morning"]
 
-            # HARD CONSTRAINT: Penalize any group placed outside its template-assigned slots.
-            # The Tertiary Periodical Departmental Exam Schedule template MUST always be followed.
-            # Penalty is set extremely high (50M per section) to make violations effectively impossible.
+            # Fixed choices are immutable.  Morning/minor and afternoon/major
+            # slots are strongly preferred, but can be relaxed when the full
+            # department otherwise has no room-safe timetable.
             for g_idx in group_indices:
                 group = preprocessed_groups[g_idx]
                 allowed_slots_set = group.get("allowed_slots_set", set())
-                if allowed_slots_set and slot_idx not in allowed_slots_set:
+                if group.get("is_fixed", False) and allowed_slots_set and slot_idx not in allowed_slots_set:
                     score -= 50000000 * len(group["sections"])
+                elif slot_idx not in group.get("preferred_slots_set", allowed_slots_set):
+                    score -= 250000 * len(group["sections"])
 
             # Group room assignments to enforce the same-floor building constraint.
             # Each course's sections within a subject group must be on the same floor.
@@ -2603,6 +2644,7 @@ def generate_exam_schedule(
                         ranked_pool,
                         key=lambda slot_idx: (
                             1 if slot_idx == preferred_slot_idx else 0,
+                            1 if slot_idx in group.get("preferred_slots_set", set()) else 0,
                             1 if timeslot_info_list[slot_idx]["start_time"] in PRIMARY_TIMES else 0,
                             target_high_floor_count(slot_idx),
                             available_room_count(slot_idx, req_dur),
@@ -2625,6 +2667,7 @@ def generate_exam_schedule(
                 ranked_fallback,
                 key=lambda slot_idx: (
                     1 if can_slot_fit_group(slot_idx, group) else 0,
+                    1 if slot_idx in group.get("preferred_slots_set", set()) else 0,
                     1 if timeslot_info_list[slot_idx]["start_time"] in PRIMARY_TIMES else 0,
                     target_high_floor_count(slot_idx),
                     available_room_count(slot_idx, req_dur),
@@ -2638,6 +2681,7 @@ def generate_exam_schedule(
             break_seconds=0,
             min_capacity=0,
             allowed_slot_indices=None,
+            preferred_slot_indices=None,
         ):
             permitted_slots = (
                 generated_timeslot_indices
@@ -2700,6 +2744,7 @@ def generate_exam_schedule(
                 key=lambda slot_idx: (
                     1 if exam_slot_gap_safe(slot_idx) else 0,
                     1 if slot_idx == preferred_slot_idx else 0,
+                    1 if slot_idx in (preferred_slot_indices or ()) else 0,
                     1 if timeslot_info_list[slot_idx]["start_time"] in PRIMARY_TIMES else 0,
                     target_high_floor_count(slot_idx),
                     available_room_count(slot_idx, req_dur, min_capacity),
@@ -3115,6 +3160,7 @@ def generate_exam_schedule(
                                 first_sec.get("break_seconds", 0),
                                 min_capacity=first_sec.get("student_count", 0),
                                 allowed_slot_indices=group["allowed_slots"],
+                                preferred_slot_indices=group.get("preferred_slots"),
                             ),
                             slot_idx
                         ] + list(group["allowed_slots"])
@@ -3164,6 +3210,7 @@ def generate_exam_schedule(
                                 prep_sec.get("break_seconds", 0),
                                 min_capacity=prep_sec.get("student_count", 0),
                                 allowed_slot_indices=group["allowed_slots"],
+                                preferred_slot_indices=group.get("preferred_slots"),
                             )
 
                             pref_f = None
