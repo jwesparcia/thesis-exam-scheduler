@@ -37,7 +37,7 @@ def generate_slots_for_day(d_start, d_end, duration_m: int, lunch_start: time = 
     # Continuous session: from d_start to d_end throughout the day (no lunch gap)
     curr_dt = datetime.combine(date.min, d_start)
     d_end_dt = datetime.combine(date.min, d_end)
-    while curr_dt + dur_td <= d_end_dt + timedelta(minutes=15):
+    while curr_dt + dur_td <= d_end_dt:
         slots.append((curr_dt.time(), (curr_dt + dur_td).time()))
         curr_dt += step_td
             
@@ -51,6 +51,10 @@ HIGH_FLOOR_MIN = 5
 # consecutive written exams.  Slot generation and validation use one common
 # value so a valid 15-minute gap is always available for every subject.
 MIN_SECTION_BREAK_MINUTES = 15
+# The preferred break is 15 minutes.  When an exact continuation is not
+# possible, a same-day gap may be longer but must never exceed 1 hour 15 min.
+MAX_SECTION_GAP_MINUTES = 75
+MAX_SECTION_GAP_SECONDS = MAX_SECTION_GAP_MINUTES * 60
 
 # Genetic Algorithm Parameters (default values)
 POP_SIZE = 40
@@ -295,9 +299,8 @@ def _gap_ok(day_slots, new_start, new_end):
 def _gap_seconds_ok(existing_slots_m, new_start_m, new_end_m, new_break_seconds=0):
     """
     Each interval may include its required break after the exam.
-    Same-day exams must be consecutive: gap must equal exactly the configured break
-    (with a 60-second tolerance to absorb rounding from minute-based arithmetic).
-    Schedule runs continuously throughout the day without session restrictions.
+    Same-day exams need at least the configured break and may wait no longer
+    than the approved 1 hour 15 minute maximum.
     """
     normalized_slots = [
         (slot[0], slot[1], slot[2] if len(slot) > 2 else 0)
@@ -309,7 +312,33 @@ def _gap_seconds_ok(existing_slots_m, new_start_m, new_end_m, new_break_seconds=
         required_break_seconds = all_slots[i][2]
         # Gap must exactly equal the admin-configured break (±60 s tolerance for integer-minute rounding).
         # If break is 0, exams must be back-to-back (gap == 0).
-        if gap_seconds < required_break_seconds or gap_seconds > required_break_seconds + 60:
+        if (
+            gap_seconds < required_break_seconds
+            or gap_seconds > MAX_SECTION_GAP_SECONDS
+        ):
+            return False
+    return True
+
+
+def _gap_seconds_is_exact_continuation(
+    existing_slots_m, new_start_m, new_end_m, new_break_seconds=0
+):
+    """Return whether a legal new slot is the preferred exact continuation."""
+    normalized_slots = [
+        (slot[0], slot[1], slot[2] if len(slot) > 2 else 0)
+        for slot in existing_slots_m
+    ]
+    all_slots = sorted(
+        normalized_slots + [(new_start_m, new_end_m, new_break_seconds)],
+        key=lambda x: x[0],
+    )
+    for i in range(len(all_slots) - 1):
+        gap_seconds = (all_slots[i + 1][0] - all_slots[i][1]) * 60
+        required_break_seconds = all_slots[i][2]
+        if (
+            gap_seconds < required_break_seconds
+            or gap_seconds > required_break_seconds + 60
+        ):
             return False
     return True
 
@@ -480,7 +509,10 @@ def generate_exam_schedule(
                 daily_end_time,
                 dur_m,
                 break_minutes=break_m,
-                slot_step_minutes=None,
+                # Adjacent 75-minute exams still use the 15-minute break.
+                # A 30-minute start grid also offers 45- and 75-minute gaps;
+                # the old 90-minute grid jumped straight from 15 to 105.
+                slot_step_minutes=30,
             )
             for start_t, end_t in day_slots:
                 key = (d, start_t, end_t)
@@ -588,6 +620,20 @@ def generate_exam_schedule(
         section_has_minor_subject[sec.id] = any(
             is_minor_subject_category(sub.category) for sub in section_subjects
         )
+
+    def section_daily_exam_limit(section_id):
+        """Return the smallest daily limit that can cover this section's load.
+
+        Three remains the normal maximum.  A section with more than twelve
+        written papers cannot finish in four exam days at that limit, however,
+        so it may use a fourth *consecutive* slot when necessary.  This is a
+        coverage exception, not a preference: two compact papers per day are
+        still scored most highly.
+        """
+        required_per_day = (
+            subjects_per_section.get(section_id, 0) + NUM_EXAM_DAYS - 1
+        ) // NUM_EXAM_DAYS
+        return max(MAX_EXAMS_PER_DAY, required_per_day)
 
     date_map = {d: i + 1 for i, d in enumerate(exam_days)}
     # Filter posted exams to only those OUTSIDE the current generation scope.
@@ -754,17 +800,19 @@ def generate_exam_schedule(
         if _re.search(r'(3rd|4th|grade\s*1[12])', name.lower())
     }
 
-    # Group subjects by canonical name and duration.  One subject may be
-    # represented by separate curriculum records for different programs (and
-    # therefore different subject codes).  Those records must share an exam
-    # session so students cannot receive the same paper at different times.
+    # Group subjects by canonical name.  One subject may be represented by
+    # separate curriculum records for different programs or SHS strands (and
+    # therefore different subject codes or configured durations).  They must
+    # take one shared exam session to prevent leakage.  A duration mismatch
+    # uses the longest configured duration so every participant can complete
+    # the same paper in that one sitting.
     report_progress(32, "Grouping subjects", "Synchronizing shared subjects across sections")
     shared_subject_groups = {}
     for sub in subjects:
         sub_dur = subject_durations.get(sub.id, getattr(sub, "duration_minutes", 75) or 75)
         canonical_name = " ".join(str(sub.name or "").casefold().split())
         # A blank name must not accidentally combine unrelated curriculum rows.
-        key = (canonical_name or f"subject-{sub.id}", sub_dur)
+        key = canonical_name or f"subject-{sub.id}"
         shared_subject_groups.setdefault(key, []).append(sub)
 
     import copy
@@ -814,7 +862,11 @@ def generate_exam_schedule(
 
     # Pre-calculate involved sections and valid timeslots per group
     groups = []
-    for (name_key, group_dur), sub_list in shared_subject_groups.items():
+    for name_key, sub_list in shared_subject_groups.items():
+        group_dur = max(
+            subject_durations.get(sub.id, getattr(sub, "duration_minutes", 75) or 75)
+            for sub in sub_list
+        )
         # Check if any subject in this shared group has a fixed time slot configured
         fixed_sub = next(
             (
@@ -905,17 +957,16 @@ def generate_exam_schedule(
             for c_key, cohort_sections in synchronized_cohort_items:
                 sample_sec, sample_sub = cohort_sections[0]
                 classification = classify_subject(sample_sub.name, sample_sub.category)
-                req_dur = subject_durations.get(sample_sub.id, group_dur)
+                req_dur = group_dur
                 break_seconds_by_section = {
                     sec.id: _break_after_exam(sub.category)
                     for sec, sub in cohort_sections
                 }
                 course_name = sample_sec.course.name if (sample_sec and sample_sec.course) else (sample_sub.course.name if sample_sub.course else f"Course {c_key[0]}")
 
-                # Keep this as one group even when it needs more rooms than
-                # one timeslot provides.  Final allocation first honours the
-                # fixed slot, then uses the chronological batch fallback for
-                # any complete course cohorts that remain.
+                # A shared subject is never split between sessions.  If its
+                # combined sections cannot fit at this fixed time, final
+                # allocation stops with a clear capacity error instead.
                 cohort_chunks = [cohort_sections]
                 for chunk_idx, chunk_secs in enumerate(cohort_chunks):
                     chunk_len = len(chunk_secs)
@@ -947,7 +998,7 @@ def generate_exam_schedule(
             for c_key, cohort_sections in synchronized_cohort_items:
                 sample_sec, sample_sub = cohort_sections[0]
                 classification = classify_subject(sample_sub.name, sample_sub.category)
-                req_dur = subject_durations.get(sample_sub.id, group_dur)
+                req_dur = group_dur
                 duration_slots = {
                     s for s in timeslots
                     if ((s.end_time.hour * 60 + s.end_time.minute) - (s.start_time.hour * 60 + s.start_time.minute)) == req_dur
@@ -1410,10 +1461,15 @@ def generate_exam_schedule(
         group_large_d = group_large_demands[group_idx]
         return [
             slot_idx for slot_idx in candidate_slots
-            if all(slot_room_capacity[ov] - demand_by_slot[ov] >= group_demand for ov in slot_overlaps[slot_idx])
+            # Demand at this slot already includes every exam that actually
+            # overlaps it.  Rechecking each *other* slot that overlaps this
+            # one creates a false transitive conflict: 8:00-9:15 and
+            # 9:30-10:45 do not overlap, even though both overlap a possible
+            # 8:30-9:45 slot.  They can use the same rooms in succession.
+            if slot_room_capacity[slot_idx] - demand_by_slot[slot_idx] >= group_demand
             and (
                 group_large_d == 0 or max_large_cohort_capacity == 0
-                or all(max_large_cohort_capacity - large_demand_by_slot[ov] >= group_large_d for ov in slot_overlaps[slot_idx])
+                or max_large_cohort_capacity - large_demand_by_slot[slot_idx] >= group_large_d
             )
         ]
 
@@ -1450,7 +1506,7 @@ def generate_exam_schedule(
                         preprocessed_groups[other_group_idx]["break_seconds_by_section"].get(sec_id, 0),
                     ))
             required_break = preprocessed_groups[group_idx]["break_seconds_by_section"].get(sec_id, 0)
-            if existing and _gap_seconds_ok(
+            if existing and _gap_seconds_is_exact_continuation(
                 existing,
                 ts_inf["start_m"],
                 ts_inf["end_m"],
@@ -1484,6 +1540,10 @@ def generate_exam_schedule(
                 large_fits,
                 continuity,
                 is_preferred_session,
+                # Start a new section day early enough to leave room for its
+                # second morning paper.  A late first morning slot (10:30)
+                # otherwise forces the second GE paper to another day.
+                -timeslot_info_list[slot_idx]["start_m"],
                 is_pri,
                 large_rem,
                 rem,
@@ -1512,7 +1572,7 @@ def generate_exam_schedule(
         if isinstance(individual_or_map, dict):
             for sec_id in preprocessed_groups[group_idx]["section_ids_set"]:
                 existing = individual_or_map.get((sec_id, day), [])
-                if len(existing) >= 3:
+                if len(existing) >= section_daily_exam_limit(sec_id):
                     return True
                 candidate_break = preprocessed_groups[group_idx]["break_seconds_by_section"].get(sec_id, 0)
                 if existing and not _gap_seconds_ok(existing, s_m, e_m, candidate_break):
@@ -1534,7 +1594,7 @@ def generate_exam_schedule(
                             o_ts["end_m"],
                             preprocessed_groups[other_g]["break_seconds_by_section"].get(sec_id, 0),
                         ))
-            if len(existing) >= 3:
+            if len(existing) >= section_daily_exam_limit(sec_id):
                 return True
             candidate_break = preprocessed_groups[group_idx]["break_seconds_by_section"].get(sec_id, 0)
             if existing and not _gap_seconds_ok(existing, s_m, e_m, candidate_break):
@@ -1610,12 +1670,12 @@ def generate_exam_schedule(
             if group_has_section_conflict(individual, group_idx, slot_idx):
                 continue
 
-            if not all(slot_room_capacity[ov] - demand_by_slot[ov] >= demand for ov in slot_overlaps[slot_idx]):
+            if slot_room_capacity[slot_idx] - demand_by_slot[slot_idx] < demand:
                 continue
             if large_d > 0 and max_large_cohort_capacity > 0:
-                if not all(max_large_cohort_capacity - large_demand_by_slot[ov] >= large_d for ov in slot_overlaps[slot_idx]):
+                if max_large_cohort_capacity - large_demand_by_slot[slot_idx] < large_d:
                     continue
-            min_rem = min(slot_room_capacity[ov] - demand_by_slot[ov] for ov in slot_overlaps[slot_idx])
+            min_rem = slot_room_capacity[slot_idx] - demand_by_slot[slot_idx]
 
             has_gap_viol = group_slot_creates_gap_violation(group_idx, slot_idx, individual, exclude_group_idx=group_idx)
 
@@ -1649,7 +1709,7 @@ def generate_exam_schedule(
             demand_by_slot = get_slot_room_demand(repaired)
             large_demand_by_slot = get_slot_large_demand(repaired)
             overflows = []
-            for slot_idx in range(num_timeslots):
+            for slot_idx in {slot for slot in repaired if slot is not None}:
                 room_ov = demand_by_slot[slot_idx] - slot_room_capacity[slot_idx]
                 large_ov = (large_demand_by_slot[slot_idx] - max_large_cohort_capacity) if max_large_cohort_capacity > 0 else 0
                 tot = max(0, room_ov) + max(0, large_ov)
@@ -1672,7 +1732,7 @@ def generate_exam_schedule(
                     if preprocessed_groups[group_idx].get("is_fixed", False):
                         continue
                     target_slot_idx = find_room_repair_target(repaired, demand_by_slot, group_idx, slot_idx, large_demand_by_slot)
-                    if not target_slot_idx:
+                    if target_slot_idx is None:
                         continue
 
                     repaired[group_idx] = target_slot_idx
@@ -1689,7 +1749,7 @@ def generate_exam_schedule(
         demand_by_slot = get_slot_room_demand(repaired)
         large_demand_by_slot = get_slot_large_demand(repaired)
         overflows = []
-        for slot_idx in range(num_timeslots):
+        for slot_idx in {slot for slot in repaired if slot is not None}:
             room_ov = demand_by_slot[slot_idx] - slot_room_capacity[slot_idx]
             large_ov = (large_demand_by_slot[slot_idx] - max_large_cohort_capacity) if max_large_cohort_capacity > 0 else 0
             tot = max(0, room_ov) + max(0, large_ov)
@@ -1724,7 +1784,7 @@ def generate_exam_schedule(
                             or (
                                 timeslot_info_list[sorted_pairs[i+1][1]]["start_m"]
                                 - timeslot_info_list[sorted_pairs[i][1]]["end_m"]
-                            ) * 60 > preprocessed_groups[sorted_pairs[i][0]]["break_seconds_by_section"].get(sec_id, 0) + 60
+                            ) * 60 > MAX_SECTION_GAP_SECONDS
                         )
                         for i in range(len(sorted_pairs) - 1)
                     )
@@ -1804,8 +1864,10 @@ def generate_exam_schedule(
 
         for day, slots in day_slots_map.items():
             num_exams = len(slots)
-            # Min 2 per active day, max 3 per active day (universal rule)
-            if num_exams > 3:
+            # Two is preferred and three is the normal maximum.  Very heavy
+            # sections may need one additional consecutive slot to fit every
+            # written subject inside the selected four-day examination period.
+            if num_exams > section_daily_exam_limit(sec_id):
                 static_penalty -= 10000
             elif num_exams == 1 and total_section_exams >= 2:
                 static_penalty -= 10000
@@ -1824,7 +1886,11 @@ def generate_exam_schedule(
         # Room demand evaluation across all timeslots (accounting for overlapping timeslot demands)
         demand_by_slot = get_slot_room_demand(individual)
         large_demand_by_slot = get_slot_large_demand(individual)
-        for slot_idx in range(num_timeslots):
+        # Demand at a hypothetical, unused slot can include two successive
+        # exams that never overlap each other.  Only occupied starts represent
+        # real simultaneous room usage; every possible overlap is visible at
+        # one of those actual starts.
+        for slot_idx in {slot for slot in individual if slot is not None}:
             room_demand = demand_by_slot[slot_idx]
             room_capacity = slot_room_capacity[slot_idx]
             if room_demand > room_capacity:
@@ -2010,7 +2076,7 @@ def generate_exam_schedule(
                 d_count += 1
                 section_day_counts[d_key] = d_count
                 
-                if d_count > 3:
+                if d_count > section_daily_exam_limit(sec_id):
                     score -= 20000
                     
                 # Collect slot per section per day
@@ -2088,12 +2154,21 @@ def generate_exam_schedule(
                 slots = new_slots + posted_slots
                 num_exams = len(slots)
 
-                # Constraint 1: Validate daily exam counts per section/student
-                # Min 2 per active day, max 3 per active day (universal rule)
-                if num_exams > 3:
+                # Constraint 1: Validate daily counts.  Two compact exams are
+                # the preferred pattern; a fourth is allowed only when the
+                # section's total subject load requires it for four-day coverage.
+                if num_exams > section_daily_exam_limit(sec_id):
                     score -= 10000
                 elif num_exams == 1 and total_section_exams >= 2:
                     score -= 10000
+                elif num_exams == 2:
+                    # Across the four-day window, two compact exams per day
+                    # is the preferred load for a section.  Keep this softer
+                    # than hard room/session constraints so a third exam can
+                    # still be used when a section has more than eight papers.
+                    score += 2500
+                elif num_exams >= 3:
+                    score -= 1500 * (num_exams - 2)
                 
                 # Constraint 2: enforce consecutive scheduling — gap must equal the configured break.
                 if num_exams >= 2:
@@ -2104,7 +2179,7 @@ def generate_exam_schedule(
                         gap_minutes = s2_m - sorted_slots[i]["end_m"]
                         gap_seconds = gap_minutes * 60
                         required_break = sorted_slots[i].get("break_seconds", 0)
-                        max_gap = required_break + 60  # 60s tolerance; forces consecutive scheduling
+                        max_gap = MAX_SECTION_GAP_SECONDS
                         if gap_seconds < required_break:
                             score -= 50000000 + (required_break - gap_seconds) * 10000
                         elif gap_seconds > max_gap:
@@ -2113,7 +2188,7 @@ def generate_exam_schedule(
                             # Prefer compact, continuous section schedules.
                             # This replaces the old incentive to spread a
                             # section across three or more days.
-                            score += 2000
+                            score += 2000 if gap_seconds <= required_break + 60 else 400
 
         return score
 
@@ -2163,6 +2238,82 @@ def generate_exam_schedule(
 
         return assigned
 
+    def group_coordination_pressure(group_idx):
+        """How difficult a shared group is to fit into every participant's day."""
+        group = preprocessed_groups[group_idx]
+        if not group.get("synchronized_subject"):
+            return 0
+        return sum(
+            len(section_to_groups.get(section_id, ()))
+            for section_id in group["section_ids_set"]
+        )
+
+    def build_strict_gap_individual():
+        """Build one complete, capacity-safe schedule with no broken daily gaps.
+
+        The GA remains the optimizer.  This constructor supplies it (and, when
+        necessary, the final allocator) with a whole-timetable fallback rather
+        than allowing the final allocator to choose a distant same-day slot.
+        Returning ``None`` means this particular construction order reached a
+        dead end; callers retry with a different tie order.
+        """
+        assigned = [None] * len(preprocessed_groups)
+        group_order = list(range(len(preprocessed_groups)))
+        random.shuffle(group_order)
+        group_order.sort(
+            key=lambda idx: (
+                0 if preprocessed_groups[idx].get("is_fixed", False) else 1,
+                len(preprocessed_groups[idx]["allowed_slots"]),
+                0 if preprocessed_groups[idx].get("synchronized_subject") else 1,
+                -group_coordination_pressure(idx),
+                -group_room_demands[idx],
+            )
+        )
+
+        for group_idx in group_order:
+            group = preprocessed_groups[group_idx]
+            candidate_slots = list(group["allowed_slots"])
+            non_conflicting_slots = [
+                slot_idx for slot_idx in candidate_slots
+                if not group_has_section_conflict(assigned, group_idx, slot_idx)
+            ]
+            capacity_slots = get_capacity_safe_slots(
+                group_idx, non_conflicting_slots, assigned
+            )
+            strict_slots = [
+                slot_idx for slot_idx in capacity_slots
+                if not group_slot_creates_gap_violation(
+                    group_idx, slot_idx, assigned, exclude_group_idx=group_idx
+                )
+            ]
+            if not strict_slots:
+                return None
+
+            # Keep the minor/major session preference whenever a legal slot
+            # exists there.  Otherwise the strict break and capacity rules
+            # remain more important than a preferred session.
+            preferred_slots = set(group.get("preferred_slots_set", ()))
+            preferred_strict_slots = [
+                slot_idx for slot_idx in strict_slots
+                if slot_idx in preferred_slots
+            ]
+            assigned[group_idx] = choose_capacity_balanced_slot(
+                group_idx,
+                preferred_strict_slots or strict_slots,
+                assigned,
+            )
+
+        return assigned
+
+    def individual_has_gap_violation(individual):
+        return any(
+            slot_idx is not None
+            and group_slot_creates_gap_violation(
+                group_idx, slot_idx, individual, exclude_group_idx=group_idx
+            )
+            for group_idx, slot_idx in enumerate(individual)
+        )
+
     def seed_safe_individual():
         ind = build_capacity_safe_individual()
         repaired, _, _ = repair_room_overflows(ind)
@@ -2171,7 +2322,10 @@ def generate_exam_schedule(
 
     print("[SCHEDULER] Seeding high-quality initial schedule...")
     report_progress(35, "Preparing population", "Seeding initial schedule")
-    population = [seed_safe_individual()]
+    strict_seed = build_strict_gap_individual()
+    if strict_seed is not None:
+        print("[SCHEDULER] Seeded a capacity-safe timetable with 15-minute-preferred, 75-minute-maximum section gaps.")
+    population = [strict_seed or seed_safe_individual()]
     for p_i in range(POP_SIZE - 1):
         if p_i % 10 == 0 or p_i == POP_SIZE - 2:
             pct = 35 + int(((p_i + 1) / POP_SIZE) * 10)
@@ -2265,6 +2419,25 @@ def generate_exam_schedule(
                 best_individual = fallback_individual
                 print("[SCHEDULER] Room capacity fallback reduced overloaded room demand.")
         best_individual = repair_section_gaps(best_individual)
+
+        # The evolutionary search occasionally finds a high-scoring timetable
+        # whose late room repairs leave one broad shared paper with no legal
+        # adjacent placement.  Before final room allocation, retry a bounded
+        # constructive search that accepts only capacity-safe placements within
+        # the required-break to 75-minute maximum range.  This keeps generation moving instead of failing later
+        # on the first affected shared subject (for example, Great Books or
+        # Statistical Analysis with Software Application).
+        if individual_has_gap_violation(best_individual):
+            strict_repair = None
+            for _attempt in range(48):
+                strict_repair = build_strict_gap_individual()
+                if strict_repair is not None:
+                    break
+            if strict_repair is not None:
+                best_individual = strict_repair
+                print("[SCHEDULER] Rebuilt the timetable with compliant section-break limits.")
+            else:
+                print("[SCHEDULER] Strict construction could not improve the optimizer candidate; final allocation will retry its legal slots.")
 
     # Print breakdown of best individual
     report_progress(88, "Validating schedule", "Checking the best generated timetable")
@@ -2444,7 +2617,7 @@ def generate_exam_schedule(
                 d_count += 1
                 section_day_counts[d_key] = d_count
                 
-                if d_count > 3:
+                if d_count > section_daily_exam_limit(sec_id):
                     sec_limit += 1
                     
                 section_slot_info = dict(ts_inf)
@@ -2516,8 +2689,9 @@ def generate_exam_schedule(
                 num_exams = len(slots)
 
                 total_subjects = subjects_per_section.get(sec_id, 0)
-                # Min 2 per active day, max 3 per active day (universal rule)
-                if num_exams > 3:
+                # Two compact exams are preferred.  Higher counts are valid
+                # only when needed to cover a heavy section's full load.
+                if num_exams > section_daily_exam_limit(sec_id):
                     daily_viol += 1
                 elif num_exams == 1 and total_section_exams >= 2:
                     daily_viol += 1
@@ -2530,8 +2704,9 @@ def generate_exam_schedule(
                         gap_minutes = s2_m - sorted_slots[i]["end_m"]
                         required_break = sorted_slots[i].get("break_seconds", 0)
                         gap_seconds = gap_minutes * 60
-                        # Violation if gap < break OR gap > break + 60s (not consecutive)
-                        if gap_seconds < required_break or gap_seconds > required_break + 60:
+                        # Violation if gap is shorter than the required break
+                        # or longer than the approved 1 hour 15 minute maximum.
+                        if gap_seconds < required_break or gap_seconds > MAX_SECTION_GAP_SECONDS:
                             gap_viol += 1
 
         day2_major_viol = sum(1 for count in section_day2_major_counts.values() if count > 2)
@@ -2541,8 +2716,8 @@ def generate_exam_schedule(
         print(f"  - Room Overlaps: {room_overlap}")
         print(f"  - Proctor Overlaps: {proc_overlap}")
         print(f"  - Proctor Assignment Limit Violations: {proc_limit}")
-        print(f"  - Section Limit (>3 per day) Violations: {sec_limit}")
-        print(f"  - Daily Distribution Violations (1-exam days, >3 exams/day, or missing days for >=8 subjects): {daily_viol}")
+        print(f"  - Section Daily-Limit Violations: {sec_limit}")
+        print(f"  - Daily Distribution Violations (1-exam days, above section limit, or missing days for >=8 subjects): {daily_viol}")
         print(f"  - Break-time/Gap Violations: {gap_viol}")
         print(f"  - Day 2 Afternoon Major Exam Violations (>2): {day2_major_viol}")
 
@@ -2629,40 +2804,12 @@ def generate_exam_schedule(
                             found_floor = True
                             break
                 if not found_floor:
-                    return False
-            return True
-
-        def can_slot_start_shared_batch(slot_idx, grp):
-            """Return whether at least one intact course cohort can start here.
-
-            A large shared subject may need multiple batches, so requiring the
-            whole group to fit would reject every slot.  This check avoids
-            choosing an already-full first slot when another early slot can
-            begin a capacity-safe batch.
-            """
-            req_d = grp.get("duration", 75)
-            available = [
-                r_idx for r_idx in room_indices_for_dur.get(req_d, list(range(num_rooms)))
-                if (r_idx, slot_idx) not in room_slots_set
-            ]
-            if not available:
-                return False
-
-            course_clusters = {}
-            for section in grp["sections"]:
-                c_key = (section.get("course_id"), section.get("year_level_id"))
-                course_clusters.setdefault(c_key, []).append(section)
-
-            available_caps = sorted((room_capacities[r] for r in available), reverse=True)
-            for cluster_secs in course_clusters.values():
-                if len(available_caps) < len(cluster_secs):
-                    continue
-                required_caps = sorted(
-                    (section.get("student_count", 35) for section in cluster_secs), reverse=True
-                )
-                if all(room_cap >= section_cap for room_cap, section_cap in zip(available_caps, required_caps)):
+                    # Same-floor grouping is a preference, not a reason to
+                    # split a shared paper into separate sessions.  The global
+                    # capacity test above proves the sections can fit at this
+                    # one time, so final allocation may use multiple floors.
                     return True
-            return False
+            return True
 
         def pick_group_slot(group_idx, preferred_slot_idx):
             group = preprocessed_groups[group_idx]
@@ -2688,6 +2835,115 @@ def generate_exam_schedule(
                     ts_inf["end_m"],
                     actual_section_breaks.get((s_id, s_idx), 0),
                 ))
+
+            if group.get("synchronized_subject"):
+                # Anti-leakage is a hard rule.  Every program or strand that
+                # takes this named subject must fit in the *same* room-safe
+                # timeslot, without a section overlap.  Do not degrade to a
+                # later batch, even if doing so would otherwise finish a draft
+                # schedule.
+                room_safe_slots = [
+                    slot_idx for slot_idx in candidate_slots
+                    if available_room_count(slot_idx, req_dur) >= demand
+                    and can_slot_fit_group(slot_idx, group)
+                    and not group_has_final_section_conflict(group, slot_idx)
+                ]
+                if not room_safe_slots:
+                    shared_name = group["sections"][0].get("sub_name", "Shared subject")
+                    conflict_free_slots = [
+                        slot_idx for slot_idx in candidate_slots
+                        if not group_has_final_section_conflict(group, slot_idx)
+                    ]
+                    best_free_room_count = max(
+                        (
+                            available_room_count(slot_idx, req_dur)
+                            for slot_idx in conflict_free_slots
+                        ),
+                        default=0,
+                    )
+                    raise ValueError(
+                        f"Unable to schedule shared subject '{shared_name}' in one date and time "
+                        f"for every program/strand while preserving room capacity. It needs {demand} "
+                        f"simultaneous rooms; the best conflict-free slot currently has {best_free_room_count}. "
+                        "Add suitable rooms or widen the exam date range."
+                    )
+
+                # A section may have more than one exam on an exam day only
+                # when every pair is consecutive with the configured break.
+                # Do *not* fall back to a distant slot on that same day: that
+                # was how a 09:30 AM exam could incorrectly be followed by a
+                # 03:30 PM exam.  An exam on another day is preferable to a
+                # broken two-exam day, and a common sitting remains mandatory
+                # for a shared subject.
+                gap_safe = [
+                    slot_idx for slot_idx in room_safe_slots
+                    if not group_slot_creates_gap_violation(group_idx, slot_idx, current_sec_day_map)
+                ]
+                if not gap_safe:
+                    shared_name = group["sections"][0].get("sub_name", "Shared subject")
+                    raise ValueError(
+                        f"Unable to place shared subject '{shared_name}' while keeping every affected section's "
+                        "same-day gap between 15 minutes and 1 hour 15 minutes. Add rooms or widen the exam date range."
+                    )
+
+                # The genetic solver and its gap-repair pass have already
+                # produced a globally balanced preferred slot.  Retain it
+                # whenever the rooms are still free instead of moving this
+                # shared subject merely because another legal slot looks
+                # locally attractive.  This is especially important for
+                # wide subjects such as Great Books, whose participants have
+                # different companion papers across many programs.
+                if preferred_slot_idx in gap_safe:
+                    return preferred_slot_idx
+                ranked_pool = gap_safe
+
+                def shared_section_timing_score(candidate_slot_idx):
+                    """Prefer a second, consecutive exam over an empty day.
+
+                    A gap-safe slot may be the first exam for a section or an
+                    exact 15-minute continuation of its first exam.  Both are
+                    valid, but the latter is the required compact two-exam
+                    pattern whenever rooms and session rules allow it.
+                    """
+                    candidate_info = timeslot_info_list[candidate_slot_idx]
+                    candidate_day = candidate_info["date"]
+                    continuations = 0
+                    second_exams = 0
+                    third_exam_penalty = 0
+                    for sec_id in group["section_ids_set"]:
+                        existing = current_sec_day_map.get((sec_id, candidate_day), [])
+                        existing_count = len(existing)
+                        if existing_count == 1:
+                            second_exams += 1
+                        elif existing_count >= 2:
+                            third_exam_penalty += 1
+
+                        required_break = group["break_seconds_by_section"].get(sec_id, 0)
+                        if existing and _gap_seconds_is_exact_continuation(
+                            existing,
+                            candidate_info["start_m"],
+                            candidate_info["end_m"],
+                            required_break,
+                        ):
+                            continuations += 1
+                    return second_exams, continuations, -third_exam_penalty
+
+                timing_scores = {
+                    candidate_slot_idx: shared_section_timing_score(candidate_slot_idx)
+                    for candidate_slot_idx in ranked_pool
+                }
+                return max(
+                    ranked_pool,
+                    key=lambda slot_idx: (
+                        timing_scores[slot_idx],
+                        1 if slot_idx == preferred_slot_idx else 0,
+                        1 if slot_idx in group.get("preferred_slots_set", set()) else 0,
+                        1 if timeslot_info_list[slot_idx]["start_time"] in PRIMARY_TIMES else 0,
+                        target_high_floor_count(slot_idx),
+                        available_room_count(slot_idx, req_dur),
+                        -(timeslot_info_list[slot_idx]["day_num"] or 0),
+                    ),
+                )
 
             for require_no_section_conflict in (True, False):
                 room_safe_slots = [
@@ -2723,36 +2979,6 @@ def generate_exam_schedule(
                 if not group_has_final_section_conflict(group, slot_idx)
             ]
             fallback_slots = non_conflicting_slots or candidate_slots
-
-            # A shared subject that cannot fit in one sitting will be handled
-            # as chronological room batches during final allocation.  Its first
-            # batch must start early in the valid exam range; choosing a late
-            # GA allele here leaves no later slots for the remaining cohorts.
-            # Preserve the session preference (minor morning / major afternoon)
-            # before choosing the earliest compatible starting slot.
-            if group.get("synchronized_subject"):
-                gap_safe_batch_starts = [
-                    slot_idx for slot_idx in fallback_slots
-                    if not group_slot_creates_gap_violation(group_idx, slot_idx, current_sec_day_map)
-                ]
-                batch_starts = gap_safe_batch_starts or fallback_slots
-                viable_batch_starts = [
-                    slot_idx for slot_idx in batch_starts
-                    if can_slot_start_shared_batch(slot_idx, group)
-                ]
-                batch_starts = viable_batch_starts or batch_starts
-                preferred_batch_starts = [
-                    slot_idx for slot_idx in batch_starts
-                    if slot_idx in group.get("preferred_slots_set", set())
-                ]
-                ranked_batch_starts = preferred_batch_starts or batch_starts
-                return min(
-                    ranked_batch_starts,
-                    key=lambda slot_idx: (
-                        timeslot_info_list[slot_idx]["date"],
-                        timeslot_info_list[slot_idx]["start_m"],
-                    ),
-                )
 
             # Even in fallback: hard-prefer gap-consecutive slots
             gap_safe_fallback = [
@@ -2822,7 +3048,7 @@ def generate_exam_schedule(
             def exam_slot_gap_safe(slot_idx):
                 ts_inf = timeslot_info_list[slot_idx]
                 existing = sec_day_slots.get(ts_inf["date"], [])
-                if len(existing) >= 3:
+                if len(existing) >= section_daily_exam_limit(section_id):
                     return False
                 if existing and not _gap_seconds_ok(existing, ts_inf["start_m"], ts_inf["end_m"], break_seconds):
                     return False
@@ -2953,21 +3179,37 @@ def generate_exam_schedule(
             # Return None if no room with adequate capacity is available
             return None
 
-        # Allocate constrained cohorts before flexible ones.  In particular,
-        # 120-minute BSA exams have only four usable slots in an 8:00 AM-
-        # 4:45 PM day, while a 75-minute exam has more alternatives.  Applying
-        # draft exams strictly in chronological order let flexible groups fill
-        # every room that a later constrained group could use.  Within the
-        # same constraint level, honor chronological optimizer choices before
-        # group size so a large shared subject cannot consume rooms reserved
-        # for a smaller elective that must occur earlier.
+        # Allocate constrained shared subjects first.  A shared paper with
+        # many participating sections (and many other papers for each of
+        # those sections) is the hardest to place: it needs many rooms at one
+        # time *and* one slot that keeps every participant's daily exams
+        # consecutive.  Scheduling a small shared subject first can consume
+        # the only valid neighbour slot and incorrectly leave a subject such
+        # as Great Books with no legal placement.
+        #
+        # The GA still chooses dates/times; this only gives final room
+        # allocation an order that protects both the anti-leakage rule and
+        # the mandatory 15-minute section break.
+        def shared_group_coordination_pressure(group_idx):
+            group = preprocessed_groups[group_idx]
+            if not group.get("synchronized_subject"):
+                return 0
+            return sum(
+                len(section_to_groups.get(section_id, ()))
+                for section_id in group["section_ids_set"]
+            )
+
         group_order = sorted(
             range(len(preprocessed_groups)),
             key=lambda idx: (
                 len(preprocessed_groups[idx]["allowed_slots"]),
+                0 if preprocessed_groups[idx].get("synchronized_subject") else 1,
+                -shared_group_coordination_pressure(idx),
+                -len(preprocessed_groups[idx]["sections"])
+                if preprocessed_groups[idx].get("synchronized_subject") else 0,
+                -preprocessed_groups[idx].get("duration", 75),
                 timeslot_info_list[best_individual[idx]]["date"],
                 timeslot_info_list[best_individual[idx]]["start_m"],
-                -preprocessed_groups[idx].get("duration", 75),
                 -len(preprocessed_groups[idx]["sections"]),
             ),
         )
@@ -3054,8 +3296,102 @@ def generate_exam_schedule(
 
                 return assigned_map, used_indices
 
+            def match_synchronized_sections_to_rooms(sections_list, candidate_room_indices):
+                """Assign every shared-subject section at one slot.
+
+                Each program/year cohort is kept on one floor when possible.
+                If a cohort cannot fit on one floor, all sections are matched
+                across the remaining rooms at the same date and time.  This
+                protects the anti-leakage rule while retaining the established
+                same-floor preference whenever capacity permits it.
+                """
+                course_clusters = {}
+                for section in sections_list:
+                    c_key = (section.get("course_id"), section.get("year_level_id"))
+                    course_clusters.setdefault(c_key, []).append(section)
+
+                remaining_rooms = list(candidate_room_indices)
+                assigned_map = {}
+                used_rooms = []
+                for cluster_secs in sorted(course_clusters.values(), key=lambda cluster: -len(cluster)):
+                    rooms_by_floor = {}
+                    for room_idx in remaining_rooms:
+                        rooms_by_floor.setdefault(
+                            (room_buildings[room_idx], room_floors[room_idx]), []
+                        ).append(room_idx)
+
+                    floor_matches = []
+                    for floor_key, floor_rooms in rooms_by_floor.items():
+                        if len(floor_rooms) < len(cluster_secs):
+                            continue
+                        room_map, cluster_rooms = match_sections_to_rooms(cluster_secs, floor_rooms)
+                        if room_map is not None:
+                            pack_prio, leftover = floor_packing_prio(
+                                floor_key, len(cluster_secs), len(floor_rooms)
+                            )
+                            floor_matches.append(
+                                (
+                                    (pack_prio, leftover, sum(room_key(room)[0] for room in cluster_rooms)),
+                                    room_map,
+                                    cluster_rooms,
+                                )
+                            )
+
+                    if floor_matches:
+                        floor_matches.sort(key=lambda item: item[0])
+                        _, room_map, cluster_rooms = floor_matches[0]
+                    else:
+                        room_map, cluster_rooms = match_sections_to_rooms(
+                            cluster_secs, remaining_rooms
+                        )
+                        if room_map is None:
+                            # A prior same-floor choice can occasionally leave
+                            # an awkward capacity combination.  Retry every
+                            # section globally before declaring the one-session
+                            # request impossible.
+                            return match_sections_to_rooms(
+                                sections_list, candidate_room_indices
+                            )
+
+                    assigned_map.update(room_map)
+                    used_rooms.extend(cluster_rooms)
+                    used_set = set(cluster_rooms)
+                    remaining_rooms = [
+                        room_idx for room_idx in remaining_rooms if room_idx not in used_set
+                    ]
+
+                return assigned_map, used_rooms
+
             assigned_rooms = {}  # sec_id -> room_id
             assigned_slots = {}  # sec_id -> exam_slot_idx
+
+            if group.get("synchronized_subject"):
+                if group_has_final_section_conflict(group, slot_idx):
+                    shared_name = slot_exams[0].get("sub_name", "Shared subject")
+                    raise ValueError(
+                        f"Unable to schedule shared subject '{shared_name}' in one date and time "
+                        "because one or more sections already have an exam in that slot. "
+                        "Widen the exam date range or resolve the conflicting exam."
+                    )
+
+                shared_map, shared_rooms = match_synchronized_sections_to_rooms(
+                    slot_exams, available_r_indices
+                )
+                if shared_map is None:
+                    shared_name = slot_exams[0].get("sub_name", "Shared subject")
+                    raise ValueError(
+                        f"Unable to schedule shared subject '{shared_name}' in one date and time "
+                        "for every program/strand while preserving room capacity. "
+                        "Add suitable rooms or widen the exam date range."
+                    )
+
+                assigned_rooms.update(shared_map)
+                for shared_section in slot_exams:
+                    assigned_slots[shared_section["sec_id"]] = slot_idx
+                for room_idx in shared_rooms:
+                    for overlap_idx in slot_overlaps[slot_idx]:
+                        room_slots_set.add((room_idx, overlap_idx))
+                    room_loads[room_idx] += 1
 
             def is_slot_gap_safe_for_sec(section_id, test_slot_idx, brk_sec=0):
                 ts_inf = timeslot_info_list[test_slot_idx]
@@ -3069,7 +3405,7 @@ def generate_exam_schedule(
                         s_inf = timeslot_info_list[s_i]
                         if s_inf["date"] == day:
                             existing.append((s_inf["start_m"], s_inf["end_m"], actual_section_breaks.get((s_id, s_i), 0)))
-                if len(existing) >= 3:
+                if len(existing) >= section_daily_exam_limit(section_id):
                     return False
                 if existing and not _gap_seconds_ok(existing, ts_inf["start_m"], ts_inf["end_m"], brk_sec):
                     return False
@@ -3078,6 +3414,8 @@ def generate_exam_schedule(
             # Group sections in slot_exams by course and year level
             all_course_clusters = {}
             for s in slot_exams:
+                if s["sec_id"] in assigned_rooms:
+                    continue
                 c_key = (s.get("course_id"), s.get("year_level_id"))
                 all_course_clusters.setdefault(c_key, []).append(s)
 
@@ -3189,140 +3527,16 @@ def generate_exam_schedule(
                 c_key = (prep_sec.get("course_id"), prep_sec.get("year_level_id"))
                 unassigned_by_course.setdefault(c_key, []).append(prep_sec)
 
-            # Normally a shared subject is placed simultaneously.  When its
-            # complete set of course cohorts cannot fit at one time (for
-            # example, due to same-floor packing), retain the shared grouping
-            # and create chronological batches instead.  Each batch contains
-            # whole course cohorts only, and the unplaced cohorts are filled in
-            # the next compatible timeslot before a later slot is considered.
-            # This is the controlled fallback for the anti-leakage rule; it
-            # never scatters a shared paper across arbitrary dates/times.
+            # A synchronized subject must be complete at its one selected
+            # date/time.  Never defer an unassigned program or strand to a
+            # later batch because that would expose the examination paper.
             if group.get("synchronized_subject") and unassigned_by_course:
-                base_slot_info = timeslot_info_list[slot_idx]
-                base_slot_order = (base_slot_info["date"], base_slot_info["start_m"])
-                req_dur = group.get("duration", 75)
-
-                # Fixed subjects retain their configured first batch; any
-                # overflow may continue only to chronologically later slots.
-                batch_slot_pool = set(group["allowed_slots"])
-                if group.get("is_fixed", False):
-                    batch_slot_pool.update(
-                        s for s in generated_timeslot_indices
-                        if timeslot_info_list[s]["duration_m"] == req_dur
-                    )
-                batch_slots = [slot_idx] + sorted(
-                    (
-                        s for s in batch_slot_pool
-                        if s != slot_idx
-                        and timeslot_info_list[s]["duration_m"] == req_dur
-                        and (timeslot_info_list[s]["date"], timeslot_info_list[s]["start_m"]) > base_slot_order
-                    ),
-                    key=lambda s: (timeslot_info_list[s]["date"], timeslot_info_list[s]["start_m"]),
+                shared_name = group["sections"][0].get("sub_name", "Shared subject")
+                raise ValueError(
+                    f"Unable to schedule shared subject '{shared_name}' in one date and time "
+                    "for every program/strand while preserving room capacity. "
+                    "Add suitable rooms or widen the exam date range."
                 )
-
-                def assign_shared_subject_batch(cluster_secs):
-                    """Assign one whole course cohort to the earliest viable batch slot."""
-                    cluster_size = len(cluster_secs)
-                    # Consecutive 15-minute spacing remains the first choice.
-                    # If it is impossible because earlier cohorts already use
-                    # every compatible chain, retain non-overlap and capacity
-                    # as hard rules instead of failing the whole schedule.
-                    for require_gap_safe in (True, False):
-                        for batch_slot_idx in batch_slots:
-                            if any(
-                                any(
-                                    (section["sec_id"], overlap_idx) in section_slots_set
-                                    or (section["sec_id"], overlap_idx) in posted_section_slots_set
-                                    for overlap_idx in slot_overlaps[batch_slot_idx]
-                                )
-                                for section in cluster_secs
-                            ):
-                                continue
-                            if require_gap_safe and not all(
-                                is_slot_gap_safe_for_sec(
-                                    section["sec_id"], batch_slot_idx, section.get("break_seconds", 0)
-                                )
-                                for section in cluster_secs
-                            ):
-                                continue
-
-                            available_rooms = [
-                                r_idx for r_idx in allowed_r_indices
-                                if (r_idx, batch_slot_idx) not in room_slots_set
-                            ]
-                            rooms_by_floor = {}
-                            for r_idx in available_rooms:
-                                rooms_by_floor.setdefault(
-                                    (room_buildings[r_idx], room_floors[r_idx]), []
-                                ).append(r_idx)
-
-                            floor_matches = []
-                            for floor_key, floor_rooms in rooms_by_floor.items():
-                                if len(floor_rooms) < cluster_size:
-                                    continue
-                                room_map, used_rooms = match_sections_to_rooms(cluster_secs, floor_rooms)
-                                if room_map is None:
-                                    continue
-                                pack_prio, leftover = floor_packing_prio(
-                                    floor_key, cluster_size, len(floor_rooms)
-                                )
-                                floor_matches.append(
-                                    ((pack_prio, leftover, sum(room_key(r)[0] for r in used_rooms)), room_map, used_rooms)
-                                )
-
-                            # Same-floor placement is preferred for each course
-                            # cohort, but it must not make a valid room-capacity
-                            # batch fail when enough suitable rooms exist across
-                            # multiple floors.  This mirrors the normal allocator's
-                            # last-resort behaviour while keeping the batch at one
-                            # date/time and maintaining every capacity check.
-                            if not floor_matches:
-                                room_map, used_rooms = match_sections_to_rooms(
-                                    cluster_secs, available_rooms
-                                )
-                                if room_map is not None:
-                                    floor_matches.append(
-                                        ((99, 0, sum(room_key(r)[0] for r in used_rooms)), room_map, used_rooms)
-                                    )
-
-                            if not floor_matches:
-                                continue
-                            floor_matches.sort(key=lambda item: item[0])
-                            _, room_map, used_rooms = floor_matches[0]
-                            assigned_rooms.update(room_map)
-                            for section in cluster_secs:
-                                assigned_slots[section["sec_id"]] = batch_slot_idx
-                            for r_idx in used_rooms:
-                                for overlap_idx in slot_overlaps[batch_slot_idx]:
-                                    room_slots_set.add((r_idx, overlap_idx))
-                                room_loads[r_idx] += 1
-                            return True
-                    return False
-
-                remaining_batches = sorted(
-                    unassigned_by_course.values(), key=lambda sections: -len(sections)
-                )
-                for remaining_cluster in remaining_batches:
-                    if not assign_shared_subject_batch(remaining_cluster):
-                        # Last resort: retain the shared subject's chronological
-                        # batch sequence but allow the remaining sections of a
-                        # course to occupy the earliest available slots one at
-                        # a time.  This avoids failing the entire generation
-                        # merely because a full course cohort cannot share a
-                        # floor in any remaining batch.  Capacity and section
-                        # overlap checks still run for every section.
-                        for remaining_section in remaining_cluster:
-                            if not assign_shared_subject_batch([remaining_section]):
-                                shared_name = group["sections"][0].get("sub_name", "Shared subject")
-                                raise ValueError(
-                                    f"Unable to schedule a remaining section for shared subject '{shared_name}' "
-                                    "within the selected exam range. Add suitable rooms or widen the exam range."
-                                )
-                # All shared-subject sections are now assigned in the earliest
-                # viable sequence of batches; skip the older per-cluster repair
-                # path below, which is intentionally allowed to use arbitrary
-                # alternative slots for unrelated subjects.
-                unassigned_by_course = {}
 
             for c_key, rem_cluster in unassigned_by_course.items():
                 rcN = len(rem_cluster)
@@ -3345,7 +3559,7 @@ def generate_exam_schedule(
                                 has_conflict = False
                                 for ps in rem_cluster:
                                     ps_id = ps["sec_id"]
-                                    if any((ps_id, ov) in section_slots_set or (ps_id, ov) in posted_section_slots_set for ov in slot_overlaps[cand_s]):
+                                    if (ps_id, cand_s) in section_slots_set or (ps_id, cand_s) in posted_section_slots_set:
                                         has_conflict = True
                                         break
                                 if has_conflict:
@@ -3410,7 +3624,7 @@ def generate_exam_schedule(
                         candidate_cohort_slots.sort(key=lambda s: (0 if timeslot_info_list[s]["start_time"] in PRIMARY_TIMES else 1, timeslot_info_list[s]["date"], timeslot_info_list[s]["start_time"]))
 
                         for test_s in candidate_cohort_slots:
-                            if any(any((ps["sec_id"], ov) in section_slots_set or (ps["sec_id"], ov) in posted_section_slots_set for ov in slot_overlaps[test_s]) for ps in rem_cluster):
+                            if any((ps["sec_id"], test_s) in section_slots_set or (ps["sec_id"], test_s) in posted_section_slots_set for ps in rem_cluster):
                                 continue
                             avail_r = [r for r in allowed_r_indices if (r, test_s) not in room_slots_set]
                             by_fl = {}

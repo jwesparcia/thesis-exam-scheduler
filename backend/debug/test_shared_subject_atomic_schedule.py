@@ -28,10 +28,11 @@ from utils import scheduler  # noqa: E402
 
 def run_test(
     room_names,
-    expected_batch_count,
     shared_subject_names=("Ethics",),
     sections_per_course=3,
-    expect_whole_course_batches=True,
+    expect_failure=False,
+    second_program_duration=None,
+    expect_consecutive_pair=False,
 ):
     Base.metadata.create_all(engine)
     db = SessionLocal()
@@ -84,7 +85,7 @@ def run_test(
                     semester=1,
                     exam_type="written",
                     category="general",
-                    duration_minutes=75,
+                    duration_minutes=second_program_duration or 75,
                     term="Midterm",
                 ),
             ])
@@ -109,16 +110,26 @@ def run_test(
         # room allocator.
         scheduler.POP_SIZE = 8
         scheduler.GENERATIONS = 6
-        result = scheduler.generate_exam_schedule(
-            db,
-            start_date=date(2026, 11, 16),
-            end_date=date(2026, 11, 19),
-            department="College",
-            semester=1,
-            term="Midterm",
-            daily_start_time=time(8, 0),
-            daily_end_time=time(16, 45),
-        )
+        try:
+            result = scheduler.generate_exam_schedule(
+                db,
+                start_date=date(2026, 11, 16),
+                end_date=date(2026, 11, 19),
+                department="College",
+                semester=1,
+                term="Midterm",
+                daily_start_time=time(8, 0),
+                daily_end_time=time(16, 45),
+            )
+        except ValueError as exc:
+            if not expect_failure:
+                raise
+            assert "one date and time" in str(exc)
+            print("Shared-subject capacity failure correctly prevented a split schedule.")
+            return
+
+        if expect_failure:
+            raise AssertionError("Expected shared-subject scheduling to reject a split session.")
 
         exams = db.query(Exam).filter(Exam.status == "draft").all()
         expected_exam_count = 2 * sections_per_course * len(shared_subject_names)
@@ -136,7 +147,7 @@ def run_test(
                 (exam.timeslot.date, exam.timeslot.start_time, exam.timeslot.end_time)
                 for exam in subject_exams
             })
-            assert len(batch_slots) == expected_batch_count
+            assert len(batch_slots) == 1
             exams_by_slot = {}
             for exam in subject_exams:
                 exams_by_slot.setdefault(exam.timeslot_id, []).append(exam)
@@ -144,20 +155,65 @@ def run_test(
                 len({exam.room_id for exam in batch_exams}) == len(batch_exams)
                 for batch_exams in exams_by_slot.values()
             )
-            if expected_batch_count > 1:
-                # No other exam uses these rooms, so the batch fallback must
-                # use the immediately following generated slot, not skip ahead.
-                for (previous_date, _, previous_end), (next_date, next_start, _) in zip(batch_slots, batch_slots[1:]):
-                    assert next_date == previous_date
-                    previous_end_minutes = previous_end.hour * 60 + previous_end.minute
-                    next_start_minutes = next_start.hour * 60 + next_start.minute
-                    assert next_start_minutes - previous_end_minutes == 15
-                if expect_whole_course_batches:
-                    assert all(
-                        len({exam.course_id for exam in batch_exams}) == 1
-                        for batch_exams in exams_by_slot.values()
-                    )
-        print(f"Shared-subject scheduling passed with {expected_batch_count} batch(es) per subject.")
+
+        # A section may take several papers on the same day.  The preferred
+        # pattern is the mandatory 15-minute continuation; when capacity makes
+        # that impossible, the scheduler may use a longer wait but never more
+        # than the approved 1 hour 15 minute maximum.
+        exams_by_section_and_day = {}
+        for exam in exams:
+            exams_by_section_and_day.setdefault(
+                (exam.section_id, exam.timeslot.date), []
+            ).append(exam)
+        for day_exams in exams_by_section_and_day.values():
+            day_exams.sort(key=lambda exam: exam.timeslot.start_time)
+            for first_exam, second_exam in zip(day_exams, day_exams[1:]):
+                first_end = (
+                    first_exam.timeslot.end_time.hour * 60
+                    + first_exam.timeslot.end_time.minute
+                )
+                second_start = (
+                    second_exam.timeslot.start_time.hour * 60
+                    + second_exam.timeslot.start_time.minute
+                )
+                assert 15 <= second_start - first_end <= 75
+
+        if expect_consecutive_pair:
+            exams_by_section = {}
+            for exam in exams:
+                exams_by_section.setdefault(exam.section_id, []).append(exam)
+            for section_exams in exams_by_section.values():
+                assert len(section_exams) == 2
+                first_exam, second_exam = sorted(
+                    section_exams,
+                    key=lambda exam: (exam.timeslot.date, exam.timeslot.start_time),
+                )
+                assert first_exam.timeslot.date == second_exam.timeslot.date, (
+                    first_exam.section.name,
+                    first_exam.subject.name,
+                    first_exam.timeslot.date,
+                    first_exam.timeslot.start_time,
+                    second_exam.subject.name,
+                    second_exam.timeslot.date,
+                    second_exam.timeslot.start_time,
+                )
+                first_end = (
+                    first_exam.timeslot.end_time.hour * 60
+                    + first_exam.timeslot.end_time.minute
+                )
+                second_start = (
+                    second_exam.timeslot.start_time.hour * 60
+                    + second_exam.timeslot.start_time.minute
+                )
+                assert second_start - first_end == 15, (
+                    first_exam.section.name,
+                    first_exam.subject.name,
+                    first_exam.timeslot.start_time,
+                    second_exam.subject.name,
+                    second_exam.timeslot.start_time,
+                    second_start - first_end,
+                )
+        print("Shared-subject scheduling passed with one common session per subject.")
     finally:
         db.close()
         Base.metadata.drop_all(engine)
@@ -167,23 +223,56 @@ def run_test(
 
 if __name__ == "__main__":
     # All six sections fit concurrently: one anti-leakage session.
-    run_test(("B401", "B402", "B403", "B501", "B502", "B503"), expected_batch_count=1)
-    # Only three rooms: remaining whole-program cohort must continue in the
-    # immediately following 75-minute slot, rather than failing or scattering.
-    run_test(("B401", "B402", "B403"), expected_batch_count=2)
-    # Two shared subjects must each retain their own consecutive room batches
-    # even when no floor has all three rooms available for a course cohort.
     run_test(
-        ("B401", "B501", "B601"),
-        expected_batch_count=2,
-        shared_subject_names=("Ethics", "Mathematics in the Modern World"),
+        ("B401", "B402", "B403", "B501", "B502", "B503"),
+        shared_subject_names=("Computer Programming 1",),
     )
-    # Four sections in each program cannot form a complete cohort in only
-    # three rooms. Remaining sections must still be scheduled, in order,
-    # rather than aborting the generation.
+    # Mirrors The Contemporary World's 40 simultaneous college sections: a
+    # 50-room pool must keep every program together in one common session.
+    run_test(
+        tuple(f"B{number}" for number in range(101, 151)),
+        shared_subject_names=("The Contemporary World",),
+        sections_per_course=20,
+    )
+    # Twelve 40-section shared papers fill the available morning capacity over
+    # four exam days.  This guards against small subjects fragmenting slots
+    # before large anti-leakage groups are assigned.
+    run_test(
+        tuple(f"B{number}" for number in range(101, 151)),
+        shared_subject_names=tuple(f"Shared Test {number}" for number in range(1, 13)),
+        sections_per_course=20,
+    )
+    # Thirteen written subjects cannot fit into four days with a universal
+    # three-exam cap.  The scheduler may use one four-exam day, but every one
+    # of those papers must still be consecutive with the 15-minute break.
+    run_test(
+        ("B401", "B402", "B403", "B501", "B502", "B503"),
+        shared_subject_names=tuple(f"Heavy Load {number}" for number in range(1, 14)),
+    )
+    # Different curriculum duration settings still produce one shared sitting
+    # using the longer exam duration.
+    run_test(
+        ("B401", "B402", "B403", "B501", "B502", "B503"),
+        shared_subject_names=("Introduction to Computing",),
+        second_program_duration=120,
+    )
+    # Three rooms cannot host every BSIT and BSCS section at one time.  The
+    # scheduler must fail rather than expose the shared paper in a later slot.
     run_test(
         ("B401", "B402", "B403"),
-        expected_batch_count=3,
+        shared_subject_names=("Computer Programming 1",),
+        expect_failure=True,
+    )
+    # Each shared subject remains synchronized across both programs, even
+    # when the two different subjects need separate sessions.
+    run_test(
+        ("B401", "B402", "B403", "B501", "B502", "B503"),
+        shared_subject_names=("Ethics", "Mathematics in the Modern World"),
+        expect_consecutive_pair=True,
+    )
+    # Eight total sections still cannot be split between dates or times.
+    run_test(
+        ("B401", "B402", "B403", "B501", "B502"),
         sections_per_course=4,
-        expect_whole_course_batches=False,
+        expect_failure=True,
     )
