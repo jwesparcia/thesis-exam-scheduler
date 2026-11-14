@@ -37,6 +37,9 @@ import SettingsDropdown from "../components/SettingsDropdown";
 import AccountSettingsSection from "../components/AccountSettingsSection";
 import ConfirmationModal from "../components/ConfirmationModal";
 import FirstTimePasswordChange from "../components/FirstTimePasswordChange";
+import ExamTermScheduleSelector from "../components/ExamTermScheduleSelector";
+import useExamTermSchedule from "../hooks/useExamTermSchedule";
+import { getExamScheduleKey } from "../utils/examTerms";
 
 function formatDate(dateStr) {
   if (!dateStr) return "";
@@ -1241,6 +1244,7 @@ export default function StudentDashboard() {
   const navigate = useNavigate();
   const { showSuccess, showError, showWarning } = useToast();
   const [exams, setExams] = useState([]);
+  const { schedules: postedSchedules, selectedKey: selectedScheduleKey, selectSchedule, termExams } = useExamTermSchedule(exams);
   const [examBreakSeconds, setExamBreakSeconds] = useState({ general: 0, major: 0 });
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -1848,6 +1852,8 @@ export default function StudentDashboard() {
     setActiveTab("schedule");
     
     if (msg.includes("rescheduling") || msg.includes("reschedule") || msg.includes("request")) {
+      const request = myRequests.find(request => request.id === notif.related_id);
+      if (request) selectSchedule(getExamScheduleKey(request));
       setTimeout(() => {
         const element = document.getElementById("my-rescheduling-requests-section");
         if (element) {
@@ -1864,8 +1870,10 @@ export default function StudentDashboard() {
 
   if (!user) return <div className={`min-h-screen ${isDark ? "bg-slate-900 text-slate-300" : "bg-slate-50 text-slate-600"} flex items-center justify-center font-medium`}>Redirecting...</div>;
 
+  const termRequests = myRequests.filter(request => getExamScheduleKey(request) === selectedScheduleKey);
+
   // Filters for exams
-  const processedExams = exams.filter(exam => {
+  const processedExams = termExams.filter(exam => {
     if (exam.exam_type?.toLowerCase() !== "written") return false;
     if (searchTerm && !exam.subject_name.toLowerCase().includes(searchTerm.toLowerCase()) &&
       !exam.subject_code.toLowerCase().includes(searchTerm.toLowerCase())) return false;
@@ -2262,6 +2270,10 @@ export default function StudentDashboard() {
 
 
 
+          <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-2 sm:pt-4">
+            <ExamTermScheduleSelector schedules={postedSchedules} selectedKey={selectedScheduleKey} onChange={selectSchedule} isDark={isDark} loading={loading} />
+          </div>
+
           {/* Filters bar */}
           <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2 sm:py-4">
             <div className={`p-3.5 sm:p-4 rounded-2xl shadow-sm border ${isDark ? "bg-slate-800/80 border-slate-700" : "bg-white border-slate-200"}`}>
@@ -2479,11 +2491,11 @@ export default function StudentDashboard() {
                 <h3 className={`text-base sm:text-lg font-bold ${isDark ? "text-slate-100" : "text-slate-900"}`}>My Rescheduling Requests</h3>
               </div>
               <div className="p-4 sm:p-6">
-                {myRequests.length === 0 ? (
-                  <p className={`text-xs sm:text-sm ${isDark ? "text-slate-400" : "text-slate-500"}`}>No rescheduling requests yet.</p>
+                {termRequests.length === 0 ? (
+                  <p className={`text-xs sm:text-sm ${isDark ? "text-slate-400" : "text-slate-500"}`}>No rescheduling requests for this term.</p>
                 ) : (
                   <div className="space-y-3 sm:space-y-4">
-                    {myRequests.map((req) => (
+                    {termRequests.map((req) => (
                       <div key={req.id} className={`p-4 rounded-xl border transition ${isDark ? "bg-slate-800/50 border-slate-700/70 hover:border-slate-600" : "bg-slate-50/80 border-slate-200 hover:border-slate-300"}`}>
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                           <div className="space-y-1">

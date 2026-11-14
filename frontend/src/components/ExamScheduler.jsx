@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
-import { CalendarDaysIcon, DocumentTextIcon, ArrowPathIcon, BookOpenIcon, SparklesIcon, XMarkIcon, ExclamationTriangleIcon, ClockIcon } from "@heroicons/react/24/outline";
+import { CalendarDaysIcon, DocumentTextIcon, ArrowPathIcon, SparklesIcon, XMarkIcon, ExclamationTriangleIcon, ClockIcon } from "@heroicons/react/24/outline";
 import { useTheme } from "../context/themeStore";
 import api from "../api";
 import { useToast } from "../context/ToastContext";
+import { getExamTerms } from "../utils/examTerms";
 
 const INITIAL_GENERATION_PROGRESS = {
   status: "idle",
@@ -47,15 +48,9 @@ const getExamDaysList = (startStr, endStr) => {
 export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChange }) {
   const { theme } = useTheme();
   const isDark = theme === "dark";
-  const [courses, setCourses] = useState([]);
-  const [years, setYears] = useState([]);
   const [selectedDept, setSelectedDept] = useState(""); // "" (None), "College", or "SHS"
-  const [courseId, setCourseId] = useState("");
-  const [yearId, setYearId] = useState("");
   const [semester, setSemester] = useState(1);
   const [term, setTerm] = useState("Midterm");
-  const [details, setDetails] = useState({ sections: [] });
-  const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(false);
   const [generationBusy, setGenerationBusy] = useState(false);
   const [generationStatusChecking, setGenerationStatusChecking] = useState(true);
@@ -126,17 +121,13 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
     });
   }, [loading, generationBusy, generationProgress, onGenerationStateChange]);
 
-  // Fetch courses, year levels, and exam settings
+  // Fetch exam settings
   useEffect(() => {
     const fetchOptions = async () => {
       try {
-        const [courseRes, yearRes, settingsRes] = await Promise.allSettled([
-          api.get("/catalog/courses"),
-          api.get("/catalog/year-levels"),
+        const [settingsRes] = await Promise.allSettled([
           api.get("/exams/settings"),
         ]);
-        if (courseRes.status === "fulfilled") setCourses(courseRes.value.data);
-        if (yearRes.status === "fulfilled") setYears(yearRes.value.data);
         if (settingsRes.status === "fulfilled" && settingsRes.value.data) {
           if (settingsRes.value.data.daily_start_time) {
             setDailyStartTime(settingsRes.value.data.daily_start_time);
@@ -153,7 +144,7 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
     fetchOptions();
   }, []);
 
-  // Fetch subjects when department, course, or semester changes
+  // Fetch subjects for the selected department, semester, and term
   useEffect(() => {
     if (!selectedDept) {
       setSubjects([]);
@@ -172,10 +163,8 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
         const params = {
           department: selectedDept,
           semester,
+          term,
         };
-        if (courseId) {
-          params.course_id = courseId;
-        }
         const res = await api.get("/exams/subjects", { params });
         if (!isCurrentRequest) return;
 
@@ -202,78 +191,33 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
     return () => {
       isCurrentRequest = false;
     };
-  }, [selectedDept, courseId, semester]);
+  }, [selectedDept, semester, term]);
 
-  // Check for existing exams when department or semester changes
+  // Check only this term, including after a background generation finishes.
   useEffect(() => {
     if (!selectedDept) {
       setExistingExamCount(0);
+      setExistingExamChecking(false);
       return;
     }
+    let current = true;
     const checkExisting = async () => {
       setExistingExamChecking(true);
       try {
         const res = await api.get("/exams/count", {
-          params: { department: selectedDept, semester }
+          params: { department: selectedDept, semester, term }
         });
-        setExistingExamCount(res.data.count || 0);
+        if (current) setExistingExamCount(res.data.count || 0);
       } catch {
-        setExistingExamCount(0);
+        if (current) setExistingExamCount(0);
       } finally {
-        setExistingExamChecking(false);
+        if (current) setExistingExamChecking(false);
       }
     };
     checkExisting();
-  }, [selectedDept, semester]);
+    return () => { current = false; };
+  }, [selectedDept, semester, term, loading]);
 
-
-  // Fetch rooms when selected department changes
-  useEffect(() => {
-    if (!selectedDept) {
-      setRooms([]);
-      return;
-    }
-    const fetchRooms = async () => {
-      try {
-        const res = await api.get("/exams/rooms", {
-          params: { department: selectedDept }
-        });
-        setRooms(res.data);
-      } catch (err) {
-        console.error("Error loading rooms:", err);
-      }
-    };
-    fetchRooms();
-  }, [selectedDept]);
-
-  const handlePreferredRoomChange = async (sectionId, roomIdVal) => {
-    if (loading) {
-      showError("Cannot change preferred room while schedule generation is ongoing");
-      return;
-    }
-    const roomId = roomIdVal ? parseInt(roomIdVal, 10) : null;
-    try {
-      await api.put(`/sections/${sectionId}/preferred-room`, {
-        preferred_room_id: roomId
-      });
-      // Update local state to reflect the change
-      setDetails(prev => ({
-        ...prev,
-        sections: prev.sections.map(s => 
-          s.id === sectionId ? { ...s, preferred_room_id: roomId } : s
-        )
-      }));
-      showSuccess("Preferred room updated successfully");
-    } catch (err) {
-      console.error("Failed to update preferred room:", err);
-      showError("Failed to update preferred room");
-    }
-  };
-
-  // Fetch details when specific course/year/semester changes
-  useEffect(() => {
-    loadDetails();
-  }, [courseId, yearId, semester]);
 
   useEffect(() => {
     return () => {
@@ -284,28 +228,8 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
     };
   }, []);
 
-  const loadDetails = async () => {
-    if (!courseId || !yearId) {
-      setDetails({ sections: [] });
-      return;
-    }
-    try {
-      const res = await api.get(`/catalog/details?course_id=${courseId}&year_level_id=${yearId}&semester=${semester}`);
-      setDetails(res.data);
-    } catch (err) {
-      console.error("Error loading details:", err);
-    }
-  };
-
-  const filteredCourses = courses.filter(c => c.category === selectedDept);
-  const filteredYears = years.filter(y =>
-    selectedDept === "SHS" ? y.name.includes("Grade") : !y.name.includes("Grade")
-  );
-
-  // Reset subordinate filters and adjust term/semester when dept changes
+  // Adjust term and semester defaults when the department changes
   useEffect(() => {
-    setCourseId("");
-    setYearId("");
     if (selectedDept === "SHS") {
       setTerm("ST1");
     } else {
@@ -474,7 +398,7 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
       setActiveJobId(null);
       // Refresh existing exam count after generation attempt
       try {
-        const res = await api.get("/exams/count", { params: { department: selectedDept, semester } });
+        const res = await api.get("/exams/count", { params: { department: selectedDept, semester, term } });
         setExistingExamCount(res.data.count || 0);
       } catch { /* ignore */ }
     }
@@ -530,7 +454,7 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
       let currentExamCount = existingExamCount;
       try {
         const countRes = await api.get("/exams/count", {
-          params: { department: selectedDept, semester }
+          params: { department: selectedDept, semester, term }
         });
         currentExamCount = countRes.data.count || 0;
         setExistingExamCount(currentExamCount);
@@ -666,20 +590,7 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
                     ? "bg-slate-800 text-slate-100 border-slate-700"
                     : "bg-white text-slate-800 border-slate-200"
                     } ${loading ? "opacity-60 cursor-not-allowed" : ""}`} id="examscheduler-field-2" aria-label="Exam Term">
-                  {selectedDept === "SHS" ? (
-                    <>
-                      <option value="ST1">Summative Test 1 (ST1)</option>
-                      <option value="ST2">Summative Test 2 (ST2)</option>
-                      <option value="T1">Term 1 (T1)</option>
-                    </>
-                  ) : (
-                    <>
-                      <option value="Prelim">Prelim</option>
-                      <option value="Midterm">Midterm</option>
-                      <option value="Pre-Final">Pre-Final</option>
-                      <option value="Final">Final</option>
-                    </>
-                  )}
+                  {getExamTerms(selectedDept).map(item => <option key={item.value} value={item.value}>{item.label}</option>)}
                 </select>
               </div>
             </div>
@@ -687,54 +598,6 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
 
           {selectedDept ? (
             <div className="space-y-8 animate-in fade-in slide-in-from-top-4 duration-500">
-              {/* Step 2: Course & Year (Optional Preview) */}
-              <div className="pt-4 border-t border-slate-200 dark:border-slate-800">
-                <div className={`block text-sm font-semibold mb-4 ${isDark ? "text-slate-200" : "text-slate-800"}`}>
-                  2. Preview {selectedDept === "SHS" ? "Strand & Grade" : "Course & Year"} (Optional)
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className={`block text-xs font-semibold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-600"}`} htmlFor="examscheduler-field-3">
-                      {selectedDept === "SHS" ? "Strand" : "Course"}
-                    </label>
-                    <select
-                      value={courseId}
-                      onChange={(e) => setCourseId(Number(e.target.value))}
-                      className={`border rounded-xl cursor-pointer p-3 w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all ${isDark
-                        ? "bg-slate-800 text-slate-100 border-slate-700"
-                        : "bg-slate-50 text-slate-800 border-slate-200"
-                        }`} id="examscheduler-field-3" aria-label="Course or Strand">
-                      <option value="">{selectedDept === "SHS" ? "Choose a strand" : "Choose a course"}</option>
-                      {filteredCourses.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className={`block text-xs font-semibold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-600"}`} htmlFor="examscheduler-field-4">
-                      {selectedDept === "SHS" ? "Grade" : "Year Level"}
-                    </label>
-                    <select
-                      value={yearId}
-                      onChange={(e) => setYearId(Number(e.target.value))}
-                      className={`border rounded-xl p-3 w-full cursor-pointer focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all ${isDark
-                        ? "bg-slate-800 text-slate-100 border-slate-700"
-                        : "bg-slate-50 text-slate-800 border-slate-200"
-                        }`} id="examscheduler-field-4" aria-label="Year Level or Grade">
-                      <option value="">{selectedDept === "SHS" ? "Choose a grade" : "Choose a year"}</option>
-                      {filteredYears.map((y) => (
-                        <option key={y.id} value={y.id}>
-                          {y.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              </div>
-
               {/* Exam Range & Daily Time Window */}
               <div className="pt-4 border-t border-slate-200 dark:border-slate-800 space-y-5">
                 <div className={`block text-sm font-semibold ${isDark ? "text-slate-200" : "text-slate-800"}`}>
@@ -1074,8 +937,8 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
                         Existing Schedule Detected
                       </div>
                       <p className={`text-xs mt-1 ${isDark ? "text-amber-400/90" : "text-amber-800"}`}>
-                        There are already <strong>{existingExamCount} exams</strong> generated for {selectedDept} Semester {semester}.
-                        You must <strong>overwrite</strong> the existing schedule or go to <em>Generated Schedules</em> to delete it first.
+                        There are already <strong>{existingExamCount} {term} exams</strong> generated for {selectedDept} Semester {semester}.
+                        You can replace this term's schedule or select a different term to generate independently.
                       </p>
                     </div>
                   </div>
@@ -1158,96 +1021,6 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
         </div>
 
 
-        {details.sections.length > 0 && (
-          <div className={`rounded-2xl sm:rounded-3xl p-4 sm:p-6 mb-10 ${isDark ? "bg-slate-800/80 border border-slate-700" : "bg-white border border-slate-200"} shadow-sm`}>
-            <h2 className={`text-lg sm:text-xl font-bold ${isDark ? "text-slate-100" : "text-slate-900"} mb-4 flex items-center gap-2`}>
-              <BookOpenIcon className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0" /> Sections & Subjects
-            </h2>
-            <div className="space-y-4 sm:space-y-6">
-              {details.sections.map((section) => (
-                <div key={section.id} className={`border rounded-xl p-3.5 sm:p-4 hover:shadow-sm transition ${isDark ? "bg-slate-800/40 border-slate-700" : "bg-white border-slate-200"}`}>
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-                    <h3 className={`text-base sm:text-lg font-bold ${isDark ? "text-blue-400" : "text-blue-700"}`}>
-                      {section.name}
-                    </h3>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className={`text-xs font-semibold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-600"}`}>
-                        Preferred Room:
-                      </span>
-                      <select
-                        value={section.preferred_room_id || ""}
-                        disabled={loading}
-                        onChange={(e) => handlePreferredRoomChange(section.id, e.target.value)}
-                        className={`text-xs sm:text-sm rounded-lg px-2.5 sm:px-3 py-1.5 border font-semibold focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-all ${
-                          loading ? "opacity-50 cursor-not-allowed" : ""
-                        } ${
-                          isDark 
-                            ? "bg-slate-750 border-slate-600 text-slate-100" 
-                            : "bg-white border-slate-300 text-slate-800 hover:border-slate-400"
-                        }`}
-                        title={loading ? "Cannot change preferred room while schedule generation is ongoing" : ""} aria-label="Preferred Room">
-                        <option value="">No Preference (Auto)</option>
-                        {rooms.map((r) => (
-                          <option key={r.id} value={r.id}>
-                            {r.name} {r.capacity ? `(Cap: ${r.capacity})` : ""}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                  <div className="md:hidden space-y-2">
-                    {section.subjects.length > 0 ? (
-                      section.subjects.map((subject) => (
-                        <article
-                          key={subject.id}
-                          className={`rounded-lg border p-3 ${isDark ? "border-slate-700 bg-slate-900/40" : "border-slate-200 bg-slate-50"}`}
-                        >
-                          <div className={`break-words text-xs font-semibold ${isDark ? "text-blue-400" : "text-blue-700"}`}>
-                            {subject.code}
-                          </div>
-                          <h4 className={`mt-1 break-words text-sm font-semibold ${isDark ? "text-slate-100" : "text-slate-900"}`}>
-                            {subject.name}
-                          </h4>
-                          <p className={`mt-2 break-words text-xs ${isDark ? "text-slate-400" : "text-slate-600"}`}>
-                            <span className="font-semibold">Instructor:</span> {subject.teacher || "Unassigned"}
-                          </p>
-                        </article>
-                      ))
-                    ) : (
-                      <p className={`py-4 text-center text-sm ${isDark ? "text-slate-400" : "text-slate-600"}`}>No subjects available</p>
-                    )}
-                  </div>
-                  <div className="hidden overflow-x-auto custom-scrollbar md:block">
-                    <table className="w-full text-xs sm:text-sm border-separate border-spacing-0 min-w-[500px]">
-                      <thead className={`${isDark ? "bg-slate-750 text-slate-200" : "bg-slate-100 text-slate-700"}`}>
-                        <tr>
-                          <th className="border border-slate-300 dark:border-slate-600 px-3 py-2 text-left">Subject Code</th>
-                          <th className="border border-slate-300 dark:border-slate-600 px-3 py-2 text-left">Subject</th>
-                          <th className="border border-slate-300 dark:border-slate-600 px-3 py-2 text-left">Instructor</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {section.subjects.length > 0 ? (
-                          section.subjects.map((s) => (
-                            <tr key={s.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition">
-                              <td className={`${isDark ? "text-slate-200" : "text-slate-900"} border border-slate-300 dark:border-slate-600 px-3 py-2 font-mono text-xs`}>{s.code}</td>
-                              <td className={`${isDark ? "text-slate-200" : "text-slate-900"} border border-slate-300 dark:border-slate-600 px-3 py-2 font-medium`}>{s.name}</td>
-                              <td className={`${isDark ? "text-slate-300" : "text-slate-700"} border border-slate-300 dark:border-slate-600 px-3 py-2`}>{s.teacher}</td>
-                            </tr>
-                          ))
-                        ) : (
-                          <tr>
-                            <td colSpan="3" className={`text-center px-3 py-4 ${isDark ? "text-slate-400" : "text-slate-600"}`}>No subjects available</td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Overwrite existing schedule modal */}
@@ -1281,10 +1054,11 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
               </h3>
               <p className={`text-xs sm:text-sm mb-2 ${isDark ? "text-slate-300" : "text-slate-600"} leading-relaxed`}>
                 There are already <strong>{existingExamCount} exams</strong> generated for{" "}
-                <strong>{selectedDept}</strong> Semester <strong>{semester}</strong>.
+                <strong>{selectedDept}</strong> Semester <strong>{semester}</strong>, <strong>{term}</strong>.
               </p>
               <p className={`text-xs mb-6 sm:mb-8 px-1 sm:px-2 ${isDark ? "text-amber-400" : "text-amber-700"} leading-relaxed`}>
-                Proceeding will <strong>permanently delete</strong> all existing exams for this department and semester, then generate a fresh schedule. This cannot be undone.
+                Generate a replacement <strong>{term}</strong> schedule for this department and semester.
+                Other terms will stay saved. Students will see the replacement after you post it.
               </p>
               <div className="flex flex-col-reverse sm:flex-row gap-2.5 sm:gap-3 w-full">
                 <button

@@ -17,6 +17,8 @@ import {
 import { useTheme } from "../context/themeStore";
 import api from "../api";
 import { useToast } from "../context/ToastContext";
+import TermScheduleOverview from "./TermScheduleOverview";
+import { getExamTerms } from "../utils/examTerms";
 
 export default function GeneratedExamSchedules({ isGenerating }) {
     const { theme } = useTheme();
@@ -29,7 +31,12 @@ export default function GeneratedExamSchedules({ isGenerating }) {
     const [yearId, setYearId] = useState("");
     const [semester, setSemester] = useState(1);
     const [selectedTerm, setSelectedTerm] = useState("Midterm");
+    const [savedSchedules, setSavedSchedules] = useState([]);
+    const [scheduleSummaryLoading, setScheduleSummaryLoading] = useState(false);
+    const [scheduleSummaryError, setScheduleSummaryError] = useState("");
     const [exams, setExams] = useState([]);
+    const [examRevision, setExamRevision] = useState(0);
+    const refreshExams = () => setExamRevision(revision => revision + 1);
     const [loading, setLoading] = useState(false);
     const [showPostAllModal, setShowPostAllModal] = useState(false);
     const [showSaveAllModal, setShowSaveAllModal] = useState(false);
@@ -101,7 +108,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
             );
             if (res.status === 200) {
                 showSuccess(res.data.message || `Successfully posted all ${selectedDept} ${selectedTerm} schedules to students' dashboards!`);
-                fetchExams();
+                refreshExams();
             } else {
                 showError("Failed to post schedules.");
             }
@@ -124,7 +131,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
             );
             if (res.status === 200) {
                 showSuccess(`Successfully saved all ${selectedDept} ${selectedTerm} schedules!`);
-                fetchExams();
+                refreshExams();
             } else {
                 showError("Failed to save schedules.");
             }
@@ -145,15 +152,17 @@ export default function GeneratedExamSchedules({ isGenerating }) {
         try {
             let url = "/exams/clear";
             if (deleteScope === "shs") {
-                url += "?department=SHS";
+                url += "?department=SHS&all_terms=true";
             } else if (deleteScope === "dept") {
-                url += `?department=${selectedDept}&semester=${semester}`;
+                url += `?${new URLSearchParams({ department: selectedDept, semester, term: selectedTerm })}`;
+            } else {
+                url += "?all_terms=true";
             }
             const res = await api.delete(url);
             if (res.status === 200) {
                 showSuccess(res.data.message || "Schedule cleared successfully!");
                 setExams([]);
-                fetchExams();
+                refreshExams();
             } else {
                 showError("Failed to delete schedules.");
             }
@@ -279,7 +288,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
             });
             showSuccess(res.data?.message || `Successfully updated exam for ${editingExam.subject_code}!`);
             setEditingExam(null);
-            fetchExams();
+            refreshExams();
         } catch (err) {
             console.error("Failed to update exam:", err);
             showError(err.response?.data?.detail || "Failed to update exam.");
@@ -304,29 +313,56 @@ export default function GeneratedExamSchedules({ isGenerating }) {
         fetchOptions();
     }, []);
 
-    // Fetch exams based on filters
-    const fetchExams = async () => {
-        if (!courseId || !yearId) return;
-
-        setLoading(true);
-        try {
-            const queryParams = new URLSearchParams({
-                course_id: courseId,
-                year_level_id: yearId,
-                semester: semester,
-                term: selectedTerm,
-            });
-            const res = await api.get(`/exams/?${queryParams}`);
-            setExams(res.data);
-        } catch (err) {
-            console.error("Error fetching exams:", err);
+    // Ignore stale responses when switching between stored terms.
+    useEffect(() => {
+        let current = true;
+        if (!courseId || !yearId) {
+            setExams([]);
+            setLoading(false);
+            return;
         }
-        setLoading(false);
-    };
+        const fetchExams = async () => {
+            setLoading(true);
+            try {
+                const queryParams = new URLSearchParams({
+                    course_id: courseId,
+                    year_level_id: yearId,
+                    semester,
+                    term: selectedTerm,
+                });
+                const res = await api.get(`/exams/?${queryParams}`);
+                if (current) {
+                    setExams(res.data);
+                }
+            } catch (err) {
+                if (current) setExams([]);
+                console.error("Error fetching exams:", err);
+            } finally {
+                if (current) setLoading(false);
+            }
+        };
+        fetchExams();
+        return () => { current = false; };
+    }, [courseId, yearId, semester, selectedTerm, examRevision, isGenerating]);
 
     useEffect(() => {
-        fetchExams();
-    }, [courseId, yearId, semester, selectedTerm]);
+        let current = true;
+        const fetchSchedules = async () => {
+            setScheduleSummaryLoading(true);
+            setScheduleSummaryError("");
+            try {
+                const res = await api.get("/exams/schedules", { params: { department: selectedDept, semester } });
+                if (current) setSavedSchedules(res.data);
+            } catch {
+                if (current) setScheduleSummaryError("Could not load saved schedules. Refresh this page to try again.");
+            } finally {
+                if (current) setScheduleSummaryLoading(false);
+            }
+        };
+        setSavedSchedules([]);
+        fetchSchedules();
+        return () => { current = false; };
+    }, [selectedDept, semester, isGenerating, examRevision]);
 
     const filteredCourses = courses.filter(c => c.category === selectedDept);
     const filteredYears = years.filter(y => 
@@ -403,7 +439,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                             title={isGenerating ? "Cannot save schedules while schedule generation is ongoing" : ""}
                         >
                             <DocumentCheckIcon className="w-4 h-4" />
-                            Save All
+                            Save {selectedTerm}
                         </button>
                         <button
                             type="button"
@@ -417,23 +453,23 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                             title={isGenerating ? "Cannot post schedules while schedule generation is ongoing" : ""}
                         >
                             <PaperAirplaneIcon className="w-4 h-4" />
-                            Post All {selectedDept}
+                            Post {selectedTerm}
                         </button>
                         {selectedDept === "SHS" ? (
                             <button
                                 type="button"
                                 onClick={() => {
-                                    setDeleteScope("shs");
+                                    setDeleteScope("dept");
                                     setShowDeleteModal(true);
                                 }}
                                 disabled={isGenerating}
                                 className={`flex-1 sm:flex-none border border-rose-300 dark:border-rose-900/60 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/30 dark:hover:bg-rose-900/40 text-rose-700 dark:text-rose-300 px-3.5 sm:px-4 py-2.5 rounded-xl shadow-xs flex items-center justify-center gap-1.5 transition-all font-semibold text-xs sm:text-sm ${
                                     isGenerating ? "opacity-50 cursor-not-allowed" : ""
                                 }`}
-                                title={isGenerating ? "Cannot delete schedules while schedule generation is ongoing" : "Delete all Senior High School schedules"}
+                                title={isGenerating ? "Cannot delete schedules while schedule generation is ongoing" : `Delete ${selectedTerm} schedules only`}
                             >
                                 <TrashIcon className="w-4 h-4" />
-                                Delete All SHS Schedule
+                                Delete {selectedTerm}
                             </button>
                         ) : (
                             <button
@@ -449,7 +485,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                 title={isGenerating ? "Cannot delete schedules while schedule generation is ongoing" : ""}
                             >
                                 <TrashIcon className="w-4 h-4" />
-                                Delete College Schedule
+                                Delete {selectedTerm}
                             </button>
                         )}
                         <button
@@ -599,24 +635,22 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                             ? "bg-slate-800 text-slate-100 border-slate-700"
                                             : "bg-slate-50 text-slate-800 border-slate-200"
                                             }`} id="generatedexamschedules-field-4" aria-label="Exam Term">
-                                        {selectedDept === "SHS" ? (
-                                            <>
-                                                <option value="ST1">Summative Test 1 (ST1)</option>
-                                                <option value="ST2">Summative Test 2 (ST2)</option>
-                                                <option value="T1">Term 1 (T1)</option>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <option value="Prelim">Prelim</option>
-                                                <option value="Midterm">Midterm</option>
-                                                <option value="Pre-Final">Pre-Final</option>
-                                                <option value="Final">Final</option>
-                                            </>
-                                        )}
+                                        {getExamTerms(selectedDept).map(item => <option key={item.value} value={item.value}>{item.label}</option>)}
                                     </select>
                                 </div>
                             </div>
                         </div>
+
+                        <TermScheduleOverview
+                            schedules={savedSchedules}
+                            department={selectedDept}
+                            semester={semester}
+                            selectedTerm={selectedTerm}
+                            onSelectTerm={setSelectedTerm}
+                            loading={scheduleSummaryLoading}
+                            error={scheduleSummaryError}
+                            isDark={isDark}
+                        />
 
                         {/* Generated Exams Table */}
                         <div className="pt-6 border-t border-slate-200 dark:border-slate-800">
@@ -836,7 +870,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
 
                                                 if (res.status === 200) {
                                                     showSuccess("Exams successfully saved!");
-                                                    await fetchExams();
+                                                    refreshExams();
                                                 } else {
                                                     showError("Failed to save exams.");
                                                 }
@@ -880,7 +914,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
 
                                                 if (res.status === 200) {
                                                     showSuccess(res.data.message || "Exams successfully posted for students to view!");
-                                                    await fetchExams();
+                                                    refreshExams();
                                                 } else {
                                                     showError("Failed to post exams.");
                                                 }
@@ -940,10 +974,10 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                 <PaperAirplaneIcon className="w-7 h-7 sm:w-8 sm:h-8" />
                             </div>
                             <h3 className={`text-xl sm:text-2xl font-bold mb-2 sm:mb-3 ${isDark ? "text-white" : "text-slate-900"}`}>
-                                Post All Schedules?
+                                Post {selectedTerm} Schedules?
                             </h3>
                             <p className={`mb-6 sm:mb-8 text-xs sm:text-sm leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
-                                Are you sure you want to post ALL draft schedules for <span className="font-bold text-slate-900 dark:text-white">{selectedDept}</span> (Semester {semester}) to students? This action will make them visible on their dashboards.
+                                Post all draft and saved <strong>{selectedTerm}</strong> schedules for <strong>{selectedDept}</strong>, Semester {semester}, to students and proctors? Other terms will stay unchanged.
                             </p>
                             <div className="flex flex-col-reverse sm:flex-row gap-2.5 sm:gap-3 w-full">
                                 <button
@@ -963,7 +997,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                             : "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20"
                                     }`}
                                 >
-                                    Yes, Post All
+                                    Yes, Post {selectedTerm}
                                 </button>
                             </div>
                         </div>
@@ -999,7 +1033,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                 <DocumentCheckIcon className="w-7 h-7 sm:w-8 sm:h-8" />
                             </div>
                             <h3 className={`text-xl sm:text-2xl font-bold mb-2 sm:mb-3 ${isDark ? "text-white" : "text-slate-900"}`}>
-                                Save All Schedules?
+                                Save {selectedTerm} Schedules?
                             </h3>
                             <p className={`mb-6 sm:mb-8 text-xs sm:text-sm leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
                                 Are you sure you want to save all draft schedules for <span className="font-bold text-slate-900 dark:text-white">{selectedDept}</span> <span className="font-bold text-slate-900 dark:text-white">{selectedTerm}</span> (Semester {semester})? They will not be visible to students until posted.
@@ -1023,7 +1057,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                             : "bg-slate-700 hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600 shadow-slate-700/20"
                                     }`}
                                 >
-                                    {saving ? "Saving..." : "Yes, Save All"}
+                                    {saving ? "Saving..." : `Yes, Save ${selectedTerm}`}
                                 </button>
                             </div>
                         </div>
@@ -1063,7 +1097,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                     ? "Delete All Schedules?" 
                                     : deleteScope === "shs"
                                     ? "Delete All SHS Schedules?"
-                                    : `Delete ${selectedDept} Schedule?`
+                                    : `Delete ${selectedDept} ${selectedTerm} Schedule?`
                                 }
                             </h3>
                             <p className={`mb-6 sm:mb-8 text-xs sm:text-sm leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
@@ -1071,7 +1105,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                     ? "Are you sure you want to delete ALL generated exam schedules across the entire platform? This operation is permanent and cannot be undone."
                                     : deleteScope === "shs"
                                     ? "Are you sure you want to delete ALL Senior High School (SHS) exam schedules across all strands, terms, and semesters? This operation is permanent and cannot be undone."
-                                    : `Are you sure you want to delete all generated exam schedules for ${selectedDept} (Semester ${semester})? This operation is permanent and cannot be undone.`
+                                    : `Delete the ${selectedTerm} schedule for ${selectedDept}, Semester ${semester}? Other terms will be kept. This operation cannot be undone.`
                                 }
                             </p>
                             <div className="flex flex-col-reverse sm:flex-row gap-2.5 sm:gap-3 w-full">

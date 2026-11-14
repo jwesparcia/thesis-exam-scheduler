@@ -39,6 +39,9 @@ import SettingsDropdown from "../components/SettingsDropdown";
 import AccountSettingsSection from "../components/AccountSettingsSection";
 import ConfirmationModal from "../components/ConfirmationModal";
 import FirstTimePasswordChange from "../components/FirstTimePasswordChange";
+import ExamTermScheduleSelector from "../components/ExamTermScheduleSelector";
+import useExamTermSchedule from "../hooks/useExamTermSchedule";
+import { getExamScheduleKey } from "../utils/examTerms";
 import api from "../api";
 
 function ProctorManual() {
@@ -1216,6 +1219,7 @@ export default function ProctorDashboard() {
   const navigate = useNavigate();
   const { showSuccess, showError } = useToast();
   const [exams, setExams] = useState([]);
+  const { schedules: postedSchedules, selectedKey: selectedScheduleKey, selectSchedule, termExams } = useExamTermSchedule(exams);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("assignments");
   const [assignmentViewMode, setAssignmentViewMode] = useState(() => {
@@ -1315,16 +1319,16 @@ export default function ProctorDashboard() {
   };
 
   const pendingExamsCount = useMemo(
-    () => exams.filter((exam) => getAttendanceStatus(exam, currentTime) === "pending").length,
-    [currentTime, exams, getAttendanceStatus]
+    () => termExams.filter((exam) => getAttendanceStatus(exam, currentTime) === "pending").length,
+    [currentTime, termExams, getAttendanceStatus]
   );
   const confirmedExamsCount = useMemo(
-    () => exams.filter((exam) => getAttendanceStatus(exam, currentTime) === "confirmed").length,
-    [currentTime, exams, getAttendanceStatus]
+    () => termExams.filter((exam) => getAttendanceStatus(exam, currentTime) === "confirmed").length,
+    [currentTime, termExams, getAttendanceStatus]
   );
 
   const filteredExams = useMemo(() => {
-    return exams.filter((exam) => {
+    return termExams.filter((exam) => {
       const attendanceStatus = getAttendanceStatus(exam, currentTime);
       if (assignmentFilter === "confirmed" && attendanceStatus !== "confirmed") return false;
       if (assignmentFilter === "pending" && attendanceStatus !== "pending") return false;
@@ -1342,7 +1346,7 @@ export default function ProctorDashboard() {
 
       return true;
     });
-  }, [exams, assignmentFilter, assignmentSearch, currentTime, getAttendanceStatus]);
+  }, [termExams, assignmentFilter, assignmentSearch, currentTime, getAttendanceStatus]);
   const [uploading, setUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [mySchedule, setMySchedule] = useState([]);
@@ -1489,6 +1493,8 @@ export default function ProctorDashboard() {
       setActiveTab("schedule");
     } else {
       setActiveTab("assignments");
+      const assignedExam = exams.find(exam => exam.id === notif.related_id);
+      if (assignedExam) selectSchedule(getExamScheduleKey(assignedExam));
     }
   };
 
@@ -1960,7 +1966,7 @@ export default function ProctorDashboard() {
                   </div>
                   <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium border ${isDark ? "bg-slate-700/50 border-slate-600 text-slate-300" : "bg-slate-50 border-slate-200 text-slate-600"}`}>
                     <Squares2X2Icon className="w-4 h-4 text-blue-500" />
-                    <span>{exams.length} Active Assignment{exams.length !== 1 ? 's' : ''}</span>
+                    <span>{termExams.length} Assignment{termExams.length !== 1 ? 's' : ''} in Selected Term</span>
                   </div>
                 </div>
               </div>
@@ -2302,6 +2308,7 @@ export default function ProctorDashboard() {
               </div>
             ) : (
               <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <ExamTermScheduleSelector schedules={postedSchedules} selectedKey={selectedScheduleKey} onChange={selectSchedule} isDark={isDark} loading={loading} />
                 {/* Header Controls: Title, Filter Pills, Search & View Switcher */}
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                   <div className="flex flex-wrap items-center gap-3">
@@ -2324,7 +2331,7 @@ export default function ProctorDashboard() {
                             : (isDark ? "text-slate-400 hover:text-white" : "text-slate-600 hover:text-slate-900")
                         }`}
                       >
-                        All <span className="ml-1 opacity-80">({exams.length})</span>
+                        All <span className="ml-1 opacity-80">({termExams.length})</span>
                       </button>
                       <button
                         onClick={() => setAssignmentFilter("pending")}
