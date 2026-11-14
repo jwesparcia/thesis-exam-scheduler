@@ -45,8 +45,10 @@ def build_exam_response(exams):
             "duration_minutes": subject.duration_minutes if subject else 75,
             "section_name": section.name if section else "-",
             "course_name": course.name if course else "-",
+            "department": course.category if course else None,
             "year_level": year.name if year else "-",
             "semester": e.semester,
+            "term": e.term,
             "exam_date": full_date,
             "start_time": start_time,
             "end_time": end_time,
@@ -181,14 +183,15 @@ def get_student_exams(
     cache_key = f"exam_schedule:section:{section_slug}"
 
     cached = cache.get(cache_key)
-    if cached is not None:
+    # Refresh older cached responses that lack the fields used for term selection.
+    if cached is not None and all("term" in row and "department" in row for row in cached):
         return cached
 
     # Soft lock: prevent stampede when key expires under load
     won_lock = cache.acquire_fill_lock(cache_key)
     if not won_lock:
         waited = cache.wait_for_fill(cache_key)
-        if waited is not None:
+        if waited is not None and all("term" in row and "department" in row for row in waited):
             return waited
         # Fallback: populate ourselves if the lock holder failed
 
@@ -278,6 +281,9 @@ def get_student_requests(
         {
             "id": r.id,
             "exam_id": r.exam_id,
+            "term": r.exam.term if r.exam else None,
+            "semester": r.exam.semester if r.exam else None,
+            "department": r.exam.course.category if r.exam and r.exam.course else None,
             "section_name": r.section_name,
             "student_name": r.student_name,
             "course_code": r.course_code,
@@ -774,7 +780,7 @@ def get_custom_exams(
 
     cache_key = f"exam_schedule:irregular:{current_user.id}"
     cached = cache.get(cache_key)
-    if cached is not None:
+    if cached is not None and all("term" in row and "department" in row for row in cached):
         return cached
 
     selections = db.query(IrregularSelection).filter(IrregularSelection.user_id == current_user.id).all()

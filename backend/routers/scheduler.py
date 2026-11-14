@@ -9,6 +9,7 @@ from .auth import get_current_user, require_role
 from core.generation_lock import require_generation_lock
 from utils.logging import log_activity
 from utils.exam_enrollment import ExamEnrollment
+from utils.exam_terms import require_exam_term
 
 router = APIRouter(prefix="/scheduler", tags=["Scheduler"])
 
@@ -27,6 +28,7 @@ def generate_exam_schedule(payload: dict = Body(...), db: Session = Depends(get_
     course_id = payload.get("course_id")
     year_level_id = payload.get("year_level_id")
     semester = payload.get("semester")
+    term = require_exam_term(payload.get("term", "Midterm"))
     start_date_str = payload.get("start_date")
     end_date_str = payload.get("end_date")
 
@@ -57,7 +59,8 @@ def generate_exam_schedule(payload: dict = Body(...), db: Session = Depends(get_
             )
         ),
         Subject.year_level_id == year_level_id,
-        Subject.semester == semester
+        Subject.semester == semester,
+        or_(Subject.term == term, Subject.term == "All", Subject.term.is_(None))
     ).all()
     course = db.query(Course).filter(Course.id == course_id).first()
     category = course.category if course else None
@@ -87,6 +90,7 @@ def generate_exam_schedule(payload: dict = Body(...), db: Session = Depends(get_
             Exam.course_id == course_id,
             Exam.year_level_id == year_level_id,
             Exam.semester == semester,
+            Exam.term == term,
             Exam.status == "draft"
         ).all()
     ]
@@ -98,6 +102,7 @@ def generate_exam_schedule(payload: dict = Body(...), db: Session = Depends(get_
         Exam.course_id == course_id,
         Exam.year_level_id == year_level_id,
         Exam.semester == semester,
+        Exam.term == term,
         Exam.status == "draft"
     ).delete()
     db.commit()
@@ -230,6 +235,7 @@ def generate_exam_schedule(payload: dict = Body(...), db: Session = Depends(get_
                 course_id=course_id,
                 year_level_id=year_level_id,
                 semester=semester,
+                term=term,
                 status="draft",
                 proctor_id=chosen_proctor.id if chosen_proctor else None
             )

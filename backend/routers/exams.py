@@ -1,7 +1,7 @@
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Body
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func, or_
+from sqlalchemy import func, or_, and_
 from core import SessionLocal, get_db, cache
 from core.cache import TTL_ROOMS, TTL_EXAM_COUNT
 from core.generation_lock import (
@@ -12,6 +12,7 @@ from core.generation_lock import (
 from model import Exam, Subject, Section, Room, Timeslot, Course, YearLevel, Teacher, TeacherTeaching, User, Notification, Proctor, ReschedulingRequest, Department
 from utils.scheduler import generate_exam_schedule, validate_proctor_availability
 from utils.errors import humanize_error
+from utils.exam_terms import require_exam_term
 from datetime import datetime, time
 from threading import Lock
 from typing import Optional
@@ -113,6 +114,7 @@ def _run_generation_job(
                 .filter(
                     generation_department,
                     Exam.semester == semester,
+                    Exam.term == term,
                     Exam.status != "posted",
                 )
                 .all()
@@ -120,7 +122,8 @@ def _run_generation_job(
             deleted_exam_ids = [exam.id for exam in exams_to_delete]
             if deleted_exam_ids:
                 worker_db.query(ReschedulingRequest).filter(
-                    ReschedulingRequest.exam_id.in_(deleted_exam_ids)
+                    or_(ReschedulingRequest.exam_id.in_(deleted_exam_ids),
+                        ReschedulingRequest.rescheduled_exam_id.in_(deleted_exam_ids))
                 ).delete(synchronize_session=False)
             for exam in exams_to_delete:
                 worker_db.delete(exam)
@@ -143,7 +146,7 @@ def _run_generation_job(
         assigned = result["assigned_proctors"]
         unassigned = result["unassigned"]
         unassigned_rooms = result.get("unassigned_rooms", 0)
-        message = f"Schedule generated! {total} exams created for {department}. "
+        message = f"{term} schedule generated! {total} exams saved for {department}, Semester {semester}. "
         if assigned > 0:
             message += f"{assigned} exams assigned a proctor. "
         if unassigned > 0:
@@ -158,7 +161,7 @@ def _run_generation_job(
         if consolidation.get("remaining_irregular_only_exams"):
             message += f" {consolidation['remaining_irregular_only_exams']} irregular-only exams were retained because no compatible class had space or an existing assignment required review."
 
-        log_activity(worker_db, user_id, "EXAM_GENERATE", f"Dept: {department}, Sem: {semester}", None)
+        log_activity(worker_db, user_id, "EXAM_GENERATE", f"Dept: {department}, Sem: {semester}, Term: {term}", None)
         _set_generation_progress(job_id, "completed", 100, "Schedule generated", message)
         cache.invalidate_exam_schedules()
         print(f"[SCHEDULER] Generation job {job_id} completed.", flush=True)
@@ -419,6 +422,7 @@ def get_exams(
             "category": subject.category if subject else "-",
             "section_name": section.name if section else "-",
             "course_name": course.name if course else "-",
+            "department": course.category if course else None,
             "year_level": year.name if year else "-",
             "semester": e.semester,
             "term": e.term or "Midterm",
@@ -1020,14 +1024,16 @@ def get_room_status(
 def get_exam_count(
     department: str = Query("College", description="Department (College or SHS)"),
     semester: int = Query(1, description="Semester"),
+    term: str = Query(..., description="Examination term"),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(["admin"]))
 ):
     """
-    Return the count of existing exams for a given department and semester.
+    Return the count of existing exams for a department, semester, and term.
     Used by the frontend to block re-generation when a schedule already exists.
     """
-    cache_key = f"exam_count:{department}:{semester}"
+    term = require_exam_term(term)
+    cache_key = f"exam_count:{department}:{semester}:{term}"
     cached = cache.get(cache_key)
     if cached is not None:
         return cached
@@ -1040,12 +1046,48 @@ def get_exam_count(
     count = (
         db.query(Exam)
         .join(Course, Exam.course_id == Course.id)
-        .filter(dept_cond, Exam.semester == semester)
+        .filter(dept_cond, Exam.semester == semester, Exam.term == term)
         .count()
     )
-    result = {"count": count, "department": department, "semester": semester}
+    result = {"count": count, "department": department, "semester": semester, "term": term}
     cache.set(cache_key, result, TTL_EXAM_COUNT)
     return result
+
+
+@router.get("/schedules")
+def get_saved_schedules(
+    department: str = Query("College"),
+    semester: int = Query(1),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(["admin"]))
+):
+    """List the latest persisted schedule for every term in this selection."""
+    department_filter = (Course.category == department) if department in ("College", "SHS") else or_(
+        Course.category == department, Course.department_code == department
+    )
+    exams = db.query(Exam).join(Course).options(
+        joinedload(Exam.timeslot),
+    ).filter(department_filter, Exam.semester == semester).all()
+    pending = {(exam.course_id, exam.year_level_id, exam.semester, exam.term) for exam in exams
+               if exam.status in ("draft", "saved")}
+    schedules = {}
+    for exam in exams:
+        if exam.status == "posted" and (exam.course_id, exam.year_level_id, exam.semester, exam.term) in pending:
+            continue
+        row = schedules.setdefault(exam.term, {
+            "department": department, "semester": semester, "term": exam.term,
+            "total_exams": 0, "draft_count": 0, "saved_count": 0, "posted_count": 0,
+            "start_date": None, "end_date": None,
+        })
+        row["total_exams"] += 1
+        count_key = f"{exam.status}_count"
+        if count_key in row:
+            row[count_key] += 1
+        if exam.timeslot and exam.timeslot.date:
+            day = exam.timeslot.date.isoformat()
+            row["start_date"] = min(row["start_date"] or day, day)
+            row["end_date"] = max(row["end_date"] or day, day)
+    return sorted(schedules.values(), key=lambda row: row["term"] or "")
 
 
 @router.get("/generate/status")
@@ -1134,7 +1176,7 @@ async def generate_schedule(
         
         department = payload_data.get("department", "College")
         semester = payload_data.get("semester", 1)
-        term = payload_data.get("term", "Midterm")
+        term = require_exam_term(payload_data.get("term", "Midterm"))
         excluded_subjects = payload_data.get("excluded_subjects", [])
         force_overwrite = payload_data.get("force_overwrite", False)
         
@@ -1171,16 +1213,16 @@ async def generate_schedule(
         existing_count = (
             db.query(Exam)
             .join(Course, Exam.course_id == Course.id)
-            .filter(gen_dept_cond, Exam.semester == semester)
+            .filter(gen_dept_cond, Exam.semester == semester, Exam.term == term)
             .count()
         )
         if existing_count > 0 and not force_overwrite:
             _set_generation_progress(job_id, "failed", 0, "Generation blocked",
-                f"{existing_count} existing exam(s) found for {department} Semester {semester}.")
+                f"{existing_count} existing {term} exam(s) found for {department} Semester {semester}.")
             raise HTTPException(
                 status_code=409,
-                detail=f"A schedule already exists ({existing_count} exams) for {department} Semester {semester}. "
-                       f"Please delete or overwrite the existing schedule first."
+                detail=f"A {term} schedule already exists ({existing_count} exams) for {department} Semester {semester}. "
+                       f"Please overwrite that term's schedule or select another term."
             )
 
         # Validate before acknowledging the job.  The work itself is queued
@@ -1627,7 +1669,7 @@ def post_exams(
     year_level_id: Optional[int] = Query(None, description="Year level ID to post exams for"),
     semester: int = Query(..., description="Semester to post exams for"),
     department: Optional[str] = Query(None, description="Department (College or SHS)"),
-    term: Optional[str] = Query(None, description="Term to post exams for"),
+    term: str = Query(..., description="Term to post exams for"),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(["admin"]))
 ):
@@ -1637,6 +1679,7 @@ def post_exams(
     """
     if is_generation_ongoing():
         raise HTTPException(status_code=400, detail="Cannot post exams while schedule generation is ongoing")
+    term = require_exam_term(term)
     query = db.query(Exam).options(
         joinedload(Exam.subject),
         joinedload(Exam.section),
@@ -1687,19 +1730,15 @@ def post_exams(
     # (same courses, semester and term). Old posted exams were intentionally kept
     # live until this moment.
     draft_ids = {e.id for e in latest_drafts}
-    scope_course_ids = {e.course_id for e in latest_drafts if e.course_id}
-    scope_terms = {e.term for e in latest_drafts}
-    if scope_course_ids:
+    replacement_scopes = {(exam.course_id, exam.year_level_id, exam.semester, exam.term) for exam in latest_drafts}
+    if replacement_scopes:
         old_posted_query = db.query(Exam).filter(
             Exam.status == "posted",
-            Exam.semester == semester,
-            Exam.course_id.in_(scope_course_ids),
             Exam.id.notin_(draft_ids),
+            or_(*(and_(Exam.course_id == course, Exam.year_level_id == year,
+                       Exam.semester == sem, Exam.term == exam_term)
+                  for course, year, sem, exam_term in replacement_scopes)),
         )
-        if scope_terms == {None}:
-            old_posted_query = old_posted_query.filter(Exam.term.is_(None))
-        else:
-            old_posted_query = old_posted_query.filter(Exam.term.in_([t for t in scope_terms if t is not None]))
         old_posted = old_posted_query.all()
         old_posted_ids = [e.id for e in old_posted]
         if old_posted_ids:
@@ -1731,7 +1770,7 @@ def post_exams(
                     date_str = f" on {day_name}, {formatted_date}"
                     time_str = f" at {exam.timeslot.start_time.strftime('%I:%M %p')} - {exam.timeslot.end_time.strftime('%I:%M %p')}"
                 
-                msg = f"You have been assigned to proctor {sub_name} ({sub_code}) for section {sec_name}{date_str}{time_str}."
+                msg = f"Your {term} proctoring assignment: {sub_name} ({sub_code}) for section {sec_name}{date_str}{time_str}."
                 notification = Notification(
                     user_id=proctor_user.id,
                     message=msg,
@@ -1742,10 +1781,10 @@ def post_exams(
                 
     db.commit()
 
-    log_activity(db, current_user.id, "EXAM_POST", f"Course: {course_id}, Year: {year_level_id}, Sem: {semester}, Dept: {department}")
+    log_activity(db, current_user.id, "EXAM_POST", f"Course: {course_id}, Year: {year_level_id}, Sem: {semester}, Dept: {department}, Term: {term}")
     # ── invalidate posted-exam caches ────────────────────────────────
     cache.invalidate_exam_schedules()
-    return {"message": f"Successfully posted {len(latest_drafts)} exams."}
+    return {"message": f"Successfully posted {len(latest_drafts)} {term} exams."}
 
 @router.post("/save")
 def save_exams(
@@ -1753,7 +1792,7 @@ def save_exams(
     year_level_id: Optional[int] = Query(None, description="Year level ID to save exams for"),
     semester: int = Query(..., description="Semester to save exams for"),
     department: Optional[str] = Query(None, description="Department (College or SHS)"),
-    term: Optional[str] = Query(None, description="Term to save exams for"),
+    term: str = Query(..., description="Term to save exams for"),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(["admin"]))
 ):
@@ -1763,6 +1802,7 @@ def save_exams(
     """
     if is_generation_ongoing():
         raise HTTPException(status_code=400, detail="Cannot save exams while schedule generation is ongoing")
+    term = require_exam_term(term)
     query = db.query(Exam).filter(
         Exam.status == "draft",
         Exam.semester == semester
@@ -1793,7 +1833,7 @@ def save_exams(
     log_activity(db, current_user.id, "EXAM_SAVE", f"Course: {course_id}, Year: {year_level_id}, Sem: {semester}, Dept: {department}, Term: {term}")
     # ── invalidate exam count cache (draft count changed) ─────────────
     cache.delete_pattern("exam_count:*")
-    return {"message": f"Successfully saved {len(latest_drafts)} exams."}
+    return {"message": f"Successfully saved {len(latest_drafts)} {term} exams."}
 
 @router.get("/download")
 def download_exam_schedule(
@@ -1977,14 +2017,23 @@ def download_exam_schedule(
 def clear_exams(
     department: Optional[str] = Query(None, description="Department to clear (College/SHS)"),
     semester: Optional[int] = Query(None, description="Semester to clear (1/2)"),
+    term: Optional[str] = Query(None, description="Examination term to clear"),
+    all_terms: bool = Query(False, description="Explicitly clear across terms"),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(["admin"]))
 ):
     """
-    Delete exams. Optionally filters by department and semester.
+    Delete the selected term, or explicitly request a bulk deletion across terms.
     """
     if is_generation_ongoing():
         raise HTTPException(status_code=400, detail="Cannot delete exams while schedule generation is ongoing")
+    all_terms = all_terms is True
+    if isinstance(term, str) and term.strip():
+        if all_terms:
+            raise HTTPException(status_code=400, detail="Select a term or all terms, not both.")
+        term = require_exam_term(term)
+    elif not all_terms:
+        raise HTTPException(status_code=400, detail="Select an examination term to delete. Use all_terms=true only to delete across terms.")
         
     query = db.query(Exam)
     
@@ -1996,18 +2045,22 @@ def clear_exams(
         
     if semester:
         query = query.filter(Exam.semester == semester)
+    if not all_terms:
+        query = query.filter(Exam.term == term)
         
     exams_to_delete = query.all()
     count = len(exams_to_delete)
     exam_ids = [exam.id for exam in exams_to_delete]
     if exam_ids:
         from model import ReschedulingRequest
-        db.query(ReschedulingRequest).filter(ReschedulingRequest.exam_id.in_(exam_ids)).delete(synchronize_session=False)
+        db.query(ReschedulingRequest).filter(or_(
+            ReschedulingRequest.exam_id.in_(exam_ids), ReschedulingRequest.rescheduled_exam_id.in_(exam_ids)
+        )).delete(synchronize_session=False)
     for exam in exams_to_delete:
         db.delete(exam)
     db.commit()
     
-    log_activity(db, current_user.id, "EXAM_CLEAR", f"Deleted {count} exams (dept={department}, sem={semester})")
+    log_activity(db, current_user.id, "EXAM_CLEAR", f"Deleted {count} exams (dept={department}, sem={semester}, term={term if not all_terms else 'all'})")
     # ── invalidate all schedule + count caches ───────────────────────
     cache.invalidate_exam_schedules()
     return {"message": f"Deleted {count} exams."}

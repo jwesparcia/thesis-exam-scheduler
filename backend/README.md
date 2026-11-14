@@ -75,3 +75,15 @@ python -m uvicorn main:app --reload --port 8000
 
 - API Base URL: `http://localhost:8000`
 - Interactive API Docs (Swagger): `http://localhost:8000/docs`
+
+## Independent examination terms
+
+Generated schedules are stored separately by department, semester, and examination term.
+Generating or replacing Midterm preserves Prelim and the other terms. New schedules
+remain private to admins until the selected term is posted.
+
+- `GET /exams/schedules?department=College&semester=1` lists the stored terms and their draft, saved, and posted counts.
+- Generation accepts one specific `term`. The count, save, and post endpoints also require a term.
+- `DELETE /exams/clear` deletes only the supplied department, semester, and term. Bulk deletion across terms requires the explicit `all_terms=true` parameter.
+- College and SHS use the same separation, including SHS semesters 1, 2, and 3.
+- Student and proctor dashboards provide an examination-term selector for their posted schedules. Semester and department keep repeated term names separate; student requests and proctor attendance counts follow the selected schedule.

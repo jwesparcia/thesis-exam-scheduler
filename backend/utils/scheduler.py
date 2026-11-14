@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from model import Exam, Timeslot, Room, Subject, Section, ExamBreakSetting, TeacherSchedule, Proctor, TeacherTeaching
 from room_data import get_room_names_for_department
 from utils.exam_enrollment import ExamEnrollment
+from utils.exam_terms import normalize_exam_term
 
 # Time slots per day matching the official Tertiary Periodical Departmental Exam Schedule:
 # Morning:   7:00-8:30, 8:30-10:00, 10:00-11:30
@@ -374,6 +375,7 @@ def generate_exam_schedule(
 ):
     if excluded_subjects is None:
         excluded_subjects = []
+    term = normalize_exam_term(term)
 
     def report_progress(percent, phase, detail=""):
         if not progress_callback:
@@ -384,7 +386,7 @@ def generate_exam_schedule(
             "detail": detail,
         })
 
-    # 1. Clear previous DRAFT schedules for the specific department, semester and term
+    # 1. Replace unposted schedules only within this department, semester, and term.
     report_progress(4, "Preparing schedule", "Clearing previous draft schedules")
     from model import Course
     from sqlalchemy import or_
@@ -397,7 +399,7 @@ def generate_exam_schedule(
         sub_dept_filter = or_(Course.category == department, Course.department_code == department, Subject.department_code == department)
 
     drafts_to_delete = db.query(Exam).join(Course, Exam.course_id == Course.id).filter(
-        Exam.status == "draft",
+        Exam.status.in_(["draft", "saved"]),
         cat_filter,
         Exam.semester == semester,
         Exam.term == term
@@ -407,7 +409,8 @@ def generate_exam_schedule(
         # Delete rescheduling requests first to avoid FK violation
         from model import ReschedulingRequest
         db.query(ReschedulingRequest).filter(
-            ReschedulingRequest.exam_id.in_(draft_ids)
+            or_(ReschedulingRequest.exam_id.in_(draft_ids),
+                ReschedulingRequest.rescheduled_exam_id.in_(draft_ids))
         ).delete(synchronize_session=False)
     for draft in drafts_to_delete:
         db.delete(draft)
