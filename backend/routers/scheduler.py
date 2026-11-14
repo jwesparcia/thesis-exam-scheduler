@@ -6,8 +6,9 @@ from room_data import get_room_names_for_department
 from datetime import datetime, timedelta, time, date
 import random
 from .auth import get_current_user, require_role
-from .exams import is_generation_ongoing
+from core.generation_lock import require_generation_lock
 from utils.logging import log_activity
+from utils.exam_enrollment import ExamEnrollment
 
 router = APIRouter(prefix="/scheduler", tags=["Scheduler"])
 
@@ -20,11 +21,9 @@ SCHOOL_START = time(8, 0)
 SCHOOL_END = time(18, 0)
 
 # ---------- API Endpoint ----------
-@router.post("/generate")
+@router.post("/generate", dependencies=[Depends(require_generation_lock)])
 def generate_exam_schedule(payload: dict = Body(...), db: Session = Depends(get_db), current_user: User = Depends(require_role(["admin"]))):
     """Generate synchronized and chronologically ordered exam schedules."""
-    if is_generation_ongoing():
-        raise HTTPException(status_code=400, detail="Schedule generation is already running. Please wait for it to complete.")
     course_id = payload.get("course_id")
     year_level_id = payload.get("year_level_id")
     semester = payload.get("semester")
@@ -45,6 +44,10 @@ def generate_exam_schedule(payload: dict = Body(...), db: Session = Depends(get_
         Section.year_level_id == year_level_id,
         or_(Section.semester == semester, Section.semester.is_(None))
     ).all()
+    enrollment = ExamEnrollment(db)
+    if not enrollment.has_student_accounts:
+        raise HTTPException(status_code=400, detail="Import student enrollment before generating exam schedules.")
+    sections = [section for section in sections if enrollment.has_students(section)]
     from model import SubjectProgram
     subjects = db.query(Subject).filter(
         or_(
@@ -158,6 +161,8 @@ def generate_exam_schedule(payload: dict = Body(...), db: Session = Depends(get_
     created_exams = []
     for section in sections:
             subject = exam_info["subject"]
+            if enrollment.total_count(section, subject) == 0:
+                continue
             timeslot = exam_info["timeslot"]
             
             # Ensure unique room assignment per timeslot

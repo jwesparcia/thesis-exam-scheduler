@@ -1,3 +1,13 @@
+## Scheduling algorithm protection
+
+Follow the repository-wide instructions in [AGENTS.md](../AGENTS.md), especially
+"Preserve the scheduling algorithm." Do not change scheduling logic, parameters,
+constraints, allocation, or automatic rescheduling behavior, directly or
+indirectly, unless the user's current request explicitly asks for that change or
+a specific scheduling behavior fix. Unrelated prompts do not authorize algorithm
+changes. Review the diff for unintended scheduling behavior changes before
+completing a task.
+
 ## vexp <!-- vexp v3.3.2 -->
 
 ### Context strategy: call run_pipeline ONCE at task start

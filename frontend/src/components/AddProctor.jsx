@@ -1,7 +1,6 @@
-import React, { useEffect, useState } from "react";
-import { PlusIcon, UsersIcon, BellIcon, ShieldCheckIcon, ShieldExclamationIcon, CheckCircleIcon, XCircleIcon, ArrowPathIcon } from "@heroicons/react/24/outline";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { UsersIcon, BellIcon, ShieldCheckIcon, ShieldExclamationIcon, CheckCircleIcon, XCircleIcon, ArrowPathIcon } from "@heroicons/react/24/outline";
 import { useTheme } from "../context/themeStore";
-import ThemeToggle from "../components/ThemeToggle";
 import api from "../api";
 import { useToast } from "../context/ToastContext";
 
@@ -10,23 +9,28 @@ export default function AddProctor({ isGenerating }) {
   const { showSuccess, showError } = useToast();
   const [proctors, setProctors] = useState([]);
   const [fetching, setFetching] = useState(false);
+  const fetchErrorRef = useRef(showError);
 
-  const fetchProctors = async () => {
+  useEffect(() => {
+    fetchErrorRef.current = showError;
+  }, [showError]);
+
+  const fetchProctors = useCallback(async () => {
     setFetching(true);
     try {
       const res = await api.get("/proctors");
       setProctors(res.data);
     } catch (e) {
       console.error(e);
-      showError("Failed to fetch proctors.");
+      fetchErrorRef.current("Failed to fetch proctors.");
     } finally {
       setFetching(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchProctors();
-  }, []);
+  }, [fetchProctors, isGenerating]);
 
   const toggleExclude = async (id, currentExcluded) => {
     if (isGenerating) {
@@ -48,10 +52,10 @@ export default function AddProctor({ isGenerating }) {
       return;
     }
     try {
-      await api.post(`/proctors/${id}/send-reminder`);
-      showSuccess(`Reminder sent to ${proctorName}`);
-    } catch {
-      showError("Failed to send reminder.");
+      const res = await api.post(`/proctors/${id}/send-reminder`);
+      showSuccess(res.data.message || `Reminder sent to ${proctorName}`);
+    } catch (err) {
+      showError(err.response?.data?.detail || "Failed to send reminder.");
     }
   };
 
@@ -68,7 +72,7 @@ export default function AddProctor({ isGenerating }) {
             <div>
               <h3 className={`text-lg sm:text-xl font-bold tracking-tight ${isDark ? "text-white" : "text-slate-900"}`}>Proctor Management</h3>
               <p className={`text-xs sm:text-sm ${isDark ? "text-slate-400" : "text-slate-600"}`}>
-                Monitor schedule uploads, teaching loads, and manage proctor availability for examinations.
+                Monitor teaching schedule uploads, assigned exam duties, and proctor availability.
               </p>
             </div>
           </div>
@@ -87,6 +91,10 @@ export default function AddProctor({ isGenerating }) {
             Refresh
           </button>
         </div>
+
+        <p className={`mb-4 text-xs sm:text-sm ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+          Proctoring schedules count posted exam assignments. Draft and saved assignments are shown separately.
+        </p>
 
         {proctors.length === 0 && !fetching ? (
           <div className={`p-8 text-center rounded-2xl border border-dashed ${isDark ? "border-slate-700 text-slate-400" : "border-slate-300 text-slate-500"}`}>
@@ -118,6 +126,15 @@ export default function AddProctor({ isGenerating }) {
                       {p.exclude_from_scheduling ? "Excluded" : "Active"}
                     </span>
                   </div>
+                  <div className={`rounded-xl border p-3 ${isDark ? "border-slate-700 bg-slate-900/40" : "border-slate-200 bg-slate-50"}`}>
+                    <p className={`text-xs font-semibold ${isDark ? "text-slate-400" : "text-slate-500"}`}>Proctoring schedules</p>
+                    <p className={`mt-1 font-bold tabular-nums ${isDark ? "text-white" : "text-slate-900"}`}>
+                      {p.posted_exam_count ?? 0} posted
+                    </p>
+                    <p className={`mt-0.5 text-xs tabular-nums ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                      {p.pending_exam_count ?? 0} draft / saved
+                    </p>
+                  </div>
                   <div className="flex gap-2 pt-1">
                     {!p.has_schedule && (
                       <button
@@ -147,12 +164,13 @@ export default function AddProctor({ isGenerating }) {
                 </article>
               ))}
             </div>
-            <table className="hidden w-full min-w-[680px] text-xs sm:text-sm md:table">
+            <table className="hidden w-full min-w-[840px] text-xs sm:text-sm md:table">
               <thead className={`${isDark ? "bg-slate-850 text-slate-300 border-b border-slate-700" : "bg-slate-50 text-slate-700 border-b border-slate-200"}`}>
                 <tr>
                   <th className="py-3 px-5 text-left font-bold uppercase tracking-wider text-xs">Proctor Name</th>
                   <th className="py-3 px-5 text-left font-bold uppercase tracking-wider text-xs">Schedule Status</th>
                   <th className="py-3 px-5 text-left font-bold uppercase tracking-wider text-xs">Assignment Status</th>
+                  <th className="py-3 px-5 text-left font-bold uppercase tracking-wider text-xs">Proctoring Schedules</th>
                   <th className="py-3 px-5 text-right font-bold uppercase tracking-wider text-xs">Actions</th>
                 </tr>
               </thead>
@@ -195,6 +213,14 @@ export default function AddProctor({ isGenerating }) {
                         </span>
                       )}
                     </td>
+                    <td className="py-3.5 px-5">
+                      <div className={`font-bold tabular-nums ${isDark ? "text-white" : "text-slate-900"}`}>
+                        {p.posted_exam_count ?? 0} posted
+                      </div>
+                      <div className={`text-xs tabular-nums ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                        {p.pending_exam_count ?? 0} draft / saved
+                      </div>
+                    </td>
                     <td className="py-3.5 px-5 text-right">
                       <div className="flex justify-end gap-1.5">
                         {!p.has_schedule && (
@@ -207,7 +233,7 @@ export default function AddProctor({ isGenerating }) {
                                 ? "opacity-50 cursor-not-allowed border-transparent" 
                                 : isDark ? "hover:bg-blue-900/40 text-blue-300 border-blue-800/80" : "hover:bg-blue-100 text-blue-800 border-blue-200"
                             }`}
-                            title={isGenerating ? "Cannot send reminders while schedule generation is ongoing" : "Send Reminder Email"} aria-label="Send reminder email">
+                            title={isGenerating ? "Cannot send reminders while schedule generation is ongoing" : "Send upload reminder"} aria-label="Send upload reminder">
                             <BellIcon className="w-4 h-4" />
                           </button>
                         )}

@@ -57,6 +57,9 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
   const [details, setDetails] = useState({ sections: [] });
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [generationBusy, setGenerationBusy] = useState(false);
+  const [generationStatusChecking, setGenerationStatusChecking] = useState(true);
+  const [generationStatusError, setGenerationStatusError] = useState(false);
   const [activeJobId, setActiveJobId] = useState(null);
   const [cancelling, setCancelling] = useState(false);
   const progressPollRef = useRef(null);
@@ -81,13 +84,47 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
     message: "",
     onConfirm: null
   });
+  const generationBlocked = generationBusy || generationStatusChecking || generationStatusError;
+
+  // Every admin observes the same server lock, including after a page refresh.
+  useEffect(() => {
+    let disposed = false;
+    let checking = false;
+    const checkGenerationStatus = async () => {
+      if (checking) return;
+      checking = true;
+      try {
+        const res = await api.get("/exams/generate/status");
+        if (!disposed) {
+          setGenerationBusy(Boolean(res.data.running));
+          setGenerationStatusError(false);
+        }
+      } catch {
+        if (!disposed) setGenerationStatusError(true);
+      } finally {
+        checking = false;
+        if (!disposed) setGenerationStatusChecking(false);
+      }
+    };
+    checkGenerationStatus();
+    const interval = setInterval(checkGenerationStatus, 2000);
+    return () => {
+      disposed = true;
+      clearInterval(interval);
+    };
+  }, []);
 
   useEffect(() => {
     onGenerationStateChange?.({
-      loading,
-      progress: generationProgress,
+      loading: loading || generationBusy,
+      progress: !loading && generationBusy ? {
+        status: "running",
+        percent: 0,
+        phase: "Schedule generation in progress",
+        detail: "An admin is generating an exam schedule. Please wait until it finishes.",
+      } : generationProgress,
     });
-  }, [loading, generationProgress, onGenerationStateChange]);
+  }, [loading, generationBusy, generationProgress, onGenerationStateChange]);
 
   // Fetch courses, year levels, and exam settings
   useEffect(() => {
@@ -353,6 +390,10 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
 
   // Actual execution of generation
   const executeGeneration = async (forceOverwrite = false) => {
+    if (loading || generationBlocked) {
+      showWarning("Schedule generation is unavailable. Please wait for the current generation or status check to finish.");
+      return;
+    }
     const jobId = `schedule-${Date.now()}`;
     let generationQueued = false;
     setActiveJobId(jobId);
@@ -380,6 +421,7 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
       });
       const data = res.data;
       if (data.status === "accepted") {
+        setGenerationBusy(true);
         generationQueued = true;
         return;
       }
@@ -396,8 +438,13 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
       const message = err.response?.data?.detail || "Error generating schedule";
       const isCancelled = message.toLowerCase().includes("cancelled") || message.toLowerCase().includes("cancel");
       const isRateLimited = status === 429;
+      const isGenerationBusy = status === 409 && message.includes("already generating");
 
-      if (isRateLimited) {
+      if (isGenerationBusy) {
+        setGenerationBusy(true);
+        setGenerationProgress(INITIAL_GENERATION_PROGRESS);
+        showWarning(message);
+      } else if (isRateLimited) {
         // Reset to idle — don't show a failed progress bar for rate limit
         setGenerationProgress(INITIAL_GENERATION_PROGRESS);
         showWarning(message);
@@ -435,6 +482,10 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
 
   // Generate exam schedule with confirmation
   const generate = async () => {
+    if (loading || generationBlocked) {
+      showWarning("Schedule generation is unavailable. Please wait for the current generation or status check to finish.");
+      return;
+    }
     if (!startDate || !endDate) {
       showError("Please select both start and end dates.");
       return;
@@ -1030,23 +1081,37 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
                   </div>
                 )}
 
+                {!loading && (generationBusy || generationStatusError) && (
+                  <p role="status" className="mb-4 text-sm text-amber-700 dark:text-amber-300">
+                    {generationBusy
+                      ? "An admin is currently generating an exam schedule. You can generate another after it finishes."
+                      : "Could not check schedule generation status. Retrying automatically..."}
+                  </p>
+                )}
+
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
                   <button
                     type="button"
                     onClick={generate}
-                    disabled={loading || existingExamChecking || isPreflighting}
+                    disabled={loading || generationBlocked || existingExamChecking || isPreflighting}
                     className={`flex items-center justify-center gap-2.5 sm:gap-3 px-5 sm:px-8 py-3.5 sm:py-4 rounded-xl sm:rounded-2xl w-full sm:w-auto text-white font-bold text-sm sm:text-base transition-all shadow-md ${
-                      loading || existingExamChecking || isPreflighting
+                      loading || generationBlocked || existingExamChecking || isPreflighting
                         ? "bg-slate-400 dark:bg-slate-700 cursor-not-allowed opacity-60"
                         : existingExamCount > 0
                           ? "bg-amber-600 hover:bg-amber-700 hover:shadow-amber-600/20 active:scale-95"
                           : "bg-blue-600 hover:bg-blue-700 hover:shadow-blue-600/20 active:scale-95"
-                    }`} aria-label="Refresh">
+                    }`} aria-label="Generate exam schedule">
                     {loading ? (
                       <>
                         <ArrowPathIcon className="w-5 h-5 animate-spin" /> Generating...
                       </>
-                    ) : existingExamChecking || isPreflighting ? (
+                    ) : generationBusy ? (
+                      <>
+                        <ClockIcon className="w-5 h-5" /> Generation in progress
+                      </>
+                    ) : generationStatusError ? (
+                      <>Waiting for generation status...</>
+                    ) : generationStatusChecking || existingExamChecking || isPreflighting ? (
                       <>
                         <ArrowPathIcon className="w-5 h-5 animate-spin" /> Checking...
                       </>
@@ -1235,7 +1300,8 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
                     setOverwriteModal({ isOpen: false });
                     executeGeneration(true);
                   }}
-                  className="w-full py-3 rounded-xl font-bold text-xs sm:text-sm bg-amber-600 hover:bg-amber-700 text-white transition shadow-md shadow-amber-600/20"
+                  disabled={loading || generationBlocked}
+                  className="w-full py-3 rounded-xl font-bold text-xs sm:text-sm bg-amber-600 hover:bg-amber-700 text-white transition shadow-md shadow-amber-600/20 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   Overwrite Schedule
                 </button>
@@ -1274,7 +1340,7 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
               <p className={`text-xs sm:text-sm mb-6 sm:mb-8 ${isDark ? "text-slate-300" : "text-slate-600"} leading-relaxed`}>{confirmModal.message}</p>
               <div className="flex flex-col-reverse sm:flex-row gap-2.5 sm:gap-4 w-full">
                 <button type="button" onClick={() => setConfirmModal({ ...confirmModal, isOpen: false })} className={`w-full py-3 rounded-xl font-bold text-xs sm:text-sm transition ${isDark ? "bg-slate-800 text-slate-200 hover:bg-slate-700" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}`}>Cancel</button>
-                <button type="button" onClick={confirmModal.onConfirm} className="w-full py-3 rounded-xl font-bold text-xs sm:text-sm bg-blue-600 text-white hover:bg-blue-700 transition shadow-md shadow-blue-600/20">Proceed</button>
+                <button type="button" onClick={confirmModal.onConfirm} disabled={loading || generationBlocked} className="w-full py-3 rounded-xl font-bold text-xs sm:text-sm bg-blue-600 text-white hover:bg-blue-700 transition shadow-md shadow-blue-600/20 disabled:opacity-60 disabled:cursor-not-allowed">Proceed</button>
               </div>
             </div>
           </div>

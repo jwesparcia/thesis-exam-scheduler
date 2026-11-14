@@ -50,3 +50,6 @@ Thumbs.db
 # ─── Miscellaneous ───────────────────────────────────────────────────────────
 *.bak
 *.tmp
+
+# Local database repair snapshots
+/data/backups/

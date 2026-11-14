@@ -9,7 +9,7 @@ import re
 import pandas as pd
 import bcrypt
 from typing import List, Optional
-from sqlalchemy import or_
+from sqlalchemy import and_, or_
 from sqlalchemy.orm import joinedload
 from model import (
     Course, YearLevel, Section, Subject, Teacher, Proctor, User, TeacherTeaching, 
@@ -19,6 +19,7 @@ from model import (
 from routers.auth import require_role, get_current_user
 from utils.logging import log_activity
 from utils.errors import humanize_error
+from utils.student_names import format_student_name
 from datetime import datetime, time
 from pydantic import BaseModel
 
@@ -235,9 +236,7 @@ def get_exams_attendance_list(
         return "" if c in {"", "-", "n/a", "none", "nan"} else c
 
     def _last_name_key(s_dict: dict):
-        name_val = (s_dict.get("name") or "").strip()
-        parts = name_val.split()
-        return (parts[-1].lower() if parts else "", name_val.lower())
+        return (s_dict["display_name"].casefold(), s_dict["id"])
 
     exams = (
         db.query(Exam)
@@ -248,6 +247,7 @@ def get_exams_attendance_list(
             jl(Exam.timeslot),
             jl(Exam.course),
             jl(Exam.year_level),
+            jl(Exam.proctor),
         )
         .filter(Exam.status.in_(["posted", "draft"]))
         .order_by(Exam.id)
@@ -280,6 +280,7 @@ def get_exams_attendance_list(
         s_dict = {
             "id": sid,
             "name": sname or "",
+            "display_name": format_student_name(sname),
             "email": semail or "",
             "student_id": snum or "",
             "student_type": eff_type,
@@ -465,6 +466,7 @@ def get_exams_attendance_list(
             "term": exam.term,
             "status": exam.status,
             "room": room.name if room else "Unassigned",
+            "proctor_name": exam.proctor.name if exam.proctor else "Unassigned",
             "exam_date": full_date,
             "date_iso": date_iso,
             "start_time": start_time,
@@ -499,6 +501,7 @@ def get_exams_attendance_list(
                 "term": e["term"],
                 "status": e["status"],
                 "room": e["room"],
+                "proctor_name": e["proctor_name"],
                 "exam_date": e["exam_date"],
                 "date_iso": e["date_iso"],
                 "start_time": e["start_time"],
@@ -2247,16 +2250,27 @@ def get_students_directory(
         query = query.filter(User.student_type == student_type.lower())
     if search:
         s = f"%{search.strip()}%"
-        from sqlalchemy import or_
+        name_words = search.replace(",", " ").split()
         query = query.filter(or_(
             User.name.ilike(s),
+            and_(*(User.name.ilike(f"%{word}%") for word in name_words)) if name_words else User.name.ilike(s),
             User.email.ilike(s),
             User.student_id.ilike(s),
             User.section_name.ilike(s)
         ))
 
-    total = query.count()
-    users_page = query.order_by(User.name).offset((page - 1) * page_size).limit(page_size).all()
+    # Sort lightweight name/id pairs before pagination so every page follows
+    # surname order, including names imported in different formats.
+    ordered_students = sorted(
+        query.with_entities(User.id, User.name).all(),
+        key=lambda student: (format_student_name(student.name).casefold(), student.id),
+    )
+    total = len(ordered_students)
+    page_ids = [student.id for student in ordered_students[(page - 1) * page_size:page * page_size]]
+    users_by_id = {
+        user.id: user for user in query.filter(User.id.in_(page_ids)).all()
+    } if page_ids else {}
+    users_page = [users_by_id[user_id] for user_id in page_ids]
 
     # Pre-fetch course names
     courses_map = {c.id: c for c in db.query(Course).all()}
@@ -2297,6 +2311,7 @@ def get_students_directory(
             "id": u.id,
             "student_id": u.student_id or f"02000{str(u.id * 123457 % 900000 + 100000)}",
             "name": u.name,
+            "display_name": format_student_name(u.name),
             "email": u.email,
             "course_id": u.course_id,
             "course_name": c_obj.name if c_obj else "-",

@@ -579,7 +579,7 @@ export default function StudentImport({ isGenerating }) {
                     <article key={student.id} className="space-y-3 p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <h3 className="break-words font-bold text-slate-900 dark:text-white">{student.name}</h3>
+                          <h3 className="break-words font-bold text-slate-900 dark:text-white">{student.display_name || student.name}</h3>
                           <p className="mt-0.5 break-all font-mono text-xs text-slate-500">{student.email}</p>
                           <div className={`mt-1 inline-flex rounded-md px-2 py-1 font-mono text-xs font-bold ${isDark ? "bg-slate-800 text-blue-400" : "bg-blue-50 text-blue-700"}`}>
                             {student.student_id || "No student ID"}
@@ -676,7 +676,7 @@ export default function StudentImport({ isGenerating }) {
                           {/* Name & Email */}
                           <td className="py-3.5 px-4">
                             <div className="font-bold text-slate-900 dark:text-white">
-                              {student.name}
+                              {student.display_name || student.name}
                             </div>
                             <div className="text-xs font-mono text-slate-500 dark:text-slate-400 font-medium">
                               {student.email}
@@ -988,7 +988,7 @@ export default function StudentImport({ isGenerating }) {
                 </div>
                 <div>
                   <h3 className="font-bold text-base sm:text-lg">
-                    {selectedStudentForModal.name}
+                    {selectedStudentForModal.display_name || selectedStudentForModal.name}
                   </h3>
                   <p className="text-xs font-mono text-purple-600 dark:text-purple-400 font-medium">
                     ID: {selectedStudentForModal.student_id} • {selectedStudentForModal.course_name}

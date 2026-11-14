@@ -3,6 +3,7 @@ from datetime import datetime, date, time, timedelta
 from sqlalchemy.orm import Session
 from model import Exam, Timeslot, Room, Subject, Section, ExamBreakSetting, TeacherSchedule, Proctor, TeacherTeaching
 from room_data import get_room_names_for_department
+from utils.exam_enrollment import ExamEnrollment
 
 # Time slots per day matching the official Tertiary Periodical Departmental Exam Schedule:
 # Morning:   7:00-8:30, 8:30-10:00, 10:00-11:30
@@ -554,29 +555,15 @@ def generate_exam_schedule(
         or_(Section.semester == semester, Section.semester.is_(None))
     ).all()
 
-    # Fetch accurate student headcounts per section from User table
-    from model import User, IrregularSelection
-    from sqlalchemy import func
-    section_user_counts = dict(
-        db.query(User.section_name, func.count(User.id))
-        .filter(User.role == "student", User.section_name.isnot(None))
-        .group_by(User.section_name)
-        .all()
-    )
+    enrollment = ExamEnrollment(db)
+    sections = [sec for sec in all_dept_sections if enrollment.has_students(sec)]
+    if not sections:
+        raise ValueError("No enrolled students found in the selected department and semester. Check the student enrollment import.")
 
-    # Only schedule sections that have actual enrolled regular students.
-    # Empty curriculum placeholder sections (e.g. 1-104 with 0 students) must not consume
-    # exam rooms, timeslots, or proctor allocations.
-    active_sections = [
-        sec for sec in all_dept_sections
-        if (section_user_counts.get(sec.name, 0) > 0) or ((sec.student_count or 0) > 0)
-    ]
-    sections = active_sections if active_sections else all_dept_sections
-
-    for sec in sections:
-        cnt = section_user_counts.get(sec.name)
-        if cnt and sec.student_count != cnt:
-            sec.student_count = cnt
+    # Imported enrollment is authoritative, including zero. The Section model's
+    # default 35 is not evidence that any student is enrolled in that section.
+    for sec in all_dept_sections:
+        sec.student_count = enrollment.regular_count(sec)
     db.flush()
     
     import re as _re_sec
@@ -615,6 +602,7 @@ def generate_exam_schedule(
         section_subjects = [
             sub for sub in subjects
             if _subject_applies_to_section(sub, sec, sec_yl)
+            and enrollment.total_count(sec, sub) > 0
         ]
         subjects_per_section[sec.id] = len(section_subjects)
         section_has_minor_subject[sec.id] = any(
@@ -890,6 +878,8 @@ def generate_exam_schedule(
                 matching_secs = [sec for sec in sections if _get_section_year_level_id(sec) == sub.year_level_id]
 
             for sec in matching_secs:
+                if enrollment.total_count(sec, sub) == 0:
+                    continue
                 c_key = (sec.course_id, sub.year_level_id)
                 cohort_list = cohort_dict.setdefault(c_key, [])
                 if not any(existing_sec.id == sec.id for existing_sec, _ in cohort_list):
@@ -1184,11 +1174,6 @@ def generate_exam_schedule(
 
     # Preprocess groups to avoid ORM access inside the GA loops
     report_progress(40, "Preparing optimizer", "Precomputing valid slots and proctor candidates")
-    irr_rows = db.query(
-        IrregularSelection.section_id, IrregularSelection.subject_id, func.count(IrregularSelection.id)
-    ).group_by(IrregularSelection.section_id, IrregularSelection.subject_id).all()
-    irr_counts = {(row[0], row[1]): row[2] for row in irr_rows}
-
     # Precompute proctor availability per (p_idx, slot_idx) and taught subjects to make setup instantaneous
     # Each proctor is assigned based on the start and end times of their uploaded class hours
     proctor_slot_avail = {}
@@ -1214,8 +1199,8 @@ def generate_exam_schedule(
         prep_sections = []
         section_ids_set = set()
         for idx_in_g, (sec, sub) in enumerate(g["sections"]):
-            sec_cnt = section_user_counts.get(sec.name, getattr(sec, "student_count", 35) or 35)
-            irr_cnt = irr_counts.get((sec.id, sub.id), 0)
+            sec_cnt = enrollment.regular_count(sec)
+            irr_cnt = enrollment.irregular_count(sec, sub)
             prep_sections.append({
                 "sec_id": sec.id,
                 "sec_name": sec.name,
@@ -3853,7 +3838,11 @@ def generate_exam_schedule(
     # rooms on the EXACT SAME FLOOR without creating any
     # time-interval overlaps or double-booking rooms.
     # ----------------------------------------------------
-    section_size_map = {sec.id: getattr(sec, "student_count", 35) or 35 for sec in sections}
+    section_by_id = {sec.id: sec for sec in sections}
+    subject_by_id = {sub.id: sub for sub in subjects}
+
+    def _exam_student_count(exam):
+        return enrollment.total_count(section_by_id[exam.section_id], subject_by_id[exam.subject_id])
 
     def _exam_time_interval(e):
         ts = e.timeslot or timeslot_map.get(e.timeslot_id)
@@ -3914,7 +3903,7 @@ def generate_exam_schedule(
                     avail_free = list(free_on_maj)
                     possible = True
                     for e_min in minority_exams:
-                        needed_cap = section_size_map.get(e_min.section_id, 35)
+                        needed_cap = _exam_student_count(e_min)
                         cand = next((r for r in avail_free if room_capacity_by_id.get(r, 40) >= needed_cap), None)
                         if cand is not None:
                             avail_free.remove(cand)
@@ -3942,7 +3931,7 @@ def generate_exam_schedule(
                         moves = []
                         ok = True
                         for e in cohort_e:
-                            needed_cap = section_size_map.get(e.section_id, 35)
+                            needed_cap = _exam_student_count(e)
                             cand = next((r for r in avail_f_rooms if room_capacity_by_id.get(r, 40) >= needed_cap), None)
                             if cand is not None:
                                 avail_f_rooms.remove(cand)
@@ -3962,7 +3951,7 @@ def generate_exam_schedule(
 
                 # 3. Reciprocal swap with another split cohort on the exact same timeslot
                 for e_min in list(minority_exams):
-                    e_min_cap = section_size_map.get(e_min.section_id, 35)
+                    e_min_cap = _exam_student_count(e_min)
                     min_floor = room_floor_by_id.get(e_min.room_id)
                     swapped = False
                     for other_ckey, other_cohort_e in c_groups.items():
@@ -3970,7 +3959,7 @@ def generate_exam_schedule(
                             continue
                         for o_e in other_cohort_e:
                             if room_floor_by_id.get(o_e.room_id) == maj_floor:
-                                o_e_cap = section_size_map.get(o_e.section_id, 35)
+                                o_e_cap = _exam_student_count(o_e)
                                 if (room_capacity_by_id.get(o_e.room_id, 40) >= e_min_cap and
                                     room_capacity_by_id.get(e_min.room_id, 40) >= o_e_cap):
                                     other_fl_dist = {}
@@ -3986,6 +3975,21 @@ def generate_exam_schedule(
                             break
 
     db.add_all(generated_exams)
+    db.flush()
+    consolidation = {"joined_assignments": 0, "removed_exams": 0,
+                     "remaining_irregular_only_exams": 0, "remaining_reasons": {}}
+    if enrollment.has_student_accounts:
+        from services.exam_consolidation import build_consolidation_plan, apply_consolidation_plan
+
+        report_progress(98, "Joining irregular students", "Checking compatible class exams and remaining room capacity")
+        run_exam_ids = {exam.id for exam in generated_exams}
+        plan = build_consolidation_plan(db, exam_ids=run_exam_ids)
+        consolidation = apply_consolidation_plan(db, plan)
+        retained_ids = run_exam_ids - set(plan["removed_exam_ids"])
+        generated_exams = db.query(Exam).filter(Exam.id.in_(retained_ids)).all()
+        total_scheduled = len(generated_exams)
+        assigned_proctor_count = sum(exam.proctor_id is not None for exam in generated_exams)
+        assigned_room_count = sum(exam.room_id is not None for exam in generated_exams)
     report_progress(99, "Saving schedule", "Writing generated exams to the database")
     db.commit()
     report_progress(100, "Schedule generated", "Generation complete")
@@ -3994,5 +3998,6 @@ def generate_exam_schedule(
         "total_exams": total_scheduled,
         "assigned_proctors": assigned_proctor_count,
         "unassigned": total_scheduled - assigned_proctor_count,
-        "unassigned_rooms": total_scheduled - assigned_room_count
+        "unassigned_rooms": total_scheduled - assigned_room_count,
+        "consolidation": consolidation,
     }

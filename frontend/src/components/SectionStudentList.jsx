@@ -21,6 +21,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { useTheme } from "../context/themeStore";
 import api from "../api";
+import { buildStudentAttendanceSheet } from "../utils/studentAttendancePrint";
 
 const STATUS_STYLES = {
   posted: {
@@ -32,15 +33,6 @@ const STATUS_STYLES = {
     light: "bg-amber-50 text-amber-700 border-amber-200",
   },
 };
-
-function escapeHtml(str) {
-  return String(str ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
 
 function getInitials(name) {
   const parts = String(name || "?").trim().split(/\s+/);
@@ -106,8 +98,8 @@ export default function SectionStudentList() {
         for (const [idKey, s] of Object.entries(payload.students_by_id)) {
           studentLookup[idKey] = {
             ...s,
-            _initials: getInitials(s.name),
-            _search: `${s.name || ""} ${s.email || ""} ${s.student_id || ""}`.toLowerCase(),
+            _initials: getInitials(s.display_name || s.name),
+            _search: `${s.display_name || ""} ${s.name || ""} ${s.email || ""} ${s.student_id || ""}`.toLowerCase(),
           };
         }
         hydratedExams = payload.exams.map((exam) => {
@@ -134,8 +126,8 @@ export default function SectionStudentList() {
         hydratedExams = payload.map((exam) => {
           const students = (exam.students || []).map((s) => ({
             ...s,
-            _initials: getInitials(s.name),
-            _search: `${s.name || ""} ${s.email || ""} ${s.student_id || ""}`.toLowerCase(),
+            _initials: getInitials(s.display_name || s.name),
+            _search: `${s.display_name || ""} ${s.name || ""} ${s.email || ""} ${s.student_id || ""}`.toLowerCase(),
           }));
           const regCount =
             typeof exam.regular_count === "number"
@@ -280,78 +272,14 @@ export default function SectionStudentList() {
     // unless a specific student type filter (Regular/Irregular) was selected.
     const students =
       filterType === "all" ? exam.students : (exam.displayStudents ?? exam.students);
-    const fontSize = Math.max(4, Math.min(10, 420 / Math.max(students.length, 1)));
-    const cellPadding = Math.max(0.5, Math.min(4, 160 / Math.max(students.length, 1)));
-    const rows = students
-      .map(
-        (s, i) => `
-        <tr>
-          <td>${i + 1}</td>
-          <td>${escapeHtml(s.name)}</td>
-          <td>${escapeHtml(s.student_id || "—")}</td>
-          <td>${s.student_type === "irregular" ? "Irregular" : "Regular"}</td>
-          <td style="width:120px;border-bottom:1px solid #ccc;"></td>
-        </tr>`
-      )
-      .join("");
-
-    const html = `
-      <!DOCTYPE html>
-      <html><head><title>Attendance List</title>
-      <style>
-        @page { size: A4 landscape; margin: 5mm; }
-        @media print {
-          @page { size: A4 landscape; margin: 5mm; }
-        }
-        * { box-sizing: border-box; }
-        html, body { width: 287mm; height: 200mm; margin: 0; overflow: hidden; }
-        body { font-family: Arial, sans-serif; font-size: ${fontSize}px; line-height: 1.1; }
-        #sheet { width: 287mm; height: 200mm; overflow: hidden; }
-        #fit-content { width: 100%; transform-origin: top left; }
-        h2 { margin: 0 0 2mm; font-size: 1.5em; }
-        .meta { margin: 0 0 3mm; color: #555; }
-        table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-        th { background: #f0f0f0; text-align: left; border: 1px solid #ccc; }
-        th, td { padding: ${cellPadding}px 4px; }
-        td { border: 1px solid #ddd; }
-        .footer { margin-top: 2mm; font-size: 0.9em; color: #888; }
-        tr { break-inside: avoid; page-break-inside: avoid; }
-      </style></head>
-      <body>
-        <main id="sheet"><div id="fit-content">
-        <h2>Exam Attendance List</h2>
-        <div class="meta">
-          <strong>${escapeHtml(exam.subject_code)} — ${escapeHtml(exam.subject_name)}</strong><br/>
-          Section: ${escapeHtml(exam.section_name)}${exam.is_rescheduled ? " (Rescheduled)" : ""} &nbsp;|&nbsp;
-          Room: ${escapeHtml(exam.room)} &nbsp;|&nbsp;
-          Date: ${escapeHtml(exam.exam_date)} &nbsp;|&nbsp;
-          Time: ${escapeHtml(exam.start_time)} – ${escapeHtml(exam.end_time)}
-        </div>
-        <table>
-          <thead>
-            <tr>
-              <th style="width:40px;">#</th><th>Name</th><th style="width:140px;">Student ID</th><th style="width:95px;">Type</th><th style="width:160px;">Signature</th>
-            </tr>
-          </thead>
-          <tbody>${rows}</tbody>
-        </table>
-        <div class="footer">Generated: ${escapeHtml(new Date().toLocaleString())} — Total: ${students.length} student(s)</div>
-        </div></main>
-        <script>
-          requestAnimationFrame(() => {
-            const content = document.getElementById("fit-content");
-            const scale = Math.min(1, 756 / content.scrollHeight, 1084 / content.scrollWidth);
-            content.style.transform = \`scale(\${scale})\`;
-            window.print();
-          });
-        </script>
-      </body></html>`;
+    const html = buildStudentAttendanceSheet(exam, students);
 
     const win = window.open("", "_blank");
     if (win) {
       win.document.write(html);
       win.document.close();
       win.focus();
+      win.requestAnimationFrame(() => win.print());
     }
   };
 
@@ -756,6 +684,10 @@ export default function SectionStudentList() {
                           <BuildingOffice2Icon className="w-3.5 h-3.5" />
                           {exam.room}
                         </span>
+                        <span className="flex items-center gap-1">
+                          <UserGroupIcon className="w-3.5 h-3.5" />
+                          Proctor: {exam.proctor_name || "Unassigned"}
+                        </span>
                       </div>
 
                       {/* Student type pills */}
@@ -850,7 +782,7 @@ export default function SectionStudentList() {
                               </span>
                               <div className="min-w-0 flex-1">
                                 <h4 className={`break-words font-semibold ${isDark ? "text-slate-100" : "text-slate-800"}`}>
-                                  {student.name}
+                                  {student.display_name || student.name}
                                 </h4>
                                 <p className={`mt-0.5 break-all font-mono text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
                                   {student.student_id || "No student ID"}
@@ -925,14 +857,14 @@ export default function SectionStudentList() {
                                           : "bg-blue-100 text-blue-800 border border-blue-200"
                                       }`}
                                     >
-                                      {student._initials || getInitials(student.name)}
+                                      {student._initials || getInitials(student.display_name || student.name)}
                                     </div>
                                     <span
                                       className={`font-semibold ${
                                         isDark ? "text-slate-100" : "text-slate-900"
                                       }`}
                                     >
-                                      {student.name}
+                                      {student.display_name || student.name}
                                     </span>
                                   </div>
                                 </td>

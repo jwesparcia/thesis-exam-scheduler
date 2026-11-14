@@ -4,6 +4,11 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, or_
 from core import SessionLocal, get_db, cache
 from core.cache import TTL_ROOMS, TTL_EXAM_COUNT
+from core.generation_lock import (
+    GENERATION_BUSY_DETAIL,
+    is_generation_ongoing,
+    try_acquire_generation_lock,
+)
 from model import Exam, Subject, Section, Room, Timeslot, Course, YearLevel, Teacher, TeacherTeaching, User, Notification, Proctor, ReschedulingRequest, Department
 from utils.scheduler import generate_exam_schedule, validate_proctor_availability
 from utils.errors import humanize_error
@@ -45,10 +50,6 @@ def _set_generation_progress(key, status, percent, phase, detail=""):
     with _generation_progress_lock:
         _generation_progress[key] = data
     cache.set(f"generation_progress:{key}", data, ttl=3600)
-    if status == "running":
-        cache.set("generation:active_job", {"job_id": key, "started_at": datetime.utcnow().isoformat() + "Z"}, ttl=3600)
-    elif status in ["completed", "failed", "cancelled"]:
-        cache.delete("generation:active_job")
 
 
 def _get_generation_progress(key):
@@ -65,16 +66,9 @@ def _get_generation_progress(key):
         })
 
 
-def is_generation_ongoing() -> bool:
-    active = cache.get("generation:active_job")
-    if active:
-        return True
-    with _generation_progress_lock:
-        return any(job.get("status") == "running" for job in _generation_progress.values())
-
-
 def _run_generation_job(
     *,
+    generation_lease,
     job_id: str,
     user_id: int,
     start_date,
@@ -88,8 +82,9 @@ def _run_generation_job(
     daily_end_time: time,
 ):
     """Run one long schedule generation after its HTTP request has returned."""
-    worker_db = SessionLocal()
+    worker_db = None
     try:
+        worker_db = SessionLocal()
         def _on_progress(progress):
             current = _get_generation_progress(job_id)
             if current.get("status") == "cancelled":
@@ -157,13 +152,19 @@ def _run_generation_job(
             message += "All exams have a proctor assigned."
         if unassigned_rooms > 0:
             message += f" {unassigned_rooms} exams still need rooms."
+        consolidation = result.get("consolidation", {})
+        if consolidation.get("joined_assignments"):
+            message += f" {consolidation['joined_assignments']} irregular student exam assignments joined existing class exams."
+        if consolidation.get("remaining_irregular_only_exams"):
+            message += f" {consolidation['remaining_irregular_only_exams']} irregular-only exams were retained because no compatible class had space or an existing assignment required review."
 
         log_activity(worker_db, user_id, "EXAM_GENERATE", f"Dept: {department}, Sem: {semester}", None)
         _set_generation_progress(job_id, "completed", 100, "Schedule generated", message)
         cache.invalidate_exam_schedules()
         print(f"[SCHEDULER] Generation job {job_id} completed.", flush=True)
     except Exception as exc:
-        worker_db.rollback()
+        if worker_db is not None:
+            worker_db.rollback()
         current_progress = _get_generation_progress(job_id)
         if current_progress.get("status") == "cancelled" or "cancelled" in str(exc).lower():
             _set_generation_progress(
@@ -185,7 +186,11 @@ def _run_generation_job(
             )
             print(f"[SCHEDULER] Generation job {job_id} failed: {detail}", flush=True)
     finally:
-        worker_db.close()
+        try:
+            if worker_db is not None:
+                worker_db.close()
+        finally:
+            generation_lease.release()
 
 
 def _format_exam_for_room_status(
@@ -1043,6 +1048,14 @@ def get_exam_count(
     return result
 
 
+@router.get("/generate/status")
+def get_generate_status(
+    current_user: User = Depends(require_role(["admin"]))
+):
+    """Global admission status for all admins, even without Redis."""
+    return {"running": is_generation_ongoing()}
+
+
 @router.get("/generate/progress")
 def get_generate_progress(
     job_id: str = Query(None, description="Generation job id returned or sent with /exams/generate"),
@@ -1056,7 +1069,6 @@ def cancel_schedule_generation(
     current_user: User = Depends(require_role(["admin"]))
 ):
     key = _progress_key(current_user, job_id)
-    cache.delete("generation:active_job")
     with _generation_progress_lock:
         current = _generation_progress.get(key)
         if current and current.get("status") == "running":
@@ -1090,27 +1102,29 @@ async def generate_schedule(
     Trigger the automatic scheduling for ALL courses based on distribution rules.
     Optionally accepts start_date (YYYY-MM-DD), end_date, department, semester, and excluded_subjects in the body.
     """
-    if is_generation_ongoing():
+    generation_lease = try_acquire_generation_lock()
+    if generation_lease is None:
         raise HTTPException(
             status_code=409,
-            detail="Schedule generation is already running. Please wait for the current job to complete."
+            detail=GENERATION_BUSY_DETAIL,
         )
 
-    # --- Rate Limiting: 1 request per 60 seconds per user ---
-    now = datetime.utcnow()
-    with _generate_rate_limit_lock:
-        last = _generate_last_request.get(current_user.id)
-        if last is not None:
-            elapsed = (now - last).total_seconds()
-            remaining = _GENERATE_RATE_LIMIT_SECONDS - elapsed
-            if remaining > 0:
-                raise HTTPException(
-                    status_code=429,
-                    detail=f"Too many requests. Please wait {int(remaining) + 1} more second(s) before generating again."
-                )
-        _generate_last_request[current_user.id] = now
-
+    generation_queued = False
     try:
+        # Rate limiting is separate from the exclusive generation reservation.
+        now = datetime.utcnow()
+        with _generate_rate_limit_lock:
+            last = _generate_last_request.get(current_user.id)
+            if last is not None:
+                elapsed = (now - last).total_seconds()
+                remaining = _GENERATE_RATE_LIMIT_SECONDS - elapsed
+                if remaining > 0:
+                    raise HTTPException(
+                        status_code=429,
+                        detail=f"Too many requests. Please wait {int(remaining) + 1} more second(s) before generating again."
+                    )
+            _generate_last_request[current_user.id] = now
+
         payload_data = payload if payload else {}
         job_id = _progress_key(current_user, payload_data.get("job_id"))
         _set_generation_progress(job_id, "running", 1, "Preparing schedule", "Starting schedule generation")
@@ -1181,6 +1195,7 @@ async def generate_schedule(
 
         background_tasks.add_task(
             _run_generation_job,
+            generation_lease=generation_lease,
             job_id=job_id,
             user_id=current_user.id,
             start_date=start_date,
@@ -1193,6 +1208,7 @@ async def generate_schedule(
             daily_start_time=daily_start_t,
             daily_end_time=daily_end_t,
         )
+        generation_queued = True
         return {
             "status": "accepted",
             "message": "Schedule generation started. Progress will update automatically.",
@@ -1222,6 +1238,11 @@ async def generate_schedule(
         if isinstance(e, HTTPException):
             raise e
         raise HTTPException(status_code=500, detail=humanize_error(e, "Schedule generation failed"))
+    finally:
+        # Once queued, only the worker may release the reservation, including
+        # while a cancellation request is still waiting for it to stop.
+        if not generation_queued:
+            generation_lease.release()
         
 class UpdateExamRequest(BaseModel):
     room_id: Optional[int] = None

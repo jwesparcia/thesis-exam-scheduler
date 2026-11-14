@@ -8,7 +8,7 @@ import io
 import os
 from datetime import datetime, date, timedelta, timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
-from sqlalchemy import text, func
+from sqlalchemy import text, func, and_, or_
 from .auth import get_current_user, require_role
 from utils.logging import log_activity
 from .exams import is_generation_ongoing
@@ -65,6 +65,35 @@ def read_excel_with_fallback(content: bytes, filename: str):
         except Exception:
             raise Exception(f"Could not read Excel file with any engine: {str(e)}")
 
+def _with_assignment_counts(db: Session, proctors: list):
+    """Read current duties separately from cached proctor profile information."""
+    proctor_ids = [proctor["id"] for proctor in proctors]
+    counts = {}
+    if proctor_ids:
+        rows = (
+            db.query(models.Exam.proctor_id, models.Exam.status, func.count(models.Exam.id))
+            .filter(
+                models.Exam.proctor_id.in_(proctor_ids),
+                models.Exam.status.in_(["posted", "draft", "saved"]),
+            )
+            .group_by(models.Exam.proctor_id, models.Exam.status)
+            .all()
+        )
+        for proctor_id, status, count in rows:
+            counts.setdefault(proctor_id, {})[status] = count
+    return [
+        {
+            **proctor,
+            "posted_exam_count": counts.get(proctor["id"], {}).get("posted", 0),
+            "pending_exam_count": (
+                counts.get(proctor["id"], {}).get("draft", 0)
+                + counts.get(proctor["id"], {}).get("saved", 0)
+            ),
+        }
+        for proctor in proctors
+    ]
+
+
 @router.get("/")
 def get_proctors(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     if current_user.role not in ["admin", "proctor", "program_head"]:
@@ -72,7 +101,7 @@ def get_proctors(db: Session = Depends(get_db), current_user: models.User = Depe
 
     cached = cache.get("proctors:all")
     if cached is not None:
-        return cached
+        return _with_assignment_counts(db, cached)
 
     proctors = db.query(models.Proctor).all()
     teacher_ids = [p.teacher_id for p in proctors if p.teacher_id]
@@ -107,7 +136,7 @@ def get_proctors(db: Session = Depends(get_db), current_user: models.User = Depe
             ]
         })
     cache.set("proctors:all", result, TTL_PROCTORS)
-    return result
+    return _with_assignment_counts(db, result)
 
 @router.post("/")
 def create_proctor(proctor: dict, db: Session = Depends(get_db), current_user: models.User = Depends(require_role(["admin"]))):
@@ -647,8 +676,38 @@ def send_reminder(id: int, db: Session = Depends(get_db), current_user: models.U
     proctor = db.query(models.Proctor).get(id)
     if not proctor:
         raise HTTPException(status_code=404, detail="Proctor not found")
+
+    account_links = [models.User.proctor_id == proctor.id]
+    if proctor.teacher_id is not None:
+        # Older proctor accounts may only have the teacher link. Never fall
+        # back to an account explicitly linked to a different proctor.
+        account_links.append(and_(
+            models.User.proctor_id.is_(None),
+            models.User.teacher_id == proctor.teacher_id,
+        ))
+    recipients = db.query(models.User).filter(
+        models.User.role.in_(["proctor", "teacher"]),
+        or_(*account_links),
+    ).all()
+    if not recipients:
+        raise HTTPException(
+            status_code=409,
+            detail="This proctor has no linked login account. Create or link their proctor account before sending a reminder.",
+        )
+
+    db.add_all([
+        models.Notification(
+            user_id=recipient.id,
+            message="Reminder: Please upload your teaching schedule in My Teaching Schedule so your exam proctoring availability can be recorded.",
+            type="reminder",
+            related_id=proctor.id,
+            is_read=False,
+        )
+        for recipient in recipients
+    ])
+    db.commit()
     log_activity(db, current_user.id, "PROCTOR_REMINDER_SENT", f"Proctor: {proctor.name}")
-    return {"message": f"Reminder sent to {proctor.name}"}
+    return {"message": f"Upload reminder sent to {proctor.name}'s notifications."}
 
 @router.delete("/{proctor_id}/schedule")
 def delete_proctor_schedule(proctor_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
