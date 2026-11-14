@@ -10,11 +10,12 @@ from .auth import get_current_user, require_role
 from .rescheduling import find_department_admin
 from utils.logging import log_activity
 from services.auto_rescheduler import get_assigned_student_count_for_room, get_solo_rescheduled_exam_ids
+from utils.exam_batch_labels import get_exam_batch_numbers
 
 router = APIRouter(prefix="/student", tags=["Student"])
 
 # Helper function to build exam response
-def build_exam_response(exams):
+def build_exam_response(exams, batch_numbers=None):
     result = []
     for e in exams:
         subject = e.subject
@@ -49,6 +50,7 @@ def build_exam_response(exams):
             "year_level": year.name if year else "-",
             "semester": e.semester,
             "term": e.term,
+            "batch_number": (batch_numbers or {}).get(e.id, e.batch_number or 1),
             "exam_date": full_date,
             "start_time": start_time,
             "end_time": end_time,
@@ -184,14 +186,14 @@ def get_student_exams(
 
     cached = cache.get(cache_key)
     # Refresh older cached responses that lack the fields used for term selection.
-    if cached is not None and all("term" in row and "department" in row for row in cached):
+    if cached is not None and all("term" in row and "department" in row and "batch_number" in row for row in cached):
         return cached
 
     # Soft lock: prevent stampede when key expires under load
     won_lock = cache.acquire_fill_lock(cache_key)
     if not won_lock:
         waited = cache.wait_for_fill(cache_key)
-        if waited is not None and all("term" in row and "department" in row for row in waited):
+        if waited is not None and all("term" in row and "department" in row and "batch_number" in row for row in waited):
             return waited
         # Fallback: populate ourselves if the lock holder failed
 
@@ -218,7 +220,7 @@ def get_student_exams(
         .order_by(Timeslot.date, Timeslot.start_time)
         .all()
     )
-    result = build_exam_response(exams)
+    result = build_exam_response(exams, get_exam_batch_numbers(db, exams))
     cache.set(cache_key, result, TTL_EXAM_SCHEDULE)
     return result
 
@@ -780,7 +782,7 @@ def get_custom_exams(
 
     cache_key = f"exam_schedule:irregular:{current_user.id}"
     cached = cache.get(cache_key)
-    if cached is not None and all("term" in row and "department" in row for row in cached):
+    if cached is not None and all("term" in row and "department" in row and "batch_number" in row for row in cached):
         return cached
 
     selections = db.query(IrregularSelection).filter(IrregularSelection.user_id == current_user.id).all()
@@ -874,7 +876,7 @@ def get_custom_exams(
     from datetime import date as dt_date, time as dt_time
     exams_list.sort(key=lambda x: (x.timeslot.date if x.timeslot else dt_date.min, x.timeslot.start_time if x.timeslot else dt_time.min))
 
-    result = build_exam_response(exams_list)
+    result = build_exam_response(exams_list, get_exam_batch_numbers(db, exams_list))
     cache.set(cache_key, result, TTL_EXAM_SCHEDULE)
     return result
 

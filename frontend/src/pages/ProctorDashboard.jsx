@@ -43,6 +43,7 @@ import ExamTermScheduleSelector from "../components/ExamTermScheduleSelector";
 import useExamTermSchedule from "../hooks/useExamTermSchedule";
 import { getExamScheduleKey } from "../utils/examTerms";
 import api from "../api";
+import ExamBatchBadge from "../components/ExamBatchBadge";
 
 function ProctorManual() {
   const { theme } = useTheme();
@@ -2469,7 +2470,7 @@ export default function ProctorDashboard() {
                                       <div className="min-w-0">
                                         <h4 className={`font-bold text-sm leading-tight break-words ${isDark ? "text-white" : "text-slate-900"}`}>
                                           {exam.subject_name}
-                                        </h4>
+                                        </h4><ExamBatchBadge batchNumber={exam.batch_number} />
                                         <p className={`text-xs mt-1 font-medium flex items-center gap-1.5 ${isDark ? "text-slate-400" : "text-slate-500"}`}>
                                           <span className="font-mono font-bold text-slate-400 dark:text-slate-500">{exam.subject_code}</span>
                                           <span>•</span>
@@ -2587,7 +2588,7 @@ export default function ProctorDashboard() {
                                 <div className="min-w-0">
                                   <h4 className={`font-bold text-sm sm:text-base leading-snug break-words ${isDark ? "text-white" : "text-slate-900"}`}>
                                     {exam.subject_name}
-                                  </h4>
+                                  </h4><ExamBatchBadge batchNumber={exam.batch_number} />
                                   <p className={`text-xs mt-1 font-medium flex items-center gap-1.5 flex-wrap ${isDark ? "text-slate-400" : "text-slate-500"}`}>
                                     <span className="font-mono font-bold text-slate-400 dark:text-slate-500">{exam.subject_code}</span>
                                     <span>•</span>
@@ -2697,7 +2698,7 @@ export default function ProctorDashboard() {
                           <div className="flex items-start justify-between gap-3 mb-5">
                             <div className="min-w-0 flex flex-col gap-1.5">
                               <span className={`inline-block w-fit px-2 py-0.5 rounded text-xs font-bold tracking-widest uppercase mb-1 ${isDark ? "bg-blue-500/20 text-blue-400" : "bg-blue-50 text-blue-600"}`}>{exam.section_name}</span>
-                              <h3 className={`text-lg sm:text-xl font-bold leading-tight break-words ${isDark ? "text-white" : "text-slate-900"}`}>{exam.subject_name}</h3>
+                              <h3 className={`text-lg sm:text-xl font-bold leading-tight break-words ${isDark ? "text-white" : "text-slate-900"}`}>{exam.subject_name}</h3><ExamBatchBadge batchNumber={exam.batch_number} />
                               <p className={`text-xs font-medium ${isDark ? "text-slate-500" : "text-slate-500"}`}>ID: {exam.subject_code}</p>
                               <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>Instructor: <span className="font-semibold">{exam.instructor_name || "Not assigned"}</span></p>
                             </div>

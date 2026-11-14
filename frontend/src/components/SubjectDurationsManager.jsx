@@ -461,7 +461,7 @@ function SubjectModal({ open, onClose, onSave, courses, yearLevels, departments 
                   <span className="text-xs font-bold">Fixed Time Slot</span>
                 </div>
                 <p className="text-xs mt-1.5 opacity-80 leading-snug">
-                  Strictly schedule on a specific day & time slot. Excess sections spill over to next slot.
+                  Start on the selected day and time slot. Overflow batches continue later on the same day.
                 </p>
               </button>
             </div>
@@ -544,7 +544,7 @@ function SubjectModal({ open, onClose, onSave, courses, yearLevels, departments 
                 }`}>
                   <span className="font-bold text-amber-500 mt-0.5">Room Policy:</span>
                   <span>
-                    When sections for this subject exceed total available exam rooms in this slot (e.g. shared GE subjects taken by all programs), the scheduler will fill this slot to capacity and automatically spill excess sections into the <strong>next consecutive time slot</strong>.
+                    Fixed subjects get room priority from the selected start time. Overflow sections continue in <strong>later available slots on the same day</strong>, keeping required section breaks and room seat capacities. If that day is full, add suitable rooms or choose an earlier start.
                   </span>
                 </div>
               </div>

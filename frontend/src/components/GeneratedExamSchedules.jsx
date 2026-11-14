@@ -16,6 +16,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { useTheme } from "../context/themeStore";
 import api from "../api";
+import ExamBatchBadge from "./ExamBatchBadge";
 import { useToast } from "../context/ToastContext";
 import TermScheduleOverview from "./TermScheduleOverview";
 import { getExamTerms } from "../utils/examTerms";
@@ -709,7 +710,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                                     <div className="flex items-start justify-between gap-3">
                                                         <div className="min-w-0">
                                                             <div className={`break-words text-xs font-bold font-mono ${isDark ? "text-slate-400" : "text-slate-500"}`}>{exam.subject_code}</div>
-                                                            <h4 className={`mt-1 break-words font-semibold ${isDark ? "text-slate-100" : "text-slate-900"}`}>{exam.subject_name}</h4>
+                                                            <h4 className={`mt-1 break-words font-semibold ${isDark ? "text-slate-100" : "text-slate-900"}`}>{exam.subject_name}</h4><ExamBatchBadge batchNumber={exam.batch_number} />
                                                         </div>
                                                         <span className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-bold uppercase ${
                                                             exam.status === "posted"
@@ -800,7 +801,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                                                         {e.status || "draft"}
                                                                     </span>
                                                                 </div>
-                                                                <div className={`font-semibold ${isDark ? "text-slate-100" : "text-slate-900"}`}>{e.subject_name}</div>
+                                                                <div className={`font-semibold ${isDark ? "text-slate-100" : "text-slate-900"}`}>{e.subject_name}</div><ExamBatchBadge batchNumber={e.batch_number} />
                                                             </td>
                                                             <td className="px-4 py-4">
                                                                 <div className="flex items-center gap-2">

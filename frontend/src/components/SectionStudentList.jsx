@@ -21,6 +21,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { useTheme } from "../context/themeStore";
 import api from "../api";
+import ExamBatchBadge from "./ExamBatchBadge";
 import { buildStudentAttendanceSheet } from "../utils/studentAttendancePrint";
 
 const STATUS_STYLES = {
@@ -642,6 +643,7 @@ export default function SectionStudentList() {
                         <div className={`font-bold text-sm ${isDark ? "text-white" : "text-slate-900"}`}>
                           {exam.subject_name}
                         </div>
+                        <ExamBatchBadge batchNumber={exam.batch_number} />
                         <span
                           className={`text-xs font-bold px-2 py-0.5 rounded-full border ${
                             isDark ? statusStyle.dark : statusStyle.light

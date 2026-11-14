@@ -5,6 +5,7 @@ from model import Exam, Timeslot, Room, Subject, Section, ExamBreakSetting, Teac
 from room_data import get_room_names_for_department
 from utils.exam_enrollment import ExamEnrollment
 from utils.exam_terms import normalize_exam_term
+from utils.fixed_exam_batches import plan_fixed_subject_batches
 
 # Time slots per day matching the official Tertiary Periodical Departmental Exam Schedule:
 # Morning:   7:00-8:30, 8:30-10:00, 10:00-11:30
@@ -794,7 +795,8 @@ def generate_exam_schedule(
     # Group subjects by canonical name.  One subject may be represented by
     # separate curriculum records for different programs or SHS strands (and
     # therefore different subject codes or configured durations).  They must
-    # take one shared exam session to prevent leakage.  A duration mismatch
+    # take one shared exam session to prevent leakage. Fixed papers may use
+    # coordinated overflow batches on their configured day only. A duration mismatch
     # uses the longest configured duration so every participant can complete
     # the same paper in that one sitting.
     report_progress(32, "Grouping subjects", "Synchronizing shared subjects across sections")
@@ -908,84 +910,40 @@ def generate_exam_schedule(
         if fixed_sub:
             f_day = fixed_sub.fixed_day
             f_start = parse_time_obj(fixed_sub.fixed_start_time)
-
             day_idx = min(max(1, f_day), len(exam_days)) - 1
             target_date = exam_days[day_idx]
-
-            # All timeslots on target_date matching group duration
             target_day_slots = [
                 ts for ts in timeslots
                 if ts.date == target_date
                 and ((ts.end_time.hour * 60 + ts.end_time.minute) - (ts.start_time.hour * 60 + ts.start_time.minute)) == group_dur
             ]
             target_day_slots.sort(key=lambda ts: (ts.start_time, ts.end_time))
+            if not target_day_slots or not f_start:
+                raise ValueError(
+                    f"No suitable time slot for fixed subject '{fixed_sub.name}' on its fixed day {target_date}. "
+                    "Adjust the fixed start or daily examination window."
+                )
 
-            if target_day_slots and f_start:
-                def _diff_m(t1, t2):
-                    return abs((t1.hour * 60 + t1.minute) - (t2.hour * 60 + t2.minute))
-
-                primary_slot = min(target_day_slots, key=lambda ts: _diff_m(ts.start_time, f_start))
-                p_idx = target_day_slots.index(primary_slot)
-                ordered_fixed_slots = target_day_slots[p_idx:]
-
-                # If room demand exceeds available slots on this day, spill over to subsequent days
-                for next_d in exam_days[day_idx + 1:]:
-                    next_day_slots = [
-                        ts for ts in timeslots
-                        if ts.date == next_d
-                        and ((ts.end_time.hour * 60 + ts.end_time.minute) - (ts.start_time.hour * 60 + ts.start_time.minute)) == group_dur
-                    ]
-                    next_day_slots.sort(key=lambda ts: (ts.start_time, ts.end_time))
-                    ordered_fixed_slots.extend(next_day_slots)
-            else:
-                ordered_fixed_slots = [
-                    ts for ts in timeslots
-                    if ((ts.end_time.hour * 60 + ts.end_time.minute) - (ts.start_time.hour * 60 + ts.start_time.minute)) == group_dur
-                ]
-
-            slot_limit = max(1, len(room_ids))
-            cur_slot_pos = 0
-            cur_slot_count = 0
-
+            # Retain the established nearest-slot interpretation of the fixed
+            # start. Room overflow may continue only later on this same day.
+            primary_slot = min(target_day_slots, key=lambda ts: abs(time_to_minutes(ts.start_time) - time_to_minutes(f_start)))
             for c_key, cohort_sections in synchronized_cohort_items:
                 sample_sec, sample_sub = cohort_sections[0]
-                classification = classify_subject(sample_sub.name, sample_sub.category)
-                req_dur = group_dur
-                break_seconds_by_section = {
-                    sec.id: _break_after_exam(sub.category)
-                    for sec, sub in cohort_sections
-                }
                 course_name = sample_sec.course.name if (sample_sec and sample_sec.course) else (sample_sub.course.name if sample_sub.course else f"Course {c_key[0]}")
-
-                # A shared subject is never split between sessions.  If its
-                # combined sections cannot fit at this fixed time, final
-                # allocation stops with a clear capacity error instead.
-                cohort_chunks = [cohort_sections]
-                for chunk_idx, chunk_secs in enumerate(cohort_chunks):
-                    chunk_len = len(chunk_secs)
-                    if cur_slot_count + chunk_len > slot_limit and cur_slot_count > 0:
-                        if cur_slot_pos + 1 < len(ordered_fixed_slots):
-                            cur_slot_pos += 1
-                            cur_slot_count = 0
-
-                    assigned_slot = ordered_fixed_slots[cur_slot_pos] if ordered_fixed_slots else None
-                    allowed_slot_ids = [assigned_slot.id] if assigned_slot else [s.id for s in timeslots]
-                    cur_slot_count += chunk_len
-
-                    g_suffix = f" pt{chunk_idx + 1}" if len(cohort_chunks) > 1 else ""
-                    g_name = f"{name_key} ({course_name} {sample_sub.year_level_id}){g_suffix}"
-                    groups.append({
-                        "name": g_name,
-                        "sections": chunk_secs,
-                        "allowed_slots": allowed_slot_ids,
-                        "preferred_slots": allowed_slot_ids,
-                        "classification": classification,
-                        "duration": req_dur,
-                        "break_seconds_by_section": break_seconds_by_section,
-                        "is_fixed": True,
-                        "fixed_slot_id": assigned_slot.id if assigned_slot else None,
-                        "synchronized_subject": True,
-                    })
+                groups.append({
+                    "name": f"{name_key} ({course_name} {sample_sub.year_level_id})",
+                    "sections": cohort_sections,
+                    "allowed_slots": [primary_slot.id],
+                    "preferred_slots": [primary_slot.id],
+                    "classification": classify_subject(sample_sub.name, sample_sub.category),
+                    "duration": group_dur,
+                    "break_seconds_by_section": {
+                        sec.id: _break_after_exam(sub.category) for sec, sub in cohort_sections
+                    },
+                    "is_fixed": True,
+                    "fixed_slot_id": primary_slot.id,
+                    "synchronized_subject": True,
+                })
         else:
             # Not fixed to a specific timeslot: follow distribution rules
             for c_key, cohort_sections in synchronized_cohort_items:
@@ -1054,6 +1012,15 @@ def generate_exam_schedule(
                     "is_fixed": False,
                     "synchronized_subject": True,
                 })
+
+    # Coordinate all fixed papers together before ordinary subject placement.
+    # Only fixed papers may split into room-safe batches, all on their fixed day.
+    groups = plan_fixed_subject_batches(
+        groups, timeslot_map, generated_timeslot_ids, rooms, posted_exams,
+        {sec.id: enrollment.regular_count(sec) for sec in sections},
+        {sec.id: section_daily_exam_limit(sec.id) for sec in sections},
+        _break_after_exam,
+    )
 
     # -------------------------
     # Preprocessing for Performance
@@ -1282,6 +1249,8 @@ def generate_exam_schedule(
             "slot_proctors": slot_proctors,
             "duration": g.get("duration", 75),
             "is_fixed": g.get("is_fixed", False),
+            "fixed_room_ids": g.get("fixed_room_ids"),
+            "batch_number": g.get("batch_number", 1),
             "synchronized_subject": g.get("synchronized_subject", False),
         })
 
@@ -2825,11 +2794,9 @@ def generate_exam_schedule(
                 ))
 
             if group.get("synchronized_subject"):
-                # Anti-leakage is a hard rule.  Every program or strand that
-                # takes this named subject must fit in the *same* room-safe
-                # timeslot, without a section overlap.  Do not degrade to a
-                # later batch, even if doing so would otherwise finish a draft
-                # schedule.
+                # Every synchronized group must fit in its selected sitting.
+                # Fixed overflow has already been divided into same-day batches;
+                # ordinary shared papers remain one indivisible group.
                 room_safe_slots = [
                     slot_idx for slot_idx in candidate_slots
                     if available_room_count(slot_idx, req_dur) >= demand
@@ -3190,6 +3157,11 @@ def generate_exam_schedule(
         group_order = sorted(
             range(len(preprocessed_groups)),
             key=lambda idx: (
+                0 if preprocessed_groups[idx].get("fixed_room_ids") else 1,
+                timeslot_info_list[best_individual[idx]]["date"]
+                if preprocessed_groups[idx].get("fixed_room_ids") else date.min,
+                timeslot_info_list[best_individual[idx]]["start_m"]
+                if preprocessed_groups[idx].get("fixed_room_ids") else 0,
                 len(preprocessed_groups[idx]["allowed_slots"]),
                 0 if preprocessed_groups[idx].get("synchronized_subject") else 1,
                 -shared_group_coordination_pressure(idx),
@@ -3222,6 +3194,11 @@ def generate_exam_schedule(
                 r_idx for r_idx in allowed_r_indices
                 if (r_idx, slot_idx) not in room_slots_set
             ]
+            if group.get("fixed_room_ids"):
+                available_r_indices = [
+                    r_idx for r_idx in available_r_indices
+                    if room_ids[r_idx] in group["fixed_room_ids"]
+                ]
 
             def room_key(r_idx):
                 load = room_loads[r_idx]
@@ -3515,9 +3492,9 @@ def generate_exam_schedule(
                 c_key = (prep_sec.get("course_id"), prep_sec.get("year_level_id"))
                 unassigned_by_course.setdefault(c_key, []).append(prep_sec)
 
-            # A synchronized subject must be complete at its one selected
-            # date/time.  Never defer an unassigned program or strand to a
-            # later batch because that would expose the examination paper.
+            # Complete each synchronized group at its selected date/time.
+            # Fixed batches are planned beforehand; ordinary shared papers
+            # must never be split here as a room-allocation fallback.
             if group.get("synchronized_subject") and unassigned_by_course:
                 shared_name = group["sections"][0].get("sub_name", "Shared subject")
                 raise ValueError(
@@ -3746,6 +3723,7 @@ def generate_exam_schedule(
                     year_level_id=prep_sec["year_level_id"],
                     semester=prep_sec["semester"],
                     term=term,
+                    batch_number=group.get("batch_number", 1),
                     status="draft",
                     proctor_id=None,
                 )

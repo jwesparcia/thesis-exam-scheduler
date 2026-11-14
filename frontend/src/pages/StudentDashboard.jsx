@@ -32,6 +32,7 @@ import ThemeToggle from "../components/ThemeToggle";
 import { useUser } from "../context/userStore";
 import { useNavigate } from "react-router-dom";
 import api from "../api";
+import ExamBatchBadge from "../components/ExamBatchBadge";
 import { useToast } from "../context/ToastContext";
 import SettingsDropdown from "../components/SettingsDropdown";
 import AccountSettingsSection from "../components/AccountSettingsSection";
@@ -1961,7 +1962,7 @@ export default function StudentDashboard() {
               <div className="min-w-0">
                 <h3 className={`font-bold text-base leading-snug break-words ${isDark ? "text-white" : "text-slate-900"}`}>
                   {exam.subject_name}
-                </h3>
+                </h3><ExamBatchBadge batchNumber={exam.batch_number} />
                 <div className={`mt-1 text-xs font-semibold ${isDark ? "text-slate-400" : "text-slate-500"}`}>
                   {exam.subject_code}
                 </div>
@@ -2395,7 +2396,7 @@ export default function StudentDashboard() {
                             return (
                               <tr key={exam.id} className={`${isDark ? "hover:bg-slate-700/30" : "hover:bg-slate-50"} transition ${isConflicting ? (isDark ? "bg-rose-950/20 border-l-4 border-rose-500" : "bg-rose-50/70 border-l-4 border-rose-500") : ""}`}>
                                 <td className="px-4 sm:px-6 py-3 sm:py-4">
-                                  <div className={`font-bold ${isDark ? "text-white" : "text-slate-900"}`}>{exam.subject_name}</div>
+                                  <div className={`font-bold ${isDark ? "text-white" : "text-slate-900"}`}>{exam.subject_name}</div><ExamBatchBadge batchNumber={exam.batch_number} />
                                   <div className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>{exam.subject_code}</div>
                                   {isConflicting && <div className="mt-1 space-y-0.5 text-xs text-rose-600 dark:text-rose-400"><div className="font-bold">CONFLICT DETECTED</div>{conflictingExams.map((peer) => <div key={peer.id} className="font-medium">Overlaps with {peer.subject_name} ({peer.category || "uncategorized"}) · {peer.start_time} - {peer.end_time}</div>)}</div>}
                                 </td>
@@ -2463,7 +2464,7 @@ export default function StudentDashboard() {
                                     const canReschedule = isConflicting && eligibility.canReschedule;
                                     return (
                                       <tr key={exam.id} className={`${isDark ? "hover:bg-slate-800/40" : "hover:bg-slate-50/80"} transition ${isConflicting ? (isDark ? "bg-rose-950/20 border-l-4 border-rose-500" : "bg-rose-50/70 border-l-4 border-rose-500") : ""}`}>
-                                        <td className={`px-4 sm:px-6 py-3.5 border-t ${isDark ? "border-slate-800" : "border-slate-200"}`}><div className={`font-bold ${isDark ? "text-slate-100" : "text-slate-900"}`}>{exam.subject_name}</div><div className={`text-xs font-mono font-medium ${isDark ? "text-slate-400" : "text-slate-500"}`}>{exam.subject_code}</div>{isConflicting && <div className={`mt-1.5 p-2 rounded-lg text-xs font-medium border ${isDark ? "bg-rose-950/40 text-rose-300 border-rose-800/60" : "bg-rose-50 text-rose-700 border-rose-200"}`}><div className="font-bold uppercase tracking-wider flex items-center gap-1"><ExclamationCircleIcon className="w-3.5 h-3.5" /> CONFLICT DETECTED</div>{conflictingExams.map((peer) => <div key={peer.id} className="mt-0.5">Overlaps with {peer.subject_name} ({peer.category || "uncategorized"}) · {peer.start_time} - {peer.end_time}</div>)}</div>}</td>
+                                        <td className={`px-4 sm:px-6 py-3.5 border-t ${isDark ? "border-slate-800" : "border-slate-200"}`}><div className={`font-bold ${isDark ? "text-slate-100" : "text-slate-900"}`}>{exam.subject_name}</div><ExamBatchBadge batchNumber={exam.batch_number} /><div className={`text-xs font-mono font-medium ${isDark ? "text-slate-400" : "text-slate-500"}`}>{exam.subject_code}</div>{isConflicting && <div className={`mt-1.5 p-2 rounded-lg text-xs font-medium border ${isDark ? "bg-rose-950/40 text-rose-300 border-rose-800/60" : "bg-rose-50 text-rose-700 border-rose-200"}`}><div className="font-bold uppercase tracking-wider flex items-center gap-1"><ExclamationCircleIcon className="w-3.5 h-3.5" /> CONFLICT DETECTED</div>{conflictingExams.map((peer) => <div key={peer.id} className="mt-0.5">Overlaps with {peer.subject_name} ({peer.category || "uncategorized"}) · {peer.start_time} - {peer.end_time}</div>)}</div>}</td>
                                         <td className={`px-4 sm:px-6 py-3.5 border-t ${isDark ? "border-slate-800" : "border-slate-200"}`}><span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${exam.category === "major" ? (isDark ? "bg-purple-950/50 text-purple-200 border border-purple-700/60" : "bg-purple-50 text-purple-700 border border-purple-200") : (isDark ? "bg-blue-950/50 text-blue-200 border border-blue-700/60" : "bg-blue-50 text-blue-700 border border-blue-200")}`}>{exam.category ? exam.category.toUpperCase() : "GENERAL"}</span></td>
                                         <td className={`px-4 sm:px-6 py-3.5 border-t ${isDark ? "border-slate-800" : "border-slate-200"}`}><div className={`flex items-center gap-1.5 font-medium ${isDark ? "text-slate-200" : "text-slate-800"}`}><CalendarIcon className="w-3.5 h-3.5 text-blue-500" />{formatDate(exam.exam_date)}</div><div className={`flex items-center gap-1.5 mt-1 text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}><ClockIcon className="w-3.5 h-3.5 text-purple-500" />{exam.start_time} - {exam.end_time}</div></td>
                                         <td className={`px-4 sm:px-6 py-3.5 border-t ${isDark ? "border-slate-800" : "border-slate-200"}`}><div className="flex items-center gap-1.5"><MapPinIcon className={`w-3.5 h-3.5 ${isDark ? "text-slate-400" : "text-slate-500"}`} /><span className={`px-2 py-0.5 rounded text-xs font-medium ${isDark ? "bg-slate-800 text-slate-200 border border-slate-700" : "bg-slate-100 text-slate-700 border border-slate-200"}`}>{exam.room}</span></div><div className={`mt-1 text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>{exam.course_name} • {exam.year_level}</div></td>

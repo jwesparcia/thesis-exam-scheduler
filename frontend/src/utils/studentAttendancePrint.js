@@ -54,7 +54,7 @@ export function buildStudentAttendanceSheet(exam, students, generatedAt = new Da
       <thead>
         <tr><th colspan="5" class="exam-heading">
           <h1>Exam Attendance List</h1>
-          <p class="subject">${escapeHtml(exam.subject_code)} - ${escapeHtml(exam.subject_name)}</p>
+          <p class="subject">${escapeHtml(exam.subject_code)} - ${escapeHtml(exam.subject_name)}${Number.isInteger(exam.batch_number) && exam.batch_number > 1 ? ` · Batch ${exam.batch_number}` : ""}</p>
           <p class="meta">
             Section: ${escapeHtml(exam.section_name)}${exam.is_rescheduled ? " (Rescheduled)" : ""}
             &nbsp; | &nbsp; Room: ${escapeHtml(exam.room || "Unassigned")}<br />

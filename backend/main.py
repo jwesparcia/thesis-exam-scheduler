@@ -73,6 +73,11 @@ def on_startup():
                 "ALTER TABLE rescheduling_requests ADD COLUMN rescheduled_exam_id INTEGER REFERENCES exams(id)",
             )
             _add_column_if_missing(
+                "exams",
+                "batch_number",
+                "ALTER TABLE exams ADD COLUMN batch_number INTEGER",
+            )
+            _add_column_if_missing(
                 "users",
                 "active_session_id",
                 "ALTER TABLE users ADD COLUMN active_session_id VARCHAR(255)",

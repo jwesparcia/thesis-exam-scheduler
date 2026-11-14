@@ -13,6 +13,7 @@ from model import Exam, Subject, Section, Room, Timeslot, Course, YearLevel, Tea
 from utils.scheduler import generate_exam_schedule, validate_proctor_availability
 from utils.errors import humanize_error
 from utils.exam_terms import require_exam_term
+from utils.exam_batch_labels import get_exam_batch_numbers
 from datetime import datetime, time
 from threading import Lock
 from typing import Optional
@@ -390,6 +391,7 @@ def get_exams(
                 instructor_names.append(assignment.teacher.name)
 
     result = []
+    batch_numbers = get_exam_batch_numbers(db, exams)
     for e in exams:
         subject = e.subject
         section = e.section
@@ -426,6 +428,7 @@ def get_exams(
             "year_level": year.name if year else "-",
             "semester": e.semester,
             "term": e.term or "Midterm",
+            "batch_number": batch_numbers[e.id],
             "status": e.status or "draft",
             "exam_date": full_date,
             "exam_date_iso": timeslot.date.isoformat() if timeslot else None,
@@ -1889,6 +1892,7 @@ def download_exam_schedule(
         return (t_date, t_start, c_name, y_name, s_name)
 
     exams.sort(key=sort_key)
+    batch_numbers = get_exam_batch_numbers(db, exams)
 
     # --- Build Excel workbook ---
     wb = openpyxl.Workbook()
@@ -1907,8 +1911,8 @@ def download_exam_schedule(
     thin = Side(border_style="thin", color="B0C4DE")
     border = Border(left=thin, right=thin, top=thin, bottom=thin)
 
-    COL_HEADERS = ["#", "Date", "Time", "Course", "Year Level", "Section", "Term", "Subject Code", "Subject Name", "Room", "Proctor", "Status"]
-    COL_WIDTHS  = [5,   22,     20,     12,       14,           14,        12,     14,             32,             12,     28,        10]
+    COL_HEADERS = ["#", "Date", "Time", "Course", "Year Level", "Section", "Term", "Subject Code", "Subject Name", "Room", "Proctor", "Status", "Batch"]
+    COL_WIDTHS  = [5,   22,     20,     12,       14,           14,        12,     14,             32,             12,     28,        10,       12]
 
     # Create sheet
     dept_name = department if department else "All"
@@ -1977,6 +1981,7 @@ def download_exam_schedule(
                 room_name,
                 proctor_name,
                 (exam.status or "-").capitalize(),
+                f"Batch {batch_numbers[exam.id]}" if batch_numbers[exam.id] > 1 else "",
             ]
 
             for col_idx, value in enumerate(row_values, start=1):

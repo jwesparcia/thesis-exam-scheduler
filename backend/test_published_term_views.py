@@ -14,6 +14,7 @@ os.environ["SECRET_KEY"] = "isolated-published-term-views-test-secret-key-123456
 from core import Base, SessionLocal, cache, engine
 from model import Course, YearLevel, Section, Subject, User, Proctor, Exam, Timeslot, IrregularSelection, ReschedulingRequest
 from routers.exams import get_exams
+from routers.exams import download_exam_schedule
 from routers.student import get_student_exams, get_custom_exams, get_student_requests
 
 
@@ -107,6 +108,30 @@ class PublishedTermViewTests(unittest.TestCase):
             self.assertEqual(len(requests), 1)
             self.assertEqual((requests[0]["department"], requests[0]["semester"], requests[0]["term"]),
                              ("College", 1, "Prelim"))
+
+    def test_batch_number_is_available_to_students_and_proctors(self):
+        self.prelim.batch_number = 3
+        self.db.commit()
+        regular = get_student_exams(current_user=self.regular, db=self.db)
+        irregular = get_custom_exams(current_user=self.irregular, db=self.db)
+        for rows in (regular, irregular, self.proctor_exams()):
+            self.assertEqual(next(row["batch_number"] for row in rows if row["id"] == self.prelim.id), 3)
+
+    def test_master_export_includes_the_overflow_batch_label(self):
+        import asyncio
+        import io
+        import openpyxl
+        self.prelim.batch_number = 3
+        self.db.commit()
+        response = download_exam_schedule(status="posted", course_id=None, year_level_id=None,
+                                         semester=1, department="College", term="Prelim",
+                                         db=self.db, current_user=self.faculty)
+        async def read_body():
+            return b"".join([chunk async for chunk in response.body_iterator])
+        workbook = openpyxl.load_workbook(io.BytesIO(asyncio.run(read_body())))
+        rows = list(workbook.active.values)
+        batch_column = rows[1].index("Batch")
+        self.assertEqual(rows[2][batch_column], "Batch 3")
 
 
 if __name__ == "__main__":

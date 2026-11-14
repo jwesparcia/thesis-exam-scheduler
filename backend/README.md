@@ -87,3 +87,21 @@ remain private to admins until the selected term is posted.
 - `DELETE /exams/clear` deletes only the supplied department, semester, and term. Bulk deletion across terms requires the explicit `all_terms=true` parameter.
 - College and SHS use the same separation, including SHS semesters 1, 2, and 3.
 - Student and proctor dashboards provide an examination-term selector for their posted schedules. Semester and department keep repeated term names separate; student requests and proctor attendance counts follow the selected schedule.
+
+## Fixed examination batches
+
+Fixed papers share a coordinated room plan before ordinary subjects are placed. When
+multiple fixed subjects compete for the same rooms, or one paper needs more rooms
+than a slot provides, sections take successive room-safe batches at or after the
+configured start on that fixed examination day. A section's next fixed paper is
+prioritized before starting another set of sections, retaining the existing break
+and daily-limit checks. Room seat capacity, posted bookings, and proctor constraints
+remain enforced. If the fixed day cannot hold all batches, generation reports the
+problem without moving the paper to a later day. Ordinary shared papers retain
+their single-sitting rule.
+
+Overflow exams show Batch 2, Batch 3, and subsequent labels in admin, student, and
+proctor schedules, attendance sheets, and the master Excel export. Original batches
+have no extra badge. New schedules store batch numbers; older schedules derive
+labels from their saved sittings without changing exam assignments. Backend startup
+adds the nullable `exams.batch_number` column to existing databases automatically.

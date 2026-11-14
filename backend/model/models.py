@@ -178,6 +178,8 @@ class Exam(Base):
     year_level_id = Column(Integer, ForeignKey("year_levels.id"))
     semester = Column(Integer)
     term = Column(String, default="Midterm")
+    # None identifies schedules created before batch labels were stored.
+    batch_number = Column(Integer, nullable=True)
     status = Column(String, default="draft")
     proctor_attendance = Column(String, default="pending")
     proctor_id = Column(Integer, ForeignKey("proctors.id"), nullable=True)

@@ -20,6 +20,7 @@ from routers.auth import require_role, get_current_user
 from utils.logging import log_activity
 from utils.errors import humanize_error
 from utils.student_names import format_student_name
+from utils.exam_batch_labels import get_exam_batch_numbers
 from datetime import datetime, time
 from pydantic import BaseModel
 
@@ -376,6 +377,7 @@ def get_exams_attendance_list(
 
     result = []
     referenced_students = {}
+    batch_numbers = get_exam_batch_numbers(db, exams)
 
     for exam in exams:
         section = exam.section
@@ -457,6 +459,7 @@ def get_exams_attendance_list(
 
         result.append({
             "exam_id": exam.id,
+            "batch_number": batch_numbers[exam.id],
             "subject_code": subject.code if subject else "-",
             "subject_name": subject.name if subject else "-",
             "section_name": section_name,
@@ -492,6 +495,7 @@ def get_exams_attendance_list(
         for e in result:
             compact_exams.append({
                 "exam_id": e["exam_id"],
+                "batch_number": e["batch_number"],
                 "subject_code": e["subject_code"],
                 "subject_name": e["subject_name"],
                 "section_name": e["section_name"],
