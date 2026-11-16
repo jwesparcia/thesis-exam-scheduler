@@ -24,12 +24,22 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Replace technical error text with a message users can understand.
+// Explain errors without hiding the server's reason or developer diagnostics.
 // Also intercept 401 session invalidations (e.g., account logged in from another device)
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
     try {
+      // Download requests receive error responses as blobs as well. Decode the
+      // JSON error before formatting it so the actual reason remains available.
+      if (typeof Blob !== "undefined" && error.response?.data instanceof Blob) {
+        const body = await error.response.data.text();
+        try {
+          error.response.data = JSON.parse(body);
+        } catch {
+          error.response.data = body;
+        }
+      }
       if (error.response && error.response.status === 401) {
         const isLoginReq = error.config?.url && error.config.url.includes("/auth/login");
         if (!isLoginReq) {

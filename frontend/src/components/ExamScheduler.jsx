@@ -138,7 +138,7 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
         }
       } catch (err) {
         console.error("Error loading options:", err);
-        showError("Failed to connect to backend API");
+        showError(err.response?.data?.detail || "Failed to load schedule settings.");
       }
     };
     fetchOptions();
@@ -360,7 +360,7 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
       console.error(err);
       const status = err.response?.status;
       const message = err.response?.data?.detail || "Error generating schedule";
-      const isCancelled = message.toLowerCase().includes("cancelled") || message.toLowerCase().includes("cancel");
+      const isCancelled = /schedule generation (?:was )?cancelled/i.test(message);
       const isRateLimited = status === 429;
       const isGenerationBusy = status === 409 && message.includes("already generating");
 
@@ -446,7 +446,7 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
           return;
         }
       } catch (err) {
-        showError("Could not verify student accounts. Please try again.");
+        showError(err.response?.data?.detail || "Could not verify student accounts. Please try again.");
         return;
       }
 
@@ -795,7 +795,7 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
                     <div>
                       <h4 className="text-xs font-bold uppercase tracking-wider">Exam Allotted Durations</h4>
                       <p className="text-xs mt-0.5 opacity-90 leading-relaxed">
-                        School Standard: <strong>1h 15m (75 mins)</strong> &bull; BSA Major Subjects: <strong>2h 00m (120 mins)</strong>
+                        School Standard: <strong>1h 15m (75 mins)</strong> &bull; BA Major Subjects: <strong>2h 00m (120 mins)</strong>
                       </p>
                       <p className="text-xs opacity-75 mt-0.5">
                         To customize allotted time for specific subjects or courses, open the <strong>Subject Durations</strong> tab.
@@ -901,7 +901,7 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
                         <div className={`text-sm font-bold ${isDark ? "text-slate-100" : "text-slate-900"}`}>
                           {generationProgress.phase || (loading ? "Generating schedule" : "Schedule status")}
                         </div>
-                        <p className={`mt-1 text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+                        <p className={`mt-1 break-words whitespace-pre-wrap text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-600"}`}>
                           {generationProgress.detail || (loading ? "Preparing scheduler tasks..." : "Generation status is ready.")}
                         </p>
                       </div>

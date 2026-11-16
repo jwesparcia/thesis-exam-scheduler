@@ -2,8 +2,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from core import Base, engine
 from routers import catalog, scheduler, sections, exams, proctors, rescheduling, auth, student
+from utils.errors import add_error_reporting
+from services.program_updates import BM_THM_ADMIN_ACCOUNTS, rename_programs
 
 app = FastAPI()
+add_error_reporting(app)
 
 # CORS (only once)
 import os
@@ -36,6 +39,7 @@ app.add_middleware(
 
 @app.on_event("startup")
 def on_startup():
+    program_labels_changed = False
     try:
         print("Creating database tables...", flush=True)
         Base.metadata.create_all(bind=engine)
@@ -124,9 +128,9 @@ def on_startup():
             departments_data = [
                 ("GE", "General Education", "Oversees core curriculum, general education courses, and university-wide scheduling.", True, True),
                 ("ICT", "Information and Communications Technology", "Department for BSIT, BSCS, and BSCpE programs.", False, False),
-                ("BM", "Business and Management", "Department for Accountancy (BSA) and Business Administration.", False, False),
+                ("BM", "Business and Management", "Department for Accountancy (BA) and Business Administration.", False, False),
                 ("THM", "Tourism and Hospitality Management", "Department for BSTM and BSHM programs.", False, False),
-                ("AS", "Arts and Sciences", "Department for BSPsych, BMMA, and BACOMM programs.", False, False),
+                ("AS", "Arts and Sciences", "Department for BAPSYCH, BMMA, and BACOMM programs.", False, False),
                 ("CRIM", "Criminology", "Department for BSCrim program.", False, False),
                 ("SHS", "Senior High School", "Department for all Senior High School strands (STEM, ABM, HUMMS, etc.).", False, False),
             ]
@@ -174,39 +178,12 @@ def on_startup():
                 ge_admin.active_session_id = None
             db_session.commit()
 
-            # BM and THM are handled by one program head.  Preserve the BM
-            # account and its credentials while merging any legacy THM history.
-            bm_thm_admin = db_session.query(User).filter(User.email == "bm.admin@school.edu").first()
-            legacy_thm_admin = db_session.query(User).filter(User.email == "thm.admin@school.edu").first()
-            if legacy_thm_admin:
-                if bm_thm_admin:
-                    related_user_columns = [
-                        (ActivityLog, ActivityLog.user_id),
-                        (ChatMessage, ChatMessage.sender_id),
-                        (ChatMessage, ChatMessage.recipient_id),
-                        (IrregularSelection, IrregularSelection.user_id),
-                        (Notification, Notification.user_id),
-                        (PasswordResetToken, PasswordResetToken.user_id),
-                    ]
-                    for model, user_column in related_user_columns:
-                        db_session.query(model).filter(user_column == legacy_thm_admin.id).update(
-                            {user_column: bm_thm_admin.id},
-                            synchronize_session=False,
-                        )
-                    db_session.delete(legacy_thm_admin)
-                else:
-                    # Keep the only existing account and make it the shared,
-                    # canonical BM/THM account.
-                    legacy_thm_admin.email = "bm.admin@school.edu"
-                    bm_thm_admin = legacy_thm_admin
-            db_session.commit()
-
-            # 2. Program Head accounts. BM and THM deliberately share one account.
+            # 2. Separate Program Head accounts for each department.
             admin_accounts = [
                 ("General Academic Administrator", "ge.admin@school.edu", "GE", False),
                 ("Dr. Maria Santos", "admin@school.edu", "GE", True),
                 ("ICT Department Administrator", "ict.admin@school.edu", "ICT", False),
-                ("BM & THM Department Administrator", "bm.admin@school.edu", "BM", False),
+                *BM_THM_ADMIN_ACCOUNTS,
                 ("AS Department Administrator", "as.admin@school.edu", "AS", False),
                 ("CRIM Department Administrator", "crim.admin@school.edu", "CRIM", False),
                 ("SHS Department Administrator", "shs.admin@school.edu", "SHS", False),
@@ -242,11 +219,14 @@ def on_startup():
                     is_first_login=False,
                 ))
 
+            # Update program labels without replacing courses or schedules.
+            program_labels_changed = any(rename_programs(db_session).values())
+
             # Course to department mapping backfill
             course_dept_map = {
                 "BSIT": "ICT", "BSCS": "ICT", "BSCpE": "ICT",
-                "BSTM": "THM", "BSHM": "THM", "BSA": "BM",
-                "BSPsych": "AS", "BSCrim": "CRIM", "BMMA": "AS", "BACOMM": "AS",
+                "BSTM": "THM", "BSHM": "THM", "BA": "BM",
+                "BAPSYCH": "AS", "BSCrim": "CRIM", "BMMA": "AS", "BACOMM": "AS",
                 "STEM": "SHS", "ABM": "SHS", "HUMMS": "SHS", "Culinary": "SHS",
                 "Digital Arts": "SHS", "IT-MAWDEV": "SHS", "Tourism": "SHS",
             }
@@ -256,7 +236,7 @@ def on_startup():
                     c.department_code = dcode
 
             db_session.commit()
-            print("Program Head accounts and department links ensured on startup (BM and THM share one account)!")
+            print("Program Head accounts and department links ensured on startup (separate BM and THM accounts)!")
 
             # 2. Default YearLevels
             if db_session.query(YearLevel).count() == 0:
@@ -306,6 +286,9 @@ def on_startup():
     # Connect Redis cache (non-fatal — app works without Redis)
     from core import cache
     connected = cache.connect()
+    if connected and program_labels_changed:
+        cache.invalidate_catalog()
+        cache.delete("departments:all")
     if not connected:
         if os.getenv("REDIS_HOST"):
             print("[WARNING] Redis unavailable - running without cache (PostgreSQL only)", flush=True)

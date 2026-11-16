@@ -91,7 +91,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
             showSuccess(`Master schedule downloaded as "${filename}"`);
         } catch (err) {
             console.error("Download failed:", err);
-            showError("Failed to download schedule. Please try again.");
+            showError(err.response?.data?.detail || "Failed to download schedule. Please try again.");
         } finally {
             setDownloading(false);
         }
@@ -195,7 +195,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
             setAvailableProctors(proctorsRes.data || []);
         } catch (err) {
             console.error("Error loading edit options:", err);
-            showError("Failed to load room, timeslot, or proctor options.");
+            showError(err.response?.data?.detail || "Failed to load room, timeslot, or proctor options.");
         }
     };
 
@@ -308,7 +308,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                 setYears(yearRes.data);
             } catch (err) {
                 console.error("Error loading options:", err);
-                showError("Failed to connect to backend API");
+                showError(err.response?.data?.detail || "Failed to load course and year-level options.");
             }
         };
         fetchOptions();
@@ -354,8 +354,8 @@ export default function GeneratedExamSchedules({ isGenerating }) {
             try {
                 const res = await api.get("/exams/schedules", { params: { department: selectedDept, semester } });
                 if (current) setSavedSchedules(res.data);
-            } catch {
-                if (current) setScheduleSummaryError("Could not load saved schedules. Refresh this page to try again.");
+            } catch (err) {
+                if (current) setScheduleSummaryError(err.response?.data?.detail || "Could not load saved schedules. Refresh this page to try again.");
             } finally {
                 if (current) setScheduleSummaryLoading(false);
             }
@@ -401,6 +401,9 @@ export default function GeneratedExamSchedules({ isGenerating }) {
         groups[exam.section_name].push(exam);
         return groups;
     }, {});
+    const sortedSections = Object.entries(examsBySection).sort(([a], [b]) =>
+        a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" })
+    );
 
     return (
         <div className="w-full space-y-6">
@@ -682,7 +685,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                     <p className="text-sm">We couldn't find any generated exams for this selection. Try adjusting your filters or generate a new schedule in the first tab.</p>
                                 </div>
                             ) : (
-                                Object.entries(examsBySection).map(([sectionName, sectionExams]) => (
+                                sortedSections.map(([sectionName, sectionExams]) => (
                                     <div
                                         key={sectionName}
                                         className={`rounded-2xl p-6 mb-8 shadow-xs transition hover:shadow-sm ${isDark

@@ -134,7 +134,7 @@ export default function StudentImport({ isGenerating }) {
       setPage(res.data.page || targetPage);
     } catch (err) {
       console.error("Error fetching students directory:", err);
-      showError("Failed to load students directory");
+      showError(err.response?.data?.detail || "Failed to load students directory");
     } finally {
       setDirectoryLoading(false);
     }
@@ -232,7 +232,7 @@ export default function StudentImport({ isGenerating }) {
       link.parentNode.removeChild(link);
       showSuccess("Dummy student list with auto-assigned subjects downloaded successfully!");
     } catch (err) {
-      showError("Failed to download dummy student file");
+      showError(err.response?.data?.detail || "Failed to download dummy student file");
     }
   };
 

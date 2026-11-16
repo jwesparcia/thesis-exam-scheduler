@@ -242,6 +242,7 @@ def _format_exam_for_room_status(
         "department": course.category if course else "-",
         "year_level": year.name if year else "-",
         "semester": exam.semester,
+        "term": exam.term,
         "status": exam.status,
         "exam_date": exam_date,
         "start_time": start_time,
@@ -799,6 +800,7 @@ def get_room_status(
     department: str = Query("College", description="College, SHS, or All"),
     semester: Optional[int] = Query(None, description="Optional semester filter"),
     status: str = Query("all", description="draft, posted, or all"),
+    term: Optional[str] = Query(None, description="Optional exam term filter (Prelim, Midterm, Pre-Final, Final, or SHS term)"),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(["admin"]))
 ):
@@ -806,6 +808,7 @@ def get_room_status(
     selected_department = dept_val
     sem_val = semester if isinstance(semester, int) else (int(semester) if isinstance(semester, str) and semester.isdigit() else None)
     status_val = status if isinstance(status, str) else "all"
+    term_val = require_exam_term(term) if isinstance(term, str) and term.strip() and term.strip().lower() != "all" else None
     
     # Query rooms from the database directly
     rooms_query = db.query(Room).filter(Room.name != "Consultation Area")
@@ -836,6 +839,8 @@ def get_room_status(
         exam_query = exam_query.filter(or_(Course.category == selected_department, Course.department_code == selected_department))
     if sem_val is not None:
         exam_query = exam_query.filter(Exam.semester == sem_val)
+    if term_val is not None:
+        exam_query = exam_query.filter(Exam.term == term_val)
     if status_val in ["draft", "posted"]:
         exam_query = exam_query.filter(Exam.status == status_val)
 
@@ -1003,6 +1008,7 @@ def get_room_status(
         "filters": {
             "department": selected_department,
             "semester": semester,
+            "term": term_val,
             "status": status,
         },
         "summary": {

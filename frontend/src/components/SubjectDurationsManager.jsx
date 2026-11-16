@@ -664,7 +664,7 @@ export default function SubjectDurationsManager() {
       setLocalCategories(catMap);
     } catch (err) {
       console.error("Failed to load subjects:", err);
-      showError("Failed to load subjects");
+      showError(err.response?.data?.detail || "Failed to load subjects");
     } finally { setLoading(false); }
   };
 
@@ -937,15 +937,15 @@ export default function SubjectDurationsManager() {
           <div>
             <div className="flex items-center gap-2.5 mb-2">
               <span className="p-2 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400"><AcademicCapIcon className="w-5 h-5" /></span>
-              <h3 className={`font-bold text-sm ${isDark ? "text-white" : "text-slate-900"}`}>BSA Majors 2h Preset</h3>
+              <h3 className={`font-bold text-sm ${isDark ? "text-white" : "text-slate-900"}`}>BA Majors 2h Preset</h3>
             </div>
             <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-              BSA major subjects to <strong className="text-indigo-500">2:00h (120 mins)</strong>, others 1:15h.
+              BA major subjects to <strong className="text-indigo-500">2:00h (120 mins)</strong>, others 1:15h.
             </p>
           </div>
           <div className={`mt-4 pt-3 border-t ${isDark ? "border-indigo-800/40" : "border-indigo-100"} flex items-center justify-between`}>
-            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300">BSA 2h / Others 1h 15m</span>
-            <button onClick={() => handleApplyPreset("bsa_majors_2h", "BSA Majors 2h")} disabled={bulkApplying}
+            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300">BA 2h / Others 1h 15m</span>
+            <button onClick={() => handleApplyPreset("bsa_majors_2h", "BA Majors 2h")} disabled={bulkApplying}
               className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm transition disabled:opacity-50">Apply</button>
           </div>
         </div>

@@ -2,6 +2,7 @@ import os
 import dotenv
 import bcrypt
 from sqlalchemy import create_engine, text
+from services.program_updates import BM_THM_ADMIN_ACCOUNTS, rename_programs
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 dotenv_path = os.path.join(BASE_DIR, ".env")
@@ -38,9 +39,9 @@ def run_department_migration():
         departments = [
             ("GE", "General Education", "Oversees core curriculum, general education courses, and university-wide scheduling.", True, True),
             ("ICT", "Information and Communications Technology", "Department for BSIT, BSCS, and BSCpE programs.", False, False),
-            ("BM", "Business and Management", "Department for Accountancy (BSA) and Business Administration.", False, False),
+            ("BM", "Business and Management", "Department for Accountancy (BA) and Business Administration.", False, False),
             ("THM", "Tourism and Hospitality Management", "Department for BSTM and BSHM programs.", False, False),
-            ("AS", "Arts and Sciences", "Department for BSPsych, BMMA, and BACOMM programs.", False, False),
+            ("AS", "Arts and Sciences", "Department for BAPSYCH, BMMA, and BACOMM programs.", False, False),
             ("CRIM", "Criminology", "Department for BSCrim program.", False, False),
             ("SHS", "Senior High School", "Department for all Senior High School strands (STEM, ABM, HUMMS, etc.).", False, False),
         ]
@@ -72,7 +73,9 @@ def run_department_migration():
             "BSTM": "THM",
             "BSHM": "THM",
             "BSA": "BM",
+            "BA": "BM",
             "BSPsych": "AS",
+            "BAPSYCH": "AS",
             "BSCrim": "CRIM",
             "BMMA": "AS",
             "BACOMM": "AS",
@@ -200,47 +203,6 @@ def run_department_migration():
                 """), {"academic_head_id": academic_head_id})
         conn.commit()
 
-        # BM and THM are handled by one administrator. Retain the BM account
-        # and move all legacy THM-account history to it before removing the
-        # duplicate login.
-        bm_admin_id = conn.execute(text("""
-            SELECT id FROM users WHERE email = 'bm.admin@school.edu'
-        """)).scalar()
-        thm_admin_id = conn.execute(text("""
-            SELECT id FROM users WHERE email = 'thm.admin@school.edu'
-        """)).scalar()
-        if thm_admin_id:
-            if bm_admin_id:
-                related_user_columns = [
-                    ("activity_logs", "user_id"),
-                    ("chat_messages", "sender_id"),
-                    ("chat_messages", "recipient_id"),
-                    ("irregular_selections", "user_id"),
-                    ("notifications", "user_id"),
-                    ("password_reset_tokens", "user_id"),
-                ]
-                for table_name, column_name in related_user_columns:
-                    table_exists = conn.execute(
-                        text("SELECT to_regclass(:table_name)"),
-                        {"table_name": table_name},
-                    ).scalar()
-                    if table_exists:
-                        conn.execute(
-                            text(f"UPDATE {table_name} SET {column_name} = :bm_admin_id WHERE {column_name} = :thm_admin_id"),
-                            {"bm_admin_id": bm_admin_id, "thm_admin_id": thm_admin_id},
-                        )
-                conn.execute(
-                    text("DELETE FROM users WHERE id = :thm_admin_id"),
-                    {"thm_admin_id": thm_admin_id},
-                )
-            else:
-                conn.execute(text("""
-                    UPDATE users
-                    SET email = 'bm.admin@school.edu'
-                    WHERE id = :thm_admin_id
-                """), {"thm_admin_id": thm_admin_id})
-        conn.commit()
-
         # Keep the designated system administrator as the only seeded GE super admin.
         conn.execute(text("""
             UPDATE users
@@ -250,11 +212,11 @@ def run_department_migration():
         """))
         conn.commit()
 
-        # 8. Seed administrator accounts. BM and THM share one account.
+        # 8. Seed separate administrator accounts for each department.
         admin_accounts = [
             ("General Academic Administrator", "ge.admin@school.edu", "GE", False),
             ("ICT Department Administrator", "ict.admin@school.edu", "ICT", False),
-            ("BM & THM Department Administrator", "bm.admin@school.edu", "BM", False),
+            *BM_THM_ADMIN_ACCOUNTS,
             ("AS Department Administrator", "as.admin@school.edu", "AS", False),
             ("CRIM Department Administrator", "crim.admin@school.edu", "CRIM", False),
             ("SHS Department Administrator", "shs.admin@school.edu", "SHS", False),
@@ -277,7 +239,7 @@ def run_department_migration():
                 "is_super": asuper,
             })
         conn.commit()
-        print("[OK] Ensured 6 department-admin accounts covering all 7 departments.")
+        print("[OK] Ensured 7 separate department-admin accounts.")
 
         # 9. Add department_code to rescheduling_requests and backfill
         conn.execute(text("""
@@ -308,6 +270,10 @@ def run_department_migration():
         conn.commit()
         print("[OK] Backfilled rescheduling_requests with department_code.")
 
+    from sqlalchemy.orm import Session
+    with Session(engine) as db:
+        rename_programs(db)
+        db.commit()
     print("\n=== MIGRATION COMPLETE! ===")
 
 if __name__ == "__main__":

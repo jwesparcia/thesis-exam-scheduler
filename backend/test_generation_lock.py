@@ -128,6 +128,16 @@ class GenerationLockTests(unittest.TestCase):
             asyncio.run(tasks())
         self.assertFalse(generation_lock.is_generation_ongoing())
 
+    def test_worker_failure_progress_keeps_the_actual_error(self):
+        _, tasks = self.queue()
+        self.run_worker(tasks, scheduler_error=KeyError("section_id"))
+        progress = exams.get_generate_progress("test-job", self.user)
+        self.assertEqual(progress["status"], "failed")
+        self.assertIn("Schedule generation failed", progress["detail"])
+        self.assertIn("KeyError: 'section_id'", progress["detail"])
+        self.assertNotIn("Something went wrong", progress["detail"])
+        self.assertFalse(generation_lock.is_generation_ongoing())
+
     def test_legacy_endpoint_uses_same_lock(self):
         route = next(route for route in scheduler.router.routes if route.path == "/scheduler/generate")
         dependency = route.dependencies[0].dependency

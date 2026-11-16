@@ -57,15 +57,16 @@ def run_tests():
         bsit = db.query(Course).filter(Course.name == "BSIT").first()
         assert_true(bsit and bsit.department_code == "ICT", f"BSIT assigned to ICT department: {bsit.department_code if bsit else None}")
 
-        bsa = db.query(Course).filter(Course.name == "BSA").first()
-        assert_true(bsa and bsa.department_code == "BM", f"BSA assigned to BM department: {bsa.department_code if bsa else None}")
+        bsa = db.query(Course).filter(Course.name == "BA").first()
+        assert_true(bsa and bsa.department_code == "BM", f"BA assigned to BM department: {bsa.department_code if bsa else None}")
 
-        # TEST 3: Department administrator accounts, including shared BM/THM access
+        # TEST 3: Separate department administrator accounts
         print("\n--- Test 3: Department Administrator Accounts ---")
         admin_accounts = {
             "GE": ("ge.admin@school.edu", ["GE"]),
             "ICT": ("ict.admin@school.edu", ["ICT"]),
-            "BM & THM": ("bm.admin@school.edu", ["BM", "THM"]),
+            "BM": ("bm.admin@school.edu", ["BM"]),
+            "THM": ("thm.admin@school.edu", ["THM"]),
             "AS": ("as.admin@school.edu", ["AS"]),
             "CRIM": ("crim.admin@school.edu", ["CRIM"]),
             "SHS": ("shs.admin@school.edu", ["SHS"]),
@@ -80,8 +81,8 @@ def run_tests():
                 assert_true(verify_password("admin123", user.hashed_password), f"Account {email} password verification succeeds")
                 assert_true(user.is_super_admin == False, f"{label} Admin has is_super_admin=False")
 
-        legacy_thm_admin = db.query(User).filter(User.email == "thm.admin@school.edu").first()
-        assert_true(legacy_thm_admin is None, "Legacy THM-only administrator account is retired")
+        thm_admin = db.query(User).filter(User.email == "thm.admin@school.edu").first()
+        assert_true(thm_admin is not None, "THM has its own administrator account")
 
         # TEST 4: Configurable Subject Department & Multi-program support
         print("\n--- Test 4: Configurable Subject Department & Multi-Program Assignment ---")
@@ -143,15 +144,15 @@ def run_tests():
         ge_admin = db.query(User).filter(User.email == "ge.admin@school.edu").first()
         super_admin = db.query(User).filter(User.email == "admin@school.edu").first()
         ict_admin = db.query(User).filter(User.email == "ict.admin@school.edu").first()
-        bm_thm_admin = db.query(User).filter(User.email == "bm.admin@school.edu").first()
+        bm_admin = db.query(User).filter(User.email == "bm.admin@school.edu").first()
 
         assert_true(
-            find_department_admin(db, "BM").id == bm_thm_admin.id,
-            "BM rescheduling notifications route to the shared BM/THM Admin",
+            find_department_admin(db, "BM").id == bm_admin.id,
+            "BM rescheduling notifications route to the BM Admin",
         )
         assert_true(
-            find_department_admin(db, "THM").id == bm_thm_admin.id,
-            "THM rescheduling notifications route to the shared BM/THM Admin",
+            find_department_admin(db, "THM").id == thm_admin.id,
+            "THM rescheduling notifications route to the THM Admin",
         )
 
         # Create a mock request belonging to ICT
@@ -172,29 +173,34 @@ def run_tests():
         except HTTPException:
             assert_true(False, "ICT Admin was blocked from reviewing ICT request")
 
-        # 2. The shared BM/THM admin reviews ICT request -> Must be blocked with 403
+        # 2. The BM admin reviews ICT request -> Must be blocked with 403
         try:
-            check_request_department_access(test_request, bm_thm_admin, db)
-            assert_true(False, "BM/THM Admin was incorrectly allowed to review ICT request")
+            check_request_department_access(test_request, bm_admin, db)
+            assert_true(False, "BM Admin was incorrectly allowed to review ICT request")
         except HTTPException as e:
-            assert_true(e.status_code == 403, f"BM/THM Admin correctly blocked with 403 Forbidden: '{e.detail}'")
+            assert_true(e.status_code == 403, f"BM Admin correctly blocked with 403 Forbidden: '{e.detail}'")
 
-        # 3. The same account can approve requests from both BM and THM.
-        for code in ["BM", "THM"]:
+        # 3. Each administrator can approve only their own department's requests.
+        for code, admin, other_admin in [("BM", bm_admin, thm_admin), ("THM", thm_admin, bm_admin)]:
             shared_department_request = ReschedulingRequest(
                 student_id=f"{code}-STUDENT001",
                 exam_id=1,
-                program="BSA" if code == "BM" else "BSTM",
+                program="BA" if code == "BM" else "BSTM",
                 reason_type="Academic Conflict",
-                detailed_explanation="Shared-admin access test",
+                detailed_explanation="Separate-admin access test",
                 status="pending",
                 department_code=code,
             )
             try:
-                check_request_department_access(shared_department_request, bm_thm_admin, db)
-                assert_true(True, f"BM/THM Admin allowed to review {code} department request")
+                check_request_department_access(shared_department_request, admin, db)
+                assert_true(True, f"{code} Admin allowed to review its department request")
             except HTTPException:
-                assert_true(False, f"BM/THM Admin was blocked from reviewing {code} department request")
+                assert_true(False, f"{code} Admin was blocked from reviewing its department request")
+            try:
+                check_request_department_access(shared_department_request, other_admin, db)
+                assert_true(False, f"Other department admin was allowed to review {code} request")
+            except HTTPException as exc:
+                assert_true(exc.status_code == 403, f"Other department admin cannot review {code} request")
 
         # 4. GE Admin cannot review another department's request.
         try:

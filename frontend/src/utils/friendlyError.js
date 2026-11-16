@@ -1,4 +1,4 @@
-// Turns technical/server error text into messages users can understand.
+// Explain errors while retaining the server's specific cause and diagnostics.
 const RULES = [
   [/network error|failed to fetch|econnrefused|err_network|load failed/i,
     "Cannot reach the server. Please check your internet connection or make sure the system is running, then try again."],
@@ -9,7 +9,7 @@ const RULES = [
   [/duplicate key|unique constraint/i,
     "This record already exists. Please check for duplicates and try again."],
   [/psycopg2|sqlalchemy|\[sql:|background on this error|traceback|keyerror|indexerror|attributeerror|typeerror|nonetype|object has no attribute|unsupported operand|list index|internal server error/i,
-    "Something went wrong on the server. Please try again, and contact the system administrator if the problem continues."],
+    "The server could not complete this action. Share the error details below with the developer."],
 ];
 
 const STATUS_FALLBACK = {
@@ -21,18 +21,22 @@ const STATUS_FALLBACK = {
   413: "The file is too large to upload.",
   422: "Some of the information you entered is invalid. Please check the fields and try again.",
   429: "Too many requests. Please wait a moment before trying again.",
-  500: "Something went wrong on the server. Please try again, and contact the system administrator if the problem continues.",
-  502: "The server is temporarily unavailable. Please try again shortly.",
-  503: "The server is temporarily unavailable. Please try again shortly.",
-  504: "The server took too long to respond. Please try again.",
+  500: "The server returned HTTP 500 without an error description. Check the backend logs for the cause.",
+  502: "The application server is temporarily unavailable (HTTP 502). Check the backend service and gateway logs.",
+  503: "The server is temporarily unavailable (HTTP 503). Check the backend service and retry shortly.",
+  504: "The gateway timed out waiting for the server (HTTP 504). Check the backend logs and request duration.",
 };
 
 const FIELD_LABELS = { school_email: "School email", email: "Email", password: "Password", student_id: "Student ID" };
 
 export const friendlyText = (text) => {
   if (typeof text !== "string") return text;
+  // Backend explanations already include a readable reason and technical cause.
+  if (text.includes("Developer details:")) return text;
   for (const [pattern, message] of RULES) {
-    if (pattern.test(text)) return message;
+    // API errors can pass through this formatter again when shown in a toast.
+    if (text.startsWith(message)) return text;
+    if (pattern.test(text)) return `${message} Details: ${text}`;
   }
   return text;
 };
@@ -48,19 +52,36 @@ const formatValidationItem = (item) => {
   return label ? `${label}: ${msg}` : msg;
 };
 
-// Produces a friendly message for an axios error (or any error).
+const formatDetail = (detail) => {
+  if (typeof detail === "string") return detail.trim();
+  if (Array.isArray(detail)) return detail.map(formatValidationItem).join(" ");
+  if (detail && typeof detail === "object") {
+    return formatDetail(detail.detail || detail.message || detail.msg || detail.error) || JSON.stringify(detail);
+  }
+  return "";
+};
+
+const requestContext = (err) => {
+  const method = err.config?.method?.toUpperCase();
+  const path = err.config?.url?.split("?")[0];
+  return path ? ` Request: ${method ? `${method} ` : ""}${path}.` : "";
+};
+
+// Produces an actionable message without replacing a useful server response.
 export const getFriendlyErrorMessage = (err, fallback) => {
   if (!err) return fallback || STATUS_FALLBACK[500];
   const status = err.response?.status;
   if (!err.response) {
-    return friendlyText(err.message || "") !== (err.message || "") ? friendlyText(err.message) : (fallback || STATUS_FALLBACK[500]);
+    const cause = err.message || err.code;
+    return `${cause ? friendlyText(cause) : (fallback || "No response was received from the server.")}${requestContext(err)}`;
   }
-  const detail = err.response?.data?.detail;
-  if (Array.isArray(detail)) return detail.map(formatValidationItem).join(" ");
-  if (typeof detail === "string" && detail.trim()) {
-    const friendly = friendlyText(detail);
-    if (friendly !== detail) return friendly;
-    return status >= 500 && !fallback ? STATUS_FALLBACK[status] || detail : detail;
+  const data = err.response.data;
+  const detail = formatDetail(data?.detail || data?.message || data?.error || (typeof data === "string" ? data : null));
+  // Plain proxy HTML and bare "Internal Server Error" responses have no cause
+  // to display. Include the status and request so a developer can find the log.
+  if (detail && !/^\s*</.test(detail) && !/^internal server error[.!]?$/i.test(detail)) {
+    return friendlyText(detail);
   }
-  return STATUS_FALLBACK[status] || fallback || STATUS_FALLBACK[500];
+  const message = STATUS_FALLBACK[status] || fallback || `The server returned HTTP ${status || "unknown"} without an error description. Check the backend logs for the cause.`;
+  return `${message}${requestContext(err)}`;
 };

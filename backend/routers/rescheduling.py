@@ -7,6 +7,7 @@ from datetime import datetime, time, timedelta
 from typing import Optional
 from .auth import get_current_user, require_role
 from utils.logging import log_activity
+from utils.program_names import normalize_program_name
 from services.auto_rescheduler import (
     find_earliest_auto_schedule,
     apply_auto_reschedule,
@@ -33,7 +34,7 @@ def is_consultation_request(db: Session, request: ReschedulingRequest) -> bool:
 
 
 def find_department_admin(db: Session, department_code: str):
-    """Find the program head responsible for a department, including shared accounts."""
+    """Find the program head responsible for this department."""
     candidates = db.query(User).filter(
         User.role.in_(["program_head", "admin"])
     ).all()
@@ -55,7 +56,7 @@ def check_request_department_access(request: ReschedulingRequest, current_user: 
     if not req_dept and request.exam and request.exam.course:
         req_dept = request.exam.course.department_code
     if not req_dept and request.program:
-        c_obj = db.query(Course).filter(Course.name.ilike(request.program.strip())).first()
+        c_obj = db.query(Course).filter(Course.name.ilike(normalize_program_name(request.program))).first()
         if c_obj and c_obj.department_code:
             req_dept = c_obj.department_code
     if not req_dept:
@@ -137,7 +138,7 @@ def submit_rescheduling_request(request: ReschedulingRequestCreate, db: Session 
 
     # 2. Check student_program by name against courses
     if not dept_code and student_program:
-        course_obj = db.query(Course).filter(Course.name.ilike(student_program.strip())).first()
+        course_obj = db.query(Course).filter(Course.name.ilike(normalize_program_name(student_program))).first()
         if course_obj and course_obj.department_code:
             dept_code = course_obj.department_code
             student_program = course_obj.name

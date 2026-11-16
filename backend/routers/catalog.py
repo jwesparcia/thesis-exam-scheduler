@@ -21,6 +21,7 @@ from utils.logging import log_activity
 from utils.errors import humanize_error
 from utils.student_names import format_student_name
 from utils.exam_batch_labels import get_exam_batch_numbers
+from utils.program_names import ACCOUNTANCY_PROGRAM_NAMES, normalize_program_name, normalize_program_section
 from datetime import datetime, time
 from pydantic import BaseModel
 
@@ -751,10 +752,10 @@ def create_subject(
     if not dept_code:
         dept_code = "GE" if cat == "general" else (course.department_code or course.category)
 
-    # Duration default: 120 for BSA majors, 75 for others
+    # Duration default: 120 for BA majors, 75 for others
     duration = payload.duration_minutes
     if not duration or duration <= 0:
-        if course.name == "BSA" and cat == "major":
+        if course.name in ACCOUNTANCY_PROGRAM_NAMES and cat == "major":
             duration = 120
         else:
             duration = 75
@@ -1106,9 +1107,9 @@ def bulk_update_subject_durations(
 ):
     preset = payload.get("preset")
     if preset == "school_defaults":
-        # All 75, BSA majors 120
+        # All 75, BA majors 120
         db.query(Subject).update({Subject.duration_minutes: 75}, synchronize_session=False)
-        bsa_courses = db.query(Course.id).filter(Course.name == "BSA").all()
+        bsa_courses = db.query(Course.id).filter(Course.name.in_(ACCOUNTANCY_PROGRAM_NAMES)).all()
         bsa_ids = [c[0] for c in bsa_courses]
         if bsa_ids:
             db.query(Subject).filter(
@@ -1117,11 +1118,11 @@ def bulk_update_subject_durations(
             ).update({Subject.duration_minutes: 120}, synchronize_session=False)
         db.commit()
         _invalidate_student_exam_schedules()
-        log_activity(db, current_user.id, "SUBJECT_DURATION_BULK", "Applied school defaults (75m, BSA majors 120m)")
-        return {"message": "School default durations applied: 1h 15m (75m) for all subjects, 2h (120m) for BSA major subjects."}
+        log_activity(db, current_user.id, "SUBJECT_DURATION_BULK", "Applied school defaults (75m, BA majors 120m)")
+        return {"message": "School default durations applied: 1h 15m (75m) for all subjects, 2h (120m) for BA major subjects."}
     
     elif preset == "bsa_majors_2h":
-        bsa_courses = db.query(Course.id).filter(Course.name == "BSA").all()
+        bsa_courses = db.query(Course.id).filter(Course.name.in_(ACCOUNTANCY_PROGRAM_NAMES)).all()
         bsa_ids = [c[0] for c in bsa_courses]
         updated_count = 0
         if bsa_ids:
@@ -1131,8 +1132,8 @@ def bulk_update_subject_durations(
             ).update({Subject.duration_minutes: 120}, synchronize_session=False)
         db.commit()
         _invalidate_student_exam_schedules()
-        log_activity(db, current_user.id, "SUBJECT_DURATION_BULK", f"Applied 2h (120m) to {updated_count} BSA major subjects")
-        return {"message": f"Updated {updated_count} BSA major subjects from 1st year to 4th year to 2 hours (120 mins)."}
+        log_activity(db, current_user.id, "SUBJECT_DURATION_BULK", f"Applied 2h (120m) to {updated_count} BA major subjects")
+        return {"message": f"Updated {updated_count} BA major subjects from 1st year to 4th year to 2 hours (120 mins)."}
 
     duration = payload.get("duration_minutes")
     if not duration or int(duration) <= 0:
@@ -1351,8 +1352,8 @@ def upload_catalog_excel(
     course_dept_lookup = {
         "BSIT": "ICT", "BSCS": "ICT", "BSCPE": "ICT",
         "BSTM": "THM", "BSHM": "THM",
-        "BSA": "BM",
-        "BSPSYCH": "AS", "BMMA": "AS", "BACOMM": "AS",
+        "BA": "BM",
+        "BAPSYCH": "AS", "BMMA": "AS", "BACOMM": "AS",
         "BSCRIM": "CRIM",
         "STEM": "SHS", "ABM": "SHS", "HUMMS": "SHS", "HUMSS": "SHS",
         "CULINARY": "SHS", "DIGITAL ARTS": "SHS", "IT-MAWDEV": "SHS", "TOURISM": "SHS",
@@ -1424,7 +1425,7 @@ def upload_catalog_excel(
             course_val = str(row.get(col_mapping.get('course'), '')).strip() if 'course' in col_mapping else ''
             category_val = str(row.get(col_mapping.get('category'), '')).strip() if 'category' in col_mapping else ''
             year_val = str(row.get(col_mapping.get('year'), '')).strip() if 'year' in col_mapping else ''
-            section_val = str(row.get(col_mapping.get('section'), '')).strip() if 'section' in col_mapping else ''
+            section_val = normalize_program_section(str(row.get(col_mapping.get('section'), '')).strip()) if 'section' in col_mapping else ''
             code_val = str(row.get(col_mapping.get('code'), '')).strip() if 'code' in col_mapping else ''
             sub_name_val = str(row.get(col_mapping.get('subject_name'), '')).strip() if 'subject_name' in col_mapping else ''
             sem_val = row.get(col_mapping.get('semester')) if 'semester' in col_mapping else None
@@ -1441,6 +1442,7 @@ def upload_catalog_excel(
             raw_tokens = [c.strip() for c in re.split(r'[,/;]', course_val) if c.strip()]
             resolved_courses = []
             for token in raw_tokens:
+                token = normalize_program_name(token)
                 t_key = token.upper()
                 if t_key in ("ALL COLLEGE", "COLLEGE", "ALL-COLLEGE", "GE"):
                     college_courses = db.query(Course).filter(Course.category == "College").all()
@@ -1601,7 +1603,7 @@ def upload_catalog_excel(
                     teacher_id=teacher.id if teacher else None,
                     exam_type=exam_type_val,
                     category=subj_cat_val,
-                    duration_minutes=120 if (course.name == "BSA" and subj_cat_val == "major") else 75,
+                    duration_minutes=120 if (course.name in ACCOUNTANCY_PROGRAM_NAMES and subj_cat_val == "major") else 75,
                     department_code=sub_dept_code
                 )
                 db.add(subject_obj)
@@ -1746,7 +1748,7 @@ def upload_students_excel(
         if not sec_name_str:
             return None, None
         s_clean = " ".join(str(sec_name_str).strip().split())
-        # College format e.g. "BSCS 1-102", "BSA 1-202", "BMMA 1-104"
+        # College format e.g. "BSCS 1-102", "BA 1-202", "BMMA 1-104"
         m_col = re.search(r'(\d)\s*-\s*([123])\d{2}\b', s_clean)
         if m_col:
             y_num = int(m_col.group(1))
@@ -1811,7 +1813,7 @@ def upload_students_excel(
         if r[0] and r[0].strip().lower() not in ["irregular", "nan", "none", "n/a"]
     }
     for _, r_row in df.iterrows():
-        sec_val = str(r_row.get("SECTION", "") or "").strip()
+        sec_val = normalize_program_section(str(r_row.get("SECTION", "") or "").strip())
         if sec_val and sec_val.lower() not in ["irregular", "nan", "none", "n/a"]:
             active_regular_sec_names.add(sec_val.upper())
 
@@ -1873,8 +1875,8 @@ def upload_students_excel(
     for index, row in df.iterrows():
         email = str(row["SCHOOL EMAIL"]).strip()
         name = str(row["NAME"]).strip()
-        course_name = str(row["COURSE"]).strip()
-        section_name = str(row["SECTION"]).strip()
+        course_name = normalize_program_name(str(row["COURSE"]).strip())
+        section_name = normalize_program_section(str(row["SECTION"]).strip())
 
         if not email or email.lower() == "nan":
             stats["skipped"] += 1

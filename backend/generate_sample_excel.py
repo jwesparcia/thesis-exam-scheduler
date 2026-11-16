@@ -21,8 +21,8 @@ courses = [
     {"name": "BSCpE", "category": "College"},
     {"name": "BSTM", "category": "College"},
     {"name": "BSHM", "category": "College"},
-    {"name": "BSA", "category": "College"},
-    {"name": "BSPsych", "category": "College"},
+    {"name": "BA", "category": "College"},
+    {"name": "BAPSYCH", "category": "College"},
     {"name": "BSCrim", "category": "College"},
     {"name": "BMMA", "category": "College"},
     {"name": "BACOMM", "category": "College"},
@@ -294,9 +294,9 @@ def generate():
                 pool = bstm_subjects
             elif c_name == "BSHM":
                 pool = bshm_subjects
-            elif c_name == "BSA":
+            elif c_name == "BA":
                 pool = bsa_subjects
-            elif c_name == "BSPsych":
+            elif c_name == "BAPSYCH":
                 pool = bspsych_subjects
             elif c_name in shs_subjects:
                 pool = shs_subjects[c_name]

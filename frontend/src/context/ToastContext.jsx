@@ -28,7 +28,7 @@ export const ToastProvider = ({ children }) => {
     }, [removeToast]);
 
     const showSuccess = (message) => addToast(message, "success");
-    const showError = (message) => addToast(message, "error");
+    const showError = (message) => addToast(message, "error", 10000);
     const showInfo = (message) => addToast(message, "info");
     const showWarning = (message) => addToast(message, "warning");
 
@@ -84,9 +84,9 @@ const ToastItem = ({ message, type, onClose }) => {
                 animate-slide-in pointer-events-auto cursor-default transform transition-all duration-300
             `}
         >
-            <div className="flex items-center gap-3">
+            <div className="flex min-w-0 items-center gap-3">
                 <ToastIcon type={type} />
-                <p className="text-sm font-medium">{messageText}</p>
+                <p className="min-w-0 break-words whitespace-pre-wrap text-sm font-medium">{messageText}</p>
             </div>
             <button 
                 type="button" 

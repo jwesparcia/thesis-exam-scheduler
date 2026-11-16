@@ -280,14 +280,7 @@ class User(Base):
         if not primary_code:
             return []
 
-        codes = [primary_code]
-        # The school has one program head for Business & Management and
-        # Tourism & Hospitality Management. Keep this business rule in code so
-        # the shared account does not require a blocking database migration at
-        # application startup.
-        if self.role in ("program_head", "admin") and primary_code == "BM":
-            codes.append("THM")
-        return codes
+        return [primary_code]
 
     def manages_department(self, department_code):
         clean_code = str(department_code).strip().upper() if department_code else ""

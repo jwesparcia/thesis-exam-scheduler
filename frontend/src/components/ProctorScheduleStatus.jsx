@@ -24,7 +24,7 @@ export default function ProctorScheduleStatus() {
       setMissing(res.data);
     } catch (err) { 
       console.error(err); 
-      showError("Failed to fetch pending proctors.");
+      showError(err.response?.data?.detail || "Failed to fetch pending proctors.");
     } finally { 
       setLoading(false); 
     }
@@ -39,8 +39,8 @@ export default function ProctorScheduleStatus() {
       await api.post(`/proctors/${id}/exclude`);
       showSuccess(`Proctor ${currentExcluded ? "included" : "excluded"} successfully`);
       fetchMissing();
-    } catch { 
-      showError("Failed to update exclusion status."); 
+    } catch (err) {
+      showError(err.response?.data?.detail || "Failed to update exclusion status.");
     }
   };
 
@@ -48,8 +48,8 @@ export default function ProctorScheduleStatus() {
     try {
       await api.post(`/proctors/${id}/send-reminder`);
       showSuccess(`Reminder sent to ${name}`);
-    } catch { 
-      showError("Failed to send reminder."); 
+    } catch (err) {
+      showError(err.response?.data?.detail || "Failed to send reminder.");
     }
   };
 

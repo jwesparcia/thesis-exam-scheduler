@@ -207,18 +207,18 @@ with engine.connect() as conn:
     else:
         print("Column 'duration_minutes' already exists in table 'subjects'.")
 
-    # Ensure all null durations are 75, and BSA major subjects are set to 120 (2h)
+    # Ensure all null durations are 75, and BA major subjects are set to 120 (2h)
     conn.execute(text("""
         UPDATE subjects SET duration_minutes = 75 WHERE duration_minutes IS NULL;
     """))
     conn.execute(text("""
         UPDATE subjects 
         SET duration_minutes = 120 
-        WHERE course_id IN (SELECT id FROM courses WHERE name = 'BSA') 
+        WHERE course_id IN (SELECT id FROM courses WHERE name IN ('BA', 'BSA'))
           AND (category = 'major' OR lower(name) LIKE '%accounting%' OR lower(name) LIKE '%taxation%' OR lower(name) LIKE '%auditing%');
     """))
     conn.commit()
-    print("Subject durations initialized: 75m default, 120m for BSA major subjects.")
+    print("Subject durations initialized: 75m default, 120m for BA major subjects.")
 
     # Check if system_settings table exists
     result_sys_tbl = conn.execute(text("""

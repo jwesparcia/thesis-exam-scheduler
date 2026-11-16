@@ -125,7 +125,7 @@ export default function ProctorImport({ isGenerating }) {
       setPage(res.data.page || targetPage);
     } catch (err) {
       console.error("Error fetching proctor directory:", err);
-      showError("Failed to load proctor directory");
+      showError(err.response?.data?.detail || "Failed to load proctor directory");
     } finally {
       setDirectoryLoading(false);
     }
@@ -225,7 +225,7 @@ export default function ProctorImport({ isGenerating }) {
       link.parentNode.removeChild(link);
       showSuccess("Proctor accounts template (dummy_proctors.xlsx) downloaded successfully!");
     } catch (err) {
-      showError("Failed to download proctor template file");
+      showError(err.response?.data?.detail || "Failed to download proctor template file");
     }
   };
 

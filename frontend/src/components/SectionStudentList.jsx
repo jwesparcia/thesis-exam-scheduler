@@ -153,7 +153,7 @@ export default function SectionStudentList() {
       setCurrentPage(1);
     } catch (err) {
       console.error("Error fetching attendance list:", err);
-      setError("Failed to load exam attendance list. Please try again.");
+      setError(err.response?.data?.detail || "Failed to load exam attendance list. Please try again.");
     } finally {
       setLoading(false);
     }

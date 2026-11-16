@@ -6,6 +6,7 @@ from room_data import get_room_names_for_department
 from utils.exam_enrollment import ExamEnrollment
 from utils.exam_terms import normalize_exam_term
 from utils.fixed_exam_batches import plan_fixed_subject_batches
+from utils.program_names import ACCOUNTANCY_PROGRAM_NAMES
 
 # Time slots per day matching the official Tertiary Periodical Departmental Exam Schedule:
 # Morning:   7:00-8:30, 8:30-10:00, 10:00-11:30
@@ -459,12 +460,12 @@ def generate_exam_schedule(
         subjects_query = subjects_query.filter(Subject.name.notin_(excluded_subjects))
     subjects = subjects_query.all()
 
-    # Determine each subject's allotted duration (mins): 75m default, 120m for BSA majors
+    # Determine each subject's allotted duration (mins): 75m default, 120m for BA majors
     subject_durations = {}
     for sub in subjects:
         if sub.duration_minutes and sub.duration_minutes > 0:
             d_val = sub.duration_minutes
-        elif sub.course and sub.course.name == "BSA" and sub.category == "major":
+        elif sub.course and sub.course.name in ACCOUNTANCY_PROGRAM_NAMES and sub.category == "major":
             d_val = 120
         else:
             d_val = 75
@@ -687,7 +688,9 @@ def generate_exam_schedule(
         "BSTM": "THM",
         "BSHM": "THM",
         "BSA": "BM",
+        "BA": "BM",
         "BSPsych": "AS",
+        "BAPSYCH": "AS",
         "BSCrim": "CRIM",
         "BMMA": "AS",
         "BACOMM": "AS",

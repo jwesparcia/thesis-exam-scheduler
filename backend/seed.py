@@ -59,8 +59,8 @@ courses = [
     Course(name="BSCpE", category="College"),
     Course(name="BSTM", category="College"),
     Course(name="BSHM", category="College"),
-    Course(name="BSA", category="College"),
-    Course(name="BSPsych", category="College"),
+    Course(name="BA", category="College"),
+    Course(name="BAPSYCH", category="College"),
     Course(name="BSCrim", category="College"),
     Course(name="BMMA", category="College"),
     Course(name="BACOMM", category="College"),
@@ -481,7 +481,7 @@ bsa_subjects = {
             "Integrated Accounting Course 2 (MAS & Auditing)",
         ],
         2: [
-            "BSA Accounting Internship (600 hours)",
+            "BA Accounting Internship (600 hours)",
         ]
     }
 }
@@ -912,9 +912,9 @@ def generate_subjects(course, year, semester):
         pool = bstm_subjects
     elif course.name == "BSHM":
         pool = bshm_subjects
-    elif course.name == "BSA":
+    elif course.name == "BA":
         pool = bsa_subjects
-    elif course.name == "BSPsych":
+    elif course.name == "BAPSYCH":
         pool = bspsych_subjects
     elif course.name == "BSCrim":
         pool = bscrim_subjects
@@ -964,7 +964,7 @@ def generate_subjects(course, year, semester):
                 teacher_id=random.choice(teacher_ids) if teacher_ids else None,
                 exam_type=exam_type,
                 category=category,
-                duration_minutes=120 if (course.name == "BSA" and category == "major") else 75
+                duration_minutes=120 if (course.name == "BA" and category == "major") else 75
             )
             subj._assigned_cids = {course.id}
             shared_subjects_map[norm_key] = subj

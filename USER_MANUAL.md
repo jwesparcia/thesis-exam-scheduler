@@ -125,7 +125,7 @@ Configures custom allotted examination durations, exam terms, and multi-program 
 - **Duration Configurations:**
   - **60 Minutes:** Recommended for 1 to 2-unit minor courses or values education.
   - **75 Minutes (Standard):** Universal institutional standard for collegiate lecture subjects and SHS strands.
-  - **120 Minutes:** Reserved for rigorous technical majors (e.g., BSA accounting simulations, engineering calculus).
+  - **120 Minutes:** Reserved for rigorous technical majors (e.g., BA accounting simulations, engineering calculus).
 
 #### Procedure:
 1. Navigate to **Subject Durations** in the left sidebar.

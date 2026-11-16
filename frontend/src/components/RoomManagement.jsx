@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ExclamationTriangleIcon,
   BuildingOfficeIcon,
@@ -14,6 +14,7 @@ import { useTheme } from "../context/themeStore";
 import { useToast } from "../context/ToastContext";
 import { useUser } from "../context/userStore";
 import api from "../api";
+import { getExamTerms } from "../utils/examTerms";
 
 const statusLabels = {
   available: "Available",
@@ -31,12 +32,17 @@ export default function RoomManagement({ isGenerating }) {
 
   const [department, setDepartment] = useState("College");
   const [semester, setSemester] = useState(1);
+  const [term, setTerm] = useState("all");
   const [scheduleStatus, setScheduleStatus] = useState("all");
   const [roomStatus, setRoomStatus] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [selectedRoomId, setSelectedRoomId] = useState(null);
+  const roomStatusRequestRef = useRef(0);
+  const examTerms = department === "All"
+    ? [...getExamTerms("College"), ...getExamTerms("SHS")]
+    : getExamTerms(department);
 
   // Add room modal states
   const [showAddModal, setShowAddModal] = useState(false);
@@ -167,27 +173,33 @@ export default function RoomManagement({ isGenerating }) {
   };
 
   const fetchRoomStatus = async () => {
+    const requestId = ++roomStatusRequestRef.current;
     setLoading(true);
     try {
       const res = await api.get("/exams/rooms/status", {
         params: {
           department,
           semester,
+          term: term === "all" ? undefined : term,
           status: scheduleStatus,
         },
       });
-      setData(res.data);
+      if (requestId === roomStatusRequestRef.current) setData(res.data);
     } catch (err) {
       console.error("Failed to load room status", err);
-      showError(err.response?.data?.detail || "Failed to load room status");
+      if (requestId === roomStatusRequestRef.current) {
+        showError(err.response?.data?.detail || "Failed to load room status");
+      }
     } finally {
-      setLoading(false);
+      if (requestId === roomStatusRequestRef.current) setLoading(false);
     }
   };
 
   useEffect(() => {
+    setData(null);
     fetchRoomStatus();
-  }, [department, semester, scheduleStatus]);
+    return () => { roomStatusRequestRef.current += 1; };
+  }, [department, semester, term, scheduleStatus]);
 
   useEffect(() => {
     setShowDeleteConfirm(false);
@@ -333,12 +345,15 @@ export default function RoomManagement({ isGenerating }) {
         </div>
 
         <div className={`rounded-2xl border p-4 sm:p-5 ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200"} shadow-sm`}>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
             <div>
               <label className={`block text-xs font-bold uppercase tracking-wider mb-1.5 ${isDark ? "text-slate-300" : "text-slate-700"}`} htmlFor="roommanagement-field-1">Academic Level</label>
               <select 
                 value={department} 
-                onChange={(e) => setDepartment(e.target.value)} 
+                onChange={(e) => {
+                  setDepartment(e.target.value);
+                  setTerm("all");
+                }}
                 className={`w-full rounded-xl border p-2.5 sm:p-3 text-xs sm:text-sm font-medium transition ${
                   isDark ? "bg-slate-900 text-slate-100 border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500" : "bg-white text-slate-800 border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
                 }`} id="roommanagement-field-1" aria-label="Academic Level">
@@ -358,6 +373,21 @@ export default function RoomManagement({ isGenerating }) {
                 <option value={1}>1st Semester</option>
                 <option value={2}>2nd Semester</option>
                 <option value={3}>3rd Semester</option>
+              </select>
+            </div>
+            <div>
+              <label className={`block text-xs font-bold uppercase tracking-wider mb-1.5 ${isDark ? "text-slate-300" : "text-slate-700"}`} htmlFor="roommanagement-term">Exam Term</label>
+              <select
+                value={term}
+                onChange={(e) => setTerm(e.target.value)}
+                className={`w-full rounded-xl border p-2.5 sm:p-3 text-xs sm:text-sm font-medium transition ${
+                  isDark ? "bg-slate-900 text-slate-100 border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500" : "bg-white text-slate-800 border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
+                }`} id="roommanagement-term" aria-label="Exam Term"
+              >
+                <option value="all">All Terms</option>
+                {examTerms.map((item) => (
+                  <option key={item.value} value={item.value}>{item.value === "Final" ? "Finals" : item.label}</option>
+                ))}
               </select>
             </div>
             <div>
