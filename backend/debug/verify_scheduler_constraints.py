@@ -108,7 +108,7 @@ def verify_constraints():
                     p_name = proctor_map[pid].name
                     violations.append(f"Proctor {p_name} is double-booked in timeslot {slot_id} with multiple exams: {exam_details}")
 
-        # 4b. Check maximum 2 consecutive proctoring assignments per proctor
+        # 4b. Check maximum 3 consecutive proctoring assignments per proctor
         for pid, assignments in proctor_time_load.items():
             by_date = {}
             for slot_id, exam in assignments:
@@ -128,7 +128,7 @@ def verify_constraints():
                         streak = 1
                         consec_exams = [e]
                     prev_end = et_m
-                    if streak > 2:
+                    if streak > 3:
                         p_name = proctor_map[pid].name
                         details = ", ".join([f"Exam {x.id} ({x.timeslot.start_time.strftime('%I:%M %p')}-{x.timeslot.end_time.strftime('%I:%M %p')})" for x in consec_exams])
                         violations.append(

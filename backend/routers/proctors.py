@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi.responses import Response
 from sqlalchemy.orm import Session, joinedload
 from core import get_db, cache
 from core.cache import TTL_PROCTORS, TTL_MONITORING
@@ -12,7 +13,14 @@ from sqlalchemy import text, func, and_, or_
 from .auth import get_current_user, require_role
 from utils.logging import log_activity
 from .exams import is_generation_ongoing
-from utils.schedule_translator import translate_grid_schedule_from_bytes, translate_row_schedule
+from utils.schedule_translator import (
+    _classify_cell, _parse_sequential_timeslots,
+    translate_grid_schedule_from_bytes, translate_row_schedule,
+)
+from utils.scheduler import normalize_day_of_week
+from services.attendance_proofs import (
+    MAX_ATTENDANCE_PHOTO_BYTES, attendance_proof_metadata, proof_matches_assignment, validate_attendance_photo,
+)
 
 router = APIRouter(prefix="/proctors", tags=["Proctors"])
 
@@ -320,6 +328,28 @@ async def upload_my_schedule(proctor_id: int, file: UploadFile = File(...), db: 
         if 'Day/Time' in df.columns:
             # grid format – already handled by process_grid_upload
             from datetime import time
+            # Excel subject blocks can contain blank or metadata-only cells. Read
+            # their fills as well as their text so all rows in a class count.
+            grid_sheet = None
+            if engine == 'openpyxl':
+                from openpyxl import load_workbook
+                grid_sheet = load_workbook(io.BytesIO(content), data_only=True)[target_sheet_name]
+            grid_slots = _parse_sequential_timeslots(grid_sheet, df.columns.get_loc('Day/Time'), 0) if grid_sheet is not None else None
+            # A sparse grid beginning at 1–6 without AM/PM uses the existing
+            # upload convention that these are afternoon hours. A full-day
+            # grid has earlier rows that establish the sequential clock.
+            for value in df['Day/Time']:
+                first_range = str(value).strip().upper()
+                if '-' not in first_range:
+                    continue
+                first_start = first_range.split('-', 1)[0].strip()
+                try:
+                    hour = int(first_start.split(':', 1)[0])
+                except ValueError:
+                    continue
+                if 1 <= hour <= 6 and 'AM' not in first_start and 'PM' not in first_start:
+                    grid_slots = None
+                break
             def parse_t(s):
                 if isinstance(s, datetime): return s.time()
                 if "AM" in s or "PM" in s:
@@ -328,34 +358,59 @@ async def upload_my_schedule(proctor_id: int, file: UploadFile = File(...), db: 
                     h, m = map(int, s.split(":"))
                     if h < 7: h += 12
                     return time(h, m)
-            day_map = {'MONDAY': 0, 'TUESDAY': 1, 'WEDNESDAY': 2, 'THURSDAY': 3, 'FRIDAY': 4, 'SATURDAY': 5}
-            excluded = ['ADMIN', 'HOURS', 'LUNCH', 'BREAK', 'CONSULTATION', 'SCHOOL', 'WIDE BREAK', 'MEETING', 'LEC', 'LAB']
+            day_columns = [(column, normalize_day_of_week(column), index + 1) for index, column in enumerate(df.columns)]
+            day_columns = [(column, day, index) for column, day, index in day_columns if day is not None]
+            excluded = ['ADMIN', 'HOURS', 'LUNCH', 'BREAK', 'CONSULTATION', 'SCHOOL', 'WIDE BREAK', 'MEETING']
             db.query(models.TeacherSchedule).filter(models.TeacherSchedule.teacher_id == proctor.teacher_id).delete()
             records = 0
-            for _, row in df.iterrows():
+            teaching_days = set()
+            admin_intervals = []
+            for row_number, (_, row) in enumerate(df.iterrows(), start=2):
                 time_range = str(row.get('Day/Time', ''))
                 if '-' not in time_range: continue
-                try:
-                    parts = time_range.split("-")
-                    start_t = parse_t(parts[0].strip())
-                    end_t = parse_t(parts[1].strip())
-                    if end_t <= start_t and end_t.hour <= 7:
-                        end_t = time(end_t.hour + 12, end_t.minute)
-                except:
-                    continue
-                for day_name, day_idx in day_map.items():
+                if grid_slots is not None:
+                    start_t, end_t = grid_slots[row_number - 2]
+                    if not start_t or not end_t: continue
+                else:
+                    try:
+                        parts = time_range.split("-")
+                        start_t = parse_t(parts[0].strip())
+                        end_t = parse_t(parts[1].strip())
+                        if end_t <= start_t and end_t.hour <= 7:
+                            end_t = time(end_t.hour + 12, end_t.minute)
+                    except:
+                        continue
+                for day_name, day_idx, column_number in day_columns:
                     cell_val = row.get(day_name)
-                    if pd.isna(cell_val): continue
-                    cell_str = str(cell_val).strip().upper()
-                    if any(k in cell_str for k in excluded): continue
+                    cell_type = _classify_cell(grid_sheet.cell(row_number, column_number)) if grid_sheet is not None else None
+                    if cell_type == 'admin':
+                        # Admin hours extend the daily working window only on a
+                        # day that also contains a teaching class.
+                        admin_intervals.append((day_idx, start_t, end_t))
+                        continue
+                    if cell_type and cell_type != 'subject': continue
+                    cell_str = '' if pd.isna(cell_val) else str(cell_val).strip().upper()
+                    if cell_type != 'subject' and (not cell_str or any(k in cell_str for k in excluded)): continue
+                    subject_name = cell_str or None
+                    if cell_str in {'LAB', 'LEC', 'LECTURE', 'LABORATORY'}:
+                        subject_name = None
                     new_sched = models.TeacherSchedule(
                         teacher_id=proctor.teacher_id,
                         day_of_week=day_idx,
                         start_time=start_t,
                         end_time=end_t,
-                        subject_name=cell_str[:50]
+                        subject_name=subject_name[:50] if subject_name else None
                     )
                     db.add(new_sched)
+                    teaching_days.add(day_idx)
+                    records += 1
+
+            for day_idx, start_t, end_t in admin_intervals:
+                if day_idx in teaching_days:
+                    db.add(models.TeacherSchedule(
+                        teacher_id=proctor.teacher_id, day_of_week=day_idx,
+                        start_time=start_t, end_time=end_t, subject_name=None,
+                    ))
                     records += 1
             
             # Generate translated schedule text
@@ -390,17 +445,14 @@ async def upload_my_schedule(proctor_id: int, file: UploadFile = File(...), db: 
             if col not in df.columns:
                 raise HTTPException(status_code=400, detail=f"Missing required column: {col}")
         db.query(models.TeacherSchedule).filter(models.TeacherSchedule.teacher_id == proctor.teacher_id).delete()
-        day_map = {'Monday': 0, 'Tuesday': 1, 'Wednesday': 2, 'Thursday': 3,
-                   'Friday': 4, 'Saturday': 5, 'Sunday': 6}
         records_processed = 0
         for _, row in df.iterrows():
-            day_str = str(row['Day']).strip().capitalize()
+            day_idx = normalize_day_of_week(str(row['Day']))
             start_val = row['Start Time']
             end_val = row['End Time']
             subject_name = str(row.get('Subject', '')).strip()
-            if day_str not in day_map:
+            if day_idx is None:
                 continue
-            day_idx = day_map[day_str]
             try:
                 if isinstance(start_val, datetime):
                     start_time = start_val.time()
@@ -514,6 +566,76 @@ def publish_schedules(
     cache.delete("proctors:schedules")
     return {"message": "All schedules have been published."}
 
+def _attendance_exam(proctor_id, exam_id, db, current_user, allow_admin=False, for_update=False):
+    is_admin = allow_admin and current_user.role in ["admin", "program_head"]
+    if not is_admin and current_user.role not in ["proctor", "teacher"]:
+        raise HTTPException(status_code=403, detail="Only the assigned proctor can upload attendance proof. Administrators can view the photo.")
+    is_assigned = (current_user.proctor_id == proctor_id)
+    if not is_admin and not is_assigned:
+        proctor = db.get(models.Proctor, proctor_id)
+        if not proctor or not current_user.teacher_id or current_user.teacher_id != proctor.teacher_id:
+            raise HTTPException(status_code=403, detail="Not authorized to access attendance for this proctor")
+    query = db.query(models.Exam).filter(models.Exam.id == exam_id, models.Exam.proctor_id == proctor_id)
+    exam = (query.with_for_update() if for_update else query).first()
+    if not exam:
+        raise HTTPException(status_code=404, detail="Exam assignment not found for this proctor")
+    return exam
+
+
+@router.post("/{proctor_id}/attendance-proof/{exam_id}")
+def upload_attendance_proof(
+    proctor_id: int,
+    exam_id: int,
+    photo: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    exam = _attendance_exam(proctor_id, exam_id, db, current_user, for_update=True)
+    if exam.status != "posted":
+        raise HTTPException(status_code=400, detail="Attendance photos can only be uploaded for posted exam assignments.")
+    if exam.proctor_attendance in ["attended", "confirmed"]:
+        raise HTTPException(status_code=400, detail="Attendance is already confirmed. Its proof photo cannot be replaced.")
+    if not exam.room or not _get_timeslot_window(exam.timeslot):
+        raise HTTPException(status_code=400, detail="This exam needs an assigned room and a complete schedule before a proof photo can be uploaded. Contact the administrator.")
+    content = photo.file.read(MAX_ATTENDANCE_PHOTO_BYTES + 1)
+    content_type = validate_attendance_photo(content)
+    proof = db.query(models.ProctorAttendanceProof).filter_by(exam_id=exam_id, proctor_id=proctor_id).first()
+    if proof is None:
+        proof = models.ProctorAttendanceProof(exam_id=exam_id, proctor_id=proctor_id)
+        db.add(proof)
+    proof.uploaded_by_id = current_user.id
+    proof.room_id = exam.room_id
+    proof.room_name = exam.room.name
+    proof.timeslot_id = exam.timeslot_id
+    proof.exam_date = exam.timeslot.date
+    proof.start_time = exam.timeslot.start_time
+    proof.end_time = exam.timeslot.end_time
+    proof.content_type = content_type
+    proof.photo_data = content
+    proof.uploaded_at = datetime.now(timezone.utc).replace(tzinfo=None)
+    db.commit()
+    cache.invalidate_monitoring()
+    return {"message": "Proof photo uploaded. You can confirm attendance while the exam is in progress.",
+            "attendance_proof": attendance_proof_metadata(db, [exam])[exam_id]}
+
+
+@router.get("/{proctor_id}/attendance-proof/{exam_id}")
+def view_attendance_proof(
+    proctor_id: int,
+    exam_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    _attendance_exam(proctor_id, exam_id, db, current_user, allow_admin=True)
+    proof = db.query(models.ProctorAttendanceProof).filter_by(exam_id=exam_id, proctor_id=proctor_id).first()
+    if proof is None:
+        raise HTTPException(status_code=404, detail="No attendance proof photo has been uploaded for this exam.")
+    return Response(content=proof.photo_data, media_type=proof.content_type, headers={
+        "Cache-Control": "private, no-store",
+        "X-Content-Type-Options": "nosniff",
+    })
+
+
 @router.post("/{proctor_id}/confirm-attendance/{exam_id}")
 def confirm_attendance(
     proctor_id: int,
@@ -521,16 +643,7 @@ def confirm_attendance(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
-    is_admin = current_user.role in ["admin", "program_head"]
-    is_assigned = (current_user.proctor_id == proctor_id)
-    if not is_admin and not is_assigned:
-        proctor = db.query(models.Proctor).get(proctor_id)
-        if not proctor or current_user.teacher_id != proctor.teacher_id:
-            raise HTTPException(status_code=403, detail="Not authorized to confirm attendance for this proctor")
-
-    exam = db.query(models.Exam).filter(models.Exam.id == exam_id, models.Exam.proctor_id == proctor_id).first()
-    if not exam:
-        raise HTTPException(status_code=404, detail="Exam assignment not found for this proctor")
+    exam = _attendance_exam(proctor_id, exam_id, db, current_user, allow_admin=True, for_update=True)
     if exam.status != "posted":
         raise HTTPException(status_code=400, detail="Attendance can only be confirmed for a posted exam assignment")
     if exam.proctor_attendance in ["attended", "confirmed"]:
@@ -548,6 +661,10 @@ def confirm_attendance(
             detail="Attendance can only be confirmed while the scheduled exam is in progress",
         )
 
+    proof = db.query(models.ProctorAttendanceProof).filter_by(exam_id=exam_id, proctor_id=proctor_id).first()
+    if not proof_matches_assignment(proof, exam):
+        raise HTTPException(status_code=400, detail="Upload a proof photo for this exam's current room and schedule before confirming attendance.")
+
     exam.proctor_attendance = "confirmed"
     proctor = db.query(models.Proctor).get(proctor_id)
     proctor_name = proctor.name if proctor else f"Proctor {proctor_id}"
@@ -556,7 +673,7 @@ def confirm_attendance(
     admin_user = db.query(models.User).filter(models.User.role == "program_head").first()
     notif = models.Notification(
         user_id=admin_user.id if admin_user else None,
-        message=f"Proctor {proctor_name} has confirmed attendance for {subject_name} ({section_name}).",
+        message=f"Proctor {proctor_name} has confirmed attendance for {subject_name} ({section_name}). Proof photo is available in Proctor Monitoring.",
         type="success",
         related_id=exam.id
     )
@@ -594,6 +711,7 @@ def get_proctor_monitoring(
         .order_by(models.Timeslot.date, models.Timeslot.start_time)
         .all()
     )
+    proofs = attendance_proof_metadata(db, exams)
     course_map = {}
     for e in exams:
         course_name = e.course.name if e.course else "Unknown Course"
@@ -626,6 +744,7 @@ def get_proctor_monitoring(
             "end_time": end_time,
             "room": e.room.name if e.room else "-",
             "attendance_status": "attended" if e.proctor_attendance in ["attended", "confirmed"] else (e.proctor_attendance or "pending"),
+            "attendance_proof": proofs.get(e.id),
         })
     result = [{"course_name": course, "exams": entries} for course, entries in sorted(course_map.items())]
     cache.set("proctors:monitoring", result, TTL_MONITORING)

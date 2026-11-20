@@ -70,7 +70,7 @@ def run_simulation():
             if last_asgn is not None:
                 last_d, last_s_m, last_e_m = last_asgn
                 if day == last_d and 0 <= (start_m - last_e_m) <= MAX_CONSECUTIVE_GAP:
-                    if proctor_consec_streak[pidx] >= 2:
+                    if proctor_consec_streak[pidx] >= 3:
                         continue # Skip!
             
             p_dept = proctor_departments[pidx]
@@ -109,24 +109,25 @@ def run_simulation():
     assert assigned_schedule[0]["pidx"] in (0, 1), "Slot 0 should pick cross-dept proctor P0 or P1"
     first_p = assigned_schedule[0]["pidx"]
     # 2. At Slot 1, P0 or P1 gets 2nd consecutive assignment
-    # 3. Check that NO proctor has streak > 2 anywhere in the schedule
+    # 3. Check that NO proctor has streak > 3 anywhere in the schedule
     pidx_history = {}
     for a in assigned_schedule:
         pidx = a["pidx"]
         pidx_history.setdefault(pidx, []).append(a["slot_idx"])
-        assert a["streak"] <= 2, f"Streak violated: {a}"
+        assert a["streak"] <= 3, f"Streak violated: {a}"
 
     print("\nProctor assignment slot indices:")
     for pidx, slots_assigned in pidx_history.items():
         print(f"  Proctor {pidx}: slots {slots_assigned}")
-        # Verify no 3 consecutive slot indices (e.g. [0, 1, 2] is forbidden)
-        for i in range(len(slots_assigned) - 2):
+        # Verify no 4 consecutive slot indices (e.g. [0, 1, 2, 3] is forbidden)
+        for i in range(len(slots_assigned) - 3):
             s0 = slots_assigned[i]
             s1 = slots_assigned[i+1]
             s2 = slots_assigned[i+2]
-            assert not (s1 == s0 + 1 and s2 == s1 + 1), f"Proctor {pidx} assigned 3 consecutive slots: {s0}, {s1}, {s2}!"
+            s3 = slots_assigned[i+3]
+            assert not (s1 == s0 + 1 and s2 == s1 + 1 and s3 == s2 + 1), f"Proctor {pidx} assigned 4 consecutive slots: {s0}, {s1}, {s2}, {s3}!"
 
-    print("\n[SUCCESS] Simulation test passed! Maximum 2 consecutive assignments rule perfectly enforced.")
+    print("\n[SUCCESS] Simulation test passed! Maximum 3 consecutive assignments rule perfectly enforced.")
 
 if __name__ == "__main__":
     run_simulation()

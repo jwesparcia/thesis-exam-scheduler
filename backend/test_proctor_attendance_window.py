@@ -3,8 +3,10 @@
 import os
 import sys
 from datetime import date, datetime, time
+from io import BytesIO
 
-from fastapi import HTTPException
+from fastapi import HTTPException, UploadFile
+from PIL import Image
 
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -125,6 +127,17 @@ def run_tests():
 
             proctors_router._get_current_schedule_datetime = lambda: datetime(
                 2030, 1, 10, 9, 30, tzinfo=proctors_router.SCHEDULE_TIMEZONE
+            )
+            expect_http_error(
+                400,
+                lambda: proctors_router.confirm_attendance(proctor.id, exam.id, db, proctor_user),
+                "Requires a proof photo before attendance can be confirmed",
+            )
+            image = BytesIO()
+            Image.new("RGB", (4, 4), "white").save(image, format="PNG")
+            image.seek(0)
+            proctors_router.upload_attendance_proof(
+                proctor.id, exam.id, photo=UploadFile(filename="room.png", file=image), db=db, current_user=proctor_user,
             )
             result = proctors_router.confirm_attendance(proctor.id, exam.id, db, proctor_user)
             db.refresh(exam)

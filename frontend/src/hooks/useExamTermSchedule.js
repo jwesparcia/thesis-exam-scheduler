@@ -14,8 +14,9 @@ export default function useExamTermSchedule(exams) {
     }
     return [...groups.values()];
   }, [exams]);
+  const defaultSchedule = schedules.find(schedule => schedule.term === "Prelim") ?? schedules[0];
   const selectedKey = schedules.some(schedule => schedule.key === selection)
-    ? selection : schedules[0]?.key || "";
+    ? selection : defaultSchedule?.key ?? "";
   const termExams = useMemo(
     () => exams.filter(exam => getExamScheduleKey(exam) === selectedKey),
     [exams, selectedKey],

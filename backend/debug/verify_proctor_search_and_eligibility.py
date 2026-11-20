@@ -91,17 +91,18 @@ def run_tests():
             print(f"[PASS] Partial search query '{q_part}' matched '{full_name}' successfully ({len(matched_part)} results).")
 
         print("\n" + "=" * 70)
-        print("TEST 5: Verify max 2 consecutive assignments rule enforcement")
+        print("TEST 5: Verify max 3 consecutive assignments rule enforcement")
         print("=" * 70)
-        # Create a mock proctor with 2 consecutive timeslots and check if 3rd consecutive slot is blocked
+        # A third consecutive duty is allowed; a fourth requires a break.
         ts1 = Timeslot(date=date(2026, 12, 1), start_time=time(8, 0), end_time=time(9, 15))
         ts2 = Timeslot(date=date(2026, 12, 1), start_time=time(9, 30), end_time=time(10, 45))
         ts3_consecutive = Timeslot(date=date(2026, 12, 1), start_time=time(11, 0), end_time=time(12, 15))
+        ts4_consecutive = Timeslot(date=date(2026, 12, 1), start_time=time(12, 30), end_time=time(13, 45))
         ts4_with_break = Timeslot(date=date(2026, 12, 1), start_time=time(13, 0), end_time=time(14, 15))
 
         test_proc = Proctor(name="TEST_CONSEC_PROC", department="College", exclude_from_scheduling=False)
         db.add(test_proc)
-        db.add_all([ts1, ts2, ts3_consecutive, ts4_with_break])
+        db.add_all([ts1, ts2, ts3_consecutive, ts4_consecutive, ts4_with_break])
         db.commit()
         db.refresh(test_proc)
 
@@ -111,10 +112,14 @@ def run_tests():
         db.add_all([e1, e2])
         db.commit()
 
-        # Check consecutive rule with 3rd consecutive slot (should return False)
+        # Check that the third duty is permitted before testing the fourth.
         is_ok_consec = check_proctor_consecutive_limit(db, test_proc.id, ts3_consecutive)
-        assert not is_ok_consec, "check_proctor_consecutive_limit should reject 3rd consecutive assignment!"
-        print("[PASS] 3rd consecutive slot properly flagged as violation (False).")
+        assert is_ok_consec, "check_proctor_consecutive_limit should allow a 3rd consecutive assignment!"
+        e3 = Exam(timeslot_id=ts3_consecutive.id, proctor_id=test_proc.id, status="draft", semester=1)
+        db.add(e3)
+        db.commit()
+        assert not check_proctor_consecutive_limit(db, test_proc.id, ts4_consecutive), "A fourth consecutive assignment must require a break!"
+        print("[PASS] Third duty allowed; fourth consecutive duty rejected.")
 
         # Check with slot after break (should return True)
         is_ok_break = check_proctor_consecutive_limit(db, test_proc.id, ts4_with_break)
@@ -122,8 +127,8 @@ def run_tests():
         print("[PASS] Slot after lunch/break properly accepted (True).")
 
         # Cleanup test entities
-        db.query(Exam).filter(Exam.id.in_([e1.id, e2.id])).delete()
-        db.query(Timeslot).filter(Timeslot.id.in_([ts1.id, ts2.id, ts3_consecutive.id, ts4_with_break.id])).delete()
+        db.query(Exam).filter(Exam.id.in_([e1.id, e2.id, e3.id])).delete()
+        db.query(Timeslot).filter(Timeslot.id.in_([ts1.id, ts2.id, ts3_consecutive.id, ts4_consecutive.id, ts4_with_break.id])).delete()
         db.query(Proctor).filter(Proctor.id == test_proc.id).delete()
         db.commit()
 

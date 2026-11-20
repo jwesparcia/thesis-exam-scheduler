@@ -203,16 +203,17 @@ def run_tests():
         print("PASSED: day_of_week=None schedule rejected.")
 
         # -------------------------------------------------------------
-        # TEST 6: Verify two-consecutive-assignment break rule
+        # TEST 6: Verify three-consecutive-assignment break rule
         # -------------------------------------------------------------
-        print("\n--- Test 6: Verify two-consecutive-assignment limit rule ---")
+        print("\n--- Test 6: Verify three-consecutive-assignment limit rule ---")
         # Create timeslots on Monday
         slot1 = Timeslot(date=monday_date, start_time=time(10, 0), end_time=time(11, 30))
         slot2 = Timeslot(date=monday_date, start_time=time(11, 30), end_time=time(13, 0)) # consecutive to slot1
         slot3 = Timeslot(date=monday_date, start_time=time(13, 0), end_time=time(14, 30))  # consecutive to slot2 (3rd!)
-        slot4_after_break = Timeslot(date=monday_date, start_time=time(15, 0), end_time=time(16, 30)) # after 30m break
+        slot4_consecutive = Timeslot(date=monday_date, start_time=time(14, 30), end_time=time(16, 0))
+        slot4_after_break = Timeslot(date=monday_date, start_time=time(15, 15), end_time=time(16, 45)) # after 45m break
 
-        db.add_all([slot1, slot2, slot3, slot4_after_break])
+        db.add_all([slot1, slot2, slot3, slot4_consecutive, slot4_after_break])
         db.flush()
 
         # Create 2 exams assigned to p1 in slot1 and slot2
@@ -227,11 +228,15 @@ def run_tests():
         db.add_all([exam1, exam2])
         db.commit()
 
-        # Candidate slot3 would make streak = 3 -> must be rejected by check_proctor_consecutive_limit
+        # Candidate slot3 makes a permitted third consecutive assignment.
         can_assign_slot3 = check_proctor_consecutive_limit(db, p1.id, slot3)
         print(f"Consecutive limit for 3rd consecutive slot: can_assign={can_assign_slot3}")
-        assert not can_assign_slot3, "Expected 3rd consecutive assignment to be rejected!"
-        print("PASSED: 3rd consecutive assignment blocked by consecutive limit rule.")
+        assert can_assign_slot3, "Expected 3rd consecutive assignment to be allowed!"
+        exam3 = Exam(timeslot_id=slot3.id, proctor_id=p1.id, status="draft")
+        db.add(exam3)
+        db.commit()
+        assert not check_proctor_consecutive_limit(db, p1.id, slot4_consecutive), "Expected 4th consecutive assignment to require a break!"
+        print("PASSED: Third assignment allowed; fourth consecutive assignment blocked.")
 
         # Candidate slot4 is after a break -> must be accepted
         can_assign_slot4 = check_proctor_consecutive_limit(db, p1.id, slot4_after_break)
@@ -242,9 +247,11 @@ def run_tests():
         # Cleanup test exams & slots
         db.delete(exam1)
         db.delete(exam2)
+        db.delete(exam3)
         db.delete(slot1)
         db.delete(slot2)
         db.delete(slot3)
+        db.delete(slot4_consecutive)
         db.delete(slot4_after_break)
         db.commit()
 

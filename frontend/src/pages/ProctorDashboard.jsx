@@ -44,6 +44,8 @@ import useExamTermSchedule from "../hooks/useExamTermSchedule";
 import { getExamScheduleKey } from "../utils/examTerms";
 import api from "../api";
 import ExamBatchBadge from "../components/ExamBatchBadge";
+import AttendanceProofUpload from "../components/AttendanceProofUpload";
+import { hasCurrentAttendanceProof } from "../utils/attendanceProof";
 
 function ProctorManual() {
   const { theme } = useTheme();
@@ -76,7 +78,7 @@ function ProctorManual() {
     { id: "assignments", label: "My Assignments & Views", icon: CalendarDaysIcon, badge: "Dual View" },
     { id: "attendance", label: "Attendance Check-in", icon: CheckBadgeIcon, badge: "Live Status" },
     { id: "schedule", label: "Teaching Schedule Upload", icon: TableCellsIcon, badge: "Excel Ingest" },
-    { id: "consecutive", label: "Workload & 2-Duty Rule", icon: ShieldCheckIcon, badge: "Fairness" },
+    { id: "consecutive", label: "Workload & 3-Duty Rule", icon: ShieldCheckIcon, badge: "Fairness" },
     { id: "chat", label: "Chat Support", icon: ChatBubbleLeftRightIcon, badge: "Direct Msg" },
     { id: "notifications", label: "Notification Alerts", icon: BellIcon, badge: "Real-time" },
   ];
@@ -345,11 +347,11 @@ function ProctorManual() {
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="w-5 h-5 rounded-full bg-blue-500/10 text-blue-500 flex items-center justify-center font-bold text-xs shrink-0">3</span>
-                  <span><strong>Click "Check In":</strong> Locate the active exam card and click the green <strong>Check In</strong> button. The status badge will change from "Pending" to "Checked In".</span>
+                  <span><strong>Upload a Room Photo and Confirm:</strong> On the exam card, select <strong>Upload proof photo</strong> and choose a photo showing you in the assigned room. Once the upload succeeds, <strong>Confirm Attendance</strong> becomes available while the exam is in progress.</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="w-5 h-5 rounded-full bg-blue-500/10 text-blue-500 flex items-center justify-center font-bold text-xs shrink-0">4</span>
-                  <span><strong>Live Sync:</strong> The Program Head's <em>Proctor Attendance Monitoring</em> board will immediately show your green checkmark, confirming the exam is covered.</span>
+                  <span><strong>Live Sync:</strong> The Program Head's <em>Proctor Attendance Monitoring</em> board shows your attendance status and provides <strong>View proof photo</strong> so administrators can review your uploaded evidence.</span>
                 </li>
               </ol>
             </div>
@@ -408,7 +410,7 @@ function ProctorManual() {
           </div>
         )}
 
-        {/* TAB 4: Workload & 2-Consecutive Duty Rule */}
+        {/* TAB 4: Workload & 3-Consecutive Duty Rule */}
         {activeSubTab === "consecutive" && (
           <div className="space-y-6">
             <div className="flex items-center justify-between flex-wrap gap-3 pb-4 border-b border-slate-200 dark:border-slate-800">
@@ -416,7 +418,7 @@ function ProctorManual() {
                 <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/40 flex items-center justify-center text-purple-600 dark:text-purple-400 font-bold text-base shadow-sm">4</div>
                 <div>
                   <h3 className={`text-lg sm:text-xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
-                    Faculty Workload & The 2-Consecutive Duty Rule
+                    Faculty Workload & The 3-Consecutive Duty Rule
                   </h3>
                   <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
                     Institutional Safeguards Protecting Proctors from Fatigue
@@ -434,9 +436,9 @@ function ProctorManual() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className={`p-5 rounded-2xl border ${isDark ? "bg-slate-800/50 border-slate-700/60" : "bg-slate-50 border-slate-200/80"}`}>
-                <h4 className={`font-bold text-sm mb-2 text-purple-500`}>2 Consecutive Proctoring Limit</h4>
+                <h4 className={`font-bold text-sm mb-2 text-purple-500`}>3 Consecutive Proctoring Limit</h4>
                 <p className={`text-xs leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
-                  No faculty member can be assigned more than <strong>2 consecutive exam timeslots</strong> in a single day. If you proctor Slot 1 and Slot 2, the algorithm is mathematically prohibited from assigning you Slot 3, ensuring a mandatory rest break.
+                  No faculty member can be assigned more than <strong>3 consecutive exam timeslots</strong> in a single day. After proctoring Slots 1, 2, and 3 consecutively, you must take a break before another assignment.
                 </p>
               </div>
 
@@ -1562,10 +1564,18 @@ export default function ProctorDashboard() {
     }
   };
 
+  const handleProofUploaded = useCallback((examId, proof) => {
+    setExams((previous) => previous.map((exam) => exam.id === examId ? { ...exam, attendance_proof: proof } : exam));
+  }, []);
+
   const requestAttendanceConfirmation = useCallback((exam) => {
     const windowStatus = getAttendanceWindowStatus(exam);
     if (windowStatus !== "active") {
       showError(getAttendanceWindowMessage(windowStatus, exam));
+      return;
+    }
+    if (!hasCurrentAttendanceProof(exam)) {
+      showError("Upload a proof photo for this exam before confirming attendance.");
       return;
     }
     setAttendanceConfirmExam(exam);
@@ -1589,6 +1599,10 @@ export default function ProctorDashboard() {
       return;
     }
 
+    if (!hasCurrentAttendanceProof(targetExam)) {
+      showError("Upload a proof photo for this exam before confirming attendance.");
+      return;
+    }
     setConfirmingExamId(examId);
 
     // Optimistically update attendance in state so button immediately switches to verified
@@ -2523,6 +2537,9 @@ export default function ProctorDashboard() {
 
                                   {/* Actions */}
                                   <td className="py-4 px-4 sm:px-6 text-right whitespace-nowrap">
+                                    <div className="max-w-64">
+                                      <AttendanceProofUpload exam={exam} onUploaded={handleProofUploaded} disabled={confirmingExamId === exam.id} />
+                                    </div>
                                     {isConfirmed ? (
                                       <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
                                         <CheckBadgeIcon className="w-4 h-4 text-emerald-500" />
@@ -2531,9 +2548,9 @@ export default function ProctorDashboard() {
                                     ) : attendanceWindowStatus === "active" ? (
                                       <button
                                         onClick={() => requestAttendanceConfirmation(exam)}
-                                        disabled={confirmingExamId === exam.id}
+                                        disabled={confirmingExamId === exam.id || !hasCurrentAttendanceProof(exam)}
                                         className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition hover:shadow-md hover:-translate-y-0.5 ${
-                                          confirmingExamId === exam.id ? "opacity-60 cursor-not-allowed" : ""
+                                          (confirmingExamId === exam.id || !hasCurrentAttendanceProof(exam)) ? "opacity-60 cursor-not-allowed" : ""
                                         }`}
                                       >
                                         {confirmingExamId === exam.id ? (
@@ -2642,6 +2659,7 @@ export default function ProctorDashboard() {
 
                             {/* Action Button */}
                             <div className="mt-3.5 pt-0.5">
+                              <AttendanceProofUpload exam={exam} onUploaded={handleProofUploaded} disabled={confirmingExamId === exam.id} />
                               {isConfirmed ? (
                                 <div className={`w-full py-2.5 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 ${
                                   isDark
@@ -2654,9 +2672,9 @@ export default function ProctorDashboard() {
                               ) : attendanceWindowStatus === "active" ? (
                                 <button
                                   onClick={() => requestAttendanceConfirmation(exam)}
-                                  disabled={confirmingExamId === exam.id}
+                                  disabled={confirmingExamId === exam.id || !hasCurrentAttendanceProof(exam)}
                                   className={`w-full py-2.5 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/20 active:scale-[0.99] ${
-                                    confirmingExamId === exam.id ? "opacity-60 cursor-not-allowed" : ""
+                                    (confirmingExamId === exam.id || !hasCurrentAttendanceProof(exam)) ? "opacity-60 cursor-not-allowed" : ""
                                   }`}
                                 >
                                   {confirmingExamId === exam.id ? (
@@ -2729,12 +2747,15 @@ export default function ProctorDashboard() {
                             </div>
                           </div>
                           
+                          <div className="mt-4">
+                            <AttendanceProofUpload exam={exam} onUploaded={handleProofUploaded} disabled={confirmingExamId === exam.id} />
+                          </div>
                           {!isConfirmed && attendanceWindowStatus === "active" ? (
                             <button
                               onClick={() => requestAttendanceConfirmation(exam)}
-                              disabled={confirmingExamId === exam.id}
+                              disabled={confirmingExamId === exam.id || !hasCurrentAttendanceProof(exam)}
                               className={`w-full mt-7 py-3 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 hover:-translate-y-0.5 ${
-                                confirmingExamId === exam.id ? "opacity-60 cursor-not-allowed" : ""
+                                (confirmingExamId === exam.id || !hasCurrentAttendanceProof(exam)) ? "opacity-60 cursor-not-allowed" : ""
                               }`}
                             >
                               {confirmingExamId === exam.id ? (

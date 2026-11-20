@@ -10,6 +10,9 @@ import re
 import sys
 import subprocess
 import shutil
+from html import escape
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MD_PATH = os.path.join(ROOT_DIR, "USER_MANUAL.md")
@@ -220,6 +223,24 @@ def markdown_to_html(md_content: str) -> str:
             html_lines.extend(close_lists())
             text = line[5:].strip()
             html_lines.append(f'<h4 class="sub-subsection-title">{inline_format(text)}</h4>')
+            i += 1
+            continue
+
+        # Standalone local screenshots, with the alt text also used as a caption.
+        m_image = re.fullmatch(r"!\[([^\]]*)\]\((.+)\)", line)
+        if m_image:
+            html_lines.extend(close_lists())
+            caption, image_source = m_image.groups()
+            image_path = (Path(MD_PATH).parent / image_source).resolve()
+            if not image_path.is_file():
+                raise FileNotFoundError(f"Manual screenshot not found: {image_path}")
+            html_lines.extend([
+                '<figure class="manual-screenshot">',
+                f'<img src="{escape(image_path.as_uri(), quote=True)}" '
+                f'alt="{escape(caption, quote=True)}" />',
+                f'<figcaption>{escape(caption)}</figcaption>',
+                '</figure>',
+            ])
             i += 1
             continue
             
@@ -450,6 +471,10 @@ def generate_full_html(body_html: str) -> str:
       page-break-after: avoid;
     }}
 
+    h3#signing-in {{
+      page-break-before: always;
+    }}
+
     h4.sub-subsection-title {{
       font-size: 10pt;
       font-weight: 700;
@@ -465,6 +490,31 @@ def generate_full_html(body_html: str) -> str:
       margin-top: 0;
       margin-bottom: 8px;
       text-align: justify;
+    }}
+
+    /* Screenshots retain their original proportions and stay with captions. */
+    figure.manual-screenshot {{
+      margin: 16px 0;
+      width: 100%;
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }}
+
+    figure.manual-screenshot img {{
+      display: block;
+      width: 100%;
+      max-width: 100%;
+      height: auto;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+    }}
+
+    figure.manual-screenshot figcaption {{
+      margin-top: 7px;
+      font-size: 8.5pt;
+      line-height: 1.4;
+      color: #475569;
+      text-align: left;
     }}
 
     /* Lists */
@@ -673,7 +723,11 @@ def main():
     print(f"[OK] Read USER_MANUAL.md ({len(md_text)} characters)")
 
     # Convert Markdown to HTML
-    body_html = markdown_to_html(md_text)
+    try:
+        body_html = markdown_to_html(md_text)
+    except FileNotFoundError as error:
+        print(f"[ERROR] {error}")
+        sys.exit(1)
     full_html = generate_full_html(body_html)
 
     with open(HTML_OUT_PATH, "w", encoding="utf-8") as f:
@@ -690,25 +744,50 @@ def main():
     print(f"[OK] Using browser at: {browser_path}")
 
     # Generate PDF via Chrome Headless
-    abs_html_path = os.path.abspath(HTML_OUT_PATH)
-    abs_pdf_path = os.path.abspath(PDF_ROOT_PATH)
+    # An isolated profile avoids reusing a running browser. A fresh output path
+    # ensures an older manual cannot be mistaken for a successful render.
+    build_dir = Path(ROOT_DIR) / "tmp" / "pdfs"
+    build_dir.mkdir(parents=True, exist_ok=True)
+    with TemporaryDirectory(prefix="manual-build-", dir=build_dir) as temp_dir:
+        temp_path = Path(temp_dir)
+        temp_pdf_path = temp_path / "USER_MANUAL.pdf"
+        cmd = [
+            browser_path,
+            "--headless=new",
+            "--no-sandbox",
+            "--disable-gpu",
+            "--no-first-run",
+            "--no-default-browser-check",
+            "--no-pdf-header-footer",
+            "--run-all-compositor-stages-before-draw",
+            f"--user-data-dir={temp_path / 'browser-profile'}",
+            f"--print-to-pdf={temp_pdf_path}",
+            Path(HTML_OUT_PATH).resolve().as_uri(),
+        ]
 
-    cmd = [
-        browser_path,
-        "--headless=new",
-        "--no-sandbox",
-        "--disable-gpu",
-        "--run-all-compositor-stages-before-draw",
-        f"--print-to-pdf={abs_pdf_path}",
-        abs_html_path
-    ]
+        print("[RUN] Executing headless print-to-pdf command...")
+        try:
+            res = subprocess.run(
+                cmd, capture_output=True, text=True,
+                encoding="utf-8", errors="replace", timeout=90,
+            )
+        except subprocess.TimeoutExpired:
+            print("[ERROR] PDF generation timed out; existing manuals were preserved.")
+            sys.exit(1)
 
-    print("[RUN] Executing headless print-to-pdf command...")
-    res = subprocess.run(cmd, capture_output=True, text=True)
+        if res.returncode != 0 or not temp_pdf_path.is_file():
+            print(f"[ERROR] PDF generation failed: {res.stderr}")
+            sys.exit(1)
 
-    if not os.path.exists(PDF_ROOT_PATH):
-        print(f"[ERROR] PDF generation failed: {res.stderr}")
-        sys.exit(1)
+        with temp_pdf_path.open("rb") as pdf_file:
+            signature = pdf_file.read(5)
+            pdf_file.seek(max(0, temp_pdf_path.stat().st_size - 1024))
+            ending = pdf_file.read()
+        if signature != b"%PDF-" or b"%%EOF" not in ending:
+            print("[ERROR] Browser output is not a complete PDF; existing manuals were preserved.")
+            sys.exit(1)
+
+        shutil.copy2(temp_pdf_path, PDF_ROOT_PATH)
 
     file_size = os.path.getsize(PDF_ROOT_PATH)
     print(f"[SUCCESS] Generated master PDF: {PDF_ROOT_PATH} ({file_size:,} bytes)")

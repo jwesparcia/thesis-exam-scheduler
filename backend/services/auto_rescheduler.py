@@ -32,6 +32,7 @@ from model import (
 )
 from core import cache
 from utils.logging import log_activity
+from utils.proctor_rules import MAX_CONSECUTIVE_PROCTOR_ASSIGNMENTS
 from room_data import get_room_names_for_department
 
 
@@ -1104,7 +1105,7 @@ def apply_auto_reschedule(
                         streak = 1
                     prev_e = e
                     max_streak = max(max_streak, streak)
-                if max_streak <= 2:
+                if max_streak <= MAX_CONSECUTIVE_PROCTOR_ASSIGNMENTS:
                     assigned_proctor_id = orig_exam.proctor_id
 
     assigned_exam = Exam(

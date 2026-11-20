@@ -124,7 +124,7 @@ class FixedTimeslotBatchTests(unittest.TestCase):
                 end = first.timeslot.end_time.hour * 60 + first.timeslot.end_time.minute
                 start = second.timeslot.start_time.hour * 60 + second.timeslot.start_time.minute
                 streak = streak + 1 if 0 <= start - end <= 30 else 1
-                self.assertLessEqual(streak, 2)
+                self.assertLessEqual(streak, 3)
 
     def test_twenty_sections_for_each_fixed_paper_use_later_batches_on_the_fixed_day(self):
         self.populate()

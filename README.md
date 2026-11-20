@@ -30,7 +30,7 @@ An AI-driven examination timetable and proctor management system designed for hi
 Traditional manual examination scheduling often suffers from room double-bookings, overlapping student exam slots, proctor availability conflicts, and uneven subject distribution.
 
 This platform automates the examination scheduling workflow using a multi-objective **Genetic Algorithm (GA)**. It optimizes:
-- **Hard Constraints**: Zero student section conflicts, zero room double-bookings, zero proctor overlap, dynamic room seating capacity limits, mandatory 15/30-minute break intervals per section, 2-consecutive proctor duty caps, and departmental building restrictions.
+- **Hard Constraints**: Zero student section conflicts, zero room double-bookings, zero proctor overlap, dynamic room seating capacity limits, mandatory 15/30-minute break intervals per section, 3-consecutive proctor duty caps, and departmental building restrictions.
 - **Soft Constraints & Distribution Rules**: Departmental examination matrices (e.g., General Education in morning sessions, Major subjects distributed evenly across examination days), same-floor room clustering, room load balancing, and proctor workload equity.
 
 > [!TIP]
@@ -64,7 +64,7 @@ This platform automates the examination scheduling workflow using a multi-object
 - **Consecutive Scheduling & Rest Intervals**: Enforce admin-configured break times (15 min / 30 min) per section between consecutive exams.
 - **Dynamic Room Management**: Edit room capacities, building codes, and floor levels with strict constraint enforcement ($Enrollment \le Capacity$).
 - **Subject Durations Manager**: Configure custom allotted exam durations (60, 90, 120 mins) per subject.
-- **Proctor Allocation & Live Attendance Monitoring**: Track proctor availability submissions, enforce 2-consecutive proctoring duty caps, and monitor live room check-ins.
+- **Proctor Allocation & Live Attendance Monitoring**: Track proctor availability submissions, enforce 3-consecutive proctoring duty caps, and monitor live room check-ins.
 - **Smart Rescheduling & Conflict Resolution**: Automatically assign conflict-free slots with 15-minute breaks for irregular students, or route late overflow to the 5:00 PM Consultation Area without a proctor.
 - **Master Excel Export**: Download formatted, color-coded master exam schedules.
 - **Curriculum & Student Ingestion**: Bulk-import sections, curriculum catalogs, and enrolled students via Excel templates, and generate printable section sign-in sheets.
@@ -73,7 +73,7 @@ This platform automates the examination scheduling workflow using a multi-object
 - **Dual Timetable Views**: Toggle between interactive Grid View (with horizontal date navigation) and compact List View.
 - **On-Site Attendance Check-In**: Perform live check-ins upon arriving at designated rooms (15 minutes prior) to update administrator monitoring boards in real time.
 - **Schedule Submission**: Upload teaching availability matrix via Excel to automatically block out teaching hours.
-- **Workload Protection**: Guaranteed 2-consecutive duty cap and contractual start/end hours enforcement.
+- **Workload Protection**: Guaranteed 3-consecutive duty cap and contractual start/end hours enforcement.
 - **In-App Direct Chat**: Communicate directly with Program Heads and students.
 - **Notifications**: Receive instant updates on duty assignments and institutional notices.
 

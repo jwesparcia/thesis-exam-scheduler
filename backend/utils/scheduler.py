@@ -7,6 +7,7 @@ from utils.exam_enrollment import ExamEnrollment
 from utils.exam_terms import normalize_exam_term
 from utils.fixed_exam_batches import plan_fixed_subject_batches
 from utils.program_names import ACCOUNTANCY_PROGRAM_NAMES
+from utils.proctor_rules import MAX_CONSECUTIVE_PROCTOR_ASSIGNMENTS
 
 # Time slots per day matching the official Tertiary Periodical Departmental Exam Schedule:
 # Morning:   7:00-8:30, 8:30-10:00, 10:00-11:30
@@ -64,6 +65,19 @@ MAX_SECTION_GAP_SECONDS = MAX_SECTION_GAP_MINUTES * 60
 POP_SIZE = 40
 GENERATIONS = 60
 MUTATION_RATE = 0.20
+
+
+def _proctor_day_within_consecutive_limit(intervals, max_gap):
+    """Check a day's posted and proposed assignments in chronological order."""
+    ordered = sorted(intervals)
+    streak = 1
+    for previous, current in zip(ordered, ordered[1:]):
+        gap = current[0] - previous[1]
+        streak = streak + 1 if 0 <= gap <= max_gap else 1
+        if streak > MAX_CONSECUTIVE_PROCTOR_ASSIGNMENTS:
+            return False
+    return True
+
 
 def normalize_day_of_week(val):
     """
@@ -1272,6 +1286,13 @@ def generate_exam_schedule(
     posted_section_day_counts = {}
     posted_section_day_slots = {}
 
+    # Preserve the existing total assignment limit for anyone already booked
+    # on an exam day.
+    proctors_booked_on_exam_days = {
+        e.proctor_id for e in posted_exams
+        if e.timeslot and e.timeslot.date in date_map and e.proctor_id in proctor_id_to_idx
+    }
+
     for e in posted_exams:
         if not e.timeslot:
             continue
@@ -1293,7 +1314,13 @@ def generate_exam_schedule(
         if e.room_id in room_id_to_idx:
             posted_room_loads_init[room_id_to_idx[e.room_id]] += 1
             
-        if e.proctor_id in proctor_id_to_idx:
+        # On separate exam dates, another term or semester must not exhaust
+        # this term's assignment limit. All posted duties still participate in
+        # overlap and consecutive-assignment checks above and below.
+        if e.proctor_id in proctor_id_to_idx and (
+            e.proctor_id in proctors_booked_on_exam_days
+            or (e.semester == semester and e.term == term)
+        ):
             posted_proctor_counts_init[proctor_id_to_idx[e.proctor_id]] += 1
             
         day = ts_inf["date"]
@@ -2057,7 +2084,7 @@ def generate_exam_schedule(
                     if last_asgn is not None:
                         last_d, last_s_m, last_e_m = last_asgn
                         if day == last_d and 0 <= (ts_inf["start_m"] - last_e_m) <= MAX_CONSECUTIVE_GAP:
-                            if proctor_consec_streak[pidx] >= 2:
+                            if proctor_consec_streak[pidx] >= MAX_CONSECUTIVE_PROCTOR_ASSIGNMENTS:
                                 continue
                     p_dept = proctor_departments[pidx]
                     is_same = 1 if (p_dept and exam_dept and p_dept == exam_dept) else 0
@@ -2596,7 +2623,7 @@ def generate_exam_schedule(
                     if last_asgn is not None:
                         last_d, last_s_m, last_e_m = last_asgn
                         if day == last_d and 0 <= (ts_inf["start_m"] - last_e_m) <= MAX_CONSECUTIVE_GAP:
-                            if proctor_consec_streak[pidx] >= 2:
+                            if proctor_consec_streak[pidx] >= MAX_CONSECUTIVE_PROCTOR_ASSIGNMENTS:
                                 continue
                     p_dept = proctor_departments[pidx]
                     is_same = 1 if (p_dept and exam_dept and p_dept == exam_dept) else 0
@@ -3746,7 +3773,7 @@ def generate_exam_schedule(
 
         # ----------------------------------------------------
         # Proctor Assignment in Chronological Order
-        # Enforces a maximum of 2 consecutive proctoring assignments
+        # Enforces a maximum of 3 consecutive proctoring assignments
         # per proctor (with mandatory break before next assignment),
         # preserving workload balancing, cross-department priority,
         # uploaded schedule hours, and conflict prevention.
@@ -3760,60 +3787,204 @@ def generate_exam_schedule(
             )
         )
 
-        proctor_last_assignment = list(posted_proctor_last_assignment_init)
-        proctor_consec_streak = list(posted_proctor_consec_streak_init)
+        # Candidate dates come from actual exams after room and time assignment,
+        # rather than every weekday in the uploaded teaching schedule. Posted
+        # bookings still exclude any overlapping exam slot.
+        posted_days = set()
+        posted_day_assignments = {}
+        for e in posted_exams_with_proctors:
+            pidx = proctor_id_to_idx[e.proctor_id]
+            posted_days.add((pidx, e.timeslot.date))
+            info = timeslot_info_list[timeslot_id_to_idx[e.timeslot.id]]
+            posted_day_assignments.setdefault((pidx, e.timeslot.date), []).append((info["start_m"], info["end_m"]))
+        candidate_days = [set() for _ in proctor_ids]
+        candidate_tasks = [[] for _ in proctor_ids]
+        for task_index, task in enumerate(pending_proctor_tasks):
+            slot_idx = task["slot_idx"]
+            day = timeslot_info_list[slot_idx]["date"]
+            for pidx in task["candidates"]:
+                if ((pidx, slot_idx) not in posted_proctor_slots_set
+                        and proctor_slot_avail.get((pidx, slot_idx))):
+                    candidate_tasks[pidx].append(task_index)
+                    if (pidx, day) not in posted_days:
+                        candidate_days[pidx].add(day)
 
-        for task in pending_proctor_tasks:
-            exam = task["exam"]
-            exam_slot_idx = task["slot_idx"]
-            candidates = task["candidates"]
+        def is_same_department(pidx, task):
+            proctor_dept = proctor_departments[pidx]
             exam_dept = task["exam_dept"]
-            ts_inf = timeslot_info_list[exam_slot_idx]
-            day = ts_inf["date"]
-            start_m = ts_inf["start_m"]
-            end_m = ts_inf["end_m"]
+            return int(bool(proctor_dept and exam_dept and proctor_dept == exam_dept))
 
-            p_id = None
-            best_key = (99, 99999)
-            for pidx in candidates:
-                if (pidx, exam_slot_idx) in proctor_slots_set:
+        def assign_proctors(reserve_later_days):
+            counts = list(posted_proctor_counts_init)
+            slots = set(posted_proctor_slots_set)
+            last_assignments = list(posted_proctor_last_assignment_init)
+            consecutive = list(posted_proctor_consec_streak_init)
+            assignments = []
+            covered_days = set()
+            cross_department_count = 0
+            day_assignments = {key: list(intervals) for key, intervals in posted_day_assignments.items()}
+
+            for task_index, task in enumerate(pending_proctor_tasks):
+                slot_idx = task["slot_idx"]
+                ts_inf = timeslot_info_list[slot_idx]
+                day = ts_inf["date"]
+                start_m = ts_inf["start_m"]
+                end_m = ts_inf["end_m"]
+                chosen = None
+                best_key = (99, 99999)
+
+                for pidx in task["candidates"]:
+                    if (pidx, slot_idx) in slots or not proctor_slot_avail.get((pidx, slot_idx)):
+                        continue
+                    if counts[pidx] >= proctor_max_assignments[pidx]:
+                        continue
+                    if reserve_later_days:
+                        later_days = sum(candidate_day > day for candidate_day in candidate_days[pidx])
+                        # If the cap cannot cover every day, retain room for an
+                        # assignment on the current day as well.
+                        available_total = proctor_max_assignments[pidx] - posted_proctor_counts_init[pidx]
+                        reserved = min(later_days, max(0, available_total - 1))
+                        if counts[pidx] >= proctor_max_assignments[pidx] - reserved:
+                            continue
+
+                    last_asgn = last_assignments[pidx]
+                    if last_asgn is not None:
+                        last_d, last_s_m, last_e_m = last_asgn
+                        if day == last_d and 0 <= (start_m - last_e_m) <= MAX_CONSECUTIVE_GAP:
+                            if consecutive[pidx] >= MAX_CONSECUTIVE_PROCTOR_ASSIGNMENTS:
+                                continue
+                    if reserve_later_days:
+                        # A later posted day can hide an earlier day's streak
+                        # from the existing last-assignment tracker. Recheck the
+                        # whole day before accepting a newly distributed duty.
+                        intervals = day_assignments.get((pidx, day), []) + [(start_m, end_m)]
+                        if not _proctor_day_within_consecutive_limit(intervals, MAX_CONSECUTIVE_GAP):
+                            continue
+
+                    key = (is_same_department(pidx, task), counts[pidx])
+                    if key < best_key:
+                        best_key = key
+                        chosen = pidx
+
+                if chosen is None:
                     continue
-                if not proctor_slot_avail.get((pidx, exam_slot_idx)):
-                    continue
-                if proctor_counts[pidx] >= proctor_max_assignments[pidx]:
-                    continue
+                for ov_idx in slot_overlaps[slot_idx]:
+                    slots.add((chosen, ov_idx))
+                counts[chosen] += 1
+                assignments.append((task_index, chosen))
+                covered_days.add((chosen, day))
+                day_assignments.setdefault((chosen, day), []).append((start_m, end_m))
+                if best_key[0] == 0:
+                    cross_department_count += 1
 
-                # Check maximum 2 consecutive proctoring assignments
-                last_asgn = proctor_last_assignment[pidx]
-                if last_asgn is not None:
-                    last_d, last_s_m, last_e_m = last_asgn
-                    if day == last_d and 0 <= (start_m - last_e_m) <= MAX_CONSECUTIVE_GAP:
-                        if proctor_consec_streak[pidx] >= 2:
-                            continue  # Skip proctor: reached 2 consecutive assignments without break
-
-                p_dept = proctor_departments[pidx]
-                is_same = 1 if (p_dept and exam_dept and p_dept == exam_dept) else 0
-                key = (is_same, proctor_counts[pidx])
-                if key < best_key:
-                    best_key = key
-                    p_id = proctor_ids[pidx]
-
-            if p_id:
-                p_idx = proctor_id_to_idx[p_id]
-                for ov_idx in slot_overlaps[exam_slot_idx]:
-                    proctor_slots_set.add((p_idx, ov_idx))
-                proctor_counts[p_idx] += 1
-                assigned_proctor_count += 1
-                proctor_data[p_id]["assigned_count"] += 1
-                exam.proctor_id = p_id
-
-                # Update consecutive assignment tracking
-                last_asgn = proctor_last_assignment[p_idx]
+                last_asgn = last_assignments[chosen]
                 if last_asgn is not None and day == last_asgn[0] and 0 <= (start_m - last_asgn[2]) <= MAX_CONSECUTIVE_GAP:
-                    proctor_consec_streak[p_idx] += 1
+                    consecutive[chosen] += 1
                 else:
-                    proctor_consec_streak[p_idx] = 1
-                proctor_last_assignment[p_idx] = (day, start_m, end_m)
+                    consecutive[chosen] = 1
+                last_assignments[chosen] = (day, start_m, end_m)
+
+            return assignments, cross_department_count, covered_days
+
+        baseline_assignments, baseline_cross, baseline_days = assign_proctors(False)
+        spread_assignments, spread_cross, spread_days = assign_proctors(True)
+        if (len(spread_assignments), spread_cross, len(spread_days)) > (len(baseline_assignments), baseline_cross, len(baseline_days)):
+            selected_assignments = spread_assignments
+        else:
+            selected_assignments = baseline_assignments
+        # Shift duties from a busier day to a lighter day once coverage is set.
+        # A move or swap keeps each proctor's total duties and the number of
+        # covered exams. Only use exams that pass the existing eligibility rules.
+        assigned = dict(selected_assignments)
+        task_slots = [task["slot_idx"] for task in pending_proctor_tasks]
+        task_dates = [timeslot_info_list[slot_idx]["date"] for slot_idx in task_slots]
+        duties_by_day = {}
+        for index, pidx in assigned.items():
+            duties_by_day.setdefault((pidx, task_dates[index]), set()).add(index)
+
+        def daily_load(pidx, day):
+            return len(duties_by_day.get((pidx, day), ())) + len(posted_day_assignments.get((pidx, day), ()))
+
+        def can_move_to_day(pidx, index):
+            slot_idx = task_slots[index]
+            day_key = (pidx, task_dates[index])
+            if (pidx, slot_idx) in posted_proctor_slots_set:
+                return False
+            intervals = list(posted_day_assignments.get(day_key, ()))
+            for existing in duties_by_day.get(day_key, ()):
+                existing_slot = task_slots[existing]
+                if existing_slot in slot_overlaps[slot_idx]:
+                    return False
+                info = timeslot_info_list[existing_slot]
+                intervals.append((info["start_m"], info["end_m"]))
+            info = timeslot_info_list[slot_idx]
+            intervals.append((info["start_m"], info["end_m"]))
+            return _proctor_day_within_consecutive_limit(intervals, MAX_CONSECUTIVE_GAP)
+
+        def rebalance_proctor(pidx, candidates):
+            destinations = {task_dates[index] for index in candidates}
+            if len(destinations) < 2:
+                return False
+            loads = {day: daily_load(pidx, day) for day in destinations}
+            busiest_days = sorted(destinations, key=lambda day: (-loads[day], day))
+            if loads[busiest_days[0]] - min(loads.values()) < 2:
+                return False
+            for target in sorted(candidates, key=lambda index: loads[task_dates[index]]):
+                target_day = task_dates[target]
+                target_load = loads[target_day]
+                if loads[busiest_days[0]] < target_load + 2:
+                    break
+                other = assigned.get(target)
+                if other == pidx:
+                    continue
+                target_task = pending_proctor_tasks[target]
+                if not can_move_to_day(pidx, target):
+                    continue
+                for source_day in busiest_days:
+                    if loads[source_day] < target_load + 2:
+                        break
+                    for source in sorted(duties_by_day.get((pidx, source_day), ())):
+                        source_task = pending_proctor_tasks[source]
+                        before = is_same_department(pidx, source_task)
+                        after = is_same_department(pidx, target_task)
+                        if other is not None:
+                            # Do not make the other proctor's distribution worse.
+                            if daily_load(other, target_day) <= daily_load(other, source_day):
+                                continue
+                            if other not in source_task["candidates"] or not can_move_to_day(other, source):
+                                continue
+                            before += is_same_department(other, target_task)
+                            after += is_same_department(other, source_task)
+                        if after > before:
+                            continue
+
+                        duties_by_day[(pidx, source_day)].remove(source)
+                        duties_by_day.setdefault((pidx, target_day), set()).add(target)
+                        assigned[target] = pidx
+                        if other is None:
+                            del assigned[source]
+                        else:
+                            duties_by_day[(other, target_day)].remove(target)
+                            duties_by_day.setdefault((other, source_day), set()).add(source)
+                            assigned[source] = other
+                        return True
+            return False
+
+        # Each move strictly reduces the sum of squared daily workloads.
+        # Repeat to pick up improvements made possible by the preceding moves.
+        improved = True
+        while improved:
+            improved = False
+            for pidx, candidates in enumerate(candidate_tasks):
+                if rebalance_proctor(pidx, candidates):
+                    improved = True
+
+        for index, p_idx in assigned.items():
+            exam = pending_proctor_tasks[index]["exam"]
+            p_id = proctor_ids[p_idx]
+            exam.proctor_id = p_id
+            assigned_proctor_count += 1
+            proctor_data[p_id]["assigned_count"] += 1
 
     # ----------------------------------------------------
     # Same-Floor Cohort Harmonizer

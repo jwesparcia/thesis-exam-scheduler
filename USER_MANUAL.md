@@ -25,7 +25,7 @@
    - [3.1 Supervisory Assignments Dashboard (Grid View vs List View)](#31-supervisory-assignments-dashboard-grid-view-vs-list-view)
    - [3.2 On-Site Exam Room Attendance Check-in](#32-on-site-exam-room-attendance-check-in)
    - [3.3 Teaching Schedule Upload & Availability Matrix](#33-teaching-schedule-upload--availability-matrix)
-   - [3.4 Workload Safeguards & The 2-Consecutive Duty Rule](#34-workload-safeguards--the-2-consecutive-duty-rule)
+   - [3.4 Workload Safeguards & The 3-Consecutive Duty Rule](#34-workload-safeguards--the-3-consecutive-duty-rule)
    - [3.5 In-App Chat Support with Administration and Students](#35-in-app-chat-support-with-administration-and-students)
    - [3.6 Notification Center, Theme Settings & Profile Management](#36-notification-center-theme-settings--profile-management)
 4. [Student Manual (Regular & Irregular Students)](#4-student-manual-regular--irregular-students)
@@ -52,13 +52,23 @@ The **Automated Examination Timetable and Proctor Scheduling System** eliminates
   3. *Room Capacity Hard Limit:* Section enrollment must not exceed the maximum seating capacity of the assigned room ($Enrollment \le RoomCapacity$).
   4. *Zero Room Overlaps:* No room is assigned to more than one exam session during any timeslot.
   5. *Zero Proctor Clashes:* Proctors are never assigned to supervise exams during hours when they have scheduled teaching classes or outside their declared contractual availability.
-  6. *2-Consecutive Proctor Duty Cap:* Proctors cannot be assigned more than 2 consecutive exam slots without a mandatory break period.
+  6. *3-Consecutive Proctor Duty Cap:* Proctors cannot be assigned more than 3 consecutive exam slots without a mandatory break period.
   7. *Building & Wing Restrictions:* Exams and rescheduled requests must remain within designated departmental wings (College vs Senior High School).
 - **Soft Constraints (Optimized by GA Fitness Scoring):**
   1. *Same-Floor & Cluster Optimization:* Minimizes student and faculty transit by scheduling sections on the same floor level whenever feasible.
   2. *Room Load Balancing:* Spreads students evenly across available venues to optimize personal workspace and ventilation.
   3. *Departmental Proctor Matching:* Assigns proctors from matching academic departments before utilizing cross-departmental pools.
   4. *Subject Workload Spacing:* Balances major technical courses across distinct examination days according to institutional distribution rules.
+
+### Signing In
+
+1. Open the system sign-in page in Microsoft Edge.
+2. Enter your **Email Address** and **Password**, then click **Sign In**.
+3. The system opens the dashboard assigned to your account role.
+
+The screenshots in this manual show the current system captured in Microsoft Edge using illustrative preview accounts and data. Your account details, schedules, and available records may differ.
+
+![Figure 1. Sign-in screen with Email Address, Password, and Sign In controls.](docs/manual/screenshots/login.png)
 
 ---
 
@@ -70,6 +80,8 @@ The Program Head and Academic Head dashboard serves as the administrative comman
 
 #### Purpose:
 Executes the AI-driven scheduling engine to generate a multi-day examination timetable for College or Senior High School (SHS).
+
+![Figure 2. Program Head schedule generator with academic level, semester, exam term, examination dates, and daily time window controls.](docs/manual/screenshots/program-head-generator.png)
 
 #### Step-by-Step Procedure:
 1. **Navigate:** Click **Generate Schedule** under the *Scheduling* group in the left sidebar.
@@ -89,7 +101,7 @@ Executes the AI-driven scheduling engine to generate a multi-day examination tim
      - *Phase 1:* Chromosome Population Initialization & Hard Constraint Validation
      - *Phase 2:* Crossover, Mutation, and Fitness Evaluation
      - *Phase 3:* Soft Constraint Optimization (Same-floor room clustering, break interval enforcement)
-     - *Phase 4:* Proctor Availability Matching & 2-Consecutive Duty Verification
+     - *Phase 4:* Proctor Availability Matching & 3-Consecutive Duty Verification
 6. **Review Draft & Publish:**
    - Review generated draft slots for conflicts or warnings.
    - Click **Publish Schedule**. Once published, the timetable becomes immutable and is instantly visible to all faculty proctors and enrolled students.
@@ -100,6 +112,8 @@ Executes the AI-driven scheduling engine to generate a multi-day examination tim
 
 #### Purpose:
 Inspects published and draft timetables, filters by criteria, and downloads officially formatted spreadsheets for institutional archiving.
+
+![Figure 3. Posted timetable in Generated Schedules showing subjects, proctors, dates, time periods, rooms, and Edit controls.](docs/manual/screenshots/master-timetable.png)
 
 #### Features & Usage:
 - **Dual View Modes:**
@@ -166,7 +180,7 @@ Uploads faculty teaching hours to prevent supervisory conflicts and tracks proct
 
 #### 2. Faculty Exclusions & Fairness Limits:
 - Toggle the **Exclude from Proctoring** switch for Deans, Research Directors, part-time instructors, or staff on official leave.
-- The system automatically enforces the **2-Consecutive Duty Limit**: No proctor will be assigned to more than 2 consecutive examination slots.
+- The system automatically enforces the **3-Consecutive Duty Limit**: No proctor will be assigned to more than 3 consecutive examination slots.
 
 #### 3. Real-Time Proctor Attendance Monitoring Board:
 1. Open **Proctor Monitoring** in the sidebar during active examination days.
@@ -257,6 +271,8 @@ The Proctor Portal is tailored for mobile, tablet, and desktop devices to facili
 
 ### 3.1 Supervisory Assignments Dashboard (Grid View vs List View)
 
+![Figure 4. Faculty Proctor My Assignments dashboard showing assigned examination duties.](docs/manual/screenshots/proctor-assignments.png)
+
 #### Viewing Your Timetable:
 1. Log in with your faculty credentials.
 2. The **My Assignments** tab opens by default.
@@ -298,10 +314,10 @@ The Proctor Portal is tailored for mobile, tablet, and desktop devices to facili
 
 ---
 
-### 3.4 Workload Safeguards & The 2-Consecutive Duty Rule
+### 3.4 Workload Safeguards & The 3-Consecutive Duty Rule
 
 To safeguard faculty well-being and maintain alertness during exam supervision, the scheduling engine strictly enforces:
-- **Maximum 2 Consecutive Slots:** You will never be assigned to more than 2 back-to-back exam sessions. After supervising two consecutive slots, the system mandates a rest period.
+- **Maximum 3 Consecutive Slots:** You will never be assigned to more than 3 back-to-back exam sessions. After supervising three consecutive slots, the system mandates a rest period.
 - **Operating Hours Compliance:** Supervisory duties are strictly confined within your contractual daily start time and end time.
 
 ---
@@ -326,6 +342,8 @@ To safeguard faculty well-being and maintain alertness during exam supervision, 
 The Student Portal provides students with clear timetable access, conflict resolution tools, and direct administrative support.
 
 ### 4.1 Reading Your Personalized Exam Timetable
+
+![Figure 5. Student My Schedule dashboard showing scheduled examinations.](docs/manual/screenshots/student-schedule.png)
 
 1. Log in with your student credentials.
 2. Navigate to **My Schedule**.
@@ -411,7 +429,7 @@ If you are cross-enrolled across multiple sections:
 *A:* Yes. In **Generated Exam Schedules**, you can perform manual overrides on individual exam slots before or after publishing.
 
 **Q: How does the system prevent proctor burnout during finals week?**  
-*A:* The engine enforces the 2-consecutive proctor duty rule and balances total supervisory hours across all available faculty proctors.
+*A:* The engine enforces the 3-consecutive proctor duty rule and balances total supervisory hours across all available faculty proctors.
 
 ---
 
@@ -441,7 +459,7 @@ If you are cross-enrolled across multiple sections:
 | **Consecutive Break Interval** | Hard Constraint | Configurable break (15 or 30 minutes) enforced between consecutive exams per section. |
 | **Room Seating Limits** | Hard Constraint | Section enrollment cannot exceed room seating capacity ($Enrollment \le Capacity$). |
 | **Proctor Teaching Clashes** | Hard Constraint | No proctoring duties assigned during faculty teaching lecture/lab hours. |
-| **2-Consecutive Proctor Cap** | Hard Constraint | Proctors are capped at maximum 2 consecutive exam slots; mandatory rest follows. |
+| **3-Consecutive Proctor Cap** | Hard Constraint | Proctors are capped at maximum 3 consecutive exam slots; mandatory rest follows. |
 | **Proctor Availability Window**| Hard Constraint | Duties are strictly scheduled within proctor's declared contractual start/end hours. |
 | **Building Restrictions** | Hard Constraint | Exams and reschedules remain within designated department building wings. |
 | **Same-Floor Optimization** | Soft Constraint | Minimizes stair climbing and transit by scheduling a section on the same floor level. |

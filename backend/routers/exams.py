@@ -13,6 +13,8 @@ from model import Exam, Subject, Section, Room, Timeslot, Course, YearLevel, Tea
 from utils.scheduler import generate_exam_schedule, validate_proctor_availability
 from utils.errors import humanize_error
 from utils.exam_terms import require_exam_term
+from services.attendance_proofs import attendance_proof_metadata
+from utils.proctor_rules import MAX_CONSECUTIVE_PROCTOR_ASSIGNMENTS
 from utils.exam_batch_labels import get_exam_batch_numbers
 from datetime import datetime, time
 from threading import Lock
@@ -393,6 +395,7 @@ def get_exams(
 
     result = []
     batch_numbers = get_exam_batch_numbers(db, exams)
+    proofs = attendance_proof_metadata(db, exams) if current_user.role in ["admin", "program_head", "proctor", "teacher"] else {}
     for e in exams:
         subject = e.subject
         section = e.section
@@ -444,6 +447,7 @@ def get_exams(
             "proctor": proctor_name,
             "proctor_name": proctor_name,
             "proctor_attendance": "confirmed" if e.proctor_attendance in ["attended", "confirmed"] else (e.proctor_attendance or "pending"),
+            "attendance_proof": proofs.get(e.id),
         })
 
     return result
@@ -1321,7 +1325,7 @@ def get_timeslots(
 
 def check_proctor_consecutive_limit(db: Session, proctor_id: int, target_slot: Timeslot, exclude_exam_id: Optional[int] = None) -> bool:
     """
-    Validate that assigning target_slot to proctor_id does not exceed 2 consecutive assignments.
+    Validate that assigning target_slot to proctor_id does not exceed 3 consecutive assignments.
     Assignments are considered consecutive if they occur on the same date with a break <= 30 minutes.
     """
     if not target_slot:
@@ -1351,7 +1355,7 @@ def check_proctor_consecutive_limit(db: Session, proctor_id: int, target_slot: T
             streak = 1
         prev_end = s_end
 
-        if streak > 2:
+        if streak > MAX_CONSECUTIVE_PROCTOR_ASSIGNMENTS:
             return False
 
     return True
@@ -1459,7 +1463,7 @@ def get_eligible_proctors(
             if not is_avail:
                 continue
 
-            # Max 2 consecutive assignments check
+            # Max 3 consecutive assignments check
             if not check_proctor_consecutive_limit(db, proc.id, target_slot, exclude_exam_id=exam.id):
                 continue
 
@@ -1627,13 +1631,13 @@ def update_exam(
                 detail=f"Proctor conflict: Selected proctor is already assigned to {sub_name} ({sec_name}) at this timeslot."
             )
 
-        # Check consecutive proctoring limit (max 2 consecutive assignments per proctor)
+        # Check consecutive proctoring limit (max 3 consecutive assignments per proctor)
         if slot_for_proc:
             if not check_proctor_consecutive_limit(db, target_proctor_id, slot_for_proc, exclude_exam_id=exam_id):
                 proc_name = proc.name or "Selected proctor"
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Consecutive limit conflict: {proc_name} already has 2 consecutive proctoring assignments and requires a break before another assignment."
+                    detail=f"Consecutive limit conflict: Assigning {proc_name} would exceed {MAX_CONSECUTIVE_PROCTOR_ASSIGNMENTS} consecutive proctoring assignments. A break is required before another assignment."
                 )
 
     # 3. Check section conflict: Section must not have another exam at target timeslot

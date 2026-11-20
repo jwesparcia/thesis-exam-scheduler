@@ -15,6 +15,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { useTheme } from "../context/themeStore";
 import api from "../api";
+import AttendanceProofPhoto from "./AttendanceProofPhoto";
 
 // ─── Utility ────────────────────────────────────────────────────────────────
 
@@ -371,6 +372,7 @@ export default function ProctorMonitoring() {
                             <p className="break-words"><span className={`font-semibold ${isDark ? "text-slate-400" : "text-slate-500"}`}>Time:</span> <span className="font-mono font-medium">{exam.start_time} – {exam.end_time}</span></p>
                             <p className="break-words"><span className={`font-semibold ${isDark ? "text-slate-400" : "text-slate-500"}`}>Room:</span> <span className="font-medium">{exam.room}</span></p>
                           </div>
+                          <AttendanceProofPhoto exam={exam} />
                         </article>
                       ))}
                     </div>
@@ -397,6 +399,7 @@ export default function ProctorMonitoring() {
                               </span>
                             </th>
                             <th className="py-3 px-4 text-left font-bold uppercase tracking-wider text-xs">Attendance</th>
+                            <th className="py-3 px-4 text-left font-bold uppercase tracking-wider text-xs">Proof Photo</th>
                           </tr>
                         </thead>
                         <tbody className={`divide-y ${isDark ? "divide-slate-750 text-slate-200" : "divide-slate-200 text-slate-800"}`}>
@@ -479,6 +482,9 @@ export default function ProctorMonitoring() {
                               {/* Attendance */}
                               <td className="py-3.5 px-4">
                                 <AttendanceBadge status={exam.attendance_status} />
+                              </td>
+                              <td className="py-3.5 px-4">
+                                <AttendanceProofPhoto exam={exam} />
                               </td>
                             </tr>
                           ))}

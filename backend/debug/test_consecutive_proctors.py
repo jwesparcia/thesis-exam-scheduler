@@ -35,7 +35,7 @@ def test_consecutive_proctor_logic():
         if last_asgn is not None:
             last_d, last_s_m, last_e_m = last_asgn
             if day == last_d and 0 <= (start_m - last_e_m) <= MAX_CONSECUTIVE_GAP:
-                if proctor_consec_streak[pidx] >= 2:
+                if proctor_consec_streak[pidx] >= 3:
                     return False
         return True
 
@@ -59,16 +59,20 @@ def test_consecutive_proctor_logic():
     assign(0, slot2)
     assert proctor_consec_streak[0] == 2
 
-    # 3. Check Slot 3 (3rd consecutive time slot) -> MUST BE SKIPPED
-    assert can_assign(0, slot3) == False, "Proctor 0 should be skipped for 3rd consecutive slot without break!"
-    print("  -> Passed: Proctor 0 correctly skipped for 3rd consecutive slot")
+    # 3. A third duty is allowed; a fourth consecutive duty must be skipped.
+    assert can_assign(0, slot3) == True
+    assign(0, slot3)
+    assert proctor_consec_streak[0] == 3
+    fourth_consecutive = (d1, 12 * 60, 13 * 60 + 15)
+    assert can_assign(0, fourth_consecutive) == False, "Proctor 0 needs a break before a fourth consecutive duty!"
+    print("  -> Passed: third duty allowed and fourth consecutive duty skipped")
 
     # 4. Another proctor (Proctor 1) is assigned to Slot 3
     assert can_assign(1, slot3) == True
     assign(1, slot3)
     assert proctor_consec_streak[1] == 1
 
-    # 5. Slot 4 is at 13:00 (75 min after slot 2 for Proctor 0) -> Proctor 0 had a break during slot 3!
+    # 5. Slot 4 is at 13:00, after a 75-minute break from slot 3.
     assert can_assign(0, slot4) == True, "Proctor 0 should be eligible again after a break!"
     assign(0, slot4)
     assert proctor_consec_streak[0] == 1, "Streak should reset to 1 after a break!"

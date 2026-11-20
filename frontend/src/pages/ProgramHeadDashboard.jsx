@@ -1492,7 +1492,7 @@ function ProgramHeadManual() {
                 </span>
               </div>
               <p className={`text-xs sm:text-sm mt-1 max-w-2xl leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
-                Comprehensive operational guide covering the multi-generation Genetic Algorithm engine, dynamic room capacities, 2-consecutive proctor rules, irregular student auto-routing, and live attendance monitoring.
+                Comprehensive operational guide covering the multi-generation Genetic Algorithm engine, dynamic room capacities, 3-consecutive proctor rules, irregular student auto-routing, and live attendance monitoring.
               </p>
             </div>
           </div>
@@ -1687,7 +1687,7 @@ function ProgramHeadManual() {
                 </div>
                 <div className="flex items-start gap-2">
                   <span className="text-blue-500 font-bold">•</span>
-                  <span><strong>2-Proctor Consecutive Limit:</strong> Faculty members cannot be scheduled for more than 2 consecutive exam slots, guaranteeing proctor rest periods.</span>
+                  <span><strong>3-Consecutive Proctoring Limit:</strong> Faculty members cannot be scheduled for more than 3 consecutive exam slots, guaranteeing proctor rest periods.</span>
                 </div>
                 <div className="flex items-start gap-2">
                   <span className="text-blue-500 font-bold">•</span>
@@ -1888,7 +1888,7 @@ function ProgramHeadManual() {
                     Proctor Management & Live Attendance Monitoring
                   </h3>
                   <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-                    Availability Ingestion, 2-Consecutive Rules, and Real-Time Room Check-ins
+                    Availability Ingestion, 3-Consecutive Rules, and Real-Time Room Check-ins
                   </p>
                 </div>
               </div>
@@ -1912,14 +1912,14 @@ function ProgramHeadManual() {
               <div className={`p-4 rounded-2xl border ${isDark ? "bg-slate-800/50 border-slate-700/60" : "bg-slate-50 border-slate-200/80"}`}>
                 <h4 className={`font-bold text-sm mb-1.5 ${isDark ? "text-slate-200" : "text-slate-800"}`}>2. Exclusions & Limits</h4>
                 <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-600"}`}>
-                  Toggle exclusion switches for department heads or part-time staff. The system strictly caps assignments at <strong>2 consecutive duties</strong> and balances cumulative hours across the list.
+                  Toggle exclusion switches for department heads or part-time staff. The system strictly caps assignments at <strong>3 consecutive duties</strong> and balances cumulative hours across the list.
                 </p>
               </div>
 
               <div className={`p-4 rounded-2xl border ${isDark ? "bg-slate-800/50 border-slate-700/60" : "bg-slate-50 border-slate-200/80"}`}>
                 <h4 className={`font-bold text-sm mb-1.5 ${isDark ? "text-slate-200" : "text-slate-800"}`}>3. Live Check-In Board</h4>
                 <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-600"}`}>
-                  The <strong>Proctor Monitoring</strong> board displays active rooms in real-time. Badges update instantly when proctors click "Check In" on their devices. Program Heads can confirm attendance or reassign an emergency substitute.
+                  The <strong>Proctor Monitoring</strong> board displays active rooms and attendance check-ins. Proctors must upload a room photo before confirming attendance. Use <strong>View proof photo</strong> to review the uploaded evidence.
                 </p>
               </div>
             </div>

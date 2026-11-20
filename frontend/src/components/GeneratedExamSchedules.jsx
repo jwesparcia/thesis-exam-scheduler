@@ -31,7 +31,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
     const [courseId, setCourseId] = useState("");
     const [yearId, setYearId] = useState("");
     const [semester, setSemester] = useState(1);
-    const [selectedTerm, setSelectedTerm] = useState("Midterm");
+    const [selectedTerm, setSelectedTerm] = useState("Prelim");
     const [savedSchedules, setSavedSchedules] = useState([]);
     const [scheduleSummaryLoading, setScheduleSummaryLoading] = useState(false);
     const [scheduleSummaryError, setScheduleSummaryError] = useState("");
@@ -377,7 +377,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
         if (selectedDept === "SHS") {
             setSelectedTerm("ST1");
         } else {
-            setSelectedTerm("Midterm");
+            setSelectedTerm("Prelim");
             if (semester > 2) {
                 setSemester(1);
             }

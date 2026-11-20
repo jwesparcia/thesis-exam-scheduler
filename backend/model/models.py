@@ -1,7 +1,7 @@
-from sqlalchemy import Column, Integer, String, Text, ForeignKey, Date, Time, Enum, Boolean, DateTime, JSON, Index, text, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Text, ForeignKey, Date, Time, Enum, Boolean, DateTime, JSON, Index, text, UniqueConstraint, LargeBinary
 from passlib.context import CryptContext
 from datetime import datetime, timezone
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, deferred
 from core.database import Base
 
 class Department(Base):
@@ -191,6 +191,26 @@ class Exam(Base):
     course = relationship("Course", back_populates="exams")
     year_level = relationship("YearLevel", back_populates="exams")
     proctor = relationship("Proctor")
+
+class ProctorAttendanceProof(Base):
+    __tablename__ = "proctor_attendance_proofs"
+    __table_args__ = (UniqueConstraint("exam_id", "proctor_id", name="uq_exam_proctor_attendance_proof"),)
+    id = Column(Integer, primary_key=True)
+    exam_id = Column(Integer, ForeignKey("exams.id", ondelete="CASCADE"), nullable=False, index=True)
+    proctor_id = Column(Integer, ForeignKey("proctors.id", ondelete="CASCADE"), nullable=False)
+    uploaded_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    # Assignment snapshots let attendance reject a photo from a different room
+    # or schedule without changing the exam or any scheduling rules.
+    room_id = Column(Integer, nullable=False)
+    room_name = Column(String, nullable=False)
+    timeslot_id = Column(Integer, nullable=False)
+    exam_date = Column(Date, nullable=False)
+    start_time = Column(Time, nullable=False)
+    end_time = Column(Time, nullable=False)
+    content_type = Column(String, nullable=False)
+    photo_data = deferred(Column(LargeBinary, nullable=False))
+    uploaded_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+
 
 class ReschedulingRequest(Base):
     __tablename__ = "rescheduling_requests"

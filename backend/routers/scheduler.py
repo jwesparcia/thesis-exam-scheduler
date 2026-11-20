@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Body
+from utils.proctor_rules import MAX_CONSECUTIVE_PROCTOR_ASSIGNMENTS
 from sqlalchemy.orm import Session
 from core import get_db, cache
 from model import Section, Subject, Exam, Room, Timeslot, Teacher, Exam, DistributionRule, User, Proctor, ProctorAvailability, TeacherTeaching, Course
@@ -191,7 +192,7 @@ def generate_exam_schedule(payload: dict = Body(...), db: Session = Depends(get_
                 )
                 if is_busy:
                     continue
-                # Check maximum 2 consecutive assignments rule
+                # Check maximum 3 consecutive assignments rule
                 cand_exams = [
                     e for e in created_exams
                     if e.proctor_id == candidate.id and e.timeslot_id and e.timeslot_id == timeslot.id or (
@@ -214,8 +215,8 @@ def generate_exam_schedule(payload: dict = Body(...), db: Session = Depends(get_
                             streak = 1
                         prev_end = ce_end
                     ts_start_m = timeslot.start_time.hour * 60 + timeslot.start_time.minute
-                    if prev_end is not None and 0 <= (ts_start_m - prev_end) <= 30 and streak >= 2:
-                        continue  # Skip: maximum 2 consecutive assignments reached
+                    if prev_end is not None and 0 <= (ts_start_m - prev_end) <= 30 and streak >= MAX_CONSECUTIVE_PROCTOR_ASSIGNMENTS:
+                        continue  # Skip: maximum consecutive assignments reached
                 is_avail, _ = validate_proctor_availability(
                     db,
                     proctor_id=candidate.id,

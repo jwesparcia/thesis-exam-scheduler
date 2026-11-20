@@ -50,7 +50,7 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
   const isDark = theme === "dark";
   const [selectedDept, setSelectedDept] = useState(""); // "" (None), "College", or "SHS"
   const [semester, setSemester] = useState(1);
-  const [term, setTerm] = useState("Midterm");
+  const [term, setTerm] = useState("Prelim");
   const [loading, setLoading] = useState(false);
   const [generationBusy, setGenerationBusy] = useState(false);
   const [generationStatusChecking, setGenerationStatusChecking] = useState(true);
@@ -233,7 +233,7 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
     if (selectedDept === "SHS") {
       setTerm("ST1");
     } else {
-      setTerm("Midterm");
+      setTerm("Prelim");
       if (semester > 2) {
         setSemester(1);
       }
