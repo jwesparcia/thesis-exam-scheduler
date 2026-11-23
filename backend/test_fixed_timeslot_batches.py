@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 _temporary_directory = tempfile.TemporaryDirectory(prefix="fixed-exam-batches-")
 os.environ["DATABASE_URL"] = f"sqlite:///{Path(_temporary_directory.name) / 'test.db'}"
@@ -191,6 +191,34 @@ class FixedTimeslotBatchTests(unittest.TestCase):
             self.generate(daily_end=time(9, 15))
         self.db.rollback()
         self.assertEqual(self.db.query(Exam).count(), 0)
+
+    def test_one_hour_window_explains_which_exam_cannot_fit(self):
+        from routers import exams as exams_api
+
+        self.populate(section_count=2, durations=(60, 75), fixed=False)
+        lease = Mock()
+        job_id = "short-exam-window"
+        with patch("utils.errors.logger.error"), redirect_stdout(io.StringIO()):
+            exams_api._run_generation_job(
+                generation_lease=lease, job_id=job_id, user_id=1,
+                start_date=date(2026, 11, 16), end_date=date(2026, 11, 19),
+                department="College", semester=1, term="Midterm", excluded_subjects=[],
+                force_overwrite=False, daily_start_time=time(8), daily_end_time=time(9),
+            )
+
+        progress = exams_api._get_generation_progress(job_id)
+        self.assertEqual(progress["status"], "failed")
+        self.assertIn("60 minutes, but 'Fixed Paper 2' needs 75 minutes", progress["detail"])
+        self.assertIn("at least 75 minutes apart", progress["detail"])
+        self.assertNotIn("Developer details", progress["detail"])
+        lease.release.assert_called_once()
+        self.assertEqual(self.db.query(Exam).count(), 0)
+
+    def test_one_hour_exam_can_use_a_one_hour_window(self):
+        self.populate(section_count=2, durations=(60,), fixed=False)
+        _, exams = self.generate(daily_end=time(9))
+        self.assertEqual(len(exams), 2)
+        self.assertTrue(all(exam.timeslot.start_time == time(8) and exam.timeslot.end_time == time(9) for exam in exams))
 
     def test_posted_room_bookings_in_other_terms_are_preserved(self):
         self.populate(section_count=4, capacities=[40] * 2)

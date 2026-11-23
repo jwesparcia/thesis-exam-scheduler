@@ -2383,7 +2383,6 @@ def clear_catalog_data(
         # ── invalidate all catalog + schedule caches ───────────────────
         cache.invalidate_catalog()
         cache.invalidate_proctors()
-        cache.delete("distribution_rules:all")
         return {"message": "Curriculum data deleted successfully! Student accounts were not affected."}
     except Exception as e:
         db.rollback()

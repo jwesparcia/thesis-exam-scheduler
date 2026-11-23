@@ -17,7 +17,7 @@
    - [2.4 Room Management & Dynamic Seating Capacities](#24-room-management--dynamic-seating-capacities)
    - [2.5 Proctor Availability Management & Live Attendance Monitoring](#25-proctor-availability-management--live-attendance-monitoring)
    - [2.6 Student Rescheduling & Irregular Student Smart Resolution](#26-student-rescheduling--irregular-student-smart-resolution)
-   - [2.7 Academic Distribution Rules Engine](#27-academic-distribution-rules-engine)
+   - [2.7 Exam Break Settings](#27-exam-break-settings)
    - [2.8 Data Ingestion (Curriculum, Proctors, Students) & Section Attendance Sheets](#28-data-ingestion-curriculum-proctors-students--section-attendance-sheets)
    - [2.9 In-App Real-Time Chat & Notification Broadcasts](#29-in-app-real-time-chat--notification-broadcasts)
    - [2.10 Account Security, Session Management & Password Controls](#210-account-security-session-management--password-controls)
@@ -215,18 +215,9 @@ When an irregular student submits a conflict petition, approving the request ini
 
 ---
 
-### 2.7 Academic Distribution Rules Engine
+### 2.7 Exam Break Settings
 
-#### Purpose:
-Enforces institutional curriculum distribution directives to prevent student exam fatigue.
-
-#### Configuration Options:
-- **Category Time Windows:**
-  - *General Education (GE):* Restrict GE exams to morning sessions across Days 1–3.
-  - *Major / Professional Courses:* Spread heavy technical subjects across alternating days.
-  - *SHS Core vs Specialized:* Core subjects in morning blocks; specialized strands in afternoon blocks.
-- **Daily Student Exam Limits:**
-  - Cap maximum exams per section per day (e.g., maximum 2 or 3 exams daily).
+Open **Exam Breaks** to configure the intermission interval for **General** and **Major** subjects. Enter hours, minutes, and seconds for each category, then click **Save**. These controls are disabled while schedule generation is running.
 
 ---
 

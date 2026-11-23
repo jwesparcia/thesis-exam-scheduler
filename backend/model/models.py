@@ -256,16 +256,6 @@ class Notification(Base):
 
     user = relationship("User", backref="notifications")
 
-class DistributionRule(Base):
-    __tablename__ = "distribution_rules"
-    id = Column(Integer, primary_key=True, index=True)
-    category_type = Column(String)
-    year_level_id = Column(Integer, ForeignKey("year_levels.id"), nullable=True)
-    allowed_days = Column(JSON)
-    allowed_session = Column(String)
-    
-    year_level = relationship("YearLevel", foreign_keys=[year_level_id])
-
 class ExamBreakSetting(Base):
     __tablename__ = "exam_break_settings"
     id = Column(Integer, primary_key=True, index=True)

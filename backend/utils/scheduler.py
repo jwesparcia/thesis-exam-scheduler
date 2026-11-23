@@ -504,6 +504,9 @@ def generate_exam_schedule(
         return section_break_seconds
 
     # 3. Build exam days and daily time slots
+    daily_window_minutes = time_to_minutes(daily_end_time) - time_to_minutes(daily_start_time)
+    if daily_window_minutes <= 0:
+        raise ValueError("The daily exam end time must be later than the start time.")
     report_progress(12, "Preparing timeslots", f"Building exam days and daily time slots ({distinct_durations}m)")
     exam_days = []
     curr = start_date
@@ -909,6 +912,13 @@ def generate_exam_schedule(
 
         if not cohort_dict:
             continue
+
+        if group_dur > daily_window_minutes:
+            raise ValueError(
+                f"The daily exam window is {daily_window_minutes} minutes, but "
+                f"'{sub_list[0].name}' needs {group_dur} minutes. "
+                f"Set the daily start and end times at least {group_dur} minutes apart and try again."
+            )
 
         # Keep every section taking this subject in one optimizer group.  The
         # previous per-course iteration produced separate groups, which meant

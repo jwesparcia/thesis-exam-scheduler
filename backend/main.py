@@ -89,7 +89,10 @@ def on_startup():
 
             # `break_minutes` belongs to an older schema. New installations
             # use exam_break_settings directly, so copy it only when present.
-            if "break_minutes" in _column_names("distribution_rules"):
+            if (
+                _inspector.has_table("distribution_rules")
+                and "break_minutes" in _column_names("distribution_rules")
+            ):
                 _conn.execute(_text("""
                     INSERT INTO exam_break_settings (category_type, break_seconds)
                     SELECT LOWER(category_type), MAX(COALESCE(break_minutes, 0)) * 60

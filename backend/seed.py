@@ -1,7 +1,7 @@
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 from core import SessionLocal, engine
-from model import Base, Course, YearLevel, Section, Subject, Room, Timeslot, Teacher, Exam, DistributionRule, User, Proctor, ProctorAvailability, IrregularSelection, SubjectProgram
+from model import Base, Course, YearLevel, Section, Subject, Room, Timeslot, Teacher, Exam, User, Proctor, ProctorAvailability, IrregularSelection, SubjectProgram
 from room_data import AVAILABLE_EXAM_ROOMS
 import bcrypt
 from datetime import date, time, timedelta, datetime
@@ -44,13 +44,6 @@ db.commit()
 teacher_ids = [t.id for t in db.query(Teacher).all()]
 
 # -------------------------
-# Distribution Rules
-# -------------------------
-# Need Course/Year for rules? Yes for ids.
-# Let's seed courses and years first.
-
-
-# -------------------------
 # Courses
 # -------------------------
 courses = [
@@ -90,30 +83,6 @@ year_levels = [
 db.add_all(year_levels)
 db.commit()
 year_levels = db.query(YearLevel).all()
-
-# -------------------------
-# Distribution Rules (from Tertiary Periodical Departmental Exam Schedule)
-# -------------------------
-# Schedule layout:
-#   Day 1 Morning  : GE subjects (Comm & Lit, Math, Sciences)
-#   Day 2 Morning  : GE subjects (Filipino, SOCSCI)
-#   Day 1 Afternoon: Computer Fundamentals & Major for Y3 & Y4
-#   Day 2 Afternoon: Major for ALL year levels
-#   Day 3 (Any)   : Major for ALL year levels
-#   Day 4 (Any)   : Major for ALL year levels
-
-rules = [
-    # GE / General subjects → Day 1-3, Morning session only (except literature which can go anywhere)
-    DistributionRule(category_type="general", year_level_id=None, allowed_days=[1, 2, 3], allowed_session="morning"),
-]
-
-# Major Rules per year level
-for y in year_levels:
-    # Major subjects → All days, Any session for maximum coverage
-    rules.append(DistributionRule(category_type="major", year_level_id=y.id, allowed_days=[1, 2, 3, 4], allowed_session="any"))
-
-db.add_all(rules)
-db.commit()
 
 # -------------------------
 # Subject Pools

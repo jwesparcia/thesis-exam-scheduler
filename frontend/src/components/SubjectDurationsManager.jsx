@@ -432,10 +432,10 @@ function SubjectModal({ open, onClose, onSave, courses, yearLevels, departments 
                   }`}>
                     {!form.is_fixed_timeslot && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
                   </span>
-                  <span className="text-xs font-bold">Follow Distribution Rules</span>
+                  <span className="text-xs font-bold">Automatic Scheduling</span>
                 </div>
                 <p className="text-xs mt-1.5 opacity-80 leading-snug">
-                  Automatic scheduling adhering to GE/Major rules across Days 1–4.
+                  Automatic placement using the scheduler's standard constraints.
                 </p>
               </button>
 
@@ -1117,7 +1117,7 @@ export default function SubjectDurationsManager() {
                         <span className="font-semibold">
                           {sub.is_fixed_timeslot
                             ? `Fixed Slot: Day ${sub.fixed_day || 1} • ${formatTime12(sub.fixed_start_time)} - ${formatTime12(sub.fixed_end_time)}`
-                            : "Policy: Auto (Follows distribution rules)"}
+                            : "Policy: Automatic Scheduling"}
                         </span>
                       </div>
                       <button

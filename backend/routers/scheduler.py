@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Body
 from utils.proctor_rules import MAX_CONSECUTIVE_PROCTOR_ASSIGNMENTS
 from sqlalchemy.orm import Session
 from core import get_db, cache
-from model import Section, Subject, Exam, Room, Timeslot, Teacher, Exam, DistributionRule, User, Proctor, ProctorAvailability, TeacherTeaching, Course
+from model import Section, Subject, Exam, Room, Timeslot, Teacher, Exam, User, Proctor, ProctorAvailability, TeacherTeaching, Course
 from room_data import get_room_names_for_department
 from datetime import datetime, timedelta, time, date
 import random

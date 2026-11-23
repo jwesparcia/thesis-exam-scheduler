@@ -193,6 +193,7 @@ class AttendanceProofTests(unittest.TestCase):
                          semester=None, proctor_id=None, term=None, db=self.db, current_user=self.owner)
         self.assertEqual(rows[0]["attendance_proof"], proof)
         groups = proctors.get_proctor_monitoring(db=self.db, current_user=self.admin)
+        self.assertEqual(groups[0]["exams"][0]["term"], self.exam.term)
         self.assertEqual(groups[0]["exams"][0]["attendance_proof"], proof)
         self.assertNotIn("photo_data", proof)
 

@@ -49,8 +49,9 @@ export default function GeneratedExamSchedules({ isGenerating }) {
 
     // Edit Exam Modal State
     const [editingExam, setEditingExam] = useState(null);
-    const [availableRooms, setAvailableRooms] = useState([]);
-    const [availableTimeslots, setAvailableTimeslots] = useState([]);
+    const [editOptions, setEditOptions] = useState(null);
+    const [editOptionsError, setEditOptionsError] = useState("");
+    const [editOptionsRevision, setEditOptionsRevision] = useState(0);
     const [availableProctors, setAvailableProctors] = useState([]);
     const [editRoomId, setEditRoomId] = useState("");
     const [editTimeslotId, setEditTimeslotId] = useState("");
@@ -176,27 +177,61 @@ export default function GeneratedExamSchedules({ isGenerating }) {
         }
     };
 
-    const handleOpenEdit = async (exam) => {
+    const handleOpenEdit = (exam) => {
         setEditingExam(exam);
-        setEditRoomId(exam.room_id ? String(exam.room_id) : "");
+        setEditOptions(null);
+        setEditOptionsError("");
+        setAvailableProctors([]);
+        setEditRoomId(exam.room_id ? String(exam.room_id) : "unassigned");
         setEditTimeslotId(exam.timeslot_id ? String(exam.timeslot_id) : "");
         setEditProctorId(exam.proctor_id ? String(exam.proctor_id) : "");
         setProctorSearchQuery("");
         setIsProctorDropdownOpen(false);
+    };
 
-        try {
-            const [roomsRes, timeslotsRes, proctorsRes] = await Promise.all([
-                api.get("/exams/rooms", { params: { department: selectedDept } }),
-                api.get("/exams/timeslots"),
-                api.get("/proctors/")
-            ]);
-            setAvailableRooms(roomsRes.data || []);
-            setAvailableTimeslots(timeslotsRes.data || []);
-            setAvailableProctors(proctorsRes.data || []);
-        } catch (err) {
-            console.error("Error loading edit options:", err);
-            showError(err.response?.data?.detail || "Failed to load room, timeslot, or proctor options.");
-        }
+    const editingExamId = editingExam?.id;
+    useEffect(() => {
+        if (!editingExamId) return;
+        const controller = new AbortController();
+        const config = { signal: controller.signal };
+        api.get(`/exams/${editingExamId}/edit-options`, config)
+            .then(res => {
+                if (!controller.signal.aborted) setEditOptions(res.data);
+            })
+            .catch(err => {
+                if (!controller.signal.aborted) {
+                    setEditOptionsError(err.response?.data?.detail || "Could not load available timeslots and rooms.");
+                }
+            });
+        api.get("/proctors/", config)
+            .then(res => {
+                if (!controller.signal.aborted) setAvailableProctors(res.data || []);
+            })
+            .catch(err => {
+                if (!controller.signal.aborted) console.error("Error loading proctors:", err);
+            });
+        return () => controller.abort();
+    }, [editingExamId, editOptionsRevision]);
+
+    const availableTimeslots = editOptions?.timeslots;
+    const selectedEditTimeslot = availableTimeslots?.find(slot => String(slot.id) === editTimeslotId);
+    const availableRooms = selectedEditTimeslot
+        ? editOptions.rooms.filter(room => selectedEditTimeslot.room_ids.includes(room.id))
+        : [];
+    const allowUnassignedRoom = selectedEditTimeslot && selectedEditTimeslot.id === editingExam?.timeslot_id;
+    const hasValidRoom = availableRooms.some(room => String(room.id) === editRoomId)
+        || (allowUnassignedRoom && editRoomId === "unassigned");
+
+    const handleEditTimeslotChange = (id) => {
+        setEditTimeslotId(id);
+        const slot = availableTimeslots?.find(option => String(option.id) === id);
+        if (!slot?.room_ids.includes(Number(editRoomId))) setEditRoomId("");
+    };
+
+    const refreshEditOptions = () => {
+        setEditOptions(null);
+        setEditOptionsError("");
+        setEditOptionsRevision(revision => revision + 1);
     };
 
     // Dynamically fetch only eligible proctors for the current exam and timeslot
@@ -207,6 +242,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
         }
         let isMounted = true;
         const fetchEligible = async () => {
+            setEligibleProctors([]);
             setLoadingEligibleProctors(true);
             try {
                 const res = await api.get(`/exams/${editingExam.id}/eligible-proctors`, {
@@ -229,7 +265,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
         return () => {
             isMounted = false;
         };
-    }, [editingExam?.id, editTimeslotId]);
+    }, [editingExam?.id, editTimeslotId, editOptionsRevision]);
 
     // Handle outside clicks and keyboard interactions for proctor searchable dropdown
     useEffect(() => {
@@ -279,12 +315,12 @@ export default function GeneratedExamSchedules({ isGenerating }) {
 
     const handleSaveEdit = async (e) => {
         e.preventDefault();
-        if (!editingExam) return;
+        if (!editingExam || !selectedEditTimeslot || !hasValidRoom || isGenerating || editSaving) return;
         setEditSaving(true);
         try {
             const res = await api.put(`/exams/${editingExam.id}`, {
-                room_id: editRoomId ? parseInt(editRoomId, 10) : null,
-                timeslot_id: editTimeslotId ? parseInt(editTimeslotId, 10) : null,
+                room_id: editRoomId === "unassigned" ? null : Number(editRoomId),
+                timeslot_id: selectedEditTimeslot.id,
                 proctor_id: editProctorId ? parseInt(editProctorId, 10) : null,
             });
             showSuccess(res.data?.message || `Successfully updated exam for ${editingExam.subject_code}!`);
@@ -293,6 +329,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
         } catch (err) {
             console.error("Failed to update exam:", err);
             showError(err.response?.data?.detail || "Failed to update exam.");
+            if ([404, 409].includes(err.response?.status)) refreshEditOptions();
         } finally {
             setEditSaving(false);
         }
@@ -1175,22 +1212,33 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                         </div>
 
                         <form onSubmit={handleSaveEdit} className="space-y-4">
+                            {editOptionsError && (
+                                <div role="alert" className="flex items-center justify-between gap-3 text-sm">
+                                    <span>{editOptionsError}</span>
+                                    <button type="button" onClick={refreshEditOptions} className="font-semibold underline">Retry</button>
+                                </div>
+                            )}
                             <div>
                                 <label className={`block text-xs font-semibold uppercase tracking-wider mb-1.5 ${isDark ? "text-slate-300" : "text-slate-700"}`} htmlFor="generatedexamschedules-field-5">
                                     Timeslot & Date
                                 </label>
                                 <select
-                                    value={editTimeslotId}
-                                    onChange={(e) => setEditTimeslotId(e.target.value)}
+                                    value={selectedEditTimeslot ? editTimeslotId : ""}
+                                    onChange={(e) => handleEditTimeslotChange(e.target.value)}
+                                    disabled={!availableTimeslots?.length || editSaving}
                                     className={`w-full px-3 py-2.5 rounded-xl text-xs sm:text-sm border outline-none transition ${
                                         isDark
                                             ? "bg-slate-800 border-slate-700 text-slate-100 focus:border-blue-500"
                                             : "bg-slate-50 border-slate-200 text-slate-900 focus:border-blue-600"
                                     }`} id="generatedexamschedules-field-5" aria-label="Timeslot & Date">
-                                    <option value="">-- Keep Current Timeslot ({editingExam.exam_date} {editingExam.start_time}) --</option>
-                                    {availableTimeslots.map((ts) => (
+                                    <option value="" disabled>
+                                        {editOptionsError ? "Availability could not be loaded" : editOptions === null
+                                            ? "Checking availability…" : availableTimeslots.length
+                                                ? "Choose an available timeslot" : "No timeslots with available rooms"}
+                                    </option>
+                                    {availableTimeslots?.map((ts) => (
                                         <option key={ts.id} value={ts.id}>
-                                            {ts.label}
+                                            {ts.label}{ts.id === editingExam.timeslot_id ? " (Current)" : ""}
                                         </option>
                                     ))}
                                 </select>
@@ -1201,14 +1249,16 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                     Examination Room
                                 </label>
                                 <select
-                                    value={editRoomId}
+                                    value={hasValidRoom ? editRoomId : ""}
                                     onChange={(e) => setEditRoomId(e.target.value)}
+                                    disabled={!selectedEditTimeslot || editSaving}
                                     className={`w-full px-3 py-2.5 rounded-xl text-xs sm:text-sm border outline-none transition ${
                                         isDark
                                             ? "bg-slate-800 border-slate-700 text-slate-100 focus:border-blue-500"
                                             : "bg-slate-50 border-slate-200 text-slate-900 focus:border-blue-600"
                                     }`} id="generatedexamschedules-field-6" aria-label="Examination Room">
-                                    <option value="">-- Unassigned / No Room --</option>
+                                    <option value="" disabled>{selectedEditTimeslot ? "Choose an available room" : "Choose a timeslot first"}</option>
+                                    {allowUnassignedRoom && <option value="unassigned">Unassigned / No Room</option>}
                                     {availableRooms.map((r) => (
                                         <option key={r.id} value={r.id}>
                                             {r.name} (Bldg {r.building || "-"}, Capacity: {r.capacity || 40} seats)
@@ -1416,7 +1466,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                 </button>
                                 <button
                                     type="submit"
-                                    disabled={editSaving}
+                                    disabled={editSaving || isGenerating || !selectedEditTimeslot || !hasValidRoom}
                                     className="px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-600/20 transition disabled:opacity-50 flex items-center gap-1.5"
                                 >
                                     {editSaving ? "Saving Changes..." : "Save Changes"}

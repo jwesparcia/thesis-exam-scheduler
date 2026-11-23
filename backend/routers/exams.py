@@ -9,7 +9,7 @@ from core.generation_lock import (
     is_generation_ongoing,
     try_acquire_generation_lock,
 )
-from model import Exam, Subject, Section, Room, Timeslot, Course, YearLevel, Teacher, TeacherTeaching, User, Notification, Proctor, ReschedulingRequest, Department
+from model import Exam, Subject, Section, Room, Timeslot, Course, YearLevel, Teacher, TeacherTeaching, TeacherSchedule, User, Notification, Proctor, ReschedulingRequest, Department
 from utils.scheduler import generate_exam_schedule, validate_proctor_availability
 from utils.errors import humanize_error
 from utils.exam_terms import require_exam_term
@@ -534,6 +534,17 @@ def get_department_subjects(
     return [s[0] for s in subjects if s[0]]
 
 
+def _rooms_for_department(db: Session, department: Optional[str]):
+    query = db.query(Room).filter(Room.name != "Consultation Area")
+    if department == "College":
+        return query.filter(or_(Room.department == "College", Room.building == "B"))
+    if department == "SHS":
+        return query.filter(or_(Room.department == "SHS", Room.building == "C"))
+    if department:
+        return query.filter(Room.department == department)
+    return query
+
+
 @router.get("/rooms")
 def list_rooms(
     department: str = Query(None, description="Filter by department (College or SHS)"),
@@ -546,16 +557,7 @@ def list_rooms(
     if cached is not None:
         return cached
 
-    query = db.query(Room)
-    query = query.filter(Room.name != "Consultation Area")
-    if department:
-        if department == "College":
-            query = query.filter(or_(Room.department == "College", Room.building == "B"))
-        elif department == "SHS":
-            query = query.filter(or_(Room.department == "SHS", Room.building == "C"))
-        else:
-            query = query.filter(Room.department == department)
-    rooms = query.order_by(Room.name).all()
+    rooms = _rooms_for_department(db, department).order_by(Room.name).all()
     result = [
         {"id": r.id, "name": r.name, "building": r.building, "capacity": r.capacity, "department": r.department}
         for r in rooms
@@ -1304,6 +1306,18 @@ class UpdateExamRequest(BaseModel):
     timeslot_id: Optional[int] = None
     proctor_id: Optional[int] = None
 
+
+def _timeslot_option(slot: Timeslot):
+    return {
+        "id": slot.id,
+        "date": slot.date.isoformat(),
+        "formatted_date": slot.date.strftime("%A, %B %d, %Y"),
+        "start_time": slot.start_time.strftime("%I:%M %p"),
+        "end_time": slot.end_time.strftime("%I:%M %p"),
+        "label": f"{slot.date:%A, %b %d, %Y} ({slot.start_time:%I:%M %p} - {slot.end_time:%I:%M %p})",
+    }
+
+
 @router.get("/timeslots")
 def get_timeslots(
     db: Session = Depends(get_db),
@@ -1311,17 +1325,91 @@ def get_timeslots(
 ):
     """Return all available timeslots sorted chronologically"""
     slots = db.query(Timeslot).order_by(Timeslot.date, Timeslot.start_time).all()
-    return [
-        {
-            "id": s.id,
-            "date": s.date.strftime("%Y-%m-%d"),
-            "formatted_date": s.date.strftime("%A, %B %d, %Y"),
-            "start_time": s.start_time.strftime("%I:%M %p"),
-            "end_time": s.end_time.strftime("%I:%M %p"),
-            "label": f"{s.date.strftime('%A, %b %d, %Y')} ({s.start_time.strftime('%I:%M %p')} - {s.end_time.strftime('%I:%M %p')})"
-        }
-        for s in slots
+    return [_timeslot_option(slot) for slot in slots]
+
+
+def _slot_seconds(slot: Timeslot):
+    if not (slot.date and slot.start_time and slot.end_time):
+        return 0
+    return (datetime.combine(slot.date, slot.end_time) - datetime.combine(slot.date, slot.start_time)).total_seconds()
+
+
+def _edit_duration_seconds(exam: Exam):
+    if exam.timeslot and (seconds := _slot_seconds(exam.timeslot)) > 0:
+        return seconds
+    return ((exam.subject.duration_minutes if exam.subject else None) or 75) * 60
+
+
+def _overlapping_exams(db: Session, exam: Exam, slot: Timeslot):
+    return db.query(Exam).join(Timeslot).filter(
+        Exam.id != exam.id,
+        Timeslot.date == slot.date,
+        Timeslot.start_time < slot.end_time,
+        Timeslot.end_time > slot.start_time,
+    )
+
+
+@router.get("/{exam_id}/edit-options")
+def get_exam_edit_options(
+    exam_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(["admin"])),
+):
+    """List slots of the exam's duration and the free rooms for each slot."""
+    exam = db.get(Exam, exam_id)
+    if not exam:
+        raise HTTPException(status_code=404, detail="Exam not found")
+
+    department = exam.course.category if exam.course else None
+    student_count = (exam.section.student_count or 0) if exam.section else 0
+    rooms = [
+        room for room in _rooms_for_department(db, department).order_by(Room.name)
+        if student_count <= (room.capacity or 40)
     ]
+    if not rooms:
+        return {"timeslots": [], "rooms": []}
+
+    duration = _edit_duration_seconds(exam)
+    slots = [
+        slot for slot in db.query(Timeslot).order_by(Timeslot.date, Timeslot.start_time, Timeslot.id)
+        if _slot_seconds(slot) == duration
+    ]
+    relevant_bookings = Exam.room_id.in_([room.id for room in rooms])
+    if exam.section_id is not None:
+        relevant_bookings = or_(relevant_bookings, Exam.section_id == exam.section_id)
+
+    bookings_by_day = {}
+    bookings = db.query(
+        Exam.room_id, Exam.section_id, Timeslot.date, Timeslot.start_time, Timeslot.end_time,
+    ).join(Timeslot).filter(
+        Exam.id != exam.id,
+        Timeslot.date.in_({slot.date for slot in slots}),
+        Timeslot.start_time.isnot(None),
+        Timeslot.end_time.isnot(None),
+        relevant_bookings,
+    )
+    for booking in bookings:
+        bookings_by_day.setdefault(booking.date, []).append(booking)
+
+    options = []
+    for slot in slots:
+        overlapping = [
+            booking for booking in bookings_by_day.get(slot.date, ())
+            if booking.start_time < slot.end_time and booking.end_time > slot.start_time
+        ]
+        if exam.section_id is not None and any(booking.section_id == exam.section_id for booking in overlapping):
+            continue
+        booked_rooms = {booking.room_id for booking in overlapping}
+        available_room_ids = [room.id for room in rooms if room.id not in booked_rooms]
+        if available_room_ids:
+            options.append({**_timeslot_option(slot), "room_ids": available_room_ids})
+    return {
+        "timeslots": options,
+        "rooms": [
+            {"id": room.id, "name": room.name, "building": room.building, "capacity": room.capacity or 40}
+            for room in rooms
+        ],
+    }
 
 def check_proctor_consecutive_limit(db: Session, proctor_id: int, target_slot: Timeslot, exclude_exam_id: Optional[int] = None) -> bool:
     """
@@ -1391,7 +1479,6 @@ def get_eligible_proctors(
 
     exam_dept = exam.course.category if exam.course else "College"
 
-    from model.models import TeacherTeaching, TeacherSchedule
     subject_teacher_ids = set()
     if exam.subject and exam.subject.teacher_id:
         subject_teacher_ids.add(exam.subject.teacher_id)
@@ -1407,9 +1494,7 @@ def get_eligible_proctors(
 
     busy_proctor_ids = set()
     if target_slot:
-        busy_rows = db.query(Exam.proctor_id).filter(
-            Exam.timeslot_id == target_slot.id,
-            Exam.id != exam.id,
+        busy_rows = _overlapping_exams(db, exam, target_slot).with_entities(Exam.proctor_id).filter(
             Exam.proctor_id.isnot(None)
         ).all()
         busy_proctor_ids = {r[0] for r in busy_rows}
@@ -1492,7 +1577,7 @@ def update_exam(
     if is_generation_ongoing():
         raise HTTPException(status_code=400, detail="Cannot edit exams while schedule generation is ongoing")
 
-    exam = db.query(Exam).filter(Exam.id == exam_id).first()
+    exam = db.query(Exam).filter(Exam.id == exam_id).with_for_update().first()
     if not exam:
         raise HTTPException(status_code=404, detail="Exam not found")
 
@@ -1501,37 +1586,52 @@ def update_exam(
     target_room_id = payload["room_id"] if "room_id" in payload else exam.room_id
     target_proctor_id = payload["proctor_id"] if "proctor_id" in payload else exam.proctor_id
 
+    target_slot = db.get(Timeslot, target_timeslot_id) if target_timeslot_id is not None else None
+    if target_timeslot_id is not None:
+        if target_slot is None:
+            raise HTTPException(status_code=404, detail="Selected timeslot no longer exists. Refresh the available timeslots.")
+        if _slot_seconds(target_slot) != _edit_duration_seconds(exam):
+            raise HTTPException(status_code=400, detail="Choose a timeslot that matches the duration of this exam.")
+
     # 1. Check room conflict & capacity: Room must exist, have sufficient capacity, and not be occupied at target timeslot
     if target_room_id is not None:
-        target_room = db.query(Room).filter(Room.id == target_room_id).first()
+        target_room = db.query(Room).filter(Room.id == target_room_id).with_for_update().first()
         if not target_room:
             raise HTTPException(status_code=404, detail="Selected room not found.")
-        if exam.section and exam.section.student_count and target_room.capacity:
-            if exam.section.student_count > target_room.capacity:
+        department = exam.course.category if exam.course else None
+        if target_room_id != exam.room_id and not _rooms_for_department(db, department).filter(Room.id == target_room_id).first():
+            raise HTTPException(status_code=400, detail="Selected room is not available for this exam's department.")
+        if exam.section and exam.section.student_count:
+            if exam.section.student_count > (target_room.capacity or 40):
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Capacity conflict: Room {target_room.name} has capacity {target_room.capacity}, but section {exam.section.name} has {exam.section.student_count} students."
+                    detail=f"Capacity conflict: Room {target_room.name} has capacity {target_room.capacity or 40}, but section {exam.section.name} has {exam.section.student_count} students."
                 )
 
-        if target_timeslot_id is not None:
-            conflict_exam = db.query(Exam).filter(
-                Exam.id != exam_id,
-                Exam.room_id == target_room_id,
-                Exam.timeslot_id == target_timeslot_id
-            ).first()
+        if target_slot:
+            conflict_exam = _overlapping_exams(db, exam, target_slot).filter(Exam.room_id == target_room_id).first()
             if conflict_exam:
                 sub_name = conflict_exam.subject.name if conflict_exam.subject else "another subject"
                 sec_name = conflict_exam.section.name if conflict_exam.section else "another section"
                 raise HTTPException(
                     status_code=409,
-                    detail=f"Room conflict: Selected room is already assigned to {sub_name} ({sec_name}) at this timeslot."
+                    detail=f"Room conflict: {target_room.name} has an overlapping exam for {sub_name} ({sec_name}). Choose another room or time."
                 )
 
-    # 2b. Check proctor conflicts: Proctor must not teach this subject, must not teach this section, and must match department
-    # 2b. Check proctor conflicts & schedule availability
+    # Serialize concurrent edits competing for the same section or proctor.
+    if target_slot and exam.section_id is not None:
+        db.query(Section.id).filter(Section.id == exam.section_id).with_for_update().scalar()
+        conflict_sec = _overlapping_exams(db, exam, target_slot).filter(Exam.section_id == exam.section_id).first()
+        if conflict_sec:
+            sub_name = conflict_sec.subject.name if conflict_sec.subject else "another subject"
+            raise HTTPException(
+                status_code=409,
+                detail=f"Section schedule conflict: The section has an overlapping exam for {sub_name}. Choose another time."
+            )
+
+    # Check proctor conflicts and schedule availability.
     if target_proctor_id is not None:
-        from model.models import Proctor, TeacherTeaching
-        proc = db.query(Proctor).get(target_proctor_id)
+        proc = db.query(Proctor).filter(Proctor.id == target_proctor_id).with_for_update().first()
         if not proc:
             raise HTTPException(status_code=404, detail="Selected proctor not found.")
         if proc.exclude_from_scheduling:
@@ -1587,12 +1687,7 @@ def update_exam(
 
         # 2c. Check proctor uploaded weekly schedule availability
         # Proctor must have uploaded a schedule and exam date/time must fall within their designated hours
-        slot_for_proc = None
-        if target_timeslot_id is not None:
-            slot_for_proc = db.query(Timeslot).get(target_timeslot_id)
-        elif exam.timeslot_id is not None:
-            slot_for_proc = exam.timeslot or db.query(Timeslot).get(exam.timeslot_id)
-
+        slot_for_proc = target_slot or exam.timeslot
         if slot_for_proc:
             is_valid, err_msg = validate_proctor_availability(
                 db,
@@ -1617,41 +1712,22 @@ def update_exam(
                 )
 
     # 2. Check proctor conflict: Proctor must not be assigned to another exam at target timeslot
-    if target_proctor_id is not None and target_timeslot_id is not None:
-        conflict_proc = db.query(Exam).filter(
-            Exam.id != exam_id,
-            Exam.proctor_id == target_proctor_id,
-            Exam.timeslot_id == target_timeslot_id
-        ).first()
+    if target_proctor_id is not None and target_slot:
+        conflict_proc = _overlapping_exams(db, exam, target_slot).filter(Exam.proctor_id == target_proctor_id).first()
         if conflict_proc:
             sub_name = conflict_proc.subject.name if conflict_proc.subject else "another subject"
             sec_name = conflict_proc.section.name if conflict_proc.section else "another section"
             raise HTTPException(
                 status_code=409,
-                detail=f"Proctor conflict: Selected proctor is already assigned to {sub_name} ({sec_name}) at this timeslot."
+                detail=f"Proctor conflict: The selected proctor has an overlapping exam for {sub_name} ({sec_name}). Choose another proctor or time."
             )
 
         # Check consecutive proctoring limit (max 3 consecutive assignments per proctor)
-        if slot_for_proc:
-            if not check_proctor_consecutive_limit(db, target_proctor_id, slot_for_proc, exclude_exam_id=exam_id):
-                proc_name = proc.name or "Selected proctor"
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Consecutive limit conflict: Assigning {proc_name} would exceed {MAX_CONSECUTIVE_PROCTOR_ASSIGNMENTS} consecutive proctoring assignments. A break is required before another assignment."
-                )
-
-    # 3. Check section conflict: Section must not have another exam at target timeslot
-    if target_timeslot_id is not None and target_timeslot_id != exam.timeslot_id:
-        conflict_sec = db.query(Exam).filter(
-            Exam.id != exam_id,
-            Exam.section_id == exam.section_id,
-            Exam.timeslot_id == target_timeslot_id
-        ).first()
-        if conflict_sec:
-            sub_name = conflict_sec.subject.name if conflict_sec.subject else "another subject"
+        if not check_proctor_consecutive_limit(db, target_proctor_id, target_slot, exclude_exam_id=exam_id):
+            proc_name = proc.name or "Selected proctor"
             raise HTTPException(
-                status_code=409,
-                detail=f"Section schedule conflict: Section already has an exam for {sub_name} scheduled at this timeslot."
+                status_code=400,
+                detail=f"Consecutive limit conflict: Assigning {proc_name} would exceed {MAX_CONSECUTIVE_PROCTOR_ASSIGNMENTS} consecutive proctoring assignments. A break is required before another assignment."
             )
 
     # Apply updates

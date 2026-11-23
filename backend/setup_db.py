@@ -1,7 +1,7 @@
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 from core import SessionLocal, engine
-from model import Base, Course, YearLevel, Section, Subject, Room, Timeslot, Teacher, Exam, DistributionRule, User, Proctor, ProctorAvailability, IrregularSelection
+from model import Base, Course, YearLevel, Section, Subject, Room, Timeslot, Teacher, Exam, User, Proctor, ProctorAvailability, IrregularSelection
 from room_data import AVAILABLE_EXAM_ROOMS
 import bcrypt
 from datetime import date, time, timedelta, datetime
@@ -48,21 +48,8 @@ def run_setup():
     db.add_all(year_levels)
     db.commit()
 
-    # Refetch year levels for linking rules
+    # Refetch year levels for the setup summary
     refetched_years = db.query(YearLevel).all()
-
-    # 3. Seed Distribution Rules
-    print("Seeding baseline Distribution Rules...")
-    rules = [
-        # GE / General subjects -> Day 1-3, Morning session only
-        DistributionRule(category_type="general", year_level_id=None, allowed_days=[1, 2, 3], allowed_session="morning"),
-    ]
-    # Major Rules per year level (Day 1-4, any session)
-    for y in refetched_years:
-        rules.append(DistributionRule(category_type="major", year_level_id=y.id, allowed_days=[1, 2, 3, 4], allowed_session="any"))
-
-    db.add_all(rules)
-    db.commit()
 
     # 4. Seed Rooms
     print("Seeding physical Rooms...")
@@ -127,7 +114,6 @@ def run_setup():
     print("\n=== SETUP COMPLETE ===")
     print("Database has been initialized cleanly with:")
     print(f"- {len(refetched_years)} Year Levels")
-    print(f"- {len(rules)} Distribution Rules")
     print(f"- {len(rooms)} Rooms")
     print(f"- {len(timeslots)} Timeslots")
     print("- 1 Administrator Account (admin@school.edu / admin123)")

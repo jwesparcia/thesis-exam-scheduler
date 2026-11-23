@@ -25,7 +25,6 @@ from model import (
     Subject,
     Section,
     Course,
-    DistributionRule,
     SystemSetting,
     ExamBreakSetting,
     Notification,
@@ -253,36 +252,6 @@ def get_student_complete_exams(
                 seen_exam_ids.add(e.id)
 
     return exams_list
-
-
-def check_scheduling_rules(
-    exam: Exam,
-    target_date: date,
-    start_t: time,
-    end_t: time,
-    db: Session
-) -> bool:
-    """Check distribution rules for this exam (e.g. allowed session morning/afternoon)."""
-    if not exam or not exam.subject:
-        return True
-
-    category_type = getattr(exam.subject, "category", "major") or "major"
-    rules = db.query(DistributionRule).filter(
-        DistributionRule.category_type == category_type,
-        or_(
-            DistributionRule.year_level_id == exam.year_level_id,
-            DistributionRule.year_level_id.is_(None),
-        ),
-    ).all()
-
-    for rule in rules:
-        if rule.allowed_session:
-            allowed = rule.allowed_session.lower()
-            if allowed == "morning" and start_t >= time(12, 0):
-                return False
-            if allowed == "afternoon" and end_t <= time(12, 0):
-                return False
-    return True
 
 
 def get_solo_rescheduled_exam_ids(db: Session) -> Set[int]:
@@ -783,10 +752,6 @@ def find_earliest_auto_schedule(
                         break
 
                 if student_conflict:
-                    continue
-
-                if not check_scheduling_rules(exam, target_date, cand_start, cand_end, db):
-                    curr_dt += timedelta(minutes=15)
                     continue
 
                 eligible_rooms = []

@@ -165,7 +165,7 @@ cd thesis-exam-scheduler
      ```
 
 6. **Initialize and seed the database**:
-   Run the database setup script to generate tables, room data, year levels, default distribution rules, and the administrator account:
+   Run the database setup script to generate tables, room data, year levels, and the administrator account:
    ```bash
    python setup_db.py
    ```
@@ -271,7 +271,7 @@ thesis-exam-scheduler/
 │   │   ├── scheduler.py           # Genetic algorithm scheduling endpoints
 │   │   ├── proctors.py            # Proctor availability & scheduling
 │   │   ├── rescheduling.py        # Student rescheduling requests & approvals
-│   │   ├── rules.py               # Subject distribution rules management
+│   │   ├── rules.py               # Exam break settings
 │   │   ├── notifications.py       # Notification handling
 │   │   └── chat.py                # Administrative messaging
 │   └── utils/                     # Core scheduler logic, GA engine, & mail utility
@@ -288,7 +288,7 @@ thesis-exam-scheduler/
         ├── api.js                 # Configured Axios instance with interceptors
         ├── components/            # Reusable UI widgets and manager modules
         │   ├── ExamScheduler.jsx  # Schedule generation console with GA progress
-        │   ├── DistributionRulesManager.jsx
+        │   ├── ExamBreakSettings.jsx
         │   ├── ProctorMonitoring.jsx
         │   ├── Header.jsx
         │   └── Sidebar.jsx

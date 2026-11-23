@@ -47,7 +47,6 @@ logger = logging.getLogger("cache")
 TTL_STATIC          = 1800   # 30 min  – courses, year_levels (rarely change)
 TTL_ROOMS           = 900    # 15 min  – rooms list
 TTL_CATALOG_DETAILS = 1200   # 20 min  – section/subject detail dropdowns
-TTL_RULES           = 600    # 10 min  – distribution rules
 TTL_CATALOG_STATS   = 300    # 5 min   – admin dashboard counts
 TTL_PROCTORS        = 300    # 5 min   – proctor list / schedules
 TTL_MONITORING      = 180    # 3 min   – proctor monitoring (attendance changes)
@@ -57,6 +56,7 @@ TTL_EXAM_COUNT      = 120    # 2 min   – exam count check (used to block regen
 
 # Soft-lock TTL (seconds a fill-lock lives before expiring automatically)
 _LOCK_TTL = 10
+PROCTOR_MONITORING_CACHE_KEY = "proctors:monitoring:v2"
 
 
 class CacheManager:
@@ -234,7 +234,7 @@ class CacheManager:
         self.delete_pattern("exam_schedule:irregular:*")
         self.delete_pattern("exams:posted:*")
         self.delete_pattern("exam_count:*")
-        self.delete("proctors:monitoring")
+        self.invalidate_monitoring()
 
     def invalidate_rooms(self) -> None:
         """Invalidate room list caches."""
@@ -262,7 +262,7 @@ class CacheManager:
 
     def invalidate_monitoring(self) -> None:
         """Invalidate proctor monitoring cache."""
-        self.delete("proctors:monitoring")
+        self.delete(PROCTOR_MONITORING_CACHE_KEY)
 
 
 # ── singleton ─────────────────────────────────────────────────────────

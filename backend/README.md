@@ -65,7 +65,7 @@ Run the baseline database initialization script:
 python setup_db.py
 ```
 
-This creates all database tables, default year levels, examination rooms, baseline distribution rules, timeslots, and the initial Administrator account (`admin@school.edu` / `admin123`).
+This creates all database tables, default year levels, examination rooms, timeslots, and the initial Administrator account (`admin@school.edu` / `admin123`).
 
 ### 4. Run the Backend
 

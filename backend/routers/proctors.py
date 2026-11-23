@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from fastapi.responses import Response
 from sqlalchemy.orm import Session, joinedload
 from core import get_db, cache
-from core.cache import TTL_PROCTORS, TTL_MONITORING
+from core.cache import PROCTOR_MONITORING_CACHE_KEY, TTL_PROCTORS, TTL_MONITORING
 from model import models
 import pandas as pd
 import io
@@ -688,7 +688,7 @@ def get_proctor_monitoring(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(require_role(["admin"]))
 ):
-    cached = cache.get("proctors:monitoring")
+    cached = cache.get(PROCTOR_MONITORING_CACHE_KEY)
     if cached is not None:
         return cached
 
@@ -739,6 +739,7 @@ def get_proctor_monitoring(
             "section_name": e.section.name if e.section else "-",
             "year_level": e.year_level.name if e.year_level else "-",
             "semester": e.semester,
+            "term": e.term or "Midterm",
             "exam_date": full_date,
             "start_time": start_time,
             "end_time": end_time,
@@ -747,7 +748,7 @@ def get_proctor_monitoring(
             "attendance_proof": proofs.get(e.id),
         })
     result = [{"course_name": course, "exams": entries} for course, entries in sorted(course_map.items())]
-    cache.set("proctors:monitoring", result, TTL_MONITORING)
+    cache.set(PROCTOR_MONITORING_CACHE_KEY, result, TTL_MONITORING)
     return result
 
 # ----- NEW ENDPOINTS for missing schedules, exclude, remind -----

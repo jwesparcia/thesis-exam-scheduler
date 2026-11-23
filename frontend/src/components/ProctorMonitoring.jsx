@@ -14,8 +14,11 @@ import {
   FunnelIcon,
 } from "@heroicons/react/24/outline";
 import { useTheme } from "../context/themeStore";
+import { getExamTermLabel, getExamTerms } from "../utils/examTerms";
 import api from "../api";
 import AttendanceProofPhoto from "./AttendanceProofPhoto";
+
+const examTermOrder = [...getExamTerms("College"), ...getExamTerms("SHS")].map(({ value }) => value);
 
 // ─── Utility ────────────────────────────────────────────────────────────────
 
@@ -48,6 +51,7 @@ export default function ProctorMonitoring() {
   const [courseGroups, setCourseGroups] = useState([]);
   const [loading, setLoading] = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState(null);
+  const [filterTerm, setFilterTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all"); // all | pending | attended
   const [searchText, setSearchText] = useState("");
 
@@ -73,14 +77,24 @@ export default function ProctorMonitoring() {
   }, [fetchMonitoring]);
 
   const isExamAttended = (status) => status === "attended" || status === "confirmed";
-  const allExams = courseGroups.flatMap((g) => g.exams);
-  const totalExams = allExams.length;
-  const attendedCount = allExams.filter((e) => isExamAttended(e.attendance_status)).length;
+  const availableTerms = new Set(courseGroups.flatMap(group => group.exams.map(exam => exam.term)).filter(Boolean));
+  // Keep the selected term available even if a refresh returns no exams for it.
+  if (filterTerm) availableTerms.add(filterTerm);
+  const termOptions = [
+    ...examTermOrder.filter(term => availableTerms.has(term)),
+    ...[...availableTerms].filter(term => !examTermOrder.includes(term)).sort(),
+  ];
+  const termGroups = filterTerm
+    ? courseGroups.map(group => ({ ...group, exams: group.exams.filter(exam => exam.term === filterTerm) }))
+    : courseGroups;
+  const termExams = termGroups.flatMap(group => group.exams);
+  const totalExams = termExams.length;
+  const attendedCount = termExams.filter((e) => isExamAttended(e.attendance_status)).length;
   const pendingCount = totalExams - attendedCount;
   const completionPct = totalExams > 0 ? Math.round((attendedCount / totalExams) * 100) : 0;
 
   // ── Filtering ───────────────────────────────────────────────────────────
-  const filteredGroups = courseGroups
+  const filteredGroups = termGroups
     .map((group) => {
       let exams = group.exams;
       if (filterStatus === "attended") {
@@ -127,19 +141,32 @@ export default function ProctorMonitoring() {
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={fetchMonitoring}
-            disabled={loading}
-            className={`w-full sm:w-auto justify-center inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition border shadow-xs ${
-              isDark
-                ? "bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-750"
-                : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50"
-            }`}
-          >
-            <ArrowPathIcon className={`w-4 h-4 ${loading ? "animate-spin text-blue-600" : "text-slate-500"}`} />
-            Refresh
-          </button>
+          <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
+            <label className={`flex min-w-0 flex-1 items-center gap-2 text-xs font-semibold sm:flex-none sm:text-sm ${isDark ? "text-slate-200" : "text-slate-700"}`}>
+              <span className="shrink-0">Exam term</span>
+              <select
+                value={filterTerm}
+                onChange={(e) => setFilterTerm(e.target.value)}
+                className={`min-w-0 max-w-full flex-1 rounded-xl border px-3 py-2.5 sm:max-w-56 ${isDark ? "bg-slate-900 border-slate-700 text-slate-100" : "bg-white border-slate-300 text-slate-800"}`}
+              >
+                <option value="">All terms</option>
+                {termOptions.map(term => <option key={term} value={term}>{getExamTermLabel(term)}</option>)}
+              </select>
+            </label>
+            <button
+              type="button"
+              onClick={fetchMonitoring}
+              disabled={loading}
+              className={`shrink-0 justify-center inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition border shadow-xs ${
+                isDark
+                  ? "bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-750"
+                  : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50"
+              }`}
+            >
+              <ArrowPathIcon className={`w-4 h-4 ${loading ? "animate-spin text-blue-600" : "text-slate-500"}`} />
+              Refresh
+            </button>
+          </div>
         </div>
 
         {/* ── Summary Cards ── */}
@@ -188,7 +215,7 @@ export default function ProctorMonitoring() {
         <div className={`rounded-2xl border p-4 sm:p-5 shadow-xs ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200"}`}>
           <div className="flex items-center justify-between mb-2">
             <span className={`text-xs sm:text-sm font-bold ${isDark ? "text-slate-200" : "text-slate-800"}`}>
-              Overall Attendance Completion
+              {filterTerm ? `${getExamTermLabel(filterTerm)} Attendance Completion` : "Overall Attendance Completion"}
             </span>
             <span className={`text-xs sm:text-sm font-extrabold ${isDark ? "text-white" : "text-slate-900"}`}>
               {attendedCount} of {totalExams} ({completionPct}%)
@@ -274,7 +301,7 @@ export default function ProctorMonitoring() {
             <UsersIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />
             <div className={`text-base sm:text-lg font-bold mb-1 ${isDark ? "text-slate-200" : "text-slate-800"}`}>No Assignments Found</div>
             <p className="text-xs sm:text-sm max-w-sm mx-auto font-medium">
-              {totalExams === 0
+              {totalExams === 0 && !filterTerm
                 ? "No posted exams with proctor assignments yet. Please generate and post schedules first."
                 : "No proctor assignments match your current filter or search criteria."}
             </p>

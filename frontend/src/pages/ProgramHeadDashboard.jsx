@@ -39,7 +39,7 @@ import AddProctor from "../components/AddProctor";
 import { useTheme } from "../context/themeStore";
 import { useUser } from "../context/userStore";
 import { useNavigate } from "react-router-dom";
-import DistributionRulesManager from "../components/DistributionRulesManager";
+import ExamBreakSettings from "../components/ExamBreakSettings";
 import GeneratedExamSchedules from "../components/GeneratedExamSchedules";
 import ProctorMonitoring from "../components/ProctorMonitoring";
 import RoomManagement from "../components/RoomManagement";
@@ -1447,7 +1447,7 @@ function ProgramHeadManual() {
     { id: "rooms", label: "Room Management", icon: BuildingOffice2Icon, badge: "Capacities" },
     { id: "proctors", label: "Proctors & Live Monitoring", icon: UsersIcon, badge: "Check-ins" },
     { id: "rescheduling", label: "Rescheduling & Irregular", icon: ClipboardDocumentListIcon, badge: "Smart Auto" },
-    { id: "rules", label: "Distribution Rules", icon: AdjustmentsHorizontalIcon, badge: "Policies" },
+    { id: "breaks", label: "Exam Breaks", icon: AdjustmentsHorizontalIcon, badge: "Intervals" },
     { id: "data", label: "Data Ingestion & Lists", icon: CircleStackIcon, badge: "Excel Ingest" },
     { id: "chat_notif", label: "Chat & Notifications", icon: ChatBubbleLeftRightIcon, badge: "Real-time" },
   ];
@@ -1982,53 +1982,17 @@ function ProgramHeadManual() {
           </div>
         )}
 
-        {/* TAB 7: Distribution Rules */}
-        {activeSubTab === "rules" && (
+        {/* TAB 7: Exam Breaks */}
+        {activeSubTab === "breaks" && (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-            <div className="flex items-center justify-between flex-wrap gap-3 pb-4 border-b border-slate-200 dark:border-slate-800">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-cyan-100 dark:bg-cyan-900/40 flex items-center justify-center text-cyan-600 dark:text-cyan-400 font-bold text-base shadow-sm">7</div>
-                <div>
-                  <h3 className={`text-lg sm:text-xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
-                    Distribution Rules Engine
-                  </h3>
-                  <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-                    Curriculum Subject Balancing, Session Directives, and Maximum Daily Loads
-                  </p>
-                </div>
-              </div>
-              <span className="px-3 py-1 rounded-full text-xs font-bold bg-cyan-500/10 text-cyan-600 border border-cyan-500/20">
-                Institutional Policy
-              </span>
-            </div>
-
+            <h3 className={`text-lg sm:text-xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
+              Exam Break Settings
+            </h3>
             <p className={`text-sm leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
-              Configure academic scheduling policies that the Genetic Algorithm optimizes as hard and soft constraints.
+              Open <strong>Exam Breaks</strong> to set the intermission interval for General and Major subjects.
+              Enter hours, minutes, and seconds for each category, then click <strong>Save</strong>.
+              These controls are disabled while schedule generation is running.
             </p>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className={`p-5 rounded-2xl border ${isDark ? "bg-slate-800/50 border-slate-700/60" : "bg-slate-50 border-slate-200/80"}`}>
-                <h4 className={`font-bold text-sm mb-2 flex items-center gap-2 ${isDark ? "text-slate-200" : "text-slate-800"}`}>
-                  <AdjustmentsHorizontalIcon className="w-4 h-4 text-cyan-500" />
-                  Subject Category Distribution
-                </h4>
-                <ul className={`text-xs space-y-2 ${isDark ? "text-slate-300" : "text-slate-600"}`}>
-                  <li>• <strong>General Education (GE):</strong> Constrain GE subjects to morning sessions across Day 1 to Day 3.</li>
-                  <li>• <strong>Major Subjects:</strong> Spread heavy technical courses across non-adjacent days to prevent exam stacking.</li>
-                  <li>• <strong>SHS Core Subjects:</strong> Dedicate morning time blocks for core subjects and afternoon for specialized strands.</li>
-                </ul>
-              </div>
-
-              <div className={`p-5 rounded-2xl border ${isDark ? "bg-slate-800/50 border-slate-700/60" : "bg-slate-50 border-slate-200/80"}`}>
-                <h4 className={`font-bold text-sm mb-2 flex items-center gap-2 ${isDark ? "text-slate-200" : "text-slate-800"}`}>
-                  <ClockIcon className="w-4 h-4 text-cyan-500" />
-                  Daily Student Load Caps
-                </h4>
-                <p className={`text-xs leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
-                  Set the <strong>Maximum Exams Per Day</strong> (default: 2 or 3). The algorithm heavily penalizes schedules that force students into 4 consecutive examinations in one day.
-                </p>
-              </div>
-            </div>
           </div>
         )}
 
@@ -2211,8 +2175,8 @@ function NavItem({ item, activeTab, setActiveTab, isDark, badge, onSelect, minim
 
 function NavSidebar({ activeTab, setActiveTab, isDark, unreadChatCount, pendingRescheduleCount, onSelectNavItem, minimized = false }) {
   const schedulingIds = ["generate", "schedules", "durations"];
-  const managementIds = ["proctors", "rooms", "monitoring", "rescheduling", "chat", "section-students"];
-  const dataIds = ["import", "proctors-import", "students", "rules"];
+  const managementIds = ["proctors", "rooms", "breaks", "monitoring", "rescheduling", "chat", "section-students"];
+  const dataIds = ["import", "proctors-import", "students"];
 
   const isSchedulingActive = schedulingIds.includes(activeTab);
   const isManagementActive = managementIds.includes(activeTab);
@@ -2231,6 +2195,7 @@ function NavSidebar({ activeTab, setActiveTab, isDark, unreadChatCount, pendingR
       <NavGroup label="Management" icon={UsersIcon} defaultOpen={isManagementActive} isDark={isDark} minimized={minimized}>
         <NavItem item={{ id: "proctors", icon: UsersIcon, label: "Proctor Management" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
         <NavItem item={{ id: "rooms", icon: BuildingOffice2Icon, label: "Room Management" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
+        <NavItem item={{ id: "breaks", icon: AdjustmentsHorizontalIcon, label: "Exam Breaks" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
         <NavItem item={{ id: "monitoring", icon: ShieldCheckIcon, label: "Proctor Monitoring" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
         <NavItem item={{ id: "rescheduling", icon: ClipboardDocumentListIcon, label: "Rescheduling" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={pendingRescheduleCount} onSelect={onSelectNavItem} />
         <NavItem item={{ id: "chat", icon: ChatBubbleLeftRightIcon, label: "Chat" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={unreadChatCount} onSelect={onSelectNavItem} />
@@ -2242,7 +2207,6 @@ function NavSidebar({ activeTab, setActiveTab, isDark, unreadChatCount, pendingR
         <NavItem item={{ id: "import", icon: CircleStackIcon, label: "Data Import" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
         <NavItem item={{ id: "proctors-import", icon: UsersIcon, label: "Proctor Accounts" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
         <NavItem item={{ id: "students", icon: UserIcon, label: "Student Accounts" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
-        <NavItem item={{ id: "rules", icon: AdjustmentsHorizontalIcon, label: "Distribution Rules" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
       </NavGroup>
 
       {/* Help standalone */}
@@ -2574,7 +2538,7 @@ export default function ProgramHeadDashboard() {
                               activeTab === "monitoring" ? "Proctor Attendance Monitoring" :
                                 activeTab === "rescheduling" ? "Rescheduling Requests" :
                                   activeTab === "chat" ? "Chat" :
-                                    activeTab === "rules" ? "Distribution Rules" :
+                                    activeTab === "breaks" ? "Exam Breaks" :
                                       activeTab === "import" ? "Curriculum & Catalog Import" :
                                         activeTab === "proctors-import" ? "Proctor Accounts & Import" :
                                          activeTab === "students" ? "Student Accounts & Import" :
@@ -2710,7 +2674,7 @@ export default function ProgramHeadDashboard() {
                   activeTab === "durations" ? <SubjectDurationsManager isGenerating={isGenerationRunning} /> :
                     activeTab === "proctors" ? <AddProctor isGenerating={isGenerationRunning} /> :
                       activeTab === "rooms" ? <RoomManagement isGenerating={isGenerationRunning} /> :
-                        activeTab === "rules" ? <DistributionRulesManager isGenerating={isGenerationRunning} /> :
+                        activeTab === "breaks" ? <ExamBreakSettings isGenerating={isGenerationRunning} /> :
                           activeTab === "monitoring" ? <ProctorMonitoring /> :
                             activeTab === "rescheduling" ? <ReschedulingRequests isGenerating={isGenerationRunning} onRequestsChange={handlePendingRescheduleCountChange} /> :
                               activeTab === "chat" ? <ChatSupportPanel /> :
