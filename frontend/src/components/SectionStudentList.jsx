@@ -23,6 +23,9 @@ import { useTheme } from "../context/themeStore";
 import api from "../api";
 import ExamBatchBadge from "./ExamBatchBadge";
 import { buildStudentAttendanceSheet } from "../utils/studentAttendancePrint";
+import { getExamTermLabel, getExamTerms } from "../utils/examTerms";
+
+const examTermOrder = [...getExamTerms("College"), ...getExamTerms("SHS")].map(({ value }) => value);
 
 const STATUS_STYLES = {
   posted: {
@@ -55,6 +58,7 @@ export default function SectionStudentList() {
   // Filters
   const [searchStudent, setSearchStudent] = useState("");
   const [searchExam, setSearchExam] = useState("");
+  const [filterTerm, setFilterTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all"); // "all" | "posted" | "draft"
   const [filterType, setFilterType] = useState("all");     // "all" | "regular" | "irregular"
 
@@ -166,11 +170,26 @@ export default function SectionStudentList() {
   // Reset pagination to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [deferredSearchExam, deferredSearchStudent, filterStatus, filterType, pageSize]);
+  }, [deferredSearchExam, deferredSearchStudent, filterTerm, filterStatus, filterType, pageSize]);
 
   const toggleExam = useCallback((examId) => {
     setExpandedExams((prev) => ({ ...prev, [examId]: !prev[examId] }));
   }, []);
+
+  const termOptions = useMemo(() => {
+    const availableTerms = new Set(exams.map((exam) => exam.term).filter(Boolean));
+    // Keep the selection available if a refresh removes its last exam.
+    if (filterTerm) availableTerms.add(filterTerm);
+    return [
+      ...examTermOrder.filter((term) => availableTerms.has(term)),
+      ...[...availableTerms].filter((term) => !examTermOrder.includes(term)).sort(),
+    ];
+  }, [exams, filterTerm]);
+
+  const termExams = useMemo(
+    () => filterTerm ? exams.filter((exam) => exam.term === filterTerm) : exams,
+    [exams, filterTerm]
+  );
 
   // Derived filtered list (fast pre-indexed string checks)
   const filteredExams = useMemo(() => {
@@ -179,8 +198,8 @@ export default function SectionStudentList() {
     const hasStudentFilter = Boolean(studentQ) || filterType !== "all";
 
     const result = [];
-    for (let i = 0; i < exams.length; i += 1) {
-      const exam = exams[i];
+    for (let i = 0; i < termExams.length; i += 1) {
+      const exam = termExams[i];
       if (filterStatus !== "all" && exam.status !== filterStatus) continue;
       if (examQ && !exam._search.includes(examQ)) continue;
 
@@ -223,7 +242,7 @@ export default function SectionStudentList() {
       }
     }
     return result;
-  }, [exams, deferredSearchExam, deferredSearchStudent, filterStatus, filterType]);
+  }, [termExams, deferredSearchExam, deferredSearchStudent, filterStatus, filterType]);
 
   // Pagination slice
   const totalPages = Math.max(1, Math.ceil(filteredExams.length / pageSize));
@@ -251,16 +270,16 @@ export default function SectionStudentList() {
   const { totalExams, postedExams, totalStudentSlots } = useMemo(() => {
     let posted = 0;
     let slots = 0;
-    for (let i = 0; i < exams.length; i += 1) {
-      if (exams[i].status === "posted") posted += 1;
-      slots += exams[i].student_count || 0;
+    for (let i = 0; i < termExams.length; i += 1) {
+      if (termExams[i].status === "posted") posted += 1;
+      slots += termExams[i].student_count || 0;
     }
     return {
-      totalExams: exams.length,
+      totalExams: termExams.length,
       postedExams: posted,
       totalStudentSlots: slots,
     };
-  }, [exams]);
+  }, [termExams]);
 
   const matchedStudentCount = useMemo(() => {
     if (!deferredSearchStudent.trim() && filterType === "all") return 0;
@@ -452,6 +471,25 @@ export default function SectionStudentList() {
       {/* Action Bar */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2 flex-wrap">
+          {/* Term filter */}
+          <label className={`flex min-w-0 max-w-full items-center gap-2 text-xs font-semibold ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+            <span className="shrink-0">Exam term</span>
+            <select
+              value={filterTerm}
+              onChange={(e) => setFilterTerm(e.target.value)}
+              className={`min-w-0 max-w-56 flex-1 px-2.5 py-2 rounded-xl text-xs font-semibold border outline-none focus:ring-2 focus:ring-violet-500/40 ${
+                isDark
+                  ? "bg-slate-800 border-slate-700 text-slate-300"
+                  : "bg-white border-slate-200 text-slate-600"
+              }`}
+            >
+              <option value="">All terms</option>
+              {termOptions.map((term) => (
+                <option key={term} value={term}>{getExamTermLabel(term)}</option>
+              ))}
+            </select>
+          </label>
+
           {/* Status filter */}
           <div
             className={`flex items-center gap-1 p-1 rounded-xl border text-xs ${
@@ -670,6 +708,12 @@ export default function SectionStudentList() {
                           isDark ? "text-slate-400" : "text-slate-500"
                         }`}
                       >
+                        {exam.term && (
+                          <span className="flex items-center gap-1">
+                            <TagIcon className="w-3.5 h-3.5" />
+                            {getExamTermLabel(exam.term)}
+                          </span>
+                        )}
                         <span className="flex items-center gap-1">
                           <AcademicCapIcon className="w-3.5 h-3.5" />
                           {exam.section_name}
