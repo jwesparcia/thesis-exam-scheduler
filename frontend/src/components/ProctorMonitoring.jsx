@@ -57,7 +57,7 @@ export default function ProctorMonitoring({ isGenerating }) {
   const [loading, setLoading] = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState(null);
   const [filterTerm, setFilterTerm] = useState("");
-  const [filterStatus, setFilterStatus] = useState("all"); // all | pending | attended
+  const [filterStatus, setFilterStatus] = useState("all");
   const [searchText, setSearchText] = useState("");
   const [replacementExam, setReplacementExam] = useState(null);
   const [reassigningId, setReassigningId] = useState(null);
@@ -98,7 +98,14 @@ export default function ProctorMonitoring({ isGenerating }) {
     return () => clearInterval(interval);
   }, [refreshMonitoring]);
 
-  const replacementExamId = replacementExam?.exam_id;
+  const getAbsenceRequest = (exam) => {
+    const request = absenceRequests[exam.exam_id];
+    return request && request.proctor_id === exam.proctor_id && request.timeslot_id === exam.timeslot_id && request.room_id === exam.room_id ? request : null;
+  };
+
+  const reviewedRequest = replacementExam ? getAbsenceRequest(replacementExam) : null;
+  if (replacementExam && !reviewedRequest) setReplacementExam(null);
+  const replacementExamId = reviewedRequest?.exam_id;
   useEffect(() => {
     if (!replacementExamId) return;
     const controller = new AbortController();
@@ -112,17 +119,12 @@ export default function ProctorMonitoring({ isGenerating }) {
     return () => controller.abort();
   }, [replacementExamId]);
 
-  const getAbsenceRequest = (exam) => {
-    const request = absenceRequests[exam.exam_id];
-    return request && request.proctor_id === exam.proctor_id && request.timeslot_id === exam.timeslot_id && request.room_id === exam.room_id ? request : null;
-  };
-
   const isExamAttended = (status) => status === "attended" || status === "confirmed";
   const departments = user?.department_codes?.length ? user.department_codes : [user?.department_code];
   const managedDepartments = departments.map(code => String(code || "").trim().toUpperCase()).filter(Boolean);
 
   const requestReplacement = async () => {
-    if (!replacementExam || reassigningId !== null) return;
+    if (!reviewedRequest || reassigningId !== null) return;
     const exam = replacementExam;
     setReplacementExam(null);
     if (isGenerating) {
@@ -161,7 +163,7 @@ export default function ProctorMonitoring({ isGenerating }) {
     const department = String(exam.department_code || "").trim().toUpperCase();
     const canManage = user?.is_super_admin || managedDepartments.includes(department);
     const hasTimeLeft = Date.parse(exam.reassign_until) > (lastRefreshed?.getTime() ?? 0);
-    if (!canManage || isExamAttended(exam.attendance_status) || !hasTimeLeft) return null;
+    if (!canManage || isExamAttended(exam.attendance_status) || !hasTimeLeft || !getAbsenceRequest(exam)) return null;
 
     return (
       <button
@@ -173,11 +175,11 @@ export default function ProctorMonitoring({ isGenerating }) {
           setReplacementExam(exam);
         }}
         disabled={isGenerating || reassigningId !== null}
-        aria-label={`Request replacement for ${exam.proctor_name}, ${exam.subject_name}, ${exam.section_name}`}
+        aria-label={`Review substitute request for ${exam.proctor_name}, ${exam.subject_name}, ${exam.section_name}`}
         className="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 px-2.5 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-blue-800 dark:text-blue-300 dark:hover:bg-blue-900/30"
       >
         <ArrowPathIcon className={`h-3.5 w-3.5 ${reassigningId === exam.exam_id ? "animate-spin" : ""}`} />
-        {reassigningId === exam.exam_id ? "Assigning replacement…" : getAbsenceRequest(exam) ? "Review Substitute Request" : "Request Replacement"}
+        {reassigningId === exam.exam_id ? "Assigning replacement…" : "Review Substitute Request"}
       </button>
     );
   };
@@ -193,6 +195,8 @@ export default function ProctorMonitoring({ isGenerating }) {
     ? courseGroups.map(group => ({ ...group, exams: group.exams.filter(exam => exam.term === filterTerm) }))
     : courseGroups;
   const termExams = termGroups.flatMap(group => group.exams);
+  const hasSubstituteRequests = termExams.some(getAbsenceRequest);
+  if (filterStatus === "requested" && !hasSubstituteRequests) setFilterStatus("all");
   const totalExams = termExams.length;
   const attendedCount = termExams.filter((e) => isExamAttended(e.attendance_status)).length;
   const pendingCount = totalExams - attendedCount;
@@ -227,15 +231,13 @@ export default function ProctorMonitoring({ isGenerating }) {
   return (
     <div className="w-full space-y-6">
       <ConfirmationModal
-        isOpen={replacementExam !== null}
-        title="Request a replacement proctor?"
-        message={replacementExam && (
+        isOpen={Boolean(reviewedRequest)}
+        title="Review substitute request"
+        message={reviewedRequest && (
           <div className="space-y-2">
             <p><strong>{replacementExam.subject_name}</strong> for {replacementExam.section_name}</p>
             <p>{replacementExam.exam_date} · {replacementExam.start_time} – {replacementExam.end_time} · {replacementExam.room}</p>
-            {getAbsenceRequest(replacementExam) && (
-              <p className="whitespace-pre-wrap break-words rounded-lg bg-amber-50 p-2 text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">{getAbsenceRequest(replacementExam).reason}</p>
-            )}
+            <p className="whitespace-pre-wrap break-words rounded-lg bg-amber-50 p-2 text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">{reviewedRequest.reason}</p>
             <p>Assign a substitute for <strong>{replacementExam.proctor_name}</strong> at the posted room and time.</p>
             <label className="block font-semibold">
               Replacement proctor
@@ -384,7 +386,7 @@ export default function ProctorMonitoring({ isGenerating }) {
                 { value: "pending", label: "Pending" },
                 { value: "attended", label: "Attended" },
                 { value: "requested", label: "Substitute Requests" },
-              ].map(({ value, label }) => (
+              ].filter(({ value }) => value !== "requested" || hasSubstituteRequests).map(({ value, label }) => (
                 <button
                   type="button"
                   key={value}
