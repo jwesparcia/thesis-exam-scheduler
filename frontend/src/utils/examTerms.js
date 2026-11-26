@@ -18,3 +18,7 @@ export const getExamTermLabel = (term) => [...COLLEGE_TERMS, ...SHS_TERMS].find(
 export const getExamScheduleKey = (exam) => JSON.stringify([
   exam.department || "", String(exam.semester ?? ""), exam.term || "",
 ]);
+
+export const getExamPeriodKey = (exam) => JSON.stringify([
+  String(exam.semester ?? ""), exam.term || "",
+]);

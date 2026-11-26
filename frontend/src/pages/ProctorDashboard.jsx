@@ -40,8 +40,9 @@ import AccountSettingsSection from "../components/AccountSettingsSection";
 import ConfirmationModal from "../components/ConfirmationModal";
 import FirstTimePasswordChange from "../components/FirstTimePasswordChange";
 import ExamTermScheduleSelector from "../components/ExamTermScheduleSelector";
+import ExamSchedulePrintButton from "../components/ExamSchedulePrintButton";
 import useExamTermSchedule from "../hooks/useExamTermSchedule";
-import { getExamScheduleKey } from "../utils/examTerms";
+import { getExamPeriodKey } from "../utils/examTerms";
 import api from "../api";
 import ExamBatchBadge from "../components/ExamBatchBadge";
 import AttendanceProofUpload from "../components/AttendanceProofUpload";
@@ -269,7 +270,7 @@ function ProctorManual() {
             </div>
             
             <p className={`text-sm leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
-              The <strong>My Assignments</strong> dashboard displays every exam session assigned to you by the Program Head. The current version includes both **Grid View** and **List View** with horizontal date scrolling controls.
+              In <strong>My Assignments</strong>, choose an examination period and select <strong>Print All Assignments</strong> to print or save every posted duty in that period. Search and attendance filters apply to the dashboard view.
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -296,7 +297,7 @@ function ProctorManual() {
                   <BookOpenIcon className="w-4 h-4 text-emerald-500" /> Section & Headcount
                 </h4>
                 <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-600"}`}>
-                  Subject code, descriptive title, section code (e.g., BSIT 3-201), and total enrolled student headcount to supervise.
+                  Course code, descriptive title, section code (e.g., BSIT 3-201), and total enrolled student headcount to supervise.
                 </p>
               </div>
             </div>
@@ -331,7 +332,7 @@ function ProctorManual() {
             </div>
             
             <p className={`text-sm leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
-              To allow administrators to monitor live coverage of exams across all rooms, proctors are required to perform a digital check-in upon arriving at the designated examination room.
+              Record your check-in after taking attendance in the assigned exam room.
             </p>
 
             <div className={`p-5 rounded-2xl border ${isDark ? "bg-slate-800/50 border-slate-700/60" : "bg-slate-50 border-slate-200/80"} space-y-3`}>
@@ -339,7 +340,7 @@ function ProctorManual() {
               <ol className={`text-xs space-y-2.5 ${isDark ? "text-slate-300" : "text-slate-600"}`}>
                 <li className="flex items-start gap-2">
                   <span className="w-5 h-5 rounded-full bg-blue-500/10 text-blue-500 flex items-center justify-center font-bold text-xs shrink-0">1</span>
-                  <span><strong>Arrive 15 Minutes Early:</strong> Reach your assigned examination room 15 minutes before the exam start time to prepare materials and supervise seating.</span>
+                  <span><strong>Bring the exam attendance list.</strong> Get the printed list from your Program Head and bring it to the assigned room 15 minutes before the exam.</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="w-5 h-5 rounded-full bg-blue-500/10 text-blue-500 flex items-center justify-center font-bold text-xs shrink-0">2</span>
@@ -347,7 +348,7 @@ function ProctorManual() {
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="w-5 h-5 rounded-full bg-blue-500/10 text-blue-500 flex items-center justify-center font-bold text-xs shrink-0">3</span>
-                  <span><strong>Upload a Room Photo and Confirm:</strong> On the exam card, select <strong>Upload proof photo</strong> and choose a photo showing you in the assigned room. Once the upload succeeds, <strong>Confirm Attendance</strong> becomes available while the exam is in progress.</span>
+                  <span><strong>Sign the list and upload your proof photo.</strong> After taking attendance, sign on the <strong>Proctor signature</strong> line. Select <strong>Upload proof photo</strong> on the exam card and upload a photo showing you in the assigned room with the signed list visible. Select <strong>Confirm Attendance</strong> before the exam ends.</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="w-5 h-5 rounded-full bg-blue-500/10 text-blue-500 flex items-center justify-center font-bold text-xs shrink-0">4</span>
@@ -1222,7 +1223,7 @@ export default function ProctorDashboard() {
   const navigate = useNavigate();
   const { showSuccess, showError } = useToast();
   const [exams, setExams] = useState([]);
-  const { schedules: postedSchedules, selectedKey: selectedScheduleKey, selectSchedule, termExams } = useExamTermSchedule(exams);
+  const { schedules: postedPeriods, selectedKey: selectedPeriodKey, selectSchedule, termExams: periodExams } = useExamTermSchedule(exams, getExamPeriodKey);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("assignments");
   const [assignmentViewMode, setAssignmentViewMode] = useState(() => {
@@ -1322,16 +1323,16 @@ export default function ProctorDashboard() {
   };
 
   const pendingExamsCount = useMemo(
-    () => termExams.filter((exam) => getAttendanceStatus(exam, currentTime) === "pending").length,
-    [currentTime, termExams, getAttendanceStatus]
+    () => periodExams.filter((exam) => getAttendanceStatus(exam, currentTime) === "pending").length,
+    [currentTime, periodExams, getAttendanceStatus]
   );
   const confirmedExamsCount = useMemo(
-    () => termExams.filter((exam) => getAttendanceStatus(exam, currentTime) === "confirmed").length,
-    [currentTime, termExams, getAttendanceStatus]
+    () => periodExams.filter((exam) => getAttendanceStatus(exam, currentTime) === "confirmed").length,
+    [currentTime, periodExams, getAttendanceStatus]
   );
 
   const filteredExams = useMemo(() => {
-    return termExams.filter((exam) => {
+    return periodExams.filter((exam) => {
       const attendanceStatus = getAttendanceStatus(exam, currentTime);
       if (assignmentFilter === "confirmed" && attendanceStatus !== "confirmed") return false;
       if (assignmentFilter === "pending" && attendanceStatus !== "pending") return false;
@@ -1349,7 +1350,7 @@ export default function ProctorDashboard() {
 
       return true;
     });
-  }, [termExams, assignmentFilter, assignmentSearch, currentTime, getAttendanceStatus]);
+  }, [periodExams, assignmentFilter, assignmentSearch, currentTime, getAttendanceStatus]);
   const [uploading, setUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [mySchedule, setMySchedule] = useState([]);
@@ -1419,27 +1420,32 @@ export default function ProctorDashboard() {
     }
   }, [user?.id]);
 
-  useEffect(() => {
-    const fetchMyExams = async () => {
-      if (!user?.proctor_id) {
-        setLoading(false);
-        return;
-      }
-      try {
-        const response = await api.get(`/exams?proctor_id=${user.proctor_id}&status=posted`);
-        setExams(response.data);
-      } catch (error) {
-        console.error('Error fetching exams:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchMyExams();
+  const fetchMyExams = useCallback(async () => {
+    if (!user?.proctor_id) {
+      setLoading(false);
+      return;
+    }
+    try {
+      const response = await api.get(`/exams?proctor_id=${user.proctor_id}&status=posted`);
+      setExams(response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching exams:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.proctor_id]);
 
+  const latestReassignmentId = notifications.find(notif => notif.type === "proctor_reassignment")?.id;
+  useEffect(() => {
+    fetchMyExams();
+  }, [activeTab, fetchMyExams, latestReassignmentId]);
+
+  useEffect(() => {
     if (activeTab === "schedule") {
       fetchMySchedule();
     }
-  }, [user?.proctor_id, activeTab, fetchMySchedule]);
+  }, [activeTab, fetchMySchedule]);
 
   useEffect(() => {
     fetchNotifications();
@@ -1484,7 +1490,7 @@ export default function ProctorDashboard() {
     }
   };
 
-  const handleNotificationClick = (notif) => {
+  const handleNotificationClick = async (notif) => {
     setShowNotifications(false);
     
     if (!notif.is_read) {
@@ -1496,8 +1502,9 @@ export default function ProctorDashboard() {
       setActiveTab("schedule");
     } else {
       setActiveTab("assignments");
-      const assignedExam = exams.find(exam => exam.id === notif.related_id);
-      if (assignedExam) selectSchedule(getExamScheduleKey(assignedExam));
+      const currentExams = notif.type === "proctor_reassignment" ? (await fetchMyExams()) ?? exams : exams;
+      const assignedExam = currentExams.find(exam => exam.id === notif.related_id);
+      if (assignedExam) selectSchedule(getExamPeriodKey(assignedExam));
     }
   };
 
@@ -1981,7 +1988,7 @@ export default function ProctorDashboard() {
                   </div>
                   <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium border ${isDark ? "bg-slate-700/50 border-slate-600 text-slate-300" : "bg-slate-50 border-slate-200 text-slate-600"}`}>
                     <Squares2X2Icon className="w-4 h-4 text-blue-500" />
-                    <span>{termExams.length} Assignment{termExams.length !== 1 ? 's' : ''} in Selected Term</span>
+                    <span>{periodExams.length} Assignment{periodExams.length !== 1 ? 's' : ''} in Selected Period</span>
                   </div>
                 </div>
               </div>
@@ -2217,7 +2224,7 @@ export default function ProctorDashboard() {
                               isDark ? "bg-slate-800/80 border-slate-700/50 backdrop-blur-xl" : "bg-white border-slate-200 shadow-sm"
                             }`}>
                               <h4 className={`font-bold text-sm mb-3 uppercase tracking-wider ${isDark ? "text-slate-300" : "text-slate-700"}`}>
-                                Subject Translation Reference
+                                Course Translation Reference
                               </h4>
                               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                                 {parsed.translations.map((trans) => (
@@ -2323,7 +2330,9 @@ export default function ProctorDashboard() {
               </div>
             ) : (
               <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <ExamTermScheduleSelector schedules={postedSchedules} selectedKey={selectedScheduleKey} onChange={selectSchedule} isDark={isDark} loading={loading} />
+                <ExamTermScheduleSelector schedules={postedPeriods} selectedKey={selectedPeriodKey} onChange={selectSchedule} isDark={isDark} loading={loading} byPeriod>
+                  <ExamSchedulePrintButton exams={periodExams} name={user?.name} title="Proctoring Assignments" label="Print All Assignments" loading={loading} />
+                </ExamTermScheduleSelector>
                 {/* Header Controls: Title, Filter Pills, Search & View Switcher */}
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                   <div className="flex flex-wrap items-center gap-3">
@@ -2346,7 +2355,7 @@ export default function ProctorDashboard() {
                             : (isDark ? "text-slate-400 hover:text-white" : "text-slate-600 hover:text-slate-900")
                         }`}
                       >
-                        All <span className="ml-1 opacity-80">({termExams.length})</span>
+                        All <span className="ml-1 opacity-80">({periodExams.length})</span>
                       </button>
                       <button
                         onClick={() => setAssignmentFilter("pending")}
@@ -2453,7 +2462,7 @@ export default function ProctorDashboard() {
                             <tr className={`border-b font-semibold uppercase tracking-wider text-xs ${
                               isDark ? "border-slate-700/80 bg-slate-800/60 text-slate-400" : "border-slate-200 bg-slate-50/80 text-slate-600"
                             }`}>
-                              <th className="py-3.5 px-4 sm:px-6">Name</th>
+                              <th className="py-3.5 px-4 sm:px-6">Course</th>
                               <th className="py-3.5 px-4 whitespace-nowrap">Schedule Date</th>
                               <th className="py-3.5 px-4 whitespace-nowrap">Time Period</th>
                               <th className="py-3.5 px-4 whitespace-nowrap">Room</th>
@@ -2717,7 +2726,7 @@ export default function ProctorDashboard() {
                             <div className="min-w-0 flex flex-col gap-1.5">
                               <span className={`inline-block w-fit px-2 py-0.5 rounded text-xs font-bold tracking-widest uppercase mb-1 ${isDark ? "bg-blue-500/20 text-blue-400" : "bg-blue-50 text-blue-600"}`}>{exam.section_name}</span>
                               <h3 className={`text-lg sm:text-xl font-bold leading-tight break-words ${isDark ? "text-white" : "text-slate-900"}`}>{exam.subject_name}</h3><ExamBatchBadge batchNumber={exam.batch_number} />
-                              <p className={`text-xs font-medium ${isDark ? "text-slate-500" : "text-slate-500"}`}>ID: {exam.subject_code}</p>
+                              <p className={`text-xs font-medium ${isDark ? "text-slate-500" : "text-slate-500"}`}>Course code: {exam.subject_code}</p>
                               <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>Instructor: <span className="font-semibold">{exam.instructor_name || "Not assigned"}</span></p>
                             </div>
                             <span className={`shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${attendanceStatusDetails.badgeClass}`}>
@@ -2879,7 +2888,7 @@ export default function ProctorDashboard() {
                 isDark ? "bg-slate-800/80 border-slate-700/80 text-slate-300" : "bg-slate-50 border-slate-200 text-slate-700"
               }`}>
                 <div>
-                  <span className="font-semibold text-slate-900 dark:text-slate-100">Subject: </span>
+                  <span className="font-semibold text-slate-900 dark:text-slate-100">Course: </span>
                   {attendanceConfirmExam.subject_name || attendanceConfirmExam.subject_code}
                   {attendanceConfirmExam.subject_code && attendanceConfirmExam.subject_name ? ` (${attendanceConfirmExam.subject_code})` : ""}
                 </div>

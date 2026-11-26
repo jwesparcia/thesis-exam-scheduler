@@ -56,7 +56,7 @@ TTL_EXAM_COUNT      = 120    # 2 min   – exam count check (used to block regen
 
 # Soft-lock TTL (seconds a fill-lock lives before expiring automatically)
 _LOCK_TTL = 10
-PROCTOR_MONITORING_CACHE_KEY = "proctors:monitoring:v2"
+PROCTOR_MONITORING_CACHE_KEY = "proctors:monitoring:v3"
 
 
 class CacheManager:

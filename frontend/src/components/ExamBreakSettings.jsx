@@ -81,14 +81,14 @@ export default function ExamBreakSettings({ isGenerating }) {
         <div className="space-y-6">
             <section className={`rounded-2xl border shadow-xs overflow-hidden ${isDark ? "border-slate-700 bg-slate-800" : "border-slate-200 bg-white"}`}>
                 <div className={`border-b px-5 py-4 ${isDark ? "border-slate-700 bg-slate-850/60" : "border-slate-200 bg-slate-50/60"}`}>
-                    <h3 className={`font-bold text-sm sm:text-base ${isDark ? "text-white" : "text-slate-900"}`}>Break Time by Subject Category</h3>
+                    <h3 className={`font-bold text-sm sm:text-base ${isDark ? "text-white" : "text-slate-900"}`}>Break Time by Course Category</h3>
                     <p className={`text-xs mt-0.5 ${isDark ? "text-slate-400" : "text-slate-500"}`}>Intermission interval between consecutive exams for students</p>
                 </div>
                 <div className={`divide-y md:hidden ${isDark ? "divide-slate-750" : "divide-slate-200"}`}>
                     {["general", "major"].map(category => (
                         <div key={category} className={`space-y-3 p-4 ${isDark ? "text-slate-200" : "text-slate-800"}`}>
                             <div className="flex items-center justify-between gap-3">
-                                <h4 className="font-bold capitalize text-sm">{category} Subjects</h4>
+                                <h4 className="font-bold capitalize text-sm">{category} Courses</h4>
                                 <button
                                     type="button"
                                     onClick={() => saveBreakSetting(category)}
@@ -127,7 +127,7 @@ export default function ExamBreakSettings({ isGenerating }) {
                     <table className="w-full text-left text-xs sm:text-sm">
                         <thead className={`${isDark ? "bg-slate-850 text-slate-300 border-b border-slate-700" : "bg-slate-50 text-slate-700 border-b border-slate-200"}`}>
                             <tr>
-                                <th className="px-5 py-3.5 font-bold uppercase tracking-wider text-xs">Subject Category</th>
+                                <th className="px-5 py-3.5 font-bold uppercase tracking-wider text-xs">Course Category</th>
                                 <th className="px-5 py-3.5 font-bold uppercase tracking-wider text-xs">
                                     <div className="grid w-52 grid-cols-3 gap-2 text-center text-xs uppercase tracking-wider">
                                         <span>Hours</span><span>Mins</span><span>Secs</span>
@@ -140,7 +140,7 @@ export default function ExamBreakSettings({ isGenerating }) {
                         <tbody className={`divide-y ${isDark ? "divide-slate-750" : "divide-slate-200"}`}>
                             {["general", "major"].map(category => (
                                 <tr key={category} className={isDark ? "text-slate-200" : "text-slate-800"}>
-                                    <td className="px-5 py-4 font-bold capitalize text-sm">{category} Subjects</td>
+                                    <td className="px-5 py-4 font-bold capitalize text-sm">{category} Courses</td>
                                     <td className="px-5 py-4">
                                         <div className="grid w-52 grid-cols-3 gap-2">
                                             {[

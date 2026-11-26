@@ -1443,7 +1443,7 @@ function ProgramHeadManual() {
   const topics = [
     { id: "generation", label: "Schedule Generator", icon: CalendarIcon, badge: "AI Engine" },
     { id: "schedules", label: "Master Schedules & Export", icon: TableCellsIcon, badge: "Excel Export" },
-    { id: "durations", label: "Subject Durations", icon: ClockIcon, badge: "Allotted Time" },
+    { id: "durations", label: "Course Durations", icon: ClockIcon, badge: "Allotted Time" },
     { id: "rooms", label: "Room Management", icon: BuildingOffice2Icon, badge: "Capacities" },
     { id: "proctors", label: "Proctors & Live Monitoring", icon: UsersIcon, badge: "Check-ins" },
     { id: "rescheduling", label: "Rescheduling & Irregular", icon: ClipboardDocumentListIcon, badge: "Smart Auto" },
@@ -1659,7 +1659,7 @@ function ProgramHeadManual() {
                   Preferred Rooms & Exclusions
                 </div>
                 <p className={`text-xs leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
-                  Override room auto-assignment by pinning specific rooms to sections (e.g., Computer Lab 1 for BSIT). Use the <strong>Exclude Subjects</strong> filter to skip online, OJT/practicum, or physical education courses.
+                  Override room auto-assignment by pinning specific rooms to sections (e.g., Computer Lab 1 for BSIT). Use the <strong>Exclude Courses</strong> filter to skip online, OJT/practicum, or physical education courses.
                 </p>
               </div>
 
@@ -1775,7 +1775,7 @@ function ProgramHeadManual() {
                 <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center text-amber-600 dark:text-amber-400 font-bold text-base shadow-sm">3</div>
                 <div>
                   <h3 className={`text-lg sm:text-xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
-                    Subject Durations & Allotted Time
+                    Course Durations & Allotted Time
                   </h3>
                   <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
                     Custom Examination Time Allocations per Course and Department
@@ -1788,7 +1788,7 @@ function ProgramHeadManual() {
             </div>
 
             <p className={`text-sm leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
-              Not all exams require standard 90-minute blocks. The <strong>Subject Management</strong> tab empowers Program Heads to tailor exact exam durations according to course intensity and institutional policy.
+              Not all exams require standard 90-minute blocks. The <strong>Course Management</strong> tab empowers Program Heads to tailor exact exam durations according to course intensity and institutional policy.
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -1796,7 +1796,7 @@ function ProgramHeadManual() {
                 <span className="text-xs font-bold px-2 py-0.5 rounded bg-blue-500/10 text-blue-500">60 Minutes</span>
                 <h4 className={`font-bold text-sm mt-2 mb-1 ${isDark ? "text-slate-200" : "text-slate-800"}`}>General / Minor Courses</h4>
                 <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-600"}`}>
-                  Suitable for 1 to 2-unit introductory subjects, values education, or multiple-choice midterm assessments.
+                  Suitable for 1 to 2-unit introductory courses, values education, or multiple-choice midterm assessments.
                 </p>
               </div>
 
@@ -1804,7 +1804,7 @@ function ProgramHeadManual() {
                 <span className="text-xs font-bold px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-500">90 Minutes (Standard)</span>
                 <h4 className={`font-bold text-sm mt-2 mb-1 ${isDark ? "text-slate-200" : "text-slate-800"}`}>Standard Lecture Courses</h4>
                 <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-600"}`}>
-                  Default allocation for 3-unit collegiate courses and standard SHS core academic subjects.
+                  Default allocation for 3-unit collegiate courses and standard SHS core academic courses.
                 </p>
               </div>
 
@@ -1818,7 +1818,7 @@ function ProgramHeadManual() {
             </div>
 
             <div className={`p-4 rounded-xl border text-xs ${isDark ? "bg-slate-800/40 border-slate-700 text-slate-300" : "bg-slate-50 border-slate-200 text-slate-700"}`}>
-              <strong>How to Edit:</strong> Go to <strong>Subject Management</strong> in the sidebar. Search for the subject code (e.g., `ITEC301`). Select the duration dropdown or enter custom minutes. Click <strong>Save Changes</strong>. The scheduling algorithm will automatically allocate timeslot blocks matching each subject's configured length.
+              <strong>How to Edit:</strong> Go to <strong>Course Management</strong> in the sidebar. Search for the course code (e.g., `ITEC301`). Select the duration dropdown or enter custom minutes. Click <strong>Save Changes</strong>. The scheduling algorithm will automatically allocate timeslot blocks matching each course's configured length.
             </div>
           </div>
         )}
@@ -1905,7 +1905,7 @@ function ProgramHeadManual() {
               <div className={`p-4 rounded-2xl border ${isDark ? "bg-slate-800/50 border-slate-700/60" : "bg-slate-50 border-slate-200/80"}`}>
                 <h4 className={`font-bold text-sm mb-1.5 ${isDark ? "text-slate-200" : "text-slate-800"}`}>1. Ingest Teaching Loads</h4>
                 <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-600"}`}>
-                  Under <strong>Proctor Management</strong>, upload the faculty teaching load Excel sheet. The engine automatically marks teaching hours as unavailable so teachers are never double-booked.
+                  Under <strong>Proctor Management</strong>, select <strong>Upload Excel</strong> for a proctor and choose their teaching schedule file. Confirm the proctor and filename before uploading. An upload replaces that proctor’s existing teaching schedule.
                 </p>
               </div>
 
@@ -1919,7 +1919,7 @@ function ProgramHeadManual() {
               <div className={`p-4 rounded-2xl border ${isDark ? "bg-slate-800/50 border-slate-700/60" : "bg-slate-50 border-slate-200/80"}`}>
                 <h4 className={`font-bold text-sm mb-1.5 ${isDark ? "text-slate-200" : "text-slate-800"}`}>3. Live Check-In Board</h4>
                 <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-600"}`}>
-                  The <strong>Proctor Monitoring</strong> board displays active rooms and attendance check-ins. Proctors must upload a room photo before confirming attendance. Use <strong>View proof photo</strong> to review the uploaded evidence.
+                  In <strong>Proctor Monitoring</strong>, select <strong>View proof photo</strong> to review the signed exam attendance list. For emergency leave, select <strong>Request Replacement</strong> on the affected exam. If no eligible proctor is available, use <strong>Edit</strong> in <strong>Generated Schedules</strong> to review the manual options.
                 </p>
               </div>
             </div>
@@ -1977,7 +1977,7 @@ function ProgramHeadManual() {
             {/* Manual Review Callout */}
             <div className={`p-4 rounded-xl border text-xs ${isDark ? "bg-slate-800/40 border-slate-700 text-slate-300" : "bg-slate-50 border-slate-200 text-slate-700"}`}>
               <h5 className="font-bold text-sm mb-1 text-blue-500">Manual Review Option:</h5>
-              Program Heads can click <strong>Manual Review</strong> to inspect conflicting subjects, select a custom date, pick an alternate room, and view attached medical or institutional proof. The system validates building restrictions and room capacity before letting you save.
+              Program Heads can click <strong>Manual Review</strong> to inspect conflicting courses, select a custom date, pick an alternate room, and view attached medical or institutional proof. The system validates building restrictions and room capacity before letting you save.
             </div>
           </div>
         )}
@@ -1989,7 +1989,7 @@ function ProgramHeadManual() {
               Exam Break Settings
             </h3>
             <p className={`text-sm leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
-              Open <strong>Exam Breaks</strong> to set the intermission interval for General and Major subjects.
+              Open <strong>Exam Breaks</strong> to set the intermission interval for General and Major courses.
               Enter hours, minutes, and seconds for each category, then click <strong>Save</strong>.
               These controls are disabled while schedule generation is running.
             </p>
@@ -2041,7 +2041,7 @@ function ProgramHeadManual() {
               <div className={`p-4 rounded-2xl border ${isDark ? "bg-slate-800/50 border-slate-700/60" : "bg-slate-50 border-slate-200/80"}`}>
                 <h4 className={`font-bold text-xs uppercase tracking-wider text-teal-500 mb-1`}>4. Section List</h4>
                 <p className={`text-xs leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
-                  Open <strong>Section List</strong> to inspect enrolled students per section and export official room attendance sign-in sheets.
+                  In <strong>Section List</strong>, print the exam attendance list and give it to the assigned proctor. The list includes the proctor’s name and a signature line for their attendance proof.
                 </p>
               </div>
             </div>
@@ -2188,7 +2188,7 @@ function NavSidebar({ activeTab, setActiveTab, isDark, unreadChatCount, pendingR
       <NavGroup label="Scheduling" icon={CalendarIcon} defaultOpen={isSchedulingActive} isDark={isDark} minimized={minimized}>
         <NavItem item={{ id: "generate", icon: CalendarIcon, label: "Generate Schedule" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
         <NavItem item={{ id: "schedules", icon: CalendarDaysIcon, label: "Generated Schedules" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
-        <NavItem item={{ id: "durations", icon: ClockIcon, label: "Subject Management" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
+        <NavItem item={{ id: "durations", icon: ClockIcon, label: "Course Management" }} activeTab={activeTab} setActiveTab={setActiveTab} isDark={isDark} badge={0} onSelect={onSelectNavItem} />
       </NavGroup>
 
       {/* Management Group */}
@@ -2532,7 +2532,7 @@ export default function ProgramHeadDashboard() {
                   <h1 className={`text-base sm:text-2xl font-bold tracking-tight transition-colors truncate ${isDark ? "text-white" : "text-slate-900"}`}>
                     {activeTab === "generate" ? "Exam Schedule Generator" :
                       activeTab === "schedules" ? "Generated Exam Schedules" :
-                        activeTab === "durations" ? "Subject Management" :
+                        activeTab === "durations" ? "Course Management" :
                           activeTab === "proctors" ? "Proctor Management" :
                             activeTab === "rooms" ? "Room Management" :
                               activeTab === "monitoring" ? "Proctor Attendance Monitoring" :
@@ -2675,7 +2675,7 @@ export default function ProgramHeadDashboard() {
                     activeTab === "proctors" ? <AddProctor isGenerating={isGenerationRunning} /> :
                       activeTab === "rooms" ? <RoomManagement isGenerating={isGenerationRunning} /> :
                         activeTab === "breaks" ? <ExamBreakSettings isGenerating={isGenerationRunning} /> :
-                          activeTab === "monitoring" ? <ProctorMonitoring /> :
+                          activeTab === "monitoring" ? <ProctorMonitoring isGenerating={isGenerationRunning} /> :
                             activeTab === "rescheduling" ? <ReschedulingRequests isGenerating={isGenerationRunning} onRequestsChange={handlePendingRescheduleCountChange} /> :
                               activeTab === "chat" ? <ChatSupportPanel /> :
                                 activeTab === "section-students" ? <SectionStudentList /> :

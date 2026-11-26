@@ -1477,6 +1477,12 @@ def get_eligible_proctors(
     if not target_slot:
         target_slot = exam.timeslot
 
+    return _eligible_proctors(db, exam, target_slot)
+
+
+def _eligible_proctors(
+    db: Session, exam: Exam, target_slot: Timeslot | None, proctor_ids: list[int] | None = None,
+):
     exam_dept = exam.course.category if exam.course else "College"
 
     subject_teacher_ids = set()
@@ -1499,7 +1505,10 @@ def get_eligible_proctors(
         ).all()
         busy_proctor_ids = {r[0] for r in busy_rows}
 
-    proctors = db.query(Proctor).filter(Proctor.exclude_from_scheduling == False).all()
+    proctor_query = db.query(Proctor).filter(Proctor.exclude_from_scheduling == False)
+    if proctor_ids is not None:
+        proctor_query = proctor_query.filter(Proctor.id.in_(proctor_ids))
+    proctors = proctor_query.all()
     teacher_ids = [p.teacher_id for p in proctors if p.teacher_id]
 
     sched_counts = dict(
@@ -1997,7 +2006,7 @@ def download_exam_schedule(
     thin = Side(border_style="thin", color="B0C4DE")
     border = Border(left=thin, right=thin, top=thin, bottom=thin)
 
-    COL_HEADERS = ["#", "Date", "Time", "Course", "Year Level", "Section", "Term", "Subject Code", "Subject Name", "Room", "Proctor", "Status", "Batch"]
+    COL_HEADERS = ["#", "Date", "Time", "Program", "Year Level", "Section", "Term", "Course Code", "Course Name", "Room", "Proctor", "Status", "Batch"]
     COL_WIDTHS  = [5,   22,     20,     12,       14,           14,        12,     14,             32,             12,     28,        10,       12]
 
     # Create sheet

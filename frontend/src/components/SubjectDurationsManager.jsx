@@ -174,7 +174,7 @@ function SubjectModal({ open, onClose, onSave, courses, yearLevels, departments 
           <div className="flex items-center gap-2">
             <BookOpenIcon className="w-5 h-5 text-blue-500" />
             <h2 className={`font-bold text-base ${isDark ? "text-white" : "text-slate-900"}`}>
-              {isEdit ? "Edit Subject" : "Add New Subject"}
+              {isEdit ? "Edit Course" : "Add New Course"}
             </h2>
           </div>
           <button onClick={onClose} className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white" aria-label="Close modal">
@@ -185,14 +185,14 @@ function SubjectModal({ open, onClose, onSave, courses, yearLevels, departments 
         <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4 max-h-[75vh] overflow-y-auto">
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2">
-              <label className={lbl} htmlFor="subjectdurationsmanager-field-1">Subject Name <span className="text-red-500">*</span></label>
+              <label className={lbl} htmlFor="subjectdurationsmanager-field-1">Course Name <span className="text-red-500">*</span></label>
               <input ref={nameRef} type="text" value={form.name} onChange={(e) => set("name", e.target.value)}
-                placeholder="e.g. Fundamentals of Accounting" className={inp} required id="subjectdurationsmanager-field-1" aria-label="Subject Name" />
+                placeholder="e.g. Fundamentals of Accounting" className={inp} required id="subjectdurationsmanager-field-1" aria-label="Course Name" />
             </div>
             <div>
-              <label className={lbl} htmlFor="subjectdurationsmanager-field-2">Subject Code</label>
+              <label className={lbl} htmlFor="subjectdurationsmanager-field-2">Course Code</label>
               <input type="text" value={form.code} onChange={(e) => set("code", e.target.value)}
-                placeholder="Auto-generated if blank" className={inp} id="subjectdurationsmanager-field-2" aria-label="Subject Code" />
+                placeholder="Auto-generated if blank" className={inp} id="subjectdurationsmanager-field-2" aria-label="Course Code" />
             </div>
             <div>
               <label className={lbl} htmlFor="subjectdurationsmanager-field-3">Exam Type</label>
@@ -220,7 +220,7 @@ function SubjectModal({ open, onClose, onSave, courses, yearLevels, departments 
               </select>
             </div>
             <div>
-              <label className={lbl} htmlFor="subjectdurationsmanager-field-5">Primary Course / Strand <span className="text-red-500">*</span></label>
+              <label className={lbl} htmlFor="subjectdurationsmanager-field-5">Primary Program / Strand <span className="text-red-500">*</span></label>
               <select
                 value={form.course_id}
                 onChange={(e) => {
@@ -231,8 +231,8 @@ function SubjectModal({ open, onClose, onSave, courses, yearLevels, departments 
                   }
                 }}
                 className={inp}
-                required id="subjectdurationsmanager-field-5" aria-label="Primary Course / Strand">
-                <option value="">Select course...</option>
+                required id="subjectdurationsmanager-field-5" aria-label="Primary Program / Strand">
+                <option value="">Select program...</option>
                 {courses.map((c) => (
                   <option key={c.id} value={c.id}>{c.name} ({c.category})</option>
                 ))}
@@ -244,14 +244,14 @@ function SubjectModal({ open, onClose, onSave, courses, yearLevels, departments 
           <div className={`p-3.5 rounded-xl border text-xs space-y-2 ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-slate-50 border-slate-200"}`}>
             <div className="flex items-center justify-between">
               <div className={`font-bold uppercase tracking-wider text-xs ${isDark ? "text-slate-300" : "text-slate-700"}`}>
-                Multi-Program Assignment (Shared / GE Subjects)
+                Multi-Program Assignment (Shared / GE Courses)
               </div>
               <span className="text-xs text-slate-400">
                 {form.program_ids.length} program{form.program_ids.length !== 1 ? "s" : ""} assigned
               </span>
             </div>
             <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-              Assign this subject to multiple programs/courses when shared across curricula (e.g., General Education subjects).
+              Assign this course to multiple programs when shared across curricula (e.g., General Education courses).
             </p>
             {/* Quick bulk selection buttons */}
             <div className="flex flex-wrap items-center gap-1.5 pb-1">
@@ -356,7 +356,7 @@ function SubjectModal({ open, onClose, onSave, courses, yearLevels, departments 
                   set("department_code", "GE");
                 }
               }} className={inp} id="subjectdurationsmanager-field-8" aria-label="Category">
-                <option value="major">Major Subject</option>
+                <option value="major">Major Course</option>
                 <option value="general">General Education / Minor</option>
               </select>
             </div>
@@ -544,7 +544,7 @@ function SubjectModal({ open, onClose, onSave, courses, yearLevels, departments 
                 }`}>
                   <span className="font-bold text-amber-500 mt-0.5">Room Policy:</span>
                   <span>
-                    Fixed subjects get room priority from the selected start time. Overflow sections continue in <strong>later available slots on the same day</strong>, keeping required section breaks and room seat capacities. If that day is full, add suitable rooms or choose an earlier start.
+                    Fixed courses get room priority from the selected start time. Overflow sections continue in <strong>later available slots on the same day</strong>, keeping required section breaks and room seat capacities. If that day is full, add suitable rooms or choose an earlier start.
                   </span>
                 </div>
               </div>
@@ -552,7 +552,7 @@ function SubjectModal({ open, onClose, onSave, courses, yearLevels, departments 
           </div>
 
           <div className={`p-3 rounded-xl border text-xs ${isDark ? "bg-blue-950/20 border-blue-800/40 text-blue-300" : "bg-blue-50 border-blue-200 text-blue-700"}`}>
-            <strong>Tip:</strong> The <em>Department</em> links this subject to the department administrator, and multiple programs can take this subject.
+            <strong>Tip:</strong> The <em>Department</em> links this course to the department administrator, and multiple programs can take this course.
           </div>
         </form>
 
@@ -564,7 +564,7 @@ function SubjectModal({ open, onClose, onSave, courses, yearLevels, departments 
           <button onClick={handleSubmit} disabled={saving || !form.name.trim() || !form.course_id}
             className="px-5 py-2 rounded-xl text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition disabled:opacity-50 flex items-center gap-2">
             {saving ? <ArrowPathIcon className="w-4 h-4 animate-spin" /> : <CheckIcon className="w-4 h-4" />}
-            {saving ? "Saving..." : isEdit ? "Save Changes" : "Add Subject"}
+            {saving ? "Saving..." : isEdit ? "Save Changes" : "Add Course"}
           </button>
         </div>
       </div>
@@ -613,20 +613,20 @@ export default function SubjectDurationsManager() {
   const handleConsolidateShared = () => {
     setConfirmConfig({
       isOpen: true,
-      title: "Consolidate Shared Subjects",
+      title: "Consolidate Shared Courses",
       message:
-        "Identical General Education (GE) and common major subjects across degree programs will be merged into single master records with multi-program assignments. All section teaching assignments, irregular student enrollments, and scheduled exams will be safely preserved.",
-      confirmLabel: "Consolidate Subjects",
+        "Identical General Education (GE) and common major courses across degree programs will be merged into single master records with multi-program assignments. All section teaching assignments, irregular student enrollments, and scheduled exams will be safely preserved.",
+      confirmLabel: "Consolidate Courses",
       isDanger: false,
       onConfirm: async () => {
         setConfirmConfig((prev) => ({ ...prev, isOpen: false }));
         setConsolidating(true);
         try {
           const res = await api.post("/catalog/subjects/consolidate-shared");
-          showSuccess(res.data?.message || "Consolidated shared subjects successfully!");
+          showSuccess(res.data?.message || "Consolidated shared courses successfully!");
           await fetchSubjects();
         } catch (err) {
-          showError(err.response?.data?.detail || "Failed to consolidate subjects");
+          showError(err.response?.data?.detail || "Failed to consolidate courses");
         } finally {
           setConsolidating(false);
         }
@@ -664,7 +664,7 @@ export default function SubjectDurationsManager() {
       setLocalCategories(catMap);
     } catch (err) {
       console.error("Failed to load subjects:", err);
-      showError(err.response?.data?.detail || "Failed to load subjects");
+      showError(err.response?.data?.detail || "Failed to load courses");
     } finally { setLoading(false); }
   };
 
@@ -696,9 +696,9 @@ export default function SubjectDurationsManager() {
           ? { ...s, duration_minutes: parseInt(localDurations[sub.id], 10), term: localTerms[sub.id], category: localCategories[sub.id] }
           : s
       ));
-      showSuccess("Subject updated");
+      showSuccess("Course updated");
     } catch (err) {
-      showError(err.response?.data?.detail || "Failed to update subject");
+      showError(err.response?.data?.detail || "Failed to update course");
     } finally { setSavingId(null); }
   };
 
@@ -707,14 +707,14 @@ export default function SubjectDurationsManager() {
     try {
       if (isEdit) {
         await api.put(`/catalog/subjects/${modal.subject.id}`, formData);
-        showSuccess("Subject updated");
+        showSuccess("Course updated");
       } else {
         await api.post("/catalog/subjects", formData);
-        showSuccess("Subject added");
+        showSuccess("Course added");
       }
       await fetchSubjects();
     } catch (err) {
-      showError(err.response?.data?.detail || "Failed to save subject");
+      showError(err.response?.data?.detail || "Failed to save course");
       throw err;
     }
   };
@@ -722,9 +722,9 @@ export default function SubjectDurationsManager() {
   const handleDelete = (sub) => {
     setConfirmConfig({
       isOpen: true,
-      title: "Delete Subject",
+      title: "Delete Course",
       message: `Are you sure you want to delete "${sub.name}"? This will also remove any draft exams using it.`,
-      confirmLabel: "Delete Subject",
+      confirmLabel: "Delete Course",
       isDanger: true,
       onConfirm: async () => {
         setConfirmConfig((prev) => ({ ...prev, isOpen: false }));
@@ -734,7 +734,7 @@ export default function SubjectDurationsManager() {
           showSuccess(`"${sub.name}" deleted.`);
           setSubjects((prev) => prev.filter((s) => s.id !== sub.id));
         } catch (err) {
-          showError(err.response?.data?.detail || "Failed to delete subject");
+          showError(err.response?.data?.detail || "Failed to delete course");
         } finally {
           setDeletingId(null);
         }
@@ -746,7 +746,7 @@ export default function SubjectDurationsManager() {
     setConfirmConfig({
       isOpen: true,
       title: "Apply Duration Preset",
-      message: `Are you sure you want to apply the "${label}" preset to all subjects?`,
+      message: `Are you sure you want to apply the "${label}" preset to all courses?`,
       confirmLabel: "Apply Preset",
       isDanger: false,
       onConfirm: async () => {
@@ -767,13 +767,13 @@ export default function SubjectDurationsManager() {
 
   const handleApplyBulkToFiltered = () => {
     if (filteredSubjects.length === 0) {
-      showError("No subjects matched");
+      showError("No courses matched");
       return;
     }
     setConfirmConfig({
       isOpen: true,
       title: "Apply Bulk Duration",
-      message: `Apply ${formatDur(bulkDuration)} duration to ${filteredSubjects.length} filtered subjects?`,
+      message: `Apply ${formatDur(bulkDuration)} duration to ${filteredSubjects.length} filtered courses?`,
       confirmLabel: "Apply to All",
       isDanger: false,
       onConfirm: async () => {
@@ -863,9 +863,9 @@ export default function SubjectDurationsManager() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h2 className={`text-lg font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Subject Management</h2>
+          <h2 className={`text-lg font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Course Management</h2>
           <p className={`text-xs mt-0.5 ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-            Set subject category (major/minor), exam term, and duration. Schedule generation uses <strong>term</strong> to filter which subjects to include.
+            Set course category (major/minor), exam term, and duration. Schedule generation uses <strong>term</strong> to filter which courses to include.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -878,7 +878,7 @@ export default function SubjectDurationsManager() {
                 ? "bg-purple-950/40 text-purple-300 border-purple-800/60 hover:bg-purple-900/40"
                 : "bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100 shadow-sm"
             } disabled:opacity-50`}
-            title="Merge duplicate shared subjects into single multi-program entries and link across all sections"
+            title="Merge duplicate shared courses into single multi-program entries and link across all sections"
           >
             <ArrowsPointingInIcon className={`w-4 h-4 ${consolidating ? "animate-spin" : ""}`} />
             {consolidating ? "Consolidating..." : "Consolidate Shared"}
@@ -887,7 +887,7 @@ export default function SubjectDurationsManager() {
             onClick={() => setModal({ open: true, subject: null })}
             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold shadow transition"
           >
-            <PlusIcon className="w-4 h-4" /> Add Subject
+            <PlusIcon className="w-4 h-4" /> Add Course
           </button>
         </div>
       </div>
@@ -895,8 +895,8 @@ export default function SubjectDurationsManager() {
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         {[
-          { label: "Total Subjects", value: stats.total, color: "text-slate-700 dark:text-slate-200" },
-          { label: "Major Subjects", value: stats.major, color: "text-indigo-600 dark:text-indigo-400" },
+          { label: "Total Courses", value: stats.total, color: "text-slate-700 dark:text-slate-200" },
+          { label: "Major Courses", value: stats.major, color: "text-indigo-600 dark:text-indigo-400" },
           { label: "GE / Minor", value: stats.minor, color: "text-purple-600 dark:text-purple-400" },
           { label: "75-min Standard", value: stats.d75, color: "text-blue-600 dark:text-blue-400" },
           { label: "Fixed Time Slots", value: stats.fixedCount, color: "text-amber-600 dark:text-amber-400" },
@@ -920,7 +920,7 @@ export default function SubjectDurationsManager() {
               <h3 className={`font-bold text-sm ${isDark ? "text-white" : "text-slate-900"}`}>School Standard Preset</h3>
             </div>
             <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-              Sets all subjects to <strong className="text-blue-500">1:15h (75 mins)</strong>.
+              Sets all courses to <strong className="text-blue-500">1:15h (75 mins)</strong>.
             </p>
           </div>
           <div className={`mt-4 pt-3 border-t ${isDark ? "border-slate-700/60" : "border-slate-100"} flex items-center justify-between`}>
@@ -940,7 +940,7 @@ export default function SubjectDurationsManager() {
               <h3 className={`font-bold text-sm ${isDark ? "text-white" : "text-slate-900"}`}>BA Majors 2h Preset</h3>
             </div>
             <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-              BA major subjects to <strong className="text-indigo-500">2:00h (120 mins)</strong>, others 1:15h.
+              BA major courses to <strong className="text-indigo-500">2:00h (120 mins)</strong>, others 1:15h.
             </p>
           </div>
           <div className={`mt-4 pt-3 border-t ${isDark ? "border-indigo-800/40" : "border-indigo-100"} flex items-center justify-between`}>
@@ -957,7 +957,7 @@ export default function SubjectDurationsManager() {
               <span className="p-2 rounded-xl bg-emerald-500/10 text-emerald-500"><AdjustmentsHorizontalIcon className="w-5 h-5" /></span>
               <h3 className={`font-bold text-sm ${isDark ? "text-white" : "text-slate-900"}`}>Bulk Update Filtered</h3>
             </div>
-            <p className={`text-xs leading-relaxed mb-3 ${isDark ? "text-slate-400" : "text-slate-500"}`}>Apply custom duration to all <strong>filtered</strong> subjects.</p>
+            <p className={`text-xs leading-relaxed mb-3 ${isDark ? "text-slate-400" : "text-slate-500"}`}>Apply custom duration to all <strong>filtered</strong> courses.</p>
             <select value={bulkDuration} onChange={(e) => setBulkDuration(Number(e.target.value))}
               className={`w-full px-3 py-1.5 rounded-xl text-xs font-semibold border outline-none transition [&>option]:bg-white [&>option]:text-slate-900 dark:[&>option]:bg-slate-800 dark:[&>option]:text-slate-100 ${isDark ? "bg-slate-800 border-slate-700 text-white" : "bg-slate-50 border-slate-200 text-slate-800"}`} aria-label="Bulk Exam Duration">
               <option value={60} className={isDark ? "bg-slate-800 text-slate-100" : "bg-white text-slate-900"}>1h 00m (60 mins)</option>
@@ -980,9 +980,9 @@ export default function SubjectDurationsManager() {
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-700/60">
           <div className="relative flex-1 min-w-[240px]">
             <MagnifyingGlassIcon className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input type="text" placeholder="Search subject by name or code..."
+            <input type="text" placeholder="Search course by name or code..."
               value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-              className={`w-full pl-10 pr-4 py-2 rounded-xl text-sm border outline-none transition ${isDark ? "bg-slate-800 border-slate-700 text-white focus:border-blue-500" : "bg-slate-50 border-slate-200 text-slate-900 focus:border-blue-500"}`} aria-label="Search subject by name or code" />
+              className={`w-full pl-10 pr-4 py-2 rounded-xl text-sm border outline-none transition ${isDark ? "bg-slate-800 border-slate-700 text-white focus:border-blue-500" : "bg-slate-50 border-slate-200 text-slate-900 focus:border-blue-500"}`} aria-label="Search course by name or code" />
           </div>
           <button onClick={fetchSubjects} disabled={loading}
             className={`p-2 rounded-xl border transition ${isDark ? "text-slate-400 hover:text-white border-slate-700 hover:bg-slate-700" : "text-slate-400 hover:text-slate-700 border-slate-200 hover:bg-slate-50"}`}
@@ -1001,9 +1001,9 @@ export default function SubjectDurationsManager() {
               <option value="SHS">All Senior High</option>
             </select>
           </div>
-          <div><label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1" htmlFor="subjectdurationsmanager-field-15">Course</label>
-            <select value={courseFilter} onChange={(e) => setCourseFilter(e.target.value)} className={selectCls} id="subjectdurationsmanager-field-15" aria-label="Course">
-              <option value="All">All Courses</option>
+          <div><label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1" htmlFor="subjectdurationsmanager-field-15">Program</label>
+            <select value={courseFilter} onChange={(e) => setCourseFilter(e.target.value)} className={selectCls} id="subjectdurationsmanager-field-15" aria-label="Program">
+              <option value="All">All Programs</option>
               {courseNames.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
             </select>
           </div>
@@ -1038,7 +1038,7 @@ export default function SubjectDurationsManager() {
         <div className={`p-4 border-b ${isDark ? "border-slate-700/60" : "border-slate-100"} flex items-center justify-between`}>
           <div className="flex items-center gap-2">
             <BookOpenIcon className="w-4 h-4 text-blue-500" />
-            <span className={`text-sm font-bold ${isDark ? "text-slate-200" : "text-slate-700"}`}>All Subjects</span>
+            <span className={`text-sm font-bold ${isDark ? "text-slate-200" : "text-slate-700"}`}>All Courses</span>
             <span className="text-xs px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-semibold">
               {filteredSubjects.length} / {subjects.length}
             </span>
@@ -1049,13 +1049,13 @@ export default function SubjectDurationsManager() {
         {loading ? (
           <div className="py-16 text-center text-slate-400 flex flex-col items-center gap-3">
             <div className="w-8 h-8 rounded-full border-2 border-blue-500 border-t-transparent animate-spin" />
-            <span className="text-xs font-medium">Loading subjects...</span>
+            <span className="text-xs font-medium">Loading courses...</span>
           </div>
         ) : filteredSubjects.length === 0 ? (
           <div className="py-16 text-center text-slate-400">
             <BookmarkSquareIcon className="w-10 h-10 mx-auto mb-2 opacity-30" />
-            <p className="text-sm font-medium">No subjects found</p>
-            <p className="text-xs mt-1 text-slate-500">Try adjusting filters or add a new subject</p>
+            <p className="text-sm font-medium">No courses found</p>
+            <p className="text-xs mt-1 text-slate-500">Try adjusting filters or add a new course</p>
           </div>
         ) : (
           <div className="w-full min-w-0 max-h-[620px] overflow-y-auto">
@@ -1077,7 +1077,7 @@ export default function SubjectDurationsManager() {
                       <p className="mt-0.5 text-xs text-slate-500">{sub.code}</p>
                     </div>
                     <div className={`grid grid-cols-2 gap-x-3 gap-y-2 text-xs ${isDark ? "text-slate-300" : "text-slate-600"}`}>
-                      <p className="break-words"><span className="font-semibold">Course:</span> {sub.course_name} ({sub.course_category})</p>
+                      <p className="break-words"><span className="font-semibold">Program:</span> {sub.course_name} ({sub.course_category})</p>
                       <p><span className="font-semibold">Year:</span> {sub.year_level_name || "—"}</p>
                       <p><span className="font-semibold">Semester:</span> {sub.semester}</p>
                     </div>
@@ -1147,9 +1147,9 @@ export default function SubjectDurationsManager() {
                 isDark ? "bg-slate-800/90 text-slate-400 border-slate-700 backdrop-blur-md" : "bg-slate-50 text-slate-500 border-slate-200"
               }`}>
                 <tr>
-                  <th className="py-3 px-4">Subject</th>
-                  <th className="py-3 px-4">Department</th>
                   <th className="py-3 px-4">Course</th>
+                  <th className="py-3 px-4">Department</th>
+                  <th className="py-3 px-4">Program</th>
                   <th className="py-3 px-4">Year</th>
                   <th className="py-3 px-4">Sem</th>
                   <th className="py-3 px-4">Category</th>
@@ -1202,14 +1202,14 @@ export default function SubjectDurationsManager() {
                             dCat === "major"
                               ? "bg-indigo-50 dark:bg-indigo-900/20 border-indigo-300 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300"
                               : isDark ? "bg-slate-800 border-slate-700 text-slate-400" : "bg-slate-100 border-slate-200 text-slate-600"
-                          }`} aria-label="Subject Category">
+                          }`} aria-label="Course Category">
                           <option value="major" className={isDark ? "bg-slate-800 text-slate-100" : "bg-white text-slate-900"}>Major</option>
                           <option value="general" className={isDark ? "bg-slate-800 text-slate-100" : "bg-white text-slate-900"}>GE/Minor</option>
                         </select>
                       </td>
                       <td className="py-3 px-4 whitespace-nowrap">
                         <select value={dTerm} onChange={(e) => setLocalTerms((p) => ({ ...p, [sub.id]: e.target.value }))}
-                          className={`px-2 py-1 rounded-lg text-xs font-bold border outline-none transition cursor-pointer [&>option]:bg-white [&>option]:text-slate-900 dark:[&>option]:bg-slate-800 dark:[&>option]:text-slate-100 ${isDark ? "bg-slate-800 border-slate-700 text-slate-200" : "bg-white border-slate-200 text-slate-700"}`} aria-label="Subject Exam Term">
+                          className={`px-2 py-1 rounded-lg text-xs font-bold border outline-none transition cursor-pointer [&>option]:bg-white [&>option]:text-slate-900 dark:[&>option]:bg-slate-800 dark:[&>option]:text-slate-100 ${isDark ? "bg-slate-800 border-slate-700 text-slate-200" : "bg-white border-slate-200 text-slate-700"}`} aria-label="Course Exam Term">
                           {termOpts.map((t) => (
                             <option key={t} value={t} className={isDark ? "bg-slate-800 text-slate-100" : "bg-white text-slate-900"}>
                               {t === "All" ? "All Terms" : t}
@@ -1223,7 +1223,7 @@ export default function SubjectDurationsManager() {
                             dDur === 120 ? "border-purple-400 bg-purple-50/50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300"
                               : dDur === 75 ? "border-blue-400 bg-blue-50/50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
                               : isDark ? "bg-slate-800 border-slate-700 text-white" : "bg-white border-slate-200 text-slate-800"
-                          }`} aria-label="Subject Exam Duration">
+                          }`} aria-label="Course Exam Duration">
                           <option value={60} className={isDark ? "bg-slate-800 text-slate-100" : "bg-white text-slate-900"}>1:00h</option>
                           <option value={75} className={isDark ? "bg-slate-800 text-slate-100" : "bg-white text-slate-900"}>1:15h</option>
                           <option value={90} className={isDark ? "bg-slate-800 text-slate-100" : "bg-white text-slate-900"}>1:30h</option>
@@ -1300,7 +1300,7 @@ export default function SubjectDurationsManager() {
       {/* Term legend */}
       <div className={`p-4 rounded-2xl border ${isDark ? "bg-slate-800/30 border-slate-700/60" : "bg-slate-50 border-slate-200"}`}>
         <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-          <TagIcon className="w-3.5 h-3.5" /> Term Guide — Schedule Generation Filters Subjects By This
+          <TagIcon className="w-3.5 h-3.5" /> Term Guide — Schedule Generation Filters Courses By This
         </div>
         <div className="flex flex-wrap gap-2">
           {["All", "Prelim", "Midterm", "Pre-Final", "Final", "ST1", "ST2", "T1"].map((t) => (
@@ -1310,7 +1310,7 @@ export default function SubjectDurationsManager() {
           ))}
         </div>
         <p className={`text-xs mt-3 ${isDark ? "text-slate-500" : "text-slate-400"}`}>
-          When generating for a specific term (e.g. <strong>Midterm</strong>), only subjects assigned to that term — or <strong>All</strong> — are included.
+          When generating for a specific term (e.g. <strong>Midterm</strong>), only courses assigned to that term — or <strong>All</strong> — are included.
           SHS uses <strong>ST1</strong>, <strong>ST2</strong>, <strong>T1</strong>; College uses <strong>Prelim</strong>, <strong>Midterm</strong>, <strong>Pre-Final</strong>, <strong>Final</strong>.
         </p>
       </div>

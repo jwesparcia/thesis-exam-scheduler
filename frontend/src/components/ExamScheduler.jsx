@@ -176,7 +176,7 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
       } catch (err) {
         if (!isCurrentRequest) return;
         console.error("Error loading subjects:", err);
-        const message = err.response?.data?.detail || "Unable to load subjects for this selection.";
+        const message = err.response?.data?.detail || "Unable to load courses for this selection.";
         setSubjects([]);
         setSubjectsError(message);
         showError(message);
@@ -479,11 +479,11 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
 
       let msg = "";
       if (diffDays < 3 || diffDays > 5) {
-        msg = `The selected range covers ${diffDays} exam days (recommended is 4, Sundays skipped). Do you want to proceed? This will generate the schedule for ALL ${selectedDept} courses at once.`;
+        msg = `The selected range covers ${diffDays} exam days (recommended is 4, Sundays skipped). Do you want to proceed? This will generate the schedule for ALL ${selectedDept} programs at once.`;
       } else if (diffDays !== 4) {
-        msg = `The selected range covers ${diffDays} exam days (exactly 4 is recommended, Sundays skipped). Proceed? This will generate the schedule for ALL ${selectedDept} courses at once.`;
+        msg = `The selected range covers ${diffDays} exam days (exactly 4 is recommended, Sundays skipped). Proceed? This will generate the schedule for ALL ${selectedDept} programs at once.`;
       } else {
-        msg = `This will generate the schedule for ALL ${selectedDept} courses at once across ${diffDays} exam days (Sundays excluded), ensuring shared subjects are taken simultaneously. Continue?`;
+        msg = `This will generate the schedule for ALL ${selectedDept} programs at once across ${diffDays} exam days (Sundays excluded), ensuring shared courses are taken simultaneously. Continue?`;
       }
 
       setConfirmModal({
@@ -795,10 +795,10 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
                     <div>
                       <h4 className="text-xs font-bold uppercase tracking-wider">Exam Allotted Durations</h4>
                       <p className="text-xs mt-0.5 opacity-90 leading-relaxed">
-                        School Standard: <strong>1h 15m (75 mins)</strong> &bull; BA Major Subjects: <strong>2h 00m (120 mins)</strong>
+                        School Standard: <strong>1h 15m (75 mins)</strong> &bull; BA Major Courses: <strong>2h 00m (120 mins)</strong>
                       </p>
                       <p className="text-xs opacity-75 mt-0.5">
-                        To customize allotted time for specific subjects or courses, open the <strong>Subject Durations</strong> tab.
+                        To customize allotted time, open <strong>Course Management</strong>.
                       </p>
                     </div>
                   </div>
@@ -813,7 +813,7 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
               <div className="pt-6 border-t border-slate-200 dark:border-slate-800">
                 <div className="flex items-center justify-between mb-4">
                   <div className={`block text-sm font-semibold ${isDark ? "text-slate-200" : "text-slate-800"}`}>
-                    3. Select Subjects for Exam
+                    3. Select Courses for Exam
                   </div>
                   <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${isDark ? "bg-blue-900/40 text-blue-300" : "bg-blue-100 text-blue-800"}`}>
                     {subjects.length - excludedSubjects.size} / {subjects.length} selected
@@ -821,19 +821,19 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
                 </div>
 
                 <p className={`text-xs mb-4 ${isDark ? "text-slate-400" : "text-slate-600"}`}>
-                  Uncheck subjects that do not require a written exam (e.g. Practicums, Project-based).
+                  Uncheck courses that do not require a written exam (e.g. Practicums, Project-based).
                 </p>
 
                 <div className="mb-4 relative">
                   <input
                     type="text"
-                    placeholder="Search subjects..."
+                    placeholder="Search courses..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className={`w-full rounded-xl pl-10 pr-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all ${isDark
                       ? "bg-slate-800 text-slate-100 border-slate-700 placeholder:text-slate-500"
                       : "bg-slate-50 text-slate-800 border-slate-200 border placeholder:text-slate-400"
-                      }`} aria-label="Search subjects" />
+                      }`} aria-label="Search courses" />
                   <DocumentTextIcon className={`absolute left-3 top-3 w-4 h-4 ${isDark ? "text-slate-400" : "text-slate-500"}`} />
                 </div>
 
@@ -841,7 +841,7 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
                   {subjectsLoading ? (
                     <div className={`p-4 text-center text-sm flex items-center justify-center gap-2 ${isDark ? "text-slate-400" : "text-slate-600"}`}>
                       <ArrowPathIcon className="w-4 h-4 animate-spin text-blue-600 dark:text-blue-400" />
-                      Loading subjects...
+                      Loading courses...
                     </div>
                   ) : subjectsError ? (
                     <div className={`p-4 text-center text-sm ${isDark ? "text-rose-400" : "text-rose-600"}`}>
@@ -883,11 +883,11 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
                     </div>
                   ) : subjects.length === 0 ? (
                     <div className={`p-4 text-center text-sm ${isDark ? "text-slate-400" : "text-slate-600"}`}>
-                      No written exam subjects found for {selectedDept} semester {semester}.
+                      No written exam courses found for {selectedDept} semester {semester}.
                     </div>
                   ) : (
                     <div className={`p-4 text-center text-sm ${isDark ? "text-slate-400" : "text-slate-600"}`}>
-                      No subjects match your search.
+                      No courses match your search.
                     </div>
                   )}
                 </div>
@@ -986,7 +986,7 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
                     ) : (
                       <>
                         <SparklesIcon className="w-5 h-5" />
-                        Generate Schedule for All {selectedDept} Courses
+                        Generate Schedule for All {selectedDept} Programs
                       </>
                     )}
                   </button>

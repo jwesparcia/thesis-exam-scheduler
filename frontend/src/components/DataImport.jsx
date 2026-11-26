@@ -171,7 +171,7 @@ export default function DataImport({ isGenerating }) {
                 Curriculum & Catalog Import
               </h2>
               <p className={`text-xs sm:text-sm mt-0.5 sm:mt-1 ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-                Initialize or update your school's courses, sections, subjects, and teachers using Excel sheet uploads.
+                Initialize or update your school's programs, sections, courses, and teachers using Excel sheet uploads.
               </p>
             </div>
           </div>
@@ -193,9 +193,9 @@ export default function DataImport({ isGenerating }) {
       {/* Database Statistics */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
         {[
-          { label: "Total Courses", value: stats.courses, icon: Square2StackIcon, color: "text-blue-500 bg-blue-500/10" },
+          { label: "Total Programs", value: stats.courses, icon: Square2StackIcon, color: "text-blue-500 bg-blue-500/10" },
           { label: "Total Sections", value: stats.sections, icon: BookOpenIcon, color: "text-green-500 bg-green-500/10" },
-          { label: "Total Subjects", value: stats.subjects, icon: CircleStackIcon, color: "text-purple-500 bg-purple-500/10" },
+          { label: "Total Courses", value: stats.subjects, icon: CircleStackIcon, color: "text-purple-500 bg-purple-500/10" },
           { label: "Total Teachers", value: stats.teachers, icon: UsersIcon, color: "text-orange-500 bg-orange-500/10" },
         ].map((card, i) => {
           const Icon = card.icon;
@@ -235,7 +235,7 @@ export default function DataImport({ isGenerating }) {
           <ul className={`text-xs space-y-2.5 sm:space-y-3 pl-1 ${isDark ? "text-slate-400" : "text-slate-600"}`}>
             <li className="flex items-start gap-2">
               <span className="text-blue-500 font-bold">•</span>
-              <span><strong>Course / Program</strong> (e.g. BSIT, BSCS, STEM)</span>
+              <span><strong>Program or Strand</strong> (e.g. BSIT, BSCS, STEM). Use the template’s <code>Course</code> or <code>Program</code> column.</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-blue-500 font-bold">•</span>
@@ -251,7 +251,7 @@ export default function DataImport({ isGenerating }) {
             </li>
             <li className="flex items-start gap-2">
               <span className="text-blue-500 font-bold">•</span>
-              <span><strong>Subject Code & Name</strong> (e.g. CS102 / Computer Programming 2)</span>
+              <span><strong>Course Code and Name</strong> (e.g. CS102 / Computer Programming 2). Use the template’s <code>Subject Code</code> and <code>Subject Name</code> columns.</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-blue-500 font-bold">•</span>
@@ -335,7 +335,7 @@ export default function DataImport({ isGenerating }) {
                 />
                 <div className="text-xs">
                   <span className="font-bold block mb-0.5">Clear existing curriculum catalog data</span>
-                  <span>Enable this to replace existing courses, sections, and subjects. <strong>Warning: This also deletes all current active/draft exam schedules. Student accounts are not affected.</strong></span>
+                  <span>Enable this to replace existing programs, sections, and courses. <strong>Warning: This also deletes all current active/draft exam schedules. Student accounts are not affected.</strong></span>
                 </div>
               </label>
             </div>
@@ -381,10 +381,10 @@ export default function DataImport({ isGenerating }) {
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-4">
             {[
-              { label: "Courses Created", value: importResult.courses_created },
+              { label: "Programs Created", value: importResult.courses_created },
               { label: "Year Levels Created", value: importResult.year_levels_created },
               { label: "Sections Created", value: importResult.sections_created },
-              { label: "Subjects Created", value: importResult.subjects_created },
+              { label: "Courses Created", value: importResult.subjects_created },
               { label: "Teachers Created", value: importResult.teachers_created },
               { label: "Proctors Created", value: importResult.proctors_created },
               { label: "Proctor Logins", value: importResult.users_created },
@@ -412,7 +412,7 @@ export default function DataImport({ isGenerating }) {
               Danger Zone
             </h4>
             <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-600"}`}>
-              Permanently delete all curriculum data (Courses, Sections, Subjects, Teachers, Proctor Accounts, and Schedules). Student accounts are <strong>not</strong> affected.
+              Permanently delete all curriculum data (Programs, Sections, Courses, Teachers, Proctor Accounts, and Schedules). Student accounts are <strong>not</strong> affected.
             </p>
           </div>
           <button
@@ -439,7 +439,7 @@ export default function DataImport({ isGenerating }) {
       <ConfirmationModal
         isOpen={isClearModalOpen}
         title="Delete Curriculum Data"
-        message="This will permanently delete all courses, year levels, sections, subjects, teachers, proctors, proctor accounts, and ALL active exam schedules. Student accounts will NOT be deleted."
+        message="This will permanently delete all programs, year levels, sections, courses, teachers, proctors, proctor accounts, and ALL active exam schedules. Student accounts will NOT be deleted."
         confirmText="confirm"
         confirmLabel="Delete Curriculum"
         isDanger={true}
@@ -450,7 +450,7 @@ export default function DataImport({ isGenerating }) {
       <ConfirmationModal
         isOpen={isImportConfirmOpen}
         title="Confirm Curriculum Import"
-        message="WARNING: You have enabled 'Clear existing data'. This will wipe out all current courses, year levels, sections, subjects, and generated exam schedules before importing the new file. Student accounts will NOT be deleted. Are you sure you want to proceed?"
+        message="WARNING: You have enabled 'Clear existing data'. This will wipe out all current programs, year levels, sections, courses, and generated exam schedules before importing the new file. Student accounts will NOT be deleted. Are you sure you want to proceed?"
         confirmLabel="Wipe and Import Data"
         isDanger={true}
         onConfirm={() => {

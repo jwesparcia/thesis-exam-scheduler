@@ -345,7 +345,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                 setYears(yearRes.data);
             } catch (err) {
                 console.error("Error loading options:", err);
-                showError(err.response?.data?.detail || "Failed to load course and year-level options.");
+                showError(err.response?.data?.detail || "Failed to load program and year-level options.");
             }
         };
         fetchOptions();
@@ -602,7 +602,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                 <div className="space-y-2">
                                     <label
                                         className={`block text-xs font-semibold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-600"}`} htmlFor="generatedexamschedules-field-1">
-                                        {selectedDept === "SHS" ? "Strand" : "Course"}
+                                        {selectedDept === "SHS" ? "Strand" : "Program"}
                                     </label>
                                     <select
                                         value={courseId}
@@ -610,8 +610,8 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                         className={`border rounded-xl cursor-pointer p-3 w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all ${isDark
                                             ? "bg-slate-800 text-slate-100 border-slate-700"
                                             : "bg-slate-50 text-slate-800 border-slate-200"
-                                            }`} id="generatedexamschedules-field-1" aria-label="Course or Strand">
-                                        <option value="">{selectedDept === "SHS" ? "Choose a strand" : "Choose a course"}</option>
+                                            }`} id="generatedexamschedules-field-1" aria-label="Program or Strand">
+                                        <option value="">{selectedDept === "SHS" ? "Choose a strand" : "Choose a program"}</option>
                                         {filteredCourses.map((c) => (
                                             <option key={c.id} value={c.id}>
                                                 {c.name}
@@ -713,7 +713,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                 <div className={`p-12 text-center rounded-3xl border-2 border-dashed ${isDark ? "border-slate-800 text-slate-400 bg-slate-850/20" : "border-slate-200 text-slate-500 bg-slate-50/50"}`}>
                                     <DocumentTextIcon className="w-16 h-16 mx-auto mb-4 opacity-20 text-blue-500" />
                                     <div className="text-xl font-bold mb-2">Ready to view schedules?</div>
-                                    <p className="text-sm">Please select a {selectedDept === "SHS" ? "strand and grade" : "course and year level"} above to reveal the exam timetable.</p>
+                                    <p className="text-sm">Please select a {selectedDept === "SHS" ? "strand and grade" : "program and year level"} above to reveal the exam timetable.</p>
                                 </div>
                             ) : exams.length === 0 ? (
                                 <div className={`p-12 text-center rounded-3xl border-2 border-dashed ${isDark ? "border-slate-800 text-slate-400 bg-slate-850/20" : "border-slate-200 text-slate-500 bg-slate-50/50"}`}>
@@ -806,7 +806,7 @@ export default function GeneratedExamSchedules({ isGenerating }) {
                                                 >
                                                     <tr>
                                                         <th className="border-b border-slate-300 dark:border-slate-600 px-4 py-3 text-left font-bold first:rounded-tl-xl">
-                                                            Subject
+                                                            Course
                                                         </th>
                                                         <th className="border-b border-slate-300 dark:border-slate-600 px-4 py-3 text-left font-bold">
                                                             Proctor

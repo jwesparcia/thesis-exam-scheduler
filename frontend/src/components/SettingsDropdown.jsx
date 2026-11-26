@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Cog6ToothIcon, ArrowLeftStartOnRectangleIcon, SunIcon, MoonIcon, KeyIcon } from '@heroicons/react/24/outline';
+import { Cog6ToothIcon, ArrowLeftStartOnRectangleIcon, SunIcon, MoonIcon, KeyIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
 import { useTheme } from '../context/themeStore';
+import AccountTermsDialog from './AccountTermsDialog';
 import ConfirmationModal from './ConfirmationModal';
 
 export default function SettingsDropdown({ onLogout, isDark, onOpenSettings }) {
@@ -8,6 +9,8 @@ export default function SettingsDropdown({ onLogout, isDark, onOpenSettings }) {
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
   const { theme, toggleTheme } = useTheme();
   const dropdownRef = useRef(null);
+  const menuButtonRef = useRef(null);
+  const termsDialogRef = useRef(null);
 
   const effectiveIsDark = isDark !== undefined ? isDark : theme === "dark";
 
@@ -46,6 +49,7 @@ export default function SettingsDropdown({ onLogout, isDark, onOpenSettings }) {
   return (
     <div className="relative" ref={dropdownRef}>
       <button
+        ref={menuButtonRef}
         onClick={() => setIsOpen(!isOpen)}
         aria-label="Settings and account menu"
         aria-expanded={isOpen}
@@ -104,6 +108,25 @@ export default function SettingsDropdown({ onLogout, isDark, onOpenSettings }) {
               <span className="text-sm font-semibold">Change Password</span>
             </button>
 
+            <button
+              onClick={() => {
+                termsDialogRef.current.showModal();
+                setIsOpen(false);
+              }}
+              aria-haspopup="dialog"
+              type="button"
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition group text-left cursor-pointer ${
+                effectiveIsDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-slate-100 text-slate-800"
+              }`}
+            >
+              <div className={`p-1.5 rounded-lg transition ${
+                effectiveIsDark ? "bg-slate-800 text-blue-400 group-hover:bg-blue-950/50" : "bg-blue-50 text-blue-600 group-hover:bg-blue-100/70"
+              }`}>
+                <DocumentTextIcon className="w-4 h-4" />
+              </div>
+              <span className="text-sm font-semibold">Terms and Conditions</span>
+            </button>
+
             {/* Logout Item */}
             <button
               onClick={handleLogoutRequest}
@@ -126,6 +149,7 @@ export default function SettingsDropdown({ onLogout, isDark, onOpenSettings }) {
         </div>
       )}
 
+      <AccountTermsDialog dialogRef={termsDialogRef} isDark={effectiveIsDark} onClose={() => menuButtonRef.current?.focus()} />
       <ConfirmationModal
         isOpen={isLogoutConfirmOpen}
         title="Log Out?"

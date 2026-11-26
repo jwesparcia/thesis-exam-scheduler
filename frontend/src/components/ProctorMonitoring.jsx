@@ -14,9 +14,12 @@ import {
   FunnelIcon,
 } from "@heroicons/react/24/outline";
 import { useTheme } from "../context/themeStore";
+import { useToast } from "../context/ToastContext";
+import { useUser } from "../context/userStore";
 import { getExamTermLabel, getExamTerms } from "../utils/examTerms";
 import api from "../api";
 import AttendanceProofPhoto from "./AttendanceProofPhoto";
+import ConfirmationModal from "./ConfirmationModal";
 
 const examTermOrder = [...getExamTerms("College"), ...getExamTerms("SHS")].map(({ value }) => value);
 
@@ -44,9 +47,11 @@ function AttendanceBadge({ status }) {
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 
-export default function ProctorMonitoring() {
+export default function ProctorMonitoring({ isGenerating }) {
   const { theme } = useTheme();
   const isDark = theme === "dark";
+  const { user } = useUser();
+  const { showError, showSuccess } = useToast();
 
   const [courseGroups, setCourseGroups] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -54,6 +59,8 @@ export default function ProctorMonitoring() {
   const [filterTerm, setFilterTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all"); // all | pending | attended
   const [searchText, setSearchText] = useState("");
+  const [replacementExam, setReplacementExam] = useState(null);
+  const [reassigningId, setReassigningId] = useState(null);
 
   // ── Fetch data ──────────────────────────────────────────────────────────
   const fetchMonitoring = useCallback(async () => {
@@ -77,6 +84,64 @@ export default function ProctorMonitoring() {
   }, [fetchMonitoring]);
 
   const isExamAttended = (status) => status === "attended" || status === "confirmed";
+  const departments = user?.department_codes?.length ? user.department_codes : [user?.department_code];
+  const managedDepartments = departments.map(code => String(code || "").trim().toUpperCase()).filter(Boolean);
+
+  const requestReplacement = async () => {
+    if (!replacementExam || reassigningId !== null) return;
+    const exam = replacementExam;
+    setReplacementExam(null);
+    if (isGenerating) {
+      showError("Wait for schedule generation to finish before requesting a replacement.");
+      return;
+    }
+
+    setReassigningId(exam.exam_id);
+    try {
+      const { data } = await api.post(`/proctors/monitoring/${exam.exam_id}/reassign`, {
+        expected_proctor_id: exam.proctor_id,
+        expected_timeslot_id: exam.timeslot_id,
+        expected_room_id: exam.room_id,
+      });
+      setCourseGroups(previous => previous.map(group => ({
+        ...group,
+        exams: group.exams.map(row => row.exam_id === exam.exam_id ? {
+          ...row,
+          proctor_id: data.proctor_id,
+          proctor_name: data.proctor_name,
+          attendance_proof: null,
+          attendance_status: "pending",
+        } : row),
+      })));
+      showSuccess(data.message);
+    } catch (err) {
+      showError(err.response?.data?.detail || "Could not request a replacement proctor.");
+    } finally {
+      await fetchMonitoring();
+      setReassigningId(null);
+    }
+  };
+
+  const renderReplacementAction = (exam) => {
+    const department = String(exam.department_code || "").trim().toUpperCase();
+    const canManage = user?.is_super_admin || managedDepartments.includes(department);
+    const hasTimeLeft = Date.parse(exam.reassign_until) > (lastRefreshed?.getTime() ?? 0);
+    if (!canManage || isExamAttended(exam.attendance_status) || !hasTimeLeft) return null;
+
+    return (
+      <button
+        type="button"
+        onClick={() => setReplacementExam(exam)}
+        disabled={isGenerating || reassigningId !== null}
+        aria-label={`Request replacement for ${exam.proctor_name}, ${exam.subject_name}, ${exam.section_name}`}
+        className="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 px-2.5 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-blue-800 dark:text-blue-300 dark:hover:bg-blue-900/30"
+      >
+        <ArrowPathIcon className={`h-3.5 w-3.5 ${reassigningId === exam.exam_id ? "animate-spin" : ""}`} />
+        {reassigningId === exam.exam_id ? "Finding replacement…" : "Request Replacement"}
+      </button>
+    );
+  };
+
   const availableTerms = new Set(courseGroups.flatMap(group => group.exams.map(exam => exam.term)).filter(Boolean));
   // Keep the selected term available even if a refresh returns no exams for it.
   if (filterTerm) availableTerms.add(filterTerm);
@@ -119,6 +184,20 @@ export default function ProctorMonitoring() {
   // ── Render ───────────────────────────────────────────────────────────────
   return (
     <div className="w-full space-y-6">
+      <ConfirmationModal
+        isOpen={replacementExam !== null}
+        title="Request a replacement proctor?"
+        message={replacementExam && (
+          <div className="space-y-2">
+            <p><strong>{replacementExam.subject_name}</strong> for {replacementExam.section_name}</p>
+            <p>{replacementExam.exam_date} · {replacementExam.start_time} – {replacementExam.end_time} · {replacementExam.room}</p>
+            <p>The system will look for an eligible proctor to take over from <strong>{replacementExam.proctor_name}</strong> at this room and time. If it finds one, it will assign them immediately.</p>
+          </div>
+        )}
+        confirmLabel="Find and Assign"
+        onConfirm={requestReplacement}
+        onCancel={() => setReplacementExam(null)}
+      />
       <div className="w-full space-y-6">
 
         {/* ── Page Header ── */}
@@ -269,14 +348,14 @@ export default function ProctorMonitoring() {
             {/* Search */}
             <input
               type="text"
-              placeholder="Search proctor, subject, section, or code..."
+              placeholder="Search proctor, course, section, or code..."
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
               className={`border rounded-xl px-3.5 py-2 text-xs sm:text-sm outline-none transition w-full sm:flex-1 sm:min-w-[200px] ${
                 isDark 
                   ? "bg-slate-900 border-slate-700 text-slate-100 placeholder:text-slate-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500" 
                   : "bg-white border-slate-300 text-slate-800 placeholder:text-slate-400 focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
-              }`} aria-label="Search proctor, subject, section, or code" />
+              }`} aria-label="Search proctor, course, section, or code" />
           </div>
         </div>
 
@@ -399,7 +478,10 @@ export default function ProctorMonitoring() {
                             <p className="break-words"><span className={`font-semibold ${isDark ? "text-slate-400" : "text-slate-500"}`}>Time:</span> <span className="font-mono font-medium">{exam.start_time} – {exam.end_time}</span></p>
                             <p className="break-words"><span className={`font-semibold ${isDark ? "text-slate-400" : "text-slate-500"}`}>Room:</span> <span className="font-medium">{exam.room}</span></p>
                           </div>
-                          <AttendanceProofPhoto exam={exam} />
+                          <div className="flex flex-wrap items-center gap-2">
+                            <AttendanceProofPhoto exam={exam} />
+                            {renderReplacementAction(exam)}
+                          </div>
                         </article>
                       ))}
                     </div>
@@ -409,7 +491,7 @@ export default function ProctorMonitoring() {
                           <tr>
                             <th className="py-3 px-4 text-left font-bold uppercase tracking-wider text-xs">Proctor</th>
                             <th className="py-3 px-4 text-left font-bold uppercase tracking-wider text-xs">Section</th>
-                            <th className="py-3 px-4 text-left font-bold uppercase tracking-wider text-xs">Subject</th>
+                            <th className="py-3 px-4 text-left font-bold uppercase tracking-wider text-xs">Course</th>
                             <th className="py-3 px-4 text-left font-bold uppercase tracking-wider text-xs">
                               <span className="flex items-center gap-1">
                                 <CalendarIcon className="w-3.5 h-3.5" /> Date
@@ -426,7 +508,7 @@ export default function ProctorMonitoring() {
                               </span>
                             </th>
                             <th className="py-3 px-4 text-left font-bold uppercase tracking-wider text-xs">Attendance</th>
-                            <th className="py-3 px-4 text-left font-bold uppercase tracking-wider text-xs">Proof Photo</th>
+                            <th className="py-3 px-4 text-left font-bold uppercase tracking-wider text-xs">Actions</th>
                           </tr>
                         </thead>
                         <tbody className={`divide-y ${isDark ? "divide-slate-750 text-slate-200" : "divide-slate-200 text-slate-800"}`}>
@@ -511,7 +593,10 @@ export default function ProctorMonitoring() {
                                 <AttendanceBadge status={exam.attendance_status} />
                               </td>
                               <td className="py-3.5 px-4">
-                                <AttendanceProofPhoto exam={exam} />
+                                <div className="flex flex-col items-start gap-2">
+                                  <AttendanceProofPhoto exam={exam} />
+                                  {renderReplacementAction(exam)}
+                                </div>
                               </td>
                             </tr>
                           ))}

@@ -4,6 +4,7 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createServer } from "vite";
 import { attendancePhotoError, hasCurrentAttendanceProof, MAX_ATTENDANCE_PHOTO_BYTES } from "../src/utils/attendanceProof.js";
+import { buildStudentAttendanceSheet } from "../src/utils/studentAttendancePrint.js";
 
 test("only an uploaded photo matching the assignment unlocks attendance", () => {
   assert.equal(hasCurrentAttendanceProof({}), false);
@@ -41,13 +42,26 @@ const proof = { url: "/proctors/2/attendance-proof/1", uploaded_at: "2030-01-10T
 const renderUpload = (row) => renderToStaticMarkup(React.createElement(ToastProvider, null,
   React.createElement(Upload, { exam: row, onUploaded: () => {} })));
 
-test("proctors see a required room photo upload before confirmation", () => {
+test("proctors are instructed to include the signed exam list in the proof photo before confirming", () => {
   const markup = renderUpload(exam);
   assert.match(markup, /Upload proof photo/);
   assert.match(markup, /B501/);
-  assert.match(markup, /before confirming attendance/);
+  assert.match(markup, /After taking attendance, sign the exam attendance list/);
+  assert.match(markup, /Before confirming attendance,[\s\S]*with the signed list visible/);
+  assert.match(markup, /Confirm before the exam ends/);
   assert.match(markup, /accept="image\/jpeg,image\/png,image\/webp"/);
   assert.doesNotMatch(markup, /ready to confirm/);
+});
+
+test("the printed attendance list provides a named proctor signature block in addition to student signatures", () => {
+  const html = buildStudentAttendanceSheet({ ...exam, proctor_name: "A. Cruz & Co." }, [{ name: "Test Student" }]);
+  assert.match(html, /<td class="signature"><\/td>/);
+  assert.match(html, /<div class="verification-line">A\. Cruz &amp; Co\.<\/div>\s*<p class="verification-label">Proctor name<\/p>/);
+  assert.match(html, /<div class="verification-line"><\/div>\s*<p class="verification-label">Proctor signature<\/p>/);
+  assert.match(html, /sign this list and include it in your proof photo/);
+
+  const unassigned = buildStudentAttendanceSheet({ ...exam, proctor_name: "Unassigned" }, []);
+  assert.match(unassigned, /<div class="verification-line"><\/div>\s*<p class="verification-label">Proctor name<\/p>/);
 });
 
 test("successful proof is viewable and clearly marked ready", () => {

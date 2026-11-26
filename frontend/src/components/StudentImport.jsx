@@ -230,7 +230,7 @@ export default function StudentImport({ isGenerating }) {
       document.body.appendChild(link);
       link.click();
       link.parentNode.removeChild(link);
-      showSuccess("Dummy student list with auto-assigned subjects downloaded successfully!");
+      showSuccess("Dummy student list with auto-assigned courses downloaded successfully!");
     } catch (err) {
       showError(err.response?.data?.detail || "Failed to download dummy student file");
     }
@@ -303,7 +303,7 @@ export default function StudentImport({ isGenerating }) {
                 Student Accounts & Directory
               </h2>
               <p className={`text-xs sm:text-sm mt-0.5 sm:mt-1 ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-                View students grouped by Course & Section, auto-enrolled irregular subjects, and upload Excel spreadsheets.
+                View students grouped by Program & Section, auto-enrolled irregular courses, and upload Excel spreadsheets.
               </p>
             </div>
           </div>
@@ -383,7 +383,7 @@ export default function StudentImport({ isGenerating }) {
           }`}
         >
           <UsersIcon className="w-5 h-5" />
-          Student Directory by Course & Section
+          Student Directory by Program & Section
           <span className={`ml-1.5 px-2.5 py-0.5 text-xs font-semibold rounded-full border ${
             activeTab === "directory"
               ? "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-800"
@@ -448,15 +448,15 @@ export default function StudentImport({ isGenerating }) {
               {/* Course / Strand Selector */}
               <div>
                 <label className={`block text-xs font-semibold uppercase tracking-wider mb-1.5 ${isDark ? "text-slate-300" : "text-slate-700"}`} htmlFor="studentimport-field-2">
-                  {selectedDept === "SHS" ? "Strand" : "Course"}
+                  {selectedDept === "SHS" ? "Strand" : "Program"}
                 </label>
                 <select
                   value={selectedCourseId}
                   onChange={handleCourseChange}
                   className={`w-full p-2.5 rounded-xl text-xs sm:text-sm font-medium border transition-colors cursor-pointer outline-none focus:ring-2 focus:ring-blue-500/20 ${
                     isDark ? "bg-slate-900 border-slate-700 text-slate-100 focus:border-blue-500" : "bg-white border-slate-300 text-slate-900 focus:border-blue-600"
-                  }`} id="studentimport-field-2" aria-label="Course or Strand">
-                  <option value="">All Courses / Strands</option>
+                  }`} id="studentimport-field-2" aria-label="Program or Strand">
+                  <option value="">All Programs / Strands</option>
                   {filteredCourses.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name}
@@ -595,7 +595,7 @@ export default function StudentImport({ isGenerating }) {
                           <dd className="mt-0.5 break-words">{student.department || "-"}</dd>
                         </div>
                         <div className="min-w-0">
-                          <dt className="text-xs font-semibold text-slate-500">Course</dt>
+                          <dt className="text-xs font-semibold text-slate-500">Program</dt>
                           <dd className="mt-0.5 break-words">{student.course_name || "-"}</dd>
                         </div>
                         <div className="col-span-2 min-w-0">
@@ -613,7 +613,7 @@ export default function StudentImport({ isGenerating }) {
                           className="min-h-11 w-full rounded-xl border border-purple-200 bg-purple-50 px-3 text-sm font-bold text-purple-700 dark:border-purple-500/30 dark:bg-purple-600/30 dark:text-purple-300"
                         >
                           <BookOpenIcon className="mr-1.5 inline h-4 w-4" />
-                          View {enrolledCount} Enrolled Subject{enrolledCount === 1 ? "" : "s"}
+                          View {enrolledCount} Enrolled Course{enrolledCount === 1 ? "" : "s"}
                           <EyeIcon className="ml-1.5 inline h-4 w-4 opacity-70" />
                         </button>
                       ) : (
@@ -634,7 +634,7 @@ export default function StudentImport({ isGenerating }) {
                     <th className="py-3.5 px-4">Academic Program</th>
                     <th className="py-3.5 px-4">Section</th>
                     <th className="py-3.5 px-4">Student Type</th>
-                    <th className="py-3.5 px-4 text-center">Enrolled Subjects</th>
+                    <th className="py-3.5 px-4 text-center">Enrolled Courses</th>
                   </tr>
                 </thead>
                 <tbody className={`divide-y ${isDark ? "divide-slate-800 text-slate-200" : "divide-slate-100 text-slate-800"}`}>
@@ -746,7 +746,7 @@ export default function StudentImport({ isGenerating }) {
                                 }`}
                               >
                                 <BookOpenIcon className="w-4 h-4" />
-                                <span>{enrolledCount} {enrolledCount === 1 ? "Subject" : "Subjects"}</span>
+                                <span>{enrolledCount} {enrolledCount === 1 ? "Course" : "Courses"}</span>
                                 <EyeIcon className="w-3.5 h-3.5 ml-0.5 opacity-70" />
                               </button>
                             ) : (
@@ -833,7 +833,7 @@ export default function StudentImport({ isGenerating }) {
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-blue-500 font-bold">•</span>
-                <span><strong>COURSE</strong> (e.g. BSIT, BSCS, STEM) — matching the school's course or SHS strand.</span>
+                <span><strong>COURSE</strong> (e.g. BSIT, BSCS, STEM) — matching the school's program or SHS strand.</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-blue-500 font-bold">•</span>
@@ -849,11 +849,11 @@ export default function StudentImport({ isGenerating }) {
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-purple-500 font-bold">•</span>
-                <span><strong>SUBJECT 1, SUBJECT 2, ... SUBJECT N</strong> — for irregular students: the subject name or code they are taking.</span>
+                <span><strong>SUBJECT 1, SUBJECT 2, ... SUBJECT N</strong> — for irregular students: the course name or code they are taking.</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-purple-500 font-bold">•</span>
-                <span><strong>SECTION 1, SECTION 2, ... SECTION N</strong> — for irregular students: the specific section where each subject is taken (paired with SUBJECT 1, SUBJECT 2, etc.). Each subject can be from a <em>different section</em>. If omitted, the system auto-assigns the best-matching section.</span>
+                <span><strong>SECTION 1, SECTION 2, ... SECTION N</strong> — for irregular students: the specific section where each course is taken (paired with SUBJECT 1, SUBJECT 2, etc.). Each course can be from a <em>different section</em>. If omitted, the system auto-assigns the best-matching section.</span>
               </li>
             </ul>
 
@@ -998,7 +998,7 @@ export default function StudentImport({ isGenerating }) {
               <button
                 type="button"
                 onClick={() => setSelectedStudentForModal(null)}
-                aria-label="Close enrolled subjects dialog"
+                aria-label="Close enrolled courses dialog"
                 className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               >
                 <XMarkIcon className="w-5 h-5" />
@@ -1009,18 +1009,18 @@ export default function StudentImport({ isGenerating }) {
               <div className="p-3.5 rounded-xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800/60 text-xs text-purple-900 dark:text-purple-200 flex items-start gap-2.5">
                 <CheckCircleIcon className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0 mt-0.5" />
                 <span className="leading-relaxed">
-                  <strong>Auto-Enrolled from Spreadsheet:</strong> These subjects were imported directly from the student list. The student is scheduled into the examination slots corresponding to these subjects.
+                  <strong>Auto-Enrolled from Spreadsheet:</strong> These courses were imported directly from the student list. The student is scheduled into the examination slots corresponding to these courses.
                 </span>
               </div>
 
               {selectedStudentForModal.enrolled_subjects?.length === 0 ? (
                 <div className="py-8 text-center text-slate-400 dark:text-slate-500 text-sm">
-                  No individual subjects enrolled for this student.
+                  No individual courses enrolled for this student.
                 </div>
               ) : (
                 <div className="space-y-2">
                   <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 px-1">
-                    Enrolled Subjects ({selectedStudentForModal.enrolled_subjects.length})
+                    Enrolled Courses ({selectedStudentForModal.enrolled_subjects.length})
                   </div>
                   <div className="divide-y divide-slate-100 dark:divide-slate-800 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
                     {selectedStudentForModal.enrolled_subjects.map((sub, idx) => (

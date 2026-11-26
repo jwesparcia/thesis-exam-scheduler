@@ -1,14 +1,19 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { UsersIcon, BellIcon, ShieldCheckIcon, ShieldExclamationIcon, CheckCircleIcon, XCircleIcon, ArrowPathIcon } from "@heroicons/react/24/outline";
+import { UsersIcon, BellIcon, ShieldCheckIcon, ShieldExclamationIcon, CheckCircleIcon, XCircleIcon, ArrowPathIcon, ArrowUpTrayIcon } from "@heroicons/react/24/outline";
 import { useTheme } from "../context/themeStore";
 import api from "../api";
 import { useToast } from "../context/ToastContext";
+import ConfirmationModal from "./ConfirmationModal";
 
 export default function AddProctor({ isGenerating }) {
   const { theme } = useTheme();
   const { showSuccess, showError } = useToast();
   const [proctors, setProctors] = useState([]);
   const [fetching, setFetching] = useState(false);
+  const [scheduleUpload, setScheduleUpload] = useState(null);
+  const [uploadingSchedule, setUploadingSchedule] = useState(false);
+  const scheduleFileInput = useRef(null);
+  const uploadTarget = useRef(null);
   const fetchErrorRef = useRef(showError);
 
   useEffect(() => {
@@ -18,7 +23,7 @@ export default function AddProctor({ isGenerating }) {
   const fetchProctors = useCallback(async () => {
     setFetching(true);
     try {
-      const res = await api.get("/proctors");
+      const res = await api.get("/proctors/");
       setProctors(res.data);
     } catch (e) {
       console.error(e);
@@ -59,10 +64,80 @@ export default function AddProctor({ isGenerating }) {
     }
   };
 
+  const chooseScheduleFile = (proctor) => {
+    uploadTarget.current = proctor;
+    scheduleFileInput.current.click();
+  };
+
+  const selectScheduleFile = (event) => {
+    const file = event.target.files[0];
+    event.target.value = "";
+    if (!file) return;
+    if (!/\.(xlsx|xls)$/i.test(file.name)) {
+      showError("Choose an Excel file (.xlsx or .xls).");
+      return;
+    }
+    setScheduleUpload({ proctor: uploadTarget.current, file });
+  };
+
+  const uploadTeachingSchedule = async () => {
+    if (!scheduleUpload || uploadingSchedule) return;
+    if (isGenerating) {
+      setScheduleUpload(null);
+      showError("Cannot upload schedules while schedule generation is ongoing.");
+      return;
+    }
+
+    const { proctor, file } = scheduleUpload;
+    const data = new FormData();
+    data.append("file", file);
+    setScheduleUpload(null);
+    setUploadingSchedule(true);
+    try {
+      await api.post(`/proctors/${proctor.id}/upload-my-schedule`, data);
+      showSuccess(`Teaching schedule uploaded for ${proctor.name}.`);
+      await fetchProctors();
+    } catch (err) {
+      showError(err.response?.data?.detail || "Failed to upload the teaching schedule.");
+    } finally {
+      setUploadingSchedule(false);
+    }
+  };
+
   const isDark = theme === "dark";
+
+  const renderScheduleUploadButton = (proctor) => (
+    <button
+      type="button"
+      onClick={() => chooseScheduleFile(proctor)}
+      disabled={isGenerating || uploadingSchedule}
+      aria-label={`Upload teaching schedule for ${proctor.name}`}
+      title="Upload teaching schedule Excel file"
+      className={`inline-flex min-h-9 items-center justify-center gap-1.5 rounded-xl border px-2.5 text-xs font-bold whitespace-nowrap transition disabled:cursor-not-allowed disabled:opacity-50 ${
+        isDark ? "border-blue-800 text-blue-300 hover:bg-blue-900/50" : "border-blue-200 text-blue-800 hover:bg-blue-100"
+      }`}
+    >
+      <ArrowUpTrayIcon className="h-4 w-4" />
+      Upload Excel
+    </button>
+  );
 
   return (
     <div className={`space-y-6 ${isDark ? "bg-slate-800/40 text-slate-100" : "bg-white text-slate-800"}`}>
+      <input ref={scheduleFileInput} type="file" accept=".xlsx,.xls" hidden onChange={selectScheduleFile} />
+      <ConfirmationModal
+        isOpen={scheduleUpload !== null}
+        title="Upload teaching schedule"
+        message={scheduleUpload && (
+          <p className="break-words">
+            Upload <strong>{scheduleUpload.file.name}</strong> for <strong>{scheduleUpload.proctor.name}</strong>.
+            This replaces any existing teaching schedule for this proctor.
+          </p>
+        )}
+        confirmLabel="Upload schedule"
+        onConfirm={uploadTeachingSchedule}
+        onCancel={() => setScheduleUpload(null)}
+      />
       <div>
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-5">
           <div className="flex items-center gap-3">
@@ -72,7 +147,7 @@ export default function AddProctor({ isGenerating }) {
             <div>
               <h3 className={`text-lg sm:text-xl font-bold tracking-tight ${isDark ? "text-white" : "text-slate-900"}`}>Proctor Management</h3>
               <p className={`text-xs sm:text-sm ${isDark ? "text-slate-400" : "text-slate-600"}`}>
-                Monitor teaching schedule uploads, assigned exam duties, and proctor availability.
+                Upload teaching schedules and review assigned exam duties and proctor availability.
               </p>
             </div>
           </div>
@@ -95,6 +170,8 @@ export default function AddProctor({ isGenerating }) {
         <p className={`mb-4 text-xs sm:text-sm ${isDark ? "text-slate-400" : "text-slate-600"}`}>
           Proctoring schedules count posted exam assignments. Draft and saved assignments are shown separately.
         </p>
+
+        {uploadingSchedule && <p role="status" className="mb-4 text-sm font-semibold">Uploading teaching schedule…</p>}
 
         {proctors.length === 0 && !fetching ? (
           <div className={`p-8 text-center rounded-2xl border border-dashed ${isDark ? "border-slate-700 text-slate-400" : "border-slate-300 text-slate-500"}`}>
@@ -135,7 +212,8 @@ export default function AddProctor({ isGenerating }) {
                       {p.pending_exam_count ?? 0} draft / saved
                     </p>
                   </div>
-                  <div className="flex gap-2 pt-1">
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {renderScheduleUploadButton(p)}
                     {!p.has_schedule && (
                       <button
                         type="button"
@@ -223,6 +301,7 @@ export default function AddProctor({ isGenerating }) {
                     </td>
                     <td className="py-3.5 px-5 text-right">
                       <div className="flex justify-end gap-1.5">
+                        {renderScheduleUploadButton(p)}
                         {!p.has_schedule && (
                           <button
                             type="button"

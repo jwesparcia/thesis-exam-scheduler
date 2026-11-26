@@ -117,7 +117,7 @@ class PublishedTermViewTests(unittest.TestCase):
         for rows in (regular, irregular, self.proctor_exams()):
             self.assertEqual(next(row["batch_number"] for row in rows if row["id"] == self.prelim.id), 3)
 
-    def test_master_export_includes_the_overflow_batch_label(self):
+    def test_master_export_includes_program_course_and_overflow_batch_labels(self):
         import asyncio
         import io
         import openpyxl
@@ -130,6 +130,9 @@ class PublishedTermViewTests(unittest.TestCase):
             return b"".join([chunk async for chunk in response.body_iterator])
         workbook = openpyxl.load_workbook(io.BytesIO(asyncio.run(read_body())))
         rows = list(workbook.active.values)
+        self.assertEqual(rows[2][rows[1].index("Program")], "BSIT")
+        self.assertEqual(rows[2][rows[1].index("Course Code")], "IT101")
+        self.assertEqual(rows[2][rows[1].index("Course Name")], "Written Paper")
         batch_column = rows[1].index("Batch")
         self.assertEqual(rows[2][batch_column], "Batch 3")
 

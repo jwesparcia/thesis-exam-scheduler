@@ -1,13 +1,7 @@
-function escapeHtml(value) {
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
+import { escapeHtml } from "./printDocument.js";
 
 export function buildStudentAttendanceSheet(exam, students, generatedAt = new Date().toLocaleString()) {
+  const proctorName = exam.proctor_name === "Unassigned" ? "" : escapeHtml(exam.proctor_name);
   const rows = students.map((student, index) => `
     <tr>
       <td class="number">${index + 1}</td>
@@ -39,6 +33,11 @@ export function buildStudentAttendanceSheet(exam, students, generatedAt = new Da
     .number { text-align: center; }
     .student-id { font-variant-numeric: tabular-nums; }
     .signature { background: white; }
+    .proctor-verification { margin: 4mm 0 0; break-inside: avoid; break-before: avoid; }
+    .verification-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 8mm; align-items: end; }
+    .verification-line { min-height: 9mm; padding: 2mm 0 0.5mm; border-bottom: 1px solid #333; overflow-wrap: anywhere; }
+    .verification-label { margin: 1mm 0 0; font-weight: bold; }
+    .verification-instructions { margin: 2mm 0 0; }
     .footer { margin: 2mm 0 0; color: #555; font-size: 8pt; break-inside: avoid; }
     tr { break-inside: avoid; page-break-inside: avoid; }
     @media print { th { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
@@ -67,6 +66,19 @@ export function buildStudentAttendanceSheet(exam, students, generatedAt = new Da
       </thead>
       <tbody>${rows || '<tr><td colspan="5">No students assigned to this exam.</td></tr>'}</tbody>
     </table>
+    <section class="proctor-verification" aria-label="Proctor attendance verification">
+      <div class="verification-fields">
+        <div>
+          <div class="verification-line">${proctorName}</div>
+          <p class="verification-label">Proctor name</p>
+        </div>
+        <div>
+          <div class="verification-line"></div>
+          <p class="verification-label">Proctor signature</p>
+        </div>
+      </div>
+      <p class="verification-instructions">After taking attendance, sign this list and include it in your proof photo. Confirm attendance before the exam ends.</p>
+    </section>
     <p class="footer">Total: ${students.length} student(s) | Generated: ${escapeHtml(generatedAt)}</p>
   </main>
 </body>

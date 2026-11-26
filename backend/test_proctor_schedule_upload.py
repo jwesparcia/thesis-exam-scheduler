@@ -11,14 +11,14 @@ os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 os.environ["SECRET_KEY"] = "isolated-proctor-schedule-upload-test-secret-123456789"
 
 import pandas as pd
-from fastapi import UploadFile
+from fastapi import HTTPException, UploadFile
 from openpyxl import Workbook
 from openpyxl.styles import PatternFill
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from core import Base
-from model import Proctor, Teacher, TeacherSchedule
+from model import Notification, Proctor, Teacher, TeacherSchedule, User
 from routers.proctors import upload_my_schedule
 from utils.scheduler import validate_proctor_availability
 
@@ -33,25 +33,73 @@ class ProctorScheduleUploadTests(unittest.TestCase):
         self.db.flush()
         self.proctor = Proctor(name=teacher.name, teacher_id=teacher.id, department="ICT")
         self.db.add(self.proctor)
+        self.db.flush()
+        self.owner = User(name=teacher.name, email="proctor@example.edu", hashed_password="unused",
+                          role="proctor", proctor_id=self.proctor.id, teacher_id=teacher.id)
+        self.head = User(name="Program Head", email="head@example.edu", hashed_password="unused", role="program_head")
+        self.db.add_all([self.owner, self.head])
         self.db.commit()
 
     def tearDown(self):
         self.db.close()
         self.engine.dispose()
 
-    def upload(self, rows):
+    def upload(self, rows, user=None):
         data = io.BytesIO()
         pd.DataFrame(rows).to_excel(data, index=False)
         data.seek(0)
-        return self.upload_file(data)
+        return self.upload_file(data, user)
 
-    def upload_file(self, data):
+    def upload_file(self, data, user=None):
         with patch("routers.proctors.translate_grid_schedule_from_bytes", return_value=""), \
              patch("routers.proctors.translate_row_schedule", return_value=""):
-            return asyncio.run(upload_my_schedule(self.proctor.id, UploadFile(filename="schedule.xlsx", file=data), self.db))
+            return asyncio.run(upload_my_schedule(
+                self.proctor.id, UploadFile(filename="schedule.xlsx", file=data), self.db, user or self.owner,
+            ))
 
     def schedules(self):
         return self.db.query(TeacherSchedule).filter_by(teacher_id=self.proctor.teacher_id).all()
+
+    def test_program_head_upload_replaces_only_the_selected_proctors_schedule(self):
+        self.upload({"Day/Time": ["08:00 - 09:00"], "Monday": ["Old schedule"]})
+        other_teacher = Teacher(name="Other Teacher")
+        self.db.add(other_teacher)
+        self.db.flush()
+        other_slot = TeacherSchedule(teacher_id=other_teacher.id, day_of_week=0, start_time=time(8), end_time=time(9))
+        self.db.add(other_slot)
+        self.db.commit()
+
+        result = self.upload({"Day/Time": ["08:00 - 09:00"], "Tuesday": ["New schedule"]}, self.head)
+
+        self.assertIn("1 entries", result["message"])
+        row, = self.schedules()
+        self.assertEqual((row.day_of_week, row.subject_name), (1, "NEW SCHEDULE"))
+        self.assertEqual(self.db.query(TeacherSchedule).filter_by(teacher_id=other_teacher.id).one().id, other_slot.id)
+        self.assertEqual(self.db.query(Notification).filter_by(user_id=self.owner.id).one().related_id, self.proctor.id)
+
+    def test_program_head_upload_preserves_existing_schedule_if_workbook_is_empty_or_ambiguous(self):
+        self.upload({"Day/Time": ["08:00 - 09:00"], "Monday": ["Original schedule"]})
+        with self.assertRaises(HTTPException) as empty:
+            self.upload({"Day/Time": ["08:00 - 09:00"], "Tuesday": [None]}, self.head)
+        self.assertEqual(empty.exception.status_code, 400)
+
+        data = io.BytesIO()
+        with pd.ExcelWriter(data, engine="openpyxl") as writer:
+            rows = pd.DataFrame({"Day/Time": ["08:00 - 09:00"], "Tuesday": ["Different schedule"]})
+            rows.to_excel(writer, sheet_name="Other Faculty", index=False)
+            rows.to_excel(writer, sheet_name="Another Faculty", index=False)
+        data.seek(0)
+        with self.assertRaises(HTTPException) as ambiguous:
+            self.upload_file(data, self.head)
+        self.assertEqual(ambiguous.exception.status_code, 400)
+        row, = self.schedules()
+        self.assertEqual((row.day_of_week, row.subject_name), (0, "ORIGINAL SCHEDULE"))
+
+    def test_proctor_cannot_upload_for_a_different_proctor(self):
+        with self.assertRaises(HTTPException) as denied:
+            self.upload_file(io.BytesIO(), User(role="proctor", proctor_id=self.proctor.id + 1))
+        self.assertEqual(denied.exception.status_code, 403)
+        self.assertEqual(self.schedules(), [])
 
     def test_grid_reads_abbreviated_and_mixed_case_days_and_lecture_laboratory_classes(self):
         result = self.upload({

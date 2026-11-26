@@ -366,7 +366,7 @@ export default function SectionStudentList() {
               Section List
             </h2>
             <p className={`text-sm mt-0.5 ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-              View students attending each scheduled exam — regular students of the section plus irregular students scheduled in that specific section and subject
+              View the students assigned to each exam. Print the exam attendance list and give it to the assigned proctor to sign and include in their proof photo.
             </p>
           </div>
         </div>
@@ -424,14 +424,14 @@ export default function SectionStudentList() {
           />
           <input
             type="text"
-            placeholder="Search subject, section, or room…"
+            placeholder="Search course, section, or room…"
             value={searchExam}
             onChange={(e) => setSearchExam(e.target.value)}
             className={`w-full pl-9 pr-9 py-2.5 rounded-xl text-sm border outline-none transition-all focus:ring-2 focus:ring-violet-500/40 ${
               isDark
                 ? "bg-slate-800 border-slate-700 text-white placeholder:text-slate-500"
                 : "bg-white border-slate-200 text-slate-900 placeholder:text-slate-400"
-            }`} aria-label="Search subject, section, or room" />
+            }`} aria-label="Search course, section, or room" />
           {searchExam && (
             <button
               onClick={() => setSearchExam("")}

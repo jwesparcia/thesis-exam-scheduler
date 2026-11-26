@@ -39,6 +39,7 @@ import AccountSettingsSection from "../components/AccountSettingsSection";
 import ConfirmationModal from "../components/ConfirmationModal";
 import FirstTimePasswordChange from "../components/FirstTimePasswordChange";
 import ExamTermScheduleSelector from "../components/ExamTermScheduleSelector";
+import ExamSchedulePrintButton from "../components/ExamSchedulePrintButton";
 import useExamTermSchedule from "../hooks/useExamTermSchedule";
 import { getExamScheduleKey } from "../utils/examTerms";
 
@@ -344,7 +345,7 @@ function StudentManual() {
               isDark ? "bg-blue-950/20 border-blue-900/40 text-blue-200" : "bg-blue-50 border-blue-200/70 text-blue-800"
             }`}>
               <InformationCircleIcon className="w-5 h-5 shrink-0 text-blue-500" />
-              <span><strong>Course-Based Requests:</strong> If you are requesting schedules for a specific degree program or course, use the dropdown filters to dynamically switch views. Click <strong>Print / Export</strong> to download a PDF copy of your schedule.</span>
+              <span><strong>Print your schedule.</strong> Choose an examination term and select <strong>Print Exam Schedule</strong>. Use your browser’s print dialog to print or save a PDF.</span>
             </div>
           </div>
         )}
@@ -370,7 +371,7 @@ function StudentManual() {
             </div>
 
             <p className={`text-sm leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
-              If you are an irregular student taking subjects from multiple sections, two of your exams might coincide in the same timeslot or fall with zero break time. The system's conflict detector immediately flags this.
+              If you are an irregular student taking courses from multiple sections, two of your exams might coincide in the same timeslot or fall with zero break time. The system's conflict detector immediately flags this.
             </p>
 
             <div className={`p-5 rounded-2xl border ${isDark ? "bg-red-950/20 border-red-900/40 text-red-200" : "bg-red-50 border-red-200/80 text-red-900"}`}>
@@ -379,7 +380,7 @@ function StudentManual() {
                 What happens when a clash is detected?
               </h4>
               <p className="text-xs leading-relaxed mb-3">
-                A prominent red <strong>"Conflict Detected"</strong> banner will appear at the top of your schedule. The conflicting exam cards will be highlighted in red with an explicit warning showing the clashing subject code and overlapping time.
+                A prominent red <strong>"Conflict Detected"</strong> banner will appear at the top of your schedule. The conflicting exam cards will be highlighted in red with an explicit warning showing the clashing course code and overlapping time.
               </p>
               <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-xs">
                 <strong>Instant Action:</strong> Click the <strong>Request Reschedule</strong> button located directly on the warning card to submit an automatic resolution petition.
@@ -438,7 +439,7 @@ function StudentManual() {
 
             <div className={`p-4 rounded-2xl border ${isDark ? "bg-slate-800/50 border-slate-700/60" : "bg-slate-50 border-slate-200/80"} space-y-2 text-xs`}>
               <strong className="block text-sm text-slate-800 dark:text-slate-200">How to Submit a Petition:</strong>
-              <p>• Click <strong>Request Reschedule</strong> on the conflicting subject.</p>
+              <p>• Click <strong>Request Reschedule</strong> on the conflicting course.</p>
               <p>• Provide a clear explanation of the clash or emergency reason.</p>
               <p>• Upload supporting proof (screenshot of conflicting schedule, medical certificate, or official notice).</p>
               <p>• Submit. Your request is routed to the Program Head for instant approval.</p>
@@ -519,7 +520,7 @@ function StudentManual() {
             </div>
 
             <p className={`text-sm leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
-              If you are taking subjects outside a single cohort (e.g., cross-enrolled in 2nd year and 3rd year courses), the <strong>Customized Schedule</strong> builder allows you to compile an accurate master exam timetable.
+              If you are taking courses outside a single cohort (e.g., cross-enrolled in 2nd year and 3rd year courses), the <strong>Customized Schedule</strong> builder allows you to compile an accurate master exam timetable.
             </p>
 
             <div className={`p-5 rounded-2xl border ${isDark ? "bg-slate-800/50 border-slate-700/60" : "bg-slate-50 border-slate-200/80"} space-y-3`}>
@@ -531,15 +532,15 @@ function StudentManual() {
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="w-5 h-5 rounded-full bg-purple-500/10 text-purple-500 flex items-center justify-center font-bold text-xs shrink-0">2</span>
-                  <span><strong>Search & Pick Subjects:</strong> Use the subject search to select each course you are currently taking this semester.</span>
+                  <span><strong>Search & Pick Courses:</strong> Use the course search to select each course you are currently taking this semester.</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="w-5 h-5 rounded-full bg-purple-500/10 text-purple-500 flex items-center justify-center font-bold text-xs shrink-0">3</span>
-                  <span><strong>Aligned Subjects Helper:</strong> The system automatically suggests matching sections for core curriculum courses.</span>
+                  <span><strong>Aligned Courses Helper:</strong> The system automatically suggests matching sections for core curriculum courses.</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="w-5 h-5 rounded-full bg-purple-500/10 text-purple-500 flex items-center justify-center font-bold text-xs shrink-0">4</span>
-                  <span><strong>Select Specific Section:</strong> For each subject, pick the exact section you attend (e.g., BSIT 3-201 vs BSIT 2-202).</span>
+                  <span><strong>Select Specific Section:</strong> For each course, pick the exact section you attend (e.g., BSIT 3-201 vs BSIT 2-202).</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="w-5 h-5 rounded-full bg-purple-500/10 text-purple-500 flex items-center justify-center font-bold text-xs shrink-0">5</span>
@@ -1463,7 +1464,7 @@ export default function StudentDashboard() {
   // Save irregular selections
   const saveIrregularSelections = async () => {
     if (selectedSubjects.length === 0) {
-      showWarning("Please select at least one subject and section.");
+      showWarning("Please select at least one course and section.");
       return;
     }
     try {
@@ -1511,7 +1512,7 @@ export default function StudentDashboard() {
   const saveStudentType = async () => {
     if (!selectedType) return;
     if (selectedType === "irregular" && !selectedCourseId) {
-      showWarning("Please select your course.");
+      showWarning("Please select your program.");
       return;
     }
     try {
@@ -1691,7 +1692,7 @@ export default function StudentDashboard() {
     if (isExamMajor && hasConflictingMinor) {
       return {
         canReschedule: false,
-        reason: "Major subjects cannot be rescheduled when conflicting with a minor subject. Please reschedule the minor subject."
+        reason: "Major courses cannot be rescheduled when conflicting with a minor course. Please reschedule the minor course."
       };
     }
 
@@ -2200,7 +2201,7 @@ export default function StudentDashboard() {
               <span className={`px-2.5 py-1 rounded-lg text-xs sm:text-sm font-medium border ${isDark ? "bg-slate-700/50 border-slate-600 text-slate-300" : "bg-slate-50 border-slate-200 text-slate-600"}`}>Type: <strong className={`capitalize ${isDark ? "text-white" : "text-slate-900"}`}>{user?.student_type === "regular" ? "Regular" : user?.student_type === "irregular" ? "Irregular" : "Not set"}</strong></span>
               {user?.student_type === "irregular" && user?.course_id && (
                 <span className={`px-2.5 py-1 rounded-lg text-xs sm:text-sm font-medium border ${isDark ? "bg-slate-700/50 border-slate-600 text-slate-300" : "bg-slate-50 border-slate-200 text-slate-600"}`}>
-                  Course: <strong className={isDark ? "text-white" : "text-slate-900"}>{coursesList.find(c => c.id === user.course_id)?.name || "Loaded"}</strong>
+                  Program: <strong className={isDark ? "text-white" : "text-slate-900"}>{coursesList.find(c => c.id === user.course_id)?.name || "Loaded"}</strong>
                 </span>
               )}
             </div>
@@ -2272,7 +2273,9 @@ export default function StudentDashboard() {
 
 
           <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-2 sm:pt-4">
-            <ExamTermScheduleSelector schedules={postedSchedules} selectedKey={selectedScheduleKey} onChange={selectSchedule} isDark={isDark} loading={loading} />
+            <ExamTermScheduleSelector schedules={postedSchedules} selectedKey={selectedScheduleKey} onChange={selectSchedule} isDark={isDark} loading={loading}>
+              <ExamSchedulePrintButton exams={termExams} name={user?.name} title="Exam Schedule" label="Print Exam Schedule" includeProctor loading={loading} />
+            </ExamTermScheduleSelector>
           </div>
 
           {/* Filters bar */}
@@ -2378,7 +2381,7 @@ export default function StudentDashboard() {
                       <table className="w-full text-xs sm:text-sm min-w-[700px]">
                         <thead className={`${isDark ? "bg-slate-800 text-slate-300 border-b border-slate-700" : "bg-slate-50 text-slate-700 border-b border-slate-200"}`}>
                           <tr>
-                            <th className="px-4 sm:px-6 py-3.5 sm:py-4 text-left font-bold uppercase tracking-wider text-xs">Subject</th>
+                            <th className="px-4 sm:px-6 py-3.5 sm:py-4 text-left font-bold uppercase tracking-wider text-xs">Course</th>
                             <th className="px-4 sm:px-6 py-3.5 sm:py-4 text-left font-bold uppercase tracking-wider text-xs">Section</th>
                             <th className="px-4 sm:px-6 py-3.5 sm:py-4 text-left font-bold uppercase tracking-wider text-xs">Category</th>
                             <th className="px-4 sm:px-6 py-3.5 sm:py-4 text-left font-bold uppercase tracking-wider text-xs">Schedule</th>
@@ -2455,7 +2458,7 @@ export default function StudentDashboard() {
                           <div className="animate-slideDown">
                             <div className="hidden md:block overflow-x-auto custom-scrollbar">
                               <table className="w-full text-xs sm:text-sm min-w-[640px]">
-                                <thead className={`border-b ${isDark ? "bg-slate-800/80 text-slate-300 border-slate-700" : "bg-slate-50 text-slate-700 border-slate-200"}`}><tr><th className="px-4 sm:px-6 py-3.5 text-left font-bold text-xs uppercase tracking-wider">Subject</th><th className="px-4 sm:px-6 py-3.5 text-left font-bold text-xs uppercase tracking-wider">Category</th><th className="px-4 sm:px-6 py-3.5 text-left font-bold text-xs uppercase tracking-wider">Schedule</th><th className="px-4 sm:px-6 py-3.5 text-left font-bold text-xs uppercase tracking-wider">Details</th><th className="px-4 sm:px-6 py-3.5 text-left font-bold text-xs uppercase tracking-wider">Proctor</th><th className="px-4 sm:px-6 py-3.5 text-left font-bold text-xs uppercase tracking-wider">Actions</th></tr></thead>
+                                <thead className={`border-b ${isDark ? "bg-slate-800/80 text-slate-300 border-slate-700" : "bg-slate-50 text-slate-700 border-slate-200"}`}><tr><th className="px-4 sm:px-6 py-3.5 text-left font-bold text-xs uppercase tracking-wider">Course</th><th className="px-4 sm:px-6 py-3.5 text-left font-bold text-xs uppercase tracking-wider">Category</th><th className="px-4 sm:px-6 py-3.5 text-left font-bold text-xs uppercase tracking-wider">Schedule</th><th className="px-4 sm:px-6 py-3.5 text-left font-bold text-xs uppercase tracking-wider">Details</th><th className="px-4 sm:px-6 py-3.5 text-left font-bold text-xs uppercase tracking-wider">Proctor</th><th className="px-4 sm:px-6 py-3.5 text-left font-bold text-xs uppercase tracking-wider">Actions</th></tr></thead>
                                 <tbody>
                                   {sectionExams.map((exam) => {
                                     const conflictingExams = conflictingExamsById.get(exam.id) || [];
@@ -2636,8 +2639,8 @@ export default function StudentDashboard() {
                     <input type="text" value={studentId} readOnly className={`w-full p-2.5 rounded-xl text-xs sm:text-sm border cursor-not-allowed font-mono ${isDark ? "bg-slate-700/50 text-slate-300 border-slate-600" : "bg-slate-100 text-slate-700 border-slate-200"}`} id="studentdashboard-field-2" aria-label="Student ID" />
                   </div>
                   <div>
-                    <label className={`block text-xs font-semibold mb-1 ${isDark ? "text-slate-300" : "text-slate-700"}`} htmlFor="studentdashboard-field-3">Program / Course</label>
-                    <input type="text" value={program} readOnly className={`w-full p-2.5 rounded-xl text-xs sm:text-sm border cursor-not-allowed ${isDark ? "bg-slate-700/50 text-slate-300 border-slate-600" : "bg-slate-100 text-slate-700 border-slate-200"}`} id="studentdashboard-field-3" aria-label="Program / Course" />
+                    <label className={`block text-xs font-semibold mb-1 ${isDark ? "text-slate-300" : "text-slate-700"}`} htmlFor="studentdashboard-field-3">Program</label>
+                    <input type="text" value={program} readOnly className={`w-full p-2.5 rounded-xl text-xs sm:text-sm border cursor-not-allowed ${isDark ? "bg-slate-700/50 text-slate-300 border-slate-600" : "bg-slate-100 text-slate-700 border-slate-200"}`} id="studentdashboard-field-3" aria-label="Program" />
                   </div>
                   <div>
                     <label className={`block text-xs font-semibold mb-1 ${isDark ? "text-slate-300" : "text-slate-700"}`} htmlFor="studentdashboard-field-4">Section</label>
@@ -2654,7 +2657,7 @@ export default function StudentDashboard() {
                         <div>
                           <strong className="block font-semibold">Routed to Your Program Head</strong>
                           <span>
-                            As an irregular student, all your exam rescheduling requests (including general education and minor subjects) are dynamically forwarded to your designated Program Head ({program || "Your Department"}).
+                            As an irregular student, all your exam rescheduling requests (including general education and minor courses) are dynamically forwarded to your designated Program Head ({program || "Your Department"}).
                           </span>
                         </div>
                       </div>
@@ -2704,7 +2707,7 @@ export default function StudentDashboard() {
                           Automatic Time & Room Assignment
                         </h5>
                         <p className={`text-xs mt-1 leading-relaxed ${isDark ? "text-emerald-300/90" : "text-emerald-700"}`}>
-                          As an irregular student, you do not need to manually select an examination time. The system will automatically place your exam into the next regular examination time slot on your scheduled exam date—skipping any time slots where you already have a scheduled exam until it finds a conflict-free regular session with available seating. Joining a regular class taking a different subject is normal so you can take your exam inside an active proctored room. If all daytime slots before 5:00 PM are occupied in your schedule, you will automatically be scheduled at 5:00 PM onwards in the Consultation Area (proctor assigned personally by Admin).
+                          As an irregular student, you do not need to manually select an examination time. The system will automatically place your exam into the next regular examination time slot on your scheduled exam date—skipping any time slots where you already have a scheduled exam until it finds a conflict-free regular session with available seating. Joining a regular class taking a different course is normal so you can take your exam inside an active proctored room. If all daytime slots before 5:00 PM are occupied in your schedule, you will automatically be scheduled at 5:00 PM onwards in the Consultation Area (proctor assigned personally by Admin).
                         </p>
                       </div>
                     </div>

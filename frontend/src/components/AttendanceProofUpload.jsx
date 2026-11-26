@@ -36,7 +36,10 @@ export default function AttendanceProofUpload({ exam, onUploaded, disabled = fal
     <div className="mb-3 space-y-2 whitespace-normal text-left">
       {exam.attendance_proof && <AttendanceProofPhoto exam={exam} />}
       {!confirmed && <>
-        <p className="text-xs text-slate-600 dark:text-slate-400">Upload a photo showing you in room <strong>{exam.room}</strong> before confirming attendance. JPG, PNG or WebP, up to 10 MB.</p>
+        <p className="text-xs text-slate-600 dark:text-slate-400">
+          After taking attendance, sign the exam attendance list. Before confirming attendance, upload a photo showing you in room <strong>{exam.room}</strong> with the signed list visible. Confirm before the exam ends.
+        </p>
+        <p className="text-xs text-slate-600 dark:text-slate-400">JPG, PNG or WebP, up to 10 MB.</p>
         <label htmlFor={inputId} className={`inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 focus-within:ring-2 focus-within:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 ${uploading || disabled ? "cursor-not-allowed opacity-60" : "hover:bg-slate-50 dark:hover:bg-slate-700"}`}>
           {uploading ? <ArrowPathIcon className="h-4 w-4 animate-spin" /> : <CameraIcon className="h-4 w-4" />}
           {uploading ? "Uploading photo…" : ready ? "Replace proof photo" : "Upload proof photo"}
