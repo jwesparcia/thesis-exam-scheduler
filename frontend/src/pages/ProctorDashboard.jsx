@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useState, useRef, useMemo } from "react";
-import * as XLSX from "xlsx";
 import {
   CheckBadgeIcon,
   CalendarIcon,
@@ -11,9 +10,7 @@ import {
   BookOpenIcon,
   CalendarDaysIcon,
   TableCellsIcon,
-  ArrowUpTrayIcon,
   ArrowDownTrayIcon,
-  CheckCircleIcon,
   XMarkIcon,
   TrashIcon,
   ArrowPathIcon,
@@ -78,7 +75,7 @@ function ProctorManual() {
   const topics = [
     { id: "assignments", label: "My Assignments & Views", icon: CalendarDaysIcon, badge: "Dual View" },
     { id: "attendance", label: "Attendance Check-in", icon: CheckBadgeIcon, badge: "Live Status" },
-    { id: "schedule", label: "Teaching Schedule Upload", icon: TableCellsIcon, badge: "Excel Ingest" },
+    { id: "schedule", label: "Teaching Schedule Review", icon: TableCellsIcon, badge: "Availability" },
     { id: "consecutive", label: "Workload & 3-Duty Rule", icon: ShieldCheckIcon, badge: "Fairness" },
     { id: "chat", label: "Chat Support", icon: ChatBubbleLeftRightIcon, badge: "Direct Msg" },
     { id: "notifications", label: "Notification Alerts", icon: BellIcon, badge: "Real-time" },
@@ -358,7 +355,7 @@ function ProctorManual() {
             </div>
 
             <div className={`p-4 rounded-xl border text-xs ${isDark ? "bg-amber-950/20 border-amber-900/40 text-amber-300" : "bg-amber-50 border-amber-200 text-amber-800"}`}>
-              <strong>Emergency Absence Protocol:</strong> If you fall ill or cannot make it to an assigned exam, immediately notify the Program Head via the in-app <strong>Chat</strong> tab so an emergency substitute proctor can be dispatched.
+              If you cannot attend an exam, select <strong>Request Substitute</strong> on the assignment and enter a brief reason. The administrator can assign a replacement and will notify you when the duty has been reassigned.
             </div>
           </div>
         )}
@@ -371,10 +368,10 @@ function ProctorManual() {
                 <div className="w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold text-base shadow-sm">3</div>
                 <div>
                   <h3 className={`text-lg sm:text-xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
-                    Teaching Schedule Upload & Availability Matrix
+                    Teaching Schedule Review & Availability
                   </h3>
                   <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-                    Faculty Loading Spreadsheet Ingestion and Conflict Prevention
+                    Weekly teaching schedule uploaded by your administrator
                   </p>
                 </div>
               </div>
@@ -384,17 +381,17 @@ function ProctorManual() {
             </div>
             
             <p className={`text-sm leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
-              Uploading your official teaching schedule is essential to ensure the automated scheduler never assigns proctoring duties during hours when you have classes to teach.
+              Your administrator uploads your teaching schedule. Use <strong>My Schedule</strong> to review it.
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className={`p-5 rounded-2xl border ${isDark ? "bg-slate-800/50 border-slate-700/60" : "bg-slate-50 border-slate-200/80"}`}>
                 <h4 className={`font-bold text-sm mb-2 flex items-center gap-2 ${isDark ? "text-slate-200" : "text-slate-800"}`}>
-                  <ArrowUpTrayIcon className="w-4 h-4 text-indigo-500" />
-                  Excel Ingestion (.xlsx)
+                  <CheckBadgeIcon className="w-4 h-4 text-indigo-500" />
+                  Confirm or request correction
                 </h4>
                 <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-600"}`}>
-                  Navigate to <strong>My Schedule</strong>. Select your official faculty load Excel spreadsheet, and click <strong>Confirm Upload</strong>. The backend parses course sections, days, and timeslots.
+                  Select <strong>Confirm Schedule</strong> after checking your days, times, and courses. If anything is incorrect, select <strong>Report Incorrect Schedule</strong> to notify your administrator.
                 </p>
               </div>
 
@@ -404,7 +401,7 @@ function ProctorManual() {
                   Weekly Availability Grid
                 </h4>
                 <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-600"}`}>
-                  After ingestion, your weekly calendar grid appears underneath. Blocked teaching slots are marked in blue, while available supervisory windows are open for exam assignments.
+                  The calendar grid shows the schedule entries the system recorded from the upload.
                 </p>
               </div>
             </div>
@@ -1351,12 +1348,15 @@ export default function ProctorDashboard() {
       return true;
     });
   }, [periodExams, assignmentFilter, assignmentSearch, currentTime, getAttendanceStatus]);
-  const [uploading, setUploading] = useState(false);
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [mySchedule, setMySchedule] = useState([]);
-  const [translatedSchedule, setTranslatedSchedule] = useState(null);
-  const [scheduleView, setScheduleView] = useState("translated");
-  const [filePreview, setFilePreview] = useState(null);
+  const [teachingSchedule, setTeachingSchedule] = useState(null);
+  const [reviewingSchedule, setReviewingSchedule] = useState(false);
+  const [scheduleLoadFailed, setScheduleLoadFailed] = useState(false);
+  const { schedule: mySchedule = [], translated_schedule: translatedSchedule, review_status: scheduleReviewStatus, revision } = teachingSchedule || {};
+  const [scheduleView, setScheduleView] = useState("grid");
+  const [pendingAbsences, setPendingAbsences] = useState({});
+  const [absenceExam, setAbsenceExam] = useState(null);
+  const [absenceReason, setAbsenceReason] = useState("");
+  const [submittingAbsence, setSubmittingAbsence] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [isClearNotifModalOpen, setIsClearNotifModalOpen] = useState(false);
@@ -1364,52 +1364,60 @@ export default function ProctorDashboard() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
     return localStorage.getItem("proctor_sidebar_collapsed") === "true";
   });
-  const [showDeleteScheduleModal, setShowDeleteScheduleModal] = useState(false);
-  const [deletingSchedule, setDeletingSchedule] = useState(false);
-
-  const handleDeleteSchedule = async () => {
-    if (!user?.proctor_id) return;
-    setDeletingSchedule(true);
+  const fetchMySchedule = useCallback(async () => {
+    setScheduleLoadFailed(false);
     try {
-      const res = await api.delete(`/proctors/${user.proctor_id}/schedule`);
-      if (res.status === 200) {
-        showSuccess(res.data.message || "Schedule deleted successfully!");
-        setMySchedule([]);
-        setTranslatedSchedule(null);
-      } else {
-        showError("Failed to delete schedule.");
-      }
+      const { data } = await api.get("/proctors/my-teaching-schedule");
+      setTeachingSchedule(data);
+    } catch {
+      setScheduleLoadFailed(true);
+    }
+  }, []);
+
+  const reviewTeachingSchedule = async (decision) => {
+    if (!revision || reviewingSchedule) return;
+    setReviewingSchedule(true);
+    try {
+      const { data } = await api.post("/proctors/my-teaching-schedule/review", { revision, decision });
+      setTeachingSchedule(current => current?.revision === revision ? { ...current, review_status: data.review_status } : current);
+      showSuccess(decision === "confirmed" ? "Teaching schedule confirmed." : "The administrator has been asked to correct your teaching schedule.");
     } catch (err) {
-      console.error(err);
-      showError(err.response?.data?.detail || "Failed to delete schedule. Please try again.");
+      showError(err.response?.data?.detail || "Could not save your schedule review.");
+      await fetchMySchedule();
     } finally {
-      setDeletingSchedule(false);
-      setShowDeleteScheduleModal(false);
+      setReviewingSchedule(false);
     }
   };
 
-  const fetchMySchedule = useCallback(async () => {
-    if (!user?.teacher_id) return;
+  const fetchAbsenceRequests = useCallback(async () => {
+    if (!user?.proctor_id) return;
     try {
-      const res = await api.get("/proctors/schedules");
-      const allSchedules = res.data;
-      const mine = allSchedules.filter(s => s.teacher_name === user.name);
-      setMySchedule(mine);
-      
-      // Also fetch the translated schedule if proctor_id is available
-      if (user?.proctor_id) {
-        try {
-          const transRes = await api.get(`/proctors/${user.proctor_id}/translated-schedule`);
-          setTranslatedSchedule(transRes.data.translated_schedule || null);
-        } catch (transErr) {
-          console.error("Failed to fetch translated schedule", transErr);
-        }
-      }
+      const { data } = await api.get("/proctors/absence-requests");
+      setPendingAbsences(Object.fromEntries(data.map(request => [request.exam_id, request])));
     } catch (err) {
-      console.error(err);
+      console.error("Could not load absence requests", err);
     }
-  }, [user?.teacher_id, user?.proctor_id, user?.name]);
+  }, [user?.proctor_id]);
 
+  const submitAbsence = async () => {
+    if (!absenceExam || submittingAbsence || !absenceReason.trim()) return;
+    const exam = absenceExam;
+    setSubmittingAbsence(true);
+    setAbsenceExam(null);
+    try {
+      const { data } = await api.post("/proctors/absence-requests/" + exam.id, {
+        expected_timeslot_id: exam.timeslot_id,
+        expected_room_id: exam.room_id,
+        reason: absenceReason.trim(),
+      });
+      setPendingAbsences(previous => ({ ...previous, [exam.id]: data }));
+      showSuccess("Substitute request sent to the administrator.");
+    } catch (err) {
+      showError(err.response?.data?.detail || "Could not send the substitute request.");
+    } finally {
+      setSubmittingAbsence(false);
+    }
+  };
   const fetchNotifications = useCallback(async () => {
     if (!user?.id) return;
     try {
@@ -1437,15 +1445,17 @@ export default function ProctorDashboard() {
   }, [user?.proctor_id]);
 
   const latestReassignmentId = notifications.find(notif => notif.type === "proctor_reassignment")?.id;
+  const latestScheduleReviewId = notifications.find(notif => notif.type === "teaching_schedule_review")?.id;
   useEffect(() => {
     fetchMyExams();
-  }, [activeTab, fetchMyExams, latestReassignmentId]);
+    if (activeTab === "assignments") fetchAbsenceRequests();
+  }, [activeTab, fetchMyExams, fetchAbsenceRequests, latestReassignmentId]);
 
   useEffect(() => {
     if (activeTab === "schedule") {
       fetchMySchedule();
     }
-  }, [activeTab, fetchMySchedule]);
+  }, [activeTab, fetchMySchedule, latestScheduleReviewId]);
 
   useEffect(() => {
     fetchNotifications();
@@ -1498,8 +1508,9 @@ export default function ProctorDashboard() {
     }
     
     const msg = (notif.message || "").toLowerCase();
-    if (msg.includes("teaching schedule") || msg.includes("upload")) {
+    if (notif.type === "teaching_schedule_review" || msg.includes("teaching schedule") || msg.includes("upload")) {
       setActiveTab("schedule");
+      if (activeTab === "schedule") fetchMySchedule();
     } else {
       setActiveTab("assignments");
       const currentExams = notif.type === "proctor_reassignment" ? (await fetchMyExams()) ?? exams : exams;
@@ -1508,67 +1519,21 @@ export default function ProctorDashboard() {
     }
   };
 
-  const parseExcelPreview = (file) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const data = new Uint8Array(e.target.result);
-      const workbook = XLSX.read(data, { type: "array" });
-      let targetSheetName = workbook.SheetNames[0];
-      if (workbook.SheetNames.length > 1 && user?.name) {
-        const proctorLastName = user.name.split(" ").pop().toLowerCase();
-        for (const name of workbook.SheetNames) {
-          if (name === "BLANK" || name === "CHANGES" || name === "SIMS SYNC") continue;
-          if (name.toLowerCase().includes(proctorLastName) || name.toLowerCase().includes(user.name.toLowerCase())) {
-            targetSheetName = name;
-            break;
-          }
-        }
-        if (targetSheetName === workbook.SheetNames[0] && ['BLANK', 'CHANGES', 'SIMS SYNC'].includes(targetSheetName)) {
-          for (const name of workbook.SheetNames) {
-            if (!['BLANK', 'CHANGES', 'SIMS SYNC'].includes(name)) {
-              targetSheetName = name;
-              break;
-            }
-          }
-        }
-      }
-      const sheet = workbook.Sheets[targetSheetName];
-      const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
-      if (rows.length === 0) { setFilePreview({ headers: [], rows: [], sheetName: targetSheetName }); return; }
-      const headers = rows[0].map(String);
-      const body = rows.slice(1);
-      setFilePreview({ headers, rows: body, sheetName: targetSheetName });
-    };
-    reader.readAsArrayBuffer(file);
-  };
-
-  const handleFileUpload = async () => {
-    if (!selectedFile) return showError("Please select a file first");
-    setUploading(true);
-    const formData = new FormData();
-    formData.append("file", selectedFile);
-    try {
-      const res = await api.post(`/proctors/${user.proctor_id}/upload-my-schedule`, formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      });
-      showSuccess("Schedule uploaded successfully!");
-      setSelectedFile(null);
-      setFilePreview(null);
-      if (res.data.translated_schedule) {
-        setTranslatedSchedule(res.data.translated_schedule);
-      }
-      const resSched = await api.get("/proctors/schedules");
-      const allSchedules = resSched.data;
-      const mine = allSchedules.filter(s => s.teacher_name === user.name);
-      setMySchedule(mine);
-    } catch (err) {
-      const errMsg = err.response?.data?.detail || err.message || "Failed to upload schedule";
-      showError(errMsg);
-    } finally {
-      setUploading(false);
+  const renderAbsenceAction = (exam, windowStatus) => {
+    if (isAttendanceConfirmed(exam.proctor_attendance) || !exam.room_id || !exam.timeslot_id) return null;
+    const pending = pendingAbsences[exam.id];
+    if (pending?.timeslot_id === exam.timeslot_id && pending.room_id === exam.room_id) {
+      return <p className="mb-2 text-xs font-semibold text-amber-700 dark:text-amber-300">Substitute requested</p>;
     }
+    if (windowStatus !== "upcoming" && windowStatus !== "active") return null;
+    return (
+      <button type="button" disabled={submittingAbsence} onClick={() => {
+        setAbsenceReason("");
+        setAbsenceExam(exam);
+      }} className="mb-2 rounded-lg border border-amber-300 px-2.5 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-50 disabled:opacity-50 dark:border-amber-800 dark:text-amber-300 dark:hover:bg-amber-900/40">
+        Request Substitute
+      </button>
+    );
   };
 
   const handleProofUploaded = useCallback((examId, proof) => {
@@ -2015,85 +1980,37 @@ export default function ProctorDashboard() {
               </div>
             ) : activeTab === "schedule" ? (
               <div className="space-y-6 sm:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className={`p-4 sm:p-8 rounded-2xl sm:rounded-3xl border ${isDark ? "bg-slate-800/80 border-slate-700/50 backdrop-blur-xl" : "bg-white/80 border-slate-200 backdrop-blur-xl shadow-sm"}`}>
-                  <div className="flex items-start gap-3 sm:gap-4 mb-6">
-                    <div className={`p-3 rounded-2xl shrink-0 ${isDark ? "bg-emerald-500/20" : "bg-emerald-50"}`}>
-                      <TableCellsIcon className={`w-6 h-6 ${isDark ? "text-emerald-400" : "text-emerald-500"}`} />
+                <section className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-800 sm:p-6">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-lg font-bold">Review Teaching Schedule</h3>
+                      <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">Check the days, times, and courses uploaded by your administrator.</p>
                     </div>
-                    <div className="min-w-0">
-                      <h3 className={`text-lg sm:text-xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Upload My Teaching Schedule</h3>
-                      <p className={`text-xs sm:text-sm mt-1 ${isDark ? "text-slate-400" : "text-slate-500"}`}>Upload your individual schedule (Excel format) to update your availability</p>
-                    </div>
+                    <button type="button" onClick={fetchMySchedule} className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold dark:border-slate-600">Refresh schedule</button>
                   </div>
-                  {!selectedFile ? (
-                    <div className={`border-2 border-dashed rounded-2xl p-6 sm:p-12 flex flex-col items-center justify-center transition-all hover:bg-slate-50 dark:hover:bg-slate-800/50 border-slate-300 dark:border-slate-700`}>
-                      <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 ${isDark ? "bg-slate-800" : "bg-slate-100"}`}>
-                        <ArrowUpTrayIcon className={`w-8 h-8 ${isDark ? "text-slate-400" : "text-slate-500"}`} />
-                      </div>
-                      <p className={`text-sm mb-6 text-center ${isDark ? "text-slate-400" : "text-slate-500"}`}>Drag and drop your Excel file here or click to browse</p>
-                      <label className="cursor-pointer w-full sm:w-auto text-center px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold transition shadow-lg shadow-blue-500/20 hover:-translate-y-0.5">
-                        Select Excel File
-                        <input type="file" className="hidden" accept=".xlsx, .xls" onChange={(e) => { const f = e.target.files[0]; if (!f) return; setSelectedFile(f); parseExcelPreview(f); }} />
-                      </label>
-                    </div>
-                  ) : (
-                    <div className="space-y-6">
-                      <div className={`flex flex-col sm:flex-row items-start sm:items-center gap-4 px-5 py-4 rounded-2xl border ${isDark ? "bg-slate-700/40 border-emerald-700/40" : "bg-emerald-50/50 border-emerald-200"}`}>
-                        <div className="flex items-center gap-3 flex-1 min-w-0">
-                          <CheckCircleIcon className="w-6 h-6 text-emerald-500 shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <div className={`text-sm font-semibold truncate ${isDark ? "text-slate-200" : "text-slate-800"}`}>{selectedFile.name}</div>
-                            <p className={`text-xs mt-0.5 ${isDark ? "text-slate-400" : "text-slate-500"}`}>{filePreview ? `${filePreview.rows.length} data row${filePreview.rows.length !== 1 ? 's' : ''} · ${filePreview.headers.length} column${filePreview.headers.length !== 1 ? 's' : ''}` : 'Reading file…'}</p>
-                          </div>
-                        </div>
-                        <div className="flex gap-3 w-full sm:w-auto shrink-0">
-                          <button onClick={() => { setSelectedFile(null); setFilePreview(null); }} className={`flex-1 sm:flex-none px-4 py-2.5 rounded-xl text-xs font-bold transition ${isDark ? "text-slate-300 hover:text-white bg-slate-700 hover:bg-slate-600" : "text-slate-600 hover:text-slate-900 bg-white border border-slate-200 hover:bg-slate-50"}`}>Cancel</button>
-                          <button onClick={handleFileUpload} disabled={uploading} className="flex-1 sm:flex-none px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white rounded-xl text-xs font-bold transition shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2">
-                            {uploading ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : <ArrowUpTrayIcon className="w-4 h-4" />}
-                            {uploading ? "Uploading…" : "Confirm Upload"}
-                          </button>
-                        </div>
-                      </div>
-                      {filePreview && (
-                        <div className={`rounded-2xl border overflow-hidden shadow-sm ${isDark ? "border-slate-700 bg-slate-800/50" : "border-slate-200 bg-white"}`}>
-                          <div className={`px-5 py-3 flex items-center gap-2 border-b text-xs font-bold uppercase tracking-wider ${isDark ? "bg-slate-800/80 border-slate-700 text-slate-400" : "bg-slate-50 border-slate-200 text-slate-500"}`}>
-                            <TableCellsIcon className="w-4 h-4" />
-                            Preview — {filePreview.sheetName || 'Sheet 1'}
-                          </div>
-                          <div className="overflow-x-auto max-h-[60dvh] sm:max-h-80 overflow-y-auto custom-scrollbar">
-                            {filePreview.headers.length === 0 ? (
-                              <p className={`text-center py-8 text-sm ${isDark ? "text-slate-500" : "text-slate-400"}`}>The file appears to be empty.</p>
-                            ) : (
-                              <table className="w-full text-xs border-collapse min-w-[560px]">
-                                <thead className={`sticky top-0 z-10 ${isDark ? "bg-blue-900/80 text-blue-300 backdrop-blur-md" : "bg-blue-600 text-white"}`}>
-                                  <tr><th className={`px-3 py-3 text-right font-bold border-r w-10 ${isDark ? "border-blue-800/50 text-blue-400/70" : "border-blue-500/40 text-blue-200/70"}`}>#</th>
-                                    {filePreview.headers.map((h, i) => (<th key={i} className={`px-4 py-3 text-left font-bold whitespace-nowrap border-r last:border-r-0 ${isDark ? "border-blue-800/50" : "border-blue-500/30"}`}>{h || <span className="italic opacity-50">Col {i + 1}</span>}</th>))}</tr>
-                                </thead>
-                                <tbody>
-                                  {filePreview.rows.map((row, rIdx) => (
-                                    <tr key={rIdx} className={`border-t transition-colors ${isDark ? `border-slate-700/50 ${rIdx % 2 === 0 ? "bg-slate-800/30" : "bg-slate-800/10"} hover:bg-slate-700/50` : `border-slate-100 ${rIdx % 2 === 0 ? "bg-white" : "bg-slate-50/50"} hover:bg-blue-50/30`}`}>
-                                      <td className={`px-3 py-2 text-right font-mono text-xs border-r select-none ${isDark ? "border-slate-700 text-slate-500" : "border-slate-200 text-slate-400"}`}>{rIdx + 1}</td>
-                                      {filePreview.headers.map((_, cIdx) => (<td key={cIdx} className={`px-4 py-2 border-r last:border-r-0 whitespace-nowrap ${isDark ? "border-slate-700/50 text-slate-300" : "border-slate-100 text-slate-700"}`}>{row[cIdx] !== undefined && row[cIdx] !== "" ? String(row[cIdx]) : <span className={isDark ? "text-slate-600" : "text-slate-300"}>—</span>}</td>))}
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            )}
-                          </div>
-                        </div>
-                      )}
+                  <div role="status" className="mt-3 text-sm">
+                    {scheduleLoadFailed ? "Could not load your teaching schedule. Use Refresh schedule to try again." :
+                      teachingSchedule === null ? "Loading teaching schedule?" :
+                      scheduleReviewStatus === "confirmed" ? "Schedule confirmed." :
+                      scheduleReviewStatus === "needs_correction" ? "Correction requested. Review the next version after your administrator uploads it." :
+                      scheduleReviewStatus === "pending" ? "Awaiting your review." : "Waiting for your administrator to upload your teaching schedule."}
+                  </div>
+                  {scheduleReviewStatus === "pending" && !scheduleLoadFailed && (
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <button type="button" disabled={reviewingSchedule} onClick={() => reviewTeachingSchedule("confirmed")} className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50">Confirm Schedule</button>
+                      <button type="button" disabled={reviewingSchedule} onClick={() => reviewTeachingSchedule("needs_correction")} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:hover:bg-slate-700">Report Incorrect Schedule</button>
                     </div>
                   )}
-                </div>
-
+                </section>
                 {mySchedule.length > 0 ? (() => {
                   const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+                  if (mySchedule.some(row => row.day_of_week === 6)) DAYS.push("Sunday");
                   const timeSlotKeys = [...new Set(mySchedule.map(s => `${s.start_time}|||${s.end_time}`))].sort((a, b) => {
                     const parseTime = (t) => { if (!t) return 0; const [time, mod] = t.split(" "); let [h, m] = time.split(":").map(Number); if (mod === "PM" && h < 12) h += 12; if (mod === "AM" && h === 12) h = 0; return h * 60 + m; };
                     return parseTime(a.split("|||")[0]) - parseTime(b.split("|||")[0]);
                   });
                   const lookup = {};
-                  mySchedule.forEach(s => { const key = `${s.start_time}|||${s.end_time}|||${s.day_of_week}`; if (!lookup[key]) lookup[key] = []; lookup[key].push(s.subject); });
+                  mySchedule.forEach(s => { const key = `${s.start_time}|||${s.end_time}|||${s.day_of_week}`; if (!lookup[key]) lookup[key] = []; lookup[key].push(s.subject || "Scheduled block"); });
                   const parsed = parseTranslatedScheduleText(translatedSchedule);
 
                   return (
@@ -2130,13 +2047,6 @@ export default function ProctorDashboard() {
                               </button>
                             </div>
                           )}
-                          <button
-                            onClick={() => setShowDeleteScheduleModal(true)}
-                            className="bg-red-500 hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-700 text-white px-4 py-2.5 rounded-xl shadow-md flex items-center gap-2 transition-all hover:scale-105 active:scale-95 font-bold text-xs"
-                          >
-                            <TrashIcon className="w-3.5 h-3.5" />
-                            Delete My Schedule
-                          </button>
                         </div>
                       </div>
 
@@ -2307,7 +2217,7 @@ export default function ProctorDashboard() {
                         <CalendarIcon className={`w-12 h-12 ${isDark ? "text-slate-600" : "text-blue-300"}`} />
                       </div>
                       <h3 className={`text-xl font-bold mb-3 ${isDark ? "text-white" : "text-slate-900"}`}>No Schedule Found</h3>
-                      <p className={`text-sm leading-relaxed ${isDark ? "text-slate-400" : "text-slate-500"}`}>You haven't uploaded your teaching schedule yet. Use the upload section above to submit your Excel schedule file.</p>
+                      <p className={`text-sm leading-relaxed ${isDark ? "text-slate-400" : "text-slate-500"}`}>Your administrator will upload the schedule for you to review.</p>
                     </div>
                   </div>
                 )}
@@ -2548,6 +2458,7 @@ export default function ProctorDashboard() {
                                   <td className="py-4 px-4 sm:px-6 text-right whitespace-nowrap">
                                     <div className="max-w-64">
                                       <AttendanceProofUpload exam={exam} onUploaded={handleProofUploaded} disabled={confirmingExamId === exam.id} />
+                                      {renderAbsenceAction(exam, attendanceWindowStatus)}
                                     </div>
                                     {isConfirmed ? (
                                       <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
@@ -2669,6 +2580,7 @@ export default function ProctorDashboard() {
                             {/* Action Button */}
                             <div className="mt-3.5 pt-0.5">
                               <AttendanceProofUpload exam={exam} onUploaded={handleProofUploaded} disabled={confirmingExamId === exam.id} />
+                              {renderAbsenceAction(exam, attendanceWindowStatus)}
                               {isConfirmed ? (
                                 <div className={`w-full py-2.5 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 ${
                                   isDark
@@ -2758,6 +2670,7 @@ export default function ProctorDashboard() {
                           
                           <div className="mt-4">
                             <AttendanceProofUpload exam={exam} onUploaded={handleProofUploaded} disabled={confirmingExamId === exam.id} />
+                            {renderAbsenceAction(exam, attendanceWindowStatus)}
                           </div>
                           {!isConfirmed && attendanceWindowStatus === "active" ? (
                             <button
@@ -2799,67 +2712,25 @@ export default function ProctorDashboard() {
         </div>
       </main>
 
-      {/* Delete Schedule Confirmation Modal */}
-      {showDeleteScheduleModal && (
-        <div 
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4 animate-in fade-in duration-200"
-        >
-          <div 
-            className="absolute inset-0"
-            onClick={() => !deletingSchedule && setShowDeleteScheduleModal(false)}
-          />
-          <div className={`relative p-5 sm:p-8 rounded-2xl sm:rounded-3xl shadow-2xl max-w-md w-full transform transition-all scale-100 ${isDark ? "bg-slate-800 border border-slate-700" : "bg-white border border-slate-200"}`}>
-            <button
-              type="button"
-              onClick={() => setShowDeleteScheduleModal(false)}
-              disabled={deletingSchedule}
-              aria-label="Close dialog"
-              className={`absolute top-4 right-4 p-1.5 rounded-lg transition ${
-                isDark ? "hover:bg-slate-700 text-slate-400 hover:text-white" : "hover:bg-slate-100 text-slate-500 hover:text-slate-900"
-              }`}
-            >
-              <XMarkIcon className="w-5 h-5" />
-            </button>
-            <div className="flex flex-col items-center text-center">
-              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mb-4 sm:mb-6 bg-red-100 dark:bg-red-900/50 shadow-lg shadow-red-200/50 dark:shadow-red-900/20">
-                <TrashIcon className="w-7 h-7 sm:w-8 sm:h-8 text-red-600 dark:text-red-400" />
-              </div>
-              <h3 className={`text-xl sm:text-2xl font-bold mb-2 sm:mb-3 ${isDark ? "text-white" : "text-slate-900"}`}>
-                Delete My Schedule?
-              </h3>
-              <p className={`mb-6 sm:mb-8 text-xs sm:text-sm leading-relaxed ${isDark ? "text-slate-300" : "text-slate-500"}`}>
-                Are you sure you want to delete your uploaded teaching schedule? Doing so will clear all blocked slots and revert to an empty schedule, notifying the administrator. This action is permanent.
-              </p>
-              <div className="flex flex-col-reverse sm:flex-row gap-2.5 sm:gap-4 w-full">
-                <button
-                  type="button"
-                  onClick={() => setShowDeleteScheduleModal(false)}
-                  disabled={deletingSchedule}
-                  className={`w-full py-3 sm:py-3.5 rounded-xl font-bold text-sm transition-all active:scale-95 disabled:opacity-55 ${isDark ? "bg-slate-700 hover:bg-slate-600 text-white" : "bg-slate-100 hover:bg-slate-200 text-slate-800"}`}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDeleteSchedule}
-                  disabled={deletingSchedule}
-                  className="w-full py-3 sm:py-3.5 rounded-xl font-bold text-sm bg-red-600 hover:bg-red-700 text-white transition-all shadow-lg shadow-red-600/30 active:scale-95 disabled:opacity-55 flex items-center justify-center gap-2" aria-label="Delete">
-                  {deletingSchedule ? (
-                    <>
-                      <ArrowPathIcon className="w-4 h-4 animate-spin" />
-                      <span>Deleting...</span>
-                    </>
-                  ) : (
-                    <span>Yes, Delete</span>
-                  )}
-                </button>
-              </div>
-            </div>
+      <ConfirmationModal
+        isOpen={Boolean(absenceExam)}
+        title="Request a substitute"
+        message={absenceExam && (
+          <div className="space-y-3">
+            <p><strong>{absenceExam.subject_name}</strong> · {absenceExam.section_name}</p>
+            <p>{absenceExam.exam_date} · {absenceExam.start_time} – {absenceExam.end_time}</p>
+            <label className="block font-medium">
+              Brief reason
+              <textarea value={absenceReason} onChange={event => setAbsenceReason(event.target.value)} maxLength={500} rows={3} className="mt-1 block w-full rounded-lg border border-slate-300 bg-transparent p-2 dark:border-slate-600" />
+            </label>
+            <p>Your assignment stays on your schedule until an administrator assigns a substitute.</p>
           </div>
-        </div>
-      )}
+        )}
+        confirmLabel="Send Request"
+        confirmDisabled={submittingAbsence || !absenceReason.trim()}
+        onConfirm={submitAbsence}
+        onCancel={() => setAbsenceExam(null)}
+      />
 
       <ConfirmationModal
         isOpen={isClearNotifModalOpen}

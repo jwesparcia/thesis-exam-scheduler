@@ -118,6 +118,14 @@ class Proctor(Base):
     teacher = relationship("Teacher")
     availabilities = relationship("ProctorAvailability", back_populates="proctor")
 
+class ProctorScheduleReview(Base):
+    __tablename__ = "proctor_schedule_reviews"
+    proctor_id = Column(Integer, ForeignKey("proctors.id", ondelete="CASCADE"), primary_key=True)
+    revision = Column(String(32), nullable=False)
+    status = Column(String(24), nullable=False)
+    uploaded_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+
 class TeacherTeaching(Base):
     __tablename__ = "teacher_teachings"
     __table_args__ = {'extend_existing': True}
@@ -210,6 +218,18 @@ class ProctorAttendanceProof(Base):
     content_type = Column(String, nullable=False)
     photo_data = deferred(Column(LargeBinary, nullable=False))
     uploaded_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+
+
+class ProctorAbsenceRequest(Base):
+    __tablename__ = "proctor_absence_requests"
+    __table_args__ = (UniqueConstraint("exam_id", "proctor_id", name="uq_exam_proctor_absence_request"),)
+    id = Column(Integer, primary_key=True)
+    exam_id = Column(Integer, ForeignKey("exams.id", ondelete="CASCADE"), nullable=False)
+    proctor_id = Column(Integer, ForeignKey("proctors.id", ondelete="CASCADE"), nullable=False)
+    timeslot_id = Column(Integer, nullable=False)
+    room_id = Column(Integer, nullable=False)
+    reason = Column(String(500), nullable=False)
+    status = Column(String(24), nullable=False, default="pending")
 
 
 class ReschedulingRequest(Base):

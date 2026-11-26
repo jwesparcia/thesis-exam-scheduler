@@ -5,6 +5,8 @@ import api from "../api";
 import { useToast } from "../context/ToastContext";
 import ConfirmationModal from "./ConfirmationModal";
 
+const reviewLabels = { pending: "Awaiting review", confirmed: "Confirmed by proctor", needs_correction: "Needs correction" };
+
 export default function AddProctor({ isGenerating }) {
   const { theme } = useTheme();
   const { showSuccess, showError } = useToast();
@@ -94,7 +96,7 @@ export default function AddProctor({ isGenerating }) {
     setScheduleUpload(null);
     setUploadingSchedule(true);
     try {
-      await api.post(`/proctors/${proctor.id}/upload-my-schedule`, data);
+      await api.post(`/proctors/${proctor.id}/teaching-schedule`, data);
       showSuccess(`Teaching schedule uploaded for ${proctor.name}.`);
       await fetchProctors();
     } catch (err) {
@@ -193,7 +195,7 @@ export default function AddProctor({ isGenerating }) {
                         ? isDark ? "bg-emerald-950/60 text-emerald-300 border-emerald-800" : "bg-emerald-50 text-emerald-800 border-emerald-200"
                         : isDark ? "bg-amber-950/60 text-amber-300 border-amber-800" : "bg-amber-50 text-amber-800 border-amber-200"
                     }`}>
-                      {p.has_schedule ? "Schedule uploaded" : "No schedule"}
+                      {p.has_schedule ? reviewLabels[p.schedule_review_status] || "Awaiting review" : "No schedule"}
                     </span>
                     <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold border ${
                       p.exclude_from_scheduling 
@@ -214,7 +216,7 @@ export default function AddProctor({ isGenerating }) {
                   </div>
                   <div className="flex flex-wrap gap-2 pt-1">
                     {renderScheduleUploadButton(p)}
-                    {!p.has_schedule && (
+                    {p.schedule_review_status === "pending" && (
                       <button
                         type="button"
                         onClick={() => sendReminder(p.id, p.name)}
@@ -223,7 +225,7 @@ export default function AddProctor({ isGenerating }) {
                           isDark ? "border-blue-800 bg-blue-950/40 text-blue-300 hover:bg-blue-900/50" : "border-blue-200 bg-blue-50 text-blue-800 hover:bg-blue-100"
                         }`}
                       >
-                        <BellIcon className="mr-1.5 inline h-3.5 w-3.5" />Send Reminder
+                        <BellIcon className="mr-1.5 inline h-3.5 w-3.5" />Remind to Review
                       </button>
                     )}
                     <button
@@ -265,7 +267,7 @@ export default function AddProctor({ isGenerating }) {
                           isDark ? "bg-emerald-950/60 text-emerald-300 border-emerald-800" : "bg-emerald-50 text-emerald-800 border-emerald-200"
                         }`}>
                           <CheckCircleIcon className="w-3.5 h-3.5" />
-                          <span>Uploaded</span>
+                          <span>{reviewLabels[p.schedule_review_status] || "Awaiting review"}</span>
                         </span>
                       ) : (
                         <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
@@ -302,7 +304,7 @@ export default function AddProctor({ isGenerating }) {
                     <td className="py-3.5 px-5 text-right">
                       <div className="flex justify-end gap-1.5">
                         {renderScheduleUploadButton(p)}
-                        {!p.has_schedule && (
+                        {p.schedule_review_status === "pending" && (
                           <button
                             type="button"
                             onClick={() => sendReminder(p.id, p.name)}
@@ -312,7 +314,7 @@ export default function AddProctor({ isGenerating }) {
                                 ? "opacity-50 cursor-not-allowed border-transparent" 
                                 : isDark ? "hover:bg-blue-900/40 text-blue-300 border-blue-800/80" : "hover:bg-blue-100 text-blue-800 border-blue-200"
                             }`}
-                            title={isGenerating ? "Cannot send reminders while schedule generation is ongoing" : "Send upload reminder"} aria-label="Send upload reminder">
+                            title={isGenerating ? "Cannot send reminders while schedule generation is ongoing" : "Send review reminder"} aria-label="Send review reminder">
                             <BellIcon className="w-4 h-4" />
                           </button>
                         )}

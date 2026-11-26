@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from fastapi.responses import Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 from core import get_db, cache
 from core.cache import PROCTOR_MONITORING_CACHE_KEY, TTL_PROCTORS, TTL_MONITORING
@@ -11,6 +12,8 @@ import io
 import os
 from datetime import datetime, date, timedelta, timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+from typing import Literal
+from uuid import uuid4
 from sqlalchemy import text, func, and_, or_
 from .auth import get_current_user, require_role
 from utils.logging import log_activity
@@ -75,7 +78,7 @@ def read_excel_with_fallback(content: bytes, filename: str):
         except Exception:
             raise Exception(f"Could not read Excel file with any engine: {str(e)}")
 
-def _with_assignment_counts(db: Session, proctors: list):
+def _with_assignment_counts(db: Session, proctors: list, include_reviews=False):
     """Read current duties separately from cached proctor profile information."""
     proctor_ids = [proctor["id"] for proctor in proctors]
     counts = {}
@@ -91,7 +94,10 @@ def _with_assignment_counts(db: Session, proctors: list):
         )
         for proctor_id, status, count in rows:
             counts.setdefault(proctor_id, {})[status] = count
-    return [
+    reviews = dict(db.query(models.ProctorScheduleReview.proctor_id, models.ProctorScheduleReview.status).filter(
+        models.ProctorScheduleReview.proctor_id.in_(proctor_ids),
+    ).all()) if include_reviews and proctor_ids else {}
+    result = [
         {
             **proctor,
             "posted_exam_count": counts.get(proctor["id"], {}).get("posted", 0),
@@ -102,6 +108,10 @@ def _with_assignment_counts(db: Session, proctors: list):
         }
         for proctor in proctors
     ]
+    if include_reviews:
+        for proctor in result:
+            proctor["schedule_review_status"] = reviews.get(proctor["id"], "pending") if proctor["has_schedule"] else None
+    return result
 
 
 @router.get("/")
@@ -109,9 +119,10 @@ def get_proctors(db: Session = Depends(get_db), current_user: models.User = Depe
     if current_user.role not in ["admin", "proctor", "program_head"]:
         raise HTTPException(status_code=403, detail="Not authorized to view proctors")
 
+    include_reviews = current_user.role in ("admin", "program_head")
     cached = cache.get("proctors:all")
     if cached is not None:
-        return _with_assignment_counts(db, cached)
+        return _with_assignment_counts(db, cached, include_reviews)
 
     proctors = db.query(models.Proctor).all()
     teacher_ids = [p.teacher_id for p in proctors if p.teacher_id]
@@ -146,7 +157,7 @@ def get_proctors(db: Session = Depends(get_db), current_user: models.User = Depe
             ]
         })
     cache.set("proctors:all", result, TTL_PROCTORS)
-    return _with_assignment_counts(db, result)
+    return _with_assignment_counts(db, result, include_reviews)
 
 @router.post("/")
 def create_proctor(proctor: dict, db: Session = Depends(get_db), current_user: models.User = Depends(require_role(["admin"]))):
@@ -165,13 +176,10 @@ def create_proctor(proctor: dict, db: Session = Depends(get_db), current_user: m
     return {"message": "Proctor added", "id": new_p.id}
 
 @router.post("/{proctor_id}/availability")
-def add_availability(proctor_id: int, body: dict, db: Session = Depends(get_db), current_user: models.User = Depends(require_role(["admin", "proctor"]))):
+def add_availability(proctor_id: int, body: dict, db: Session = Depends(get_db), current_user: models.User = Depends(require_role(["admin"]))):
     if is_generation_ongoing():
         raise HTTPException(status_code=400, detail="Cannot update availability while schedule generation is ongoing")
-    # Only admin or the proctor themselves can add availability
-    if current_user.role == "proctor" and current_user.proctor_id != proctor_id:
-        raise HTTPException(status_code=403, detail="Not authorized to edit other proctor's availability")
-    proctor = db.query(models.Proctor).get(proctor_id)
+    proctor = db.query(models.Proctor).filter_by(id=proctor_id).with_for_update().one_or_none()
     if not proctor:
         raise HTTPException(status_code=404, detail="Proctor not found")
     availability = models.ProctorAvailability(
@@ -200,6 +208,9 @@ def add_availability(proctor_id: int, body: dict, db: Session = Depends(get_db),
             db.add(ts)
         except Exception:
             pass
+        else:
+            proctor.translated_schedule = None
+            _queue_schedule_review(db, proctor, current_user.id)
     db.commit()
     cache.invalidate_proctors()
     return {"message": "Availability added"}
@@ -227,6 +238,7 @@ async def upload_schedules(file: UploadFile = File(...), db: Session = Depends(g
         day_map = {'Monday': 0, 'Tuesday': 1, 'Wednesday': 2, 'Thursday': 3,
                    'Friday': 4, 'Saturday': 5, 'Sunday': 6}
         records_processed = 0
+        updated_proctors = set()
         for _, row in df.iterrows():
             teacher_name = str(row['Instructor Name']).strip()
             day_str = str(row['Day']).strip().capitalize()
@@ -273,7 +285,12 @@ async def upload_schedules(file: UploadFile = File(...), db: Session = Depends(g
                 subject_name=subject_name
             )
             db.add(new_sched)
+            updated_proctors.add(proctor.id)
             records_processed += 1
+        for proctor_id in sorted(updated_proctors):
+            proctor = db.query(models.Proctor).filter_by(id=proctor_id).with_for_update().one()
+            proctor.translated_schedule = None
+            _queue_schedule_review(db, proctor, current_user.id)
         db.commit()
         # ── invalidate proctor schedule caches ───────────────────────────
         cache.invalidate_proctors()
@@ -286,56 +303,56 @@ async def upload_schedules(file: UploadFile = File(...), db: Session = Depends(g
         raise HTTPException(status_code=500, detail=f"Error processing file: {error_msg}")
 
 
-def _save_teaching_schedule_upload(db, proctor, uploaded_by_manager, record_count, message):
-    if uploaded_by_manager:
-        if not record_count:
-            raise HTTPException(status_code=400, detail="The workbook contains no teaching schedule entries.")
-        recipients = db.query(models.User.id).filter(
-            models.User.proctor_id == proctor.id,
-            models.User.role.in_(["proctor", "teacher"]),
-        ).all()
-        for (user_id,) in recipients:
-            db.add(models.Notification(
-                user_id=user_id,
-                message="The Program Head uploaded your teaching schedule.",
-                type="info",
-                related_id=proctor.id,
-            ))
-    else:
-        admin_user = db.query(models.User).filter(models.User.role == "program_head").first()
+def _queue_schedule_review(db, proctor, uploaded_by_id):
+    review = db.get(models.ProctorScheduleReview, proctor.id)
+    if review is None:
+        review = models.ProctorScheduleReview(proctor_id=proctor.id)
+        db.add(review)
+    review.revision = uuid4().hex
+    review.status = "pending"
+    review.uploaded_by_id = uploaded_by_id
+    account_link = models.User.proctor_id == proctor.id
+    if proctor.teacher_id:
+        account_link = or_(account_link, and_(
+            models.User.proctor_id.is_(None), models.User.teacher_id == proctor.teacher_id,
+        ))
+    recipients = db.query(models.User.id).filter(account_link, models.User.role.in_(["proctor", "teacher"])).all()
+    for (user_id,) in recipients:
         db.add(models.Notification(
-            user_id=admin_user.id if admin_user else None,
-            message=f"Proctor {proctor.name} has uploaded their teaching schedule.",
-            type="info",
+            user_id=user_id,
+            message="Your teaching schedule is ready to review in My Schedule.",
+            type="teaching_schedule_review",
             related_id=proctor.id,
         ))
 
+
+def _save_teaching_schedule_upload(db, proctor, uploaded_by_id, record_count, message):
+    if not record_count:
+        raise HTTPException(status_code=400, detail="The workbook contains no teaching schedule entries.")
+    _queue_schedule_review(db, proctor, uploaded_by_id)
     db.commit()
     cache.invalidate_proctors()
     return {"message": message, "translated_schedule": proctor.translated_schedule}
 
 
 @router.post("/{proctor_id}/upload-my-schedule")
+@router.post("/{proctor_id}/teaching-schedule")
 async def upload_my_schedule(
     proctor_id: int,
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(require_role(["admin", "proctor"])),
+    current_user: models.User = Depends(require_role(["admin"])),
 ):
-    uploaded_by_manager = current_user.role in ("program_head", "admin")
-    if not uploaded_by_manager and current_user.proctor_id != proctor_id:
-        raise HTTPException(status_code=403, detail="You can only upload your own teaching schedule.")
+    if current_user.role not in ("program_head", "admin"):
+        raise HTTPException(status_code=403, detail="Only administrators can upload teaching schedules.")
     if not file.filename or not file.filename.lower().endswith(('.xlsx', '.xls')):
         raise HTTPException(status_code=400, detail="Invalid file format. Please upload an Excel file (.xlsx, .xls).")
-    if uploaded_by_manager:
-        max_size = 5 * 1024 * 1024
-        content = await file.read(max_size + 1)
-        if len(content) > max_size:
-            raise HTTPException(status_code=413, detail="File too large. Maximum size is 5MB.")
-        if is_generation_ongoing():
-            raise HTTPException(status_code=400, detail="Cannot upload schedules while schedule generation is ongoing")
-    else:
-        content = await file.read()
+    max_size = 5 * 1024 * 1024
+    content = await file.read(max_size + 1)
+    if len(content) > max_size:
+        raise HTTPException(status_code=413, detail="File too large. Maximum size is 5MB.")
+    if is_generation_ongoing():
+        raise HTTPException(status_code=400, detail="Cannot upload schedules while schedule generation is ongoing")
 
     proctor = db.query(models.Proctor).filter_by(id=proctor_id).with_for_update().one_or_none()
     if not proctor:
@@ -358,7 +375,7 @@ async def upload_my_schedule(
                 sheet for sheet in schedule_sheets
                 if proctor_last_name in sheet.lower() or proctor.name.lower() in sheet.lower()
             ]
-            if uploaded_by_manager and len(schedule_sheets) > 1 and len(matching_sheets) != 1:
+            if len(schedule_sheets) > 1 and len(matching_sheets) != 1:
                 raise HTTPException(
                     status_code=400,
                     detail=f"Could not identify a single worksheet for {proctor.name}. Upload a workbook containing only their schedule.",
@@ -458,10 +475,11 @@ async def upload_my_schedule(
                 translated = translate_grid_schedule_from_bytes(content, sheet_name=target_sheet_name, proctor_name=proctor.name)
                 proctor.translated_schedule = translated
             except Exception as e:
+                proctor.translated_schedule = None
                 print(f"Failed to translate schedule: {e}")
                 
             return _save_teaching_schedule_upload(
-                db, proctor, uploaded_by_manager, records,
+                db, proctor, current_user.id, records,
                 f"Successfully processed grid schedule with {records} entries.",
             )
         # Standard row-based format
@@ -509,10 +527,11 @@ async def upload_my_schedule(
             translated = translate_row_schedule(df)
             proctor.translated_schedule = translated
         except Exception as e:
+            proctor.translated_schedule = None
             print(f"Failed to translate schedule: {e}")
             
         return _save_teaching_schedule_upload(
-            db, proctor, uploaded_by_manager, records_processed,
+            db, proctor, current_user.id, records_processed,
             f"Successfully processed {records_processed} schedule entries.",
         )
     except HTTPException:
@@ -524,6 +543,80 @@ async def upload_my_schedule(
         if "File is not a zip" in error_msg:
             raise HTTPException(status_code=400, detail="Invalid Excel file format.")
         raise HTTPException(status_code=500, detail=f"Error processing file: {error_msg}")
+
+def _own_proctor(db, user, *, for_update=False):
+    query = db.query(models.Proctor)
+    if user.proctor_id:
+        query = query.filter_by(id=user.proctor_id)
+    elif user.teacher_id:
+        query = query.filter_by(teacher_id=user.teacher_id).order_by(models.Proctor.id)
+    else:
+        raise HTTPException(status_code=404, detail="No proctor is linked to your account.")
+    proctor = (query.with_for_update() if for_update else query).first()
+    if not proctor:
+        raise HTTPException(status_code=404, detail="No proctor is linked to your account.")
+    return proctor
+
+
+@router.get("/my-teaching-schedule")
+def get_my_teaching_schedule(
+    db: Session = Depends(get_db), current_user: models.User = Depends(require_role(["proctor"])),
+):
+    proctor = _own_proctor(db, current_user, for_update=True)
+    schedules = db.query(models.TeacherSchedule).filter_by(teacher_id=proctor.teacher_id).order_by(
+        models.TeacherSchedule.day_of_week, models.TeacherSchedule.start_time,
+    ).all() if proctor.teacher_id else []
+    review = db.get(models.ProctorScheduleReview, proctor.id) if schedules else None
+    return {
+        "schedule": [
+            {"day_of_week": row.day_of_week, "start_time": row.start_time.strftime("%I:%M %p"),
+             "end_time": row.end_time.strftime("%I:%M %p"), "subject": row.subject_name}
+            for row in schedules
+        ],
+        "translated_schedule": proctor.translated_schedule if schedules else None,
+        "review_status": review.status if review else "pending" if schedules else None,
+        "revision": review.revision if review else "legacy" if schedules else None,
+    }
+
+
+class TeachingScheduleReviewRequest(BaseModel):
+    revision: str = Field(max_length=32)
+    decision: Literal["confirmed", "needs_correction"]
+
+
+@router.post("/my-teaching-schedule/review")
+def review_my_teaching_schedule(
+    body: TeachingScheduleReviewRequest,
+    db: Session = Depends(get_db), current_user: models.User = Depends(require_role(["proctor"])),
+):
+    proctor = _own_proctor(db, current_user, for_update=True)
+    if not proctor.teacher_id or not db.query(models.TeacherSchedule.id).filter_by(teacher_id=proctor.teacher_id).first():
+        raise HTTPException(status_code=409, detail="There is no teaching schedule to review.")
+    review = db.get(models.ProctorScheduleReview, proctor.id)
+    if body.revision != (review.revision if review else "legacy"):
+        raise HTTPException(status_code=409, detail="Your teaching schedule has changed. Review the latest version before submitting.")
+    if review is None:
+        review = models.ProctorScheduleReview(proctor_id=proctor.id, revision="legacy", status="pending")
+        db.add(review)
+    if review.status != "pending":
+        if review.status == body.decision:
+            return {"review_status": review.status}
+        raise HTTPException(status_code=409, detail="This version has already been reviewed.")
+
+    review.status = body.decision
+    uploader = db.get(models.User, review.uploaded_by_id) if review.uploaded_by_id else None
+    admins = [uploader] if uploader else [
+        admin for admin in db.query(models.User).filter(models.User.role.in_(["admin", "program_head"]))
+        if admin.is_super_admin or admin.manages_department(proctor.department)
+    ]
+    decision = "confirmed their teaching schedule" if body.decision == "confirmed" else "reported an incorrect teaching schedule"
+    db.add_all([
+        models.Notification(user_id=admin.id, message=f"{proctor.name} {decision}.", type="teaching_schedule_review_result", related_id=proctor.id)
+        for admin in admins
+    ])
+    db.commit()
+    return {"review_status": body.decision}
+
 
 @router.get("/{proctor_id}/translated-schedule")
 def get_translated_schedule(
@@ -709,6 +802,127 @@ class ReassignProctorRequest(BaseModel):
     expected_proctor_id: int
     expected_timeslot_id: int
     expected_room_id: int
+    replacement_proctor_id: int | None = None
+
+
+class ProctorAbsenceSubmission(BaseModel):
+    expected_timeslot_id: int
+    expected_room_id: int
+    reason: str = Field(min_length=1, max_length=500)
+
+
+def _require_open_assignment(exam):
+    if not exam:
+        raise HTTPException(status_code=404, detail="Exam not found.")
+    if exam.status != "posted" or not exam.proctor_id:
+        raise HTTPException(status_code=409, detail="The exam must be posted with an assigned proctor.")
+    if exam.proctor_attendance in ("attended", "confirmed"):
+        raise HTTPException(status_code=409, detail="Attendance has already been confirmed for this assignment.")
+    slot = exam.timeslot
+    window = _get_timeslot_window(slot)
+    if not exam.room or not window or slot.start_time >= slot.end_time:
+        raise HTTPException(status_code=400, detail="The posted exam needs a room and a valid timeslot.")
+    if _get_current_schedule_datetime() >= window[1]:
+        raise HTTPException(status_code=409, detail="This exam has already ended.")
+    return window
+
+
+def _can_manage_posted_exam(user, exam):
+    return user.is_super_admin or user.manages_department(_exam_program_department(exam))
+
+
+def _absence_response(request):
+    return {"exam_id": request.exam_id, "proctor_id": request.proctor_id, "reason": request.reason,
+            "timeslot_id": request.timeslot_id, "room_id": request.room_id}
+
+
+@router.get("/absence-requests")
+def get_pending_proctor_absences(
+    db: Session = Depends(get_db), current_user: models.User = Depends(require_role(["admin", "proctor"])),
+):
+    rows = db.query(models.ProctorAbsenceRequest, models.Exam).join(
+        models.Exam, models.Exam.id == models.ProctorAbsenceRequest.exam_id,
+    ).filter(
+        models.ProctorAbsenceRequest.status == "pending",
+        models.Exam.status == "posted",
+        or_(models.Exam.proctor_attendance.is_(None), models.Exam.proctor_attendance.notin_(["attended", "confirmed"])),
+        models.Exam.proctor_id == models.ProctorAbsenceRequest.proctor_id,
+        models.Exam.timeslot_id == models.ProctorAbsenceRequest.timeslot_id,
+        models.Exam.room_id == models.ProctorAbsenceRequest.room_id,
+    )
+    if current_user.role in ("proctor", "teacher"):
+        owner = _own_proctor(db, current_user)
+        return [_absence_response(request) for request, _ in rows.filter(models.Exam.proctor_id == owner.id)]
+    return [_absence_response(request) for request, exam in rows if _can_manage_posted_exam(current_user, exam)]
+
+
+@router.post("/absence-requests/{exam_id}")
+def submit_proctor_absence(
+    exam_id: int, body: ProctorAbsenceSubmission,
+    db: Session = Depends(get_db), current_user: models.User = Depends(require_role(["proctor"])),
+):
+    owner = _own_proctor(db, current_user)
+    exam = _attendance_exam(owner.id, exam_id, db, current_user, for_update=True)
+    _require_open_assignment(exam)
+    if (exam.timeslot_id, exam.room_id) != (body.expected_timeslot_id, body.expected_room_id):
+        raise HTTPException(status_code=409, detail="This assignment has changed. Refresh My Assignments and try again.")
+    reason = body.reason.strip()
+    if not reason:
+        raise HTTPException(status_code=400, detail="Enter a brief reason for the request.")
+
+    request = db.query(models.ProctorAbsenceRequest).filter_by(exam_id=exam.id, proctor_id=owner.id).one_or_none()
+    if request is None:
+        request = models.ProctorAbsenceRequest(exam_id=exam.id, proctor_id=owner.id)
+        db.add(request)
+    elif request.status == "pending" and (request.timeslot_id, request.room_id) == (exam.timeslot_id, exam.room_id):
+        return _absence_response(request)
+
+    request.timeslot_id = exam.timeslot_id
+    request.room_id = exam.room_id
+    request.reason = reason
+    request.status = "pending"
+    course = exam.subject.name if exam.subject else "an exam"
+    db.add_all([
+        models.Notification(
+            user_id=admin.id, type="proctor_absence_request", related_id=exam.id,
+            message=f"{owner.name} requested a substitute for {course}. Review the request in Proctor Monitoring.",
+        )
+        for admin in db.query(models.User).filter(models.User.role.in_(["admin", "program_head"]))
+        if _can_manage_posted_exam(admin, exam)
+    ])
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="A request for this assignment already exists. Refresh My Assignments.") from exc
+    return _absence_response(request)
+
+
+def _replacement_candidates(db, exam, proctor_id=None):
+    absent_ids = {exam.proctor_id}
+    absent_ids.update(proctor_id for (proctor_id,) in db.query(models.ProctorAbsenceRequest.proctor_id).filter_by(
+        exam_id=exam.id, timeslot_id=exam.timeslot_id, room_id=exam.room_id,
+    ))
+    absent_teachers = {teacher_id for (teacher_id,) in db.query(models.Proctor.teacher_id).filter(
+        models.Proctor.id.in_(absent_ids), models.Proctor.teacher_id.isnot(None),
+    )}
+    possible = db.query(models.Proctor.id).filter(models.Proctor.id.notin_(absent_ids))
+    if absent_teachers:
+        possible = possible.filter(models.Proctor.teacher_id.notin_(absent_teachers))
+    if proctor_id is not None:
+        possible = possible.filter(models.Proctor.id == proctor_id)
+    return _eligible_proctors(db, exam, exam.timeslot, [candidate_id for (candidate_id,) in possible])
+
+
+@router.get("/monitoring/{exam_id}/replacement-options")
+def get_replacement_options(
+    exam_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(require_role(["admin"])),
+):
+    exam = db.get(models.Exam, exam_id)
+    _require_open_assignment(exam)
+    if not _can_manage_posted_exam(current_user, exam):
+        raise HTTPException(status_code=403, detail="You do not manage this exam's program.")
+    return _replacement_candidates(db, exam)
 
 
 @router.post("/monitoring/{exam_id}/reassign")
@@ -726,29 +940,20 @@ def reassign_posted_proctor(
         exam = db.query(models.Exam).filter_by(id=exam_id).with_for_update().one_or_none()
         if not exam:
             raise HTTPException(status_code=404, detail="Exam not found.")
-        if not current_user.is_super_admin and not current_user.manages_department(_exam_program_department(exam)):
+        if not _can_manage_posted_exam(current_user, exam):
             raise HTTPException(
                 status_code=403,
                 detail="Only the Program Head responsible for this exam or the Academic Head can request a replacement.",
             )
-        if exam.status != "posted" or not exam.proctor_id:
-            raise HTTPException(status_code=409, detail="The exam must be posted with an assigned proctor before requesting a replacement.")
+        window = _require_open_assignment(exam)
         if (exam.proctor_id, exam.timeslot_id, exam.room_id) != (
             body.expected_proctor_id, body.expected_timeslot_id, body.expected_room_id,
         ):
             raise HTTPException(status_code=409, detail="This assignment has changed. Refresh Proctor Monitoring and review it before trying again.")
-        if exam.proctor_attendance in ("attended", "confirmed"):
-            raise HTTPException(status_code=409, detail="Attendance has already been confirmed for this assignment.")
         slot = exam.timeslot
-        window = _get_timeslot_window(slot)
-        if not exam.room or not window or slot.start_time >= slot.end_time:
-            raise HTTPException(status_code=400, detail="The posted exam needs a room and a valid timeslot before a replacement can be assigned.")
-        if _get_current_schedule_datetime() >= window[1]:
-            raise HTTPException(status_code=409, detail="This exam has already ended.")
 
         old_proctor_id = exam.proctor_id
-        old_teacher_id = exam.proctor.teacher_id if exam.proctor else None
-        candidates = [row for row in _eligible_proctors(db, exam, slot) if row["id"] != old_proctor_id]
+        candidates = _replacement_candidates(db, exam, body.replacement_proctor_id)
         candidate_ids = [row["id"] for row in candidates]
         daily_load = dict(
             db.query(models.Exam.proctor_id, func.count(models.Exam.id))
@@ -767,11 +972,13 @@ def reassign_posted_proctor(
                 db.query(models.Proctor).filter_by(id=candidate["id"])
                 .populate_existing().with_for_update().one_or_none()
             )
-            if locked and locked.teacher_id != old_teacher_id and _eligible_proctors(db, exam, slot, [locked.id]):
+            if locked and _replacement_candidates(db, exam, locked.id):
                 replacement = locked
                 break
 
         if replacement is None:
+            if body.replacement_proctor_id is not None:
+                raise HTTPException(status_code=409, detail="This proctor is no longer eligible. Refresh the available replacements.")
             raise HTTPException(
                 status_code=409,
                 detail="No eligible replacement is available at this time. Use Edit in Generated Schedules to review the manual options.",
@@ -780,6 +987,10 @@ def reassign_posted_proctor(
             raise HTTPException(status_code=409, detail="This exam has already ended.")
 
         replacement_id, replacement_name = replacement.id, replacement.name
+        db.query(models.ProctorAbsenceRequest).filter_by(
+            exam_id=exam_id, proctor_id=old_proctor_id, timeslot_id=exam.timeslot_id,
+            room_id=exam.room_id, status="pending",
+        ).update({"status": "resolved"})
         exam.proctor_id = replacement_id
         exam.proctor_attendance = "pending"
         course_name = exam.subject.name if exam.subject else "Exam"
@@ -952,7 +1163,7 @@ def send_reminder(id: int, db: Session = Depends(get_db), current_user: models.U
     db.add_all([
         models.Notification(
             user_id=recipient.id,
-            message="Reminder: Please upload your teaching schedule in My Teaching Schedule so your exam proctoring availability can be recorded.",
+            message="Reminder: Please review your uploaded teaching schedule in My Schedule.",
             type="reminder",
             related_id=proctor.id,
             is_read=False,
@@ -961,18 +1172,14 @@ def send_reminder(id: int, db: Session = Depends(get_db), current_user: models.U
     ])
     db.commit()
     log_activity(db, current_user.id, "PROCTOR_REMINDER_SENT", f"Proctor: {proctor.name}")
-    return {"message": f"Upload reminder sent to {proctor.name}'s notifications."}
+    return {"message": f"Review reminder sent to {proctor.name}'s notifications."}
 
 @router.delete("/{proctor_id}/schedule")
-def delete_proctor_schedule(proctor_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+def delete_proctor_schedule(proctor_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(require_role(["admin"]))):
     if is_generation_ongoing():
         raise HTTPException(status_code=400, detail="Cannot delete schedules while schedule generation is ongoing")
         
-    # Only admin or the proctor themselves can delete this schedule
-    if current_user.role == "proctor" and current_user.proctor_id != proctor_id:
-        raise HTTPException(status_code=403, detail="Not authorized to delete other proctor's schedule")
-        
-    proctor = db.query(models.Proctor).get(proctor_id)
+    proctor = db.query(models.Proctor).filter_by(id=proctor_id).with_for_update().one_or_none()
     if not proctor:
         raise HTTPException(status_code=404, detail="Proctor not found")
         
@@ -981,6 +1188,7 @@ def delete_proctor_schedule(proctor_id: int, db: Session = Depends(get_db), curr
         
     count = db.query(models.TeacherSchedule).filter(models.TeacherSchedule.teacher_id == proctor.teacher_id).delete()
     proctor.translated_schedule = None
+    db.query(models.ProctorScheduleReview).filter_by(proctor_id=proctor.id).delete()
     db.commit()
     
     # Notify Admin that proctor deleted their schedule

@@ -19,7 +19,7 @@ from sqlalchemy.orm import sessionmaker
 
 from core import Base
 from model import Notification, Proctor, Teacher, TeacherSchedule, User
-from routers.proctors import upload_my_schedule
+from routers.proctors import TeachingScheduleReviewRequest, get_my_teaching_schedule, review_my_teaching_schedule, upload_my_schedule
 from utils.scheduler import validate_proctor_availability
 
 
@@ -54,7 +54,7 @@ class ProctorScheduleUploadTests(unittest.TestCase):
         with patch("routers.proctors.translate_grid_schedule_from_bytes", return_value=""), \
              patch("routers.proctors.translate_row_schedule", return_value=""):
             return asyncio.run(upload_my_schedule(
-                self.proctor.id, UploadFile(filename="schedule.xlsx", file=data), self.db, user or self.owner,
+                self.proctor.id, UploadFile(filename="schedule.xlsx", file=data), self.db, user or self.head,
             ))
 
     def schedules(self):
@@ -75,7 +75,8 @@ class ProctorScheduleUploadTests(unittest.TestCase):
         row, = self.schedules()
         self.assertEqual((row.day_of_week, row.subject_name), (1, "NEW SCHEDULE"))
         self.assertEqual(self.db.query(TeacherSchedule).filter_by(teacher_id=other_teacher.id).one().id, other_slot.id)
-        self.assertEqual(self.db.query(Notification).filter_by(user_id=self.owner.id).one().related_id, self.proctor.id)
+        notifications = self.db.query(Notification).filter_by(user_id=self.owner.id, type="teaching_schedule_review").all()
+        self.assertEqual([notice.related_id for notice in notifications], [self.proctor.id, self.proctor.id])
 
     def test_program_head_upload_preserves_existing_schedule_if_workbook_is_empty_or_ambiguous(self):
         self.upload({"Day/Time": ["08:00 - 09:00"], "Monday": ["Original schedule"]})
@@ -95,11 +96,32 @@ class ProctorScheduleUploadTests(unittest.TestCase):
         row, = self.schedules()
         self.assertEqual((row.day_of_week, row.subject_name), (0, "ORIGINAL SCHEDULE"))
 
-    def test_proctor_cannot_upload_for_a_different_proctor(self):
+    def test_proctor_cannot_upload_their_own_schedule(self):
         with self.assertRaises(HTTPException) as denied:
-            self.upload_file(io.BytesIO(), User(role="proctor", proctor_id=self.proctor.id + 1))
+            self.upload_file(io.BytesIO(), self.owner)
         self.assertEqual(denied.exception.status_code, 403)
         self.assertEqual(self.schedules(), [])
+
+    def test_proctor_reviews_current_upload_and_replacement_needs_a_new_review(self):
+        rows = {"Day/Time": ["08:00 - 09:00"], "Monday": ["Math"]}
+        self.upload(rows)
+        pending = get_my_teaching_schedule(self.db, self.owner)
+        self.assertEqual(pending["review_status"], "pending")
+        self.assertEqual(pending["schedule"][0]["subject"], "MATH")
+        confirmation = TeachingScheduleReviewRequest(revision=pending["revision"], decision="confirmed")
+        self.assertEqual(review_my_teaching_schedule(confirmation, self.db, self.owner)["review_status"], "confirmed")
+        self.assertEqual(review_my_teaching_schedule(confirmation, self.db, self.owner)["review_status"], "confirmed")
+        self.assertEqual(self.db.query(Notification).filter_by(user_id=self.head.id).count(), 1)
+
+        self.upload(rows)
+        current = get_my_teaching_schedule(self.db, self.owner)
+        self.assertEqual(current["review_status"], "pending")
+        self.assertNotEqual(current["revision"], pending["revision"])
+        with self.assertRaises(HTTPException) as stale:
+            review_my_teaching_schedule(confirmation, self.db, self.owner)
+        self.assertEqual(stale.exception.status_code, 409)
+        report = TeachingScheduleReviewRequest(revision=current["revision"], decision="needs_correction")
+        self.assertEqual(review_my_teaching_schedule(report, self.db, self.owner)["review_status"], "needs_correction")
 
     def test_grid_reads_abbreviated_and_mixed_case_days_and_lecture_laboratory_classes(self):
         result = self.upload({

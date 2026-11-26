@@ -9,7 +9,7 @@ from core.generation_lock import (
     is_generation_ongoing,
     try_acquire_generation_lock,
 )
-from model import Exam, Subject, Section, Room, Timeslot, Course, YearLevel, Teacher, TeacherTeaching, TeacherSchedule, User, Notification, Proctor, ReschedulingRequest, Department
+from model import Exam, Subject, Section, Room, Timeslot, Course, YearLevel, Teacher, TeacherTeaching, TeacherSchedule, User, Notification, Proctor, ProctorAbsenceRequest, ReschedulingRequest, Department
 from utils.scheduler import generate_exam_schedule, validate_proctor_availability
 from utils.errors import humanize_error
 from utils.exam_terms import require_exam_term
@@ -1841,6 +1841,7 @@ def post_exams(
         old_posted_ids = [e.id for e in old_posted]
         if old_posted_ids:
             from model import ReschedulingRequest
+            db.query(ProctorAbsenceRequest).filter(ProctorAbsenceRequest.exam_id.in_(old_posted_ids)).delete(synchronize_session=False)
             db.query(ReschedulingRequest).filter(
                 or_(
                     ReschedulingRequest.exam_id.in_(old_posted_ids),
@@ -2153,6 +2154,7 @@ def clear_exams(
     exam_ids = [exam.id for exam in exams_to_delete]
     if exam_ids:
         from model import ReschedulingRequest
+        db.query(ProctorAbsenceRequest).filter(ProctorAbsenceRequest.exam_id.in_(exam_ids)).delete(synchronize_session=False)
         db.query(ReschedulingRequest).filter(or_(
             ReschedulingRequest.exam_id.in_(exam_ids), ReschedulingRequest.rescheduled_exam_id.in_(exam_ids)
         )).delete(synchronize_session=False)

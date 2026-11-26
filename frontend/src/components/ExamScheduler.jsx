@@ -246,7 +246,7 @@ export default function ExamScheduler({ onBeforeGenerate, onGenerationStateChang
       const res = await api.get("/proctors/missing-schedules");
       const missing = res.data.filter(p => !p.excluded);
       if (missing.length > 0) {
-        showWarning(`${missing.length} proctor(s) have not uploaded their schedule. They will be skipped during scheduling. You can manage them in the "Proctor Schedules" tab.`);
+        showWarning(`${missing.length} proctor(s) have no teaching schedule on file and will be skipped during scheduling. Upload their schedules in Proctor Management.`);
       }
     } catch (err) {
       console.error("Failed to check missing schedules", err);

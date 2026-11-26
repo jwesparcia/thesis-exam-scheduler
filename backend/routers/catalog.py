@@ -14,7 +14,7 @@ from sqlalchemy.orm import joinedload
 from model import (
     Course, YearLevel, Section, Subject, Teacher, Proctor, User, TeacherTeaching, 
     Exam, ReschedulingRequest, IrregularSelection, ActivityLog, PasswordResetToken, 
-    ChatMessage, TeacherSchedule, ProctorAvailability, Department, SubjectProgram
+    ChatMessage, TeacherSchedule, ProctorAvailability, ProctorScheduleReview, ProctorAbsenceRequest, Department, SubjectProgram
 )
 from routers.auth import require_role, get_current_user
 from utils.logging import log_activity
@@ -59,6 +59,8 @@ def safe_clear_catalog_data(db: Session, exclude_program_head: bool = True):
 
     db.query(ReschedulingRequest).delete(synchronize_session=False)
     db.query(IrregularSelection).delete(synchronize_session=False)
+    db.query(ProctorAbsenceRequest).delete(synchronize_session=False)
+    db.query(ProctorScheduleReview).delete(synchronize_session=False)
     db.query(Exam).delete(synchronize_session=False)
     db.query(TeacherTeaching).delete(synchronize_session=False)
     db.query(TeacherSchedule).delete(synchronize_session=False)
@@ -117,6 +119,8 @@ def safe_clear_proctor_accounts(db: Session) -> int:
         # Null out proctor on exams
         db.query(Exam).filter(Exam.proctor_id.in_(all_p_ids)).update({Exam.proctor_id: None}, synchronize_session=False)
         db.query(ProctorAvailability).filter(ProctorAvailability.proctor_id.in_(all_p_ids)).delete(synchronize_session=False)
+        db.query(ProctorScheduleReview).filter(ProctorScheduleReview.proctor_id.in_(all_p_ids)).delete(synchronize_session=False)
+        db.query(ProctorAbsenceRequest).filter(ProctorAbsenceRequest.proctor_id.in_(all_p_ids)).delete(synchronize_session=False)
         db.query(Proctor).filter(Proctor.id.in_(all_p_ids)).delete(synchronize_session=False)
 
     if user_ids:
@@ -2678,6 +2682,8 @@ def delete_proctor_account_endpoint(
     if proctor_id:
         db.query(Exam).filter(Exam.proctor_id == proctor_id).update({Exam.proctor_id: None}, synchronize_session=False)
         db.query(ProctorAvailability).filter(ProctorAvailability.proctor_id == proctor_id).delete(synchronize_session=False)
+        db.query(ProctorScheduleReview).filter_by(proctor_id=proctor_id).delete(synchronize_session=False)
+        db.query(ProctorAbsenceRequest).filter_by(proctor_id=proctor_id).delete(synchronize_session=False)
         p = db.query(Proctor).filter(Proctor.id == proctor_id).first()
         if p:
             db.delete(p)

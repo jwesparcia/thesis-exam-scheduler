@@ -1905,7 +1905,7 @@ function ProgramHeadManual() {
               <div className={`p-4 rounded-2xl border ${isDark ? "bg-slate-800/50 border-slate-700/60" : "bg-slate-50 border-slate-200/80"}`}>
                 <h4 className={`font-bold text-sm mb-1.5 ${isDark ? "text-slate-200" : "text-slate-800"}`}>1. Ingest Teaching Loads</h4>
                 <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-600"}`}>
-                  Under <strong>Proctor Management</strong>, select <strong>Upload Excel</strong> for a proctor and choose their teaching schedule file. Confirm the proctor and filename before uploading. An upload replaces that proctor’s existing teaching schedule.
+                  Under <strong>Proctor Management</strong>, use <strong>Upload Excel</strong> to submit the proctor’s teaching schedule. The proctor can confirm the upload or report an error from <strong>My Schedule</strong>.
                 </p>
               </div>
 
@@ -1919,7 +1919,7 @@ function ProgramHeadManual() {
               <div className={`p-4 rounded-2xl border ${isDark ? "bg-slate-800/50 border-slate-700/60" : "bg-slate-50 border-slate-200/80"}`}>
                 <h4 className={`font-bold text-sm mb-1.5 ${isDark ? "text-slate-200" : "text-slate-800"}`}>3. Live Check-In Board</h4>
                 <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-600"}`}>
-                  In <strong>Proctor Monitoring</strong>, select <strong>View proof photo</strong> to review the signed exam attendance list. For emergency leave, select <strong>Request Replacement</strong> on the affected exam. If no eligible proctor is available, use <strong>Edit</strong> in <strong>Generated Schedules</strong> to review the manual options.
+                  In <strong>Proctor Monitoring</strong>, use <strong>Substitute Requests</strong> to find reported absences. Open a request to let the system find a substitute or select one of the eligible proctors yourself.
                 </p>
               </div>
             </div>
@@ -2341,7 +2341,11 @@ export default function ProgramHeadDashboard() {
     const msg = (notif.message || "").toLowerCase();
     const type = (notif.type || "").toLowerCase();
     
-    if (msg.includes("rescheduling") || msg.includes("reschedule") || type.includes("reschedule")) {
+    if (type === "proctor_absence_request") {
+      setActiveTab("monitoring");
+    } else if (type === "teaching_schedule_review_result") {
+      setActiveTab("proctors");
+    } else if (msg.includes("rescheduling") || msg.includes("reschedule") || type.includes("reschedule")) {
       setActiveTab("rescheduling");
     } else if (msg.includes("attendance") || msg.includes("confirm")) {
       setActiveTab("monitoring");
@@ -2377,7 +2381,7 @@ export default function ProgramHeadDashboard() {
       const res = await api.get("/proctors/missing-schedules");
       const missing = res.data.filter(p => !p.excluded);
       if (missing.length > 0) {
-        showWarning(`${missing.length} proctor(s) have not uploaded their schedule. They will be skipped during scheduling. You can manage them in the "Proctor Management" tab.`);
+        showWarning(`${missing.length} proctor(s) have no teaching schedule on file and will be skipped during scheduling. Upload their schedules in Proctor Management.`);
       }
     } catch (err) {
       console.error("Failed to check missing schedules", err);

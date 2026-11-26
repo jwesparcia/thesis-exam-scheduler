@@ -13,7 +13,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from core import Base
-from model import ActivityLog, Course, Exam, Notification, Proctor, Room, Section, Subject, Teacher, TeacherSchedule, TeacherTeaching, Timeslot, User
+from model import ActivityLog, Course, Exam, Notification, Proctor, ProctorAbsenceRequest, Room, Section, Subject, Teacher, TeacherSchedule, TeacherTeaching, Timeslot, User
 from routers import proctors
 
 
@@ -80,22 +80,27 @@ class EmergencyProctorReassignmentTests(unittest.TestCase):
             ))
         self.db.commit()
         schedule = (self.exam.timeslot_id, self.exam.room_id, self.exam.section_id, self.exam.status)
+        owner = self.db.query(User).filter_by(proctor_id=self.original.id).one()
+        proctors.submit_proctor_absence(self.exam.id, proctors.ProctorAbsenceSubmission(
+            expected_timeslot_id=self.exam.timeslot_id, expected_room_id=self.exam.room_id, reason="Emergency leave",
+        ), self.db, owner)
 
         self.assertEqual(self.call_reassignment()["proctor_id"], replacement.id)
         self.db.refresh(self.exam)
         self.assertEqual(self.exam.proctor_id, replacement.id)
         self.assertEqual((self.exam.timeslot_id, self.exam.room_id, self.exam.section_id, self.exam.status), schedule)
         self.assertEqual(self.exam.proctor_attendance, "pending")
-        notifications = self.db.query(Notification).order_by(Notification.id).all()
+        notifications = self.db.query(Notification).filter_by(type="proctor_reassignment").all()
         self.assertEqual({n.user.proctor_id for n in notifications}, {self.original.id, replacement.id})
         self.assertTrue(all(n.related_id == self.exam.id and n.type == "proctor_reassignment" for n in notifications))
         self.assertEqual(self.db.query(ActivityLog).one().action, "PROCTOR_REASSIGNED")
+        self.assertEqual(self.db.query(ProctorAbsenceRequest).one().status, "resolved")
 
         with self.assertRaises(HTTPException) as stale:
             self.call_reassignment()
         self.assertEqual(stale.exception.status_code, 409)
         self.assertIn("assignment has changed", stale.exception.detail)
-        self.assertEqual(self.db.query(Notification).count(), 2)
+        self.assertEqual(self.db.query(Notification).filter_by(type="proctor_reassignment").count(), 2)
 
     def test_leaves_assignment_intact_when_all_replacements_are_ineligible(self):
         self.faculty("Wrong day", weekday=(self.day.weekday() + 1) % 7)
@@ -130,6 +135,43 @@ class EmergencyProctorReassignmentTests(unittest.TestCase):
         self.admin.is_super_admin = True
         self.db.commit()
         self.assertEqual(self.call_reassignment()["proctor_id"], replacement.id)
+
+    def test_absence_is_private_and_manual_choice_resolves_it(self):
+        automatic = self.faculty("A. Automatic")
+        chosen = self.faculty("Z. Manual choice")
+        owner = User(name=self.original.name, email="owner@test.invalid", hashed_password="unused",
+                     role="proctor", proctor_id=self.original.id)
+        other = User(name=chosen.name, email="other@test.invalid", hashed_password="unused",
+                     role="proctor", proctor_id=chosen.id)
+        unrelated_head = User(name="Other department", email="other-head@test.invalid", hashed_password="unused",
+                              role="program_head", department_code="BM")
+        self.db.add_all([owner, other, unrelated_head])
+        self.db.commit()
+        body = proctors.ProctorAbsenceSubmission(
+            expected_timeslot_id=self.exam.timeslot_id, expected_room_id=self.exam.room_id, reason="Emergency leave",
+        )
+
+        with self.assertRaises(HTTPException):
+            proctors.submit_proctor_absence(self.exam.id, body, self.db, other)
+        request = proctors.submit_proctor_absence(self.exam.id, body, self.db, owner)
+        self.assertEqual(proctors.submit_proctor_absence(self.exam.id, body, self.db, owner), request)
+        self.assertEqual(proctors.get_pending_proctor_absences(self.db, self.admin), [request])
+        self.assertEqual(proctors.get_pending_proctor_absences(self.db, unrelated_head), [])
+        self.assertEqual(proctors.get_pending_proctor_absences(self.db, other), [])
+        self.assertEqual(self.db.query(Notification).filter_by(type="proctor_absence_request").one().user_id, self.admin.id)
+        self.assertEqual({row["id"] for row in proctors.get_replacement_options(self.exam.id, self.db, self.admin)}, {automatic.id, chosen.id})
+
+        self.request.replacement_proctor_id = self.original.id
+        with self.assertRaises(HTTPException) as ineligible:
+            self.call_reassignment()
+        self.assertEqual(ineligible.exception.status_code, 409)
+        self.assertEqual(self.exam.proctor_id, self.original.id)
+
+        self.request.replacement_proctor_id = chosen.id
+        self.assertEqual(self.call_reassignment()["proctor_id"], chosen.id)
+        self.assertEqual(self.db.query(ProctorAbsenceRequest).one().status, "resolved")
+        self.assertEqual(proctors.get_pending_proctor_absences(self.db, self.admin), [])
+        self.assertNotIn(self.original.id, {row["id"] for row in proctors.get_replacement_options(self.exam.id, self.db, self.admin)})
 
     def test_draft_confirmed_ended_and_generation_locked_exams_are_rejected(self):
         self.exam.status = "draft"

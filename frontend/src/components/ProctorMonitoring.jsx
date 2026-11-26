@@ -61,6 +61,10 @@ export default function ProctorMonitoring({ isGenerating }) {
   const [searchText, setSearchText] = useState("");
   const [replacementExam, setReplacementExam] = useState(null);
   const [reassigningId, setReassigningId] = useState(null);
+  const [absenceRequests, setAbsenceRequests] = useState({});
+  const [replacementOptions, setReplacementOptions] = useState(null);
+  const [replacementOptionsError, setReplacementOptionsError] = useState("");
+  const [selectedReplacement, setSelectedReplacement] = useState("");
 
   // ── Fetch data ──────────────────────────────────────────────────────────
   const fetchMonitoring = useCallback(async () => {
@@ -76,12 +80,42 @@ export default function ProctorMonitoring({ isGenerating }) {
     }
   }, []);
 
+  const fetchAbsenceRequests = useCallback(async () => {
+    try {
+      const { data } = await api.get("/proctors/absence-requests");
+      setAbsenceRequests(Object.fromEntries(data.map(request => [request.exam_id, request])));
+    } catch (err) {
+      console.error("Error fetching substitute requests:", err);
+    }
+  }, []);
+
+  const refreshMonitoring = useCallback(() => Promise.all([fetchMonitoring(), fetchAbsenceRequests()]), [fetchMonitoring, fetchAbsenceRequests]);
+
   useEffect(() => {
-    fetchMonitoring();
+    refreshMonitoring();
     // Auto-refresh every 30 seconds
-    const interval = setInterval(fetchMonitoring, 30_000);
+    const interval = setInterval(refreshMonitoring, 30_000);
     return () => clearInterval(interval);
-  }, [fetchMonitoring]);
+  }, [refreshMonitoring]);
+
+  const replacementExamId = replacementExam?.exam_id;
+  useEffect(() => {
+    if (!replacementExamId) return;
+    const controller = new AbortController();
+    api.get(`/proctors/monitoring/${replacementExamId}/replacement-options`, { signal: controller.signal })
+      .then(({ data }) => {
+        if (!controller.signal.aborted) setReplacementOptions(data);
+      })
+      .catch(err => {
+        if (!controller.signal.aborted) setReplacementOptionsError(err.response?.data?.detail || "Could not load eligible proctors.");
+      });
+    return () => controller.abort();
+  }, [replacementExamId]);
+
+  const getAbsenceRequest = (exam) => {
+    const request = absenceRequests[exam.exam_id];
+    return request && request.proctor_id === exam.proctor_id && request.timeslot_id === exam.timeslot_id && request.room_id === exam.room_id ? request : null;
+  };
 
   const isExamAttended = (status) => status === "attended" || status === "confirmed";
   const departments = user?.department_codes?.length ? user.department_codes : [user?.department_code];
@@ -102,6 +136,7 @@ export default function ProctorMonitoring({ isGenerating }) {
         expected_proctor_id: exam.proctor_id,
         expected_timeslot_id: exam.timeslot_id,
         expected_room_id: exam.room_id,
+        ...(selectedReplacement ? { replacement_proctor_id: Number(selectedReplacement) } : {}),
       });
       setCourseGroups(previous => previous.map(group => ({
         ...group,
@@ -117,7 +152,7 @@ export default function ProctorMonitoring({ isGenerating }) {
     } catch (err) {
       showError(err.response?.data?.detail || "Could not request a replacement proctor.");
     } finally {
-      await fetchMonitoring();
+      await refreshMonitoring();
       setReassigningId(null);
     }
   };
@@ -131,13 +166,18 @@ export default function ProctorMonitoring({ isGenerating }) {
     return (
       <button
         type="button"
-        onClick={() => setReplacementExam(exam)}
+        onClick={() => {
+          setReplacementOptions(null);
+          setReplacementOptionsError("");
+          setSelectedReplacement("");
+          setReplacementExam(exam);
+        }}
         disabled={isGenerating || reassigningId !== null}
         aria-label={`Request replacement for ${exam.proctor_name}, ${exam.subject_name}, ${exam.section_name}`}
         className="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 px-2.5 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-blue-800 dark:text-blue-300 dark:hover:bg-blue-900/30"
       >
         <ArrowPathIcon className={`h-3.5 w-3.5 ${reassigningId === exam.exam_id ? "animate-spin" : ""}`} />
-        {reassigningId === exam.exam_id ? "Finding replacement…" : "Request Replacement"}
+        {reassigningId === exam.exam_id ? "Assigning replacement…" : getAbsenceRequest(exam) ? "Review Substitute Request" : "Request Replacement"}
       </button>
     );
   };
@@ -166,6 +206,8 @@ export default function ProctorMonitoring({ isGenerating }) {
         exams = exams.filter((e) => isExamAttended(e.attendance_status));
       } else if (filterStatus === "pending") {
         exams = exams.filter((e) => !isExamAttended(e.attendance_status));
+      } else if (filterStatus === "requested") {
+        exams = exams.filter(getAbsenceRequest);
       }
       if (searchText.trim()) {
         const q = searchText.toLowerCase();
@@ -191,10 +233,24 @@ export default function ProctorMonitoring({ isGenerating }) {
           <div className="space-y-2">
             <p><strong>{replacementExam.subject_name}</strong> for {replacementExam.section_name}</p>
             <p>{replacementExam.exam_date} · {replacementExam.start_time} – {replacementExam.end_time} · {replacementExam.room}</p>
-            <p>The system will look for an eligible proctor to take over from <strong>{replacementExam.proctor_name}</strong> at this room and time. If it finds one, it will assign them immediately.</p>
+            {getAbsenceRequest(replacementExam) && (
+              <p className="whitespace-pre-wrap break-words rounded-lg bg-amber-50 p-2 text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">{getAbsenceRequest(replacementExam).reason}</p>
+            )}
+            <p>Assign a substitute for <strong>{replacementExam.proctor_name}</strong> at the posted room and time.</p>
+            <label className="block font-semibold">
+              Replacement proctor
+              <select value={selectedReplacement} onChange={event => setSelectedReplacement(event.target.value)} className="mt-1 block w-full rounded-lg border border-slate-300 bg-white p-2 dark:border-slate-600 dark:bg-slate-900">
+                <option value="">Find automatically</option>
+                {replacementOptions?.map(proctor => <option key={proctor.id} value={proctor.id}>{proctor.name}</option>)}
+              </select>
+            </label>
+            <p role="status" className="text-xs text-slate-600 dark:text-slate-400">
+              {replacementOptionsError || (replacementOptions === null ? "Loading eligible proctors…" :
+                replacementOptions.length === 0 ? "No eligible substitutes are currently available for this time." : "Choose an eligible proctor or let the system find one.")}
+            </p>
           </div>
         )}
-        confirmLabel="Find and Assign"
+        confirmLabel={selectedReplacement ? "Assign Selected Proctor" : "Find and Assign"}
         onConfirm={requestReplacement}
         onCancel={() => setReplacementExam(null)}
       />
@@ -234,7 +290,7 @@ export default function ProctorMonitoring({ isGenerating }) {
             </label>
             <button
               type="button"
-              onClick={fetchMonitoring}
+              onClick={refreshMonitoring}
               disabled={loading}
               className={`shrink-0 justify-center inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition border shadow-xs ${
                 isDark
@@ -322,11 +378,12 @@ export default function ProctorMonitoring({ isGenerating }) {
             </div>
 
             {/* Status filter */}
-            <div className="flex gap-2 shrink-0">
+            <div className="flex flex-wrap gap-2">
               {[
                 { value: "all", label: "All" },
                 { value: "pending", label: "Pending" },
                 { value: "attended", label: "Attended" },
+                { value: "requested", label: "Substitute Requests" },
               ].map(({ value, label }) => (
                 <button
                   type="button"

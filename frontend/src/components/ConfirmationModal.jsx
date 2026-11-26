@@ -17,6 +17,7 @@ export default function ConfirmationModal({
   isDanger = false,
   type = "",
   requireTypedConfirm,
+  confirmDisabled = false,
 }) {
   const { theme } = useTheme();
   const isDark = theme === "dark";
@@ -38,7 +39,7 @@ export default function ConfirmationModal({
   // If requireTypedConfirm is true, require confirmText.
   // If requireTypedConfirm is undefined, require confirmText only if confirmText is non-empty.
   const hasTypedConfirm = requireTypedConfirm === true || (requireTypedConfirm !== false && Boolean(confirmText));
-  const isConfirmedEnabled = !hasTypedConfirm || inputVal.trim().toLowerCase() === confirmText.toLowerCase();
+  const isConfirmedEnabled = !confirmDisabled && (!hasTypedConfirm || inputVal.trim().toLowerCase() === confirmText.toLowerCase());
 
   // Reset input when modal opens/closes
   useEffect(() => {

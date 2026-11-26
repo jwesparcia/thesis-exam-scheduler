@@ -22,8 +22,8 @@ const termsByRole = {
   proctor: {
     name: "Proctor",
     items: [
-      ["Teaching schedule", "Keep your teaching schedule current. Upload the correct Excel file or verify the schedule uploaded on your behalf by the Program Head. Report any differences that affect your availability."],
-      ["Posted assignments", "Check the selected term, exam time, and room in My Assignments. Follow the latest posted duties and notify the Program Head promptly if you have a conflict or cannot cover an assignment."],
+      ["Teaching schedule", "Review the teaching schedule uploaded by your administrator. Confirm it if the days, times, and courses are correct. Use Report Incorrect Schedule if it needs correction."],
+      ["Posted assignments", "Check the selected term, exam time, and room in My Assignments. Use Request Substitute promptly if you cannot attend an assignment, and check your notifications for the administrator’s response."],
       ["Attendance confirmation", "After taking attendance, sign the exam attendance list. Upload a photo showing you in the assigned room with the signed list visible, then confirm before the exam ends. Keep student faces, ID cards, and exam materials out of the photo. Contact the Program Head if you cannot complete the check-in."],
     ],
   },
